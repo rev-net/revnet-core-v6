@@ -67,6 +67,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     error REVLoans_LoanExpired(uint256 timeSinceLoanCreated, uint256 loanLiquidationDuration);
     error REVLoans_ReallocatingMoreCollateralThanBorrowedAmountAllows(uint256 newBorrowAmount, uint256 loanAmount);
     error REVLoans_RevnetsMismatch(address revnetOwner, address revnets);
+    error REVLoans_SourceMismatch();
     error REVLoans_Unauthorized(address caller, address owner);
     error REVLoans_UnderMinBorrowAmount(uint256 minBorrowAmount, uint256 borrowAmount);
     error REVLoans_ZeroCollateralLoanIsInvalid();
@@ -632,6 +633,14 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     {
         // Make sure only the loan's owner can manage it.
         if (_ownerOf(loanId) != _msgSender()) revert REVLoans_Unauthorized(_msgSender(), _ownerOf(loanId));
+
+        // Make sure the new loan's source matches the existing loan's source to prevent cross-source value extraction.
+        {
+            REVLoanSource storage existingSource = _loanOf[loanId].source;
+            if (source.token != existingSource.token || source.terminal != existingSource.terminal) {
+                revert REVLoans_SourceMismatch();
+            }
+        }
 
         // Keep a reference to the revnet ID of the loan being reallocated.
         uint256 revnetId = revnetIdOfLoanWith(loanId);
