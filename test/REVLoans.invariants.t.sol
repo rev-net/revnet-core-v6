@@ -177,6 +177,21 @@ contract REVLoansCallHandler is JBTest {
         if (BORROWED_SUM >= amountDiff) BORROWED_SUM -= (latestLoan.amount - adjustedOrNewLoan.amount);
     }
 
+    /// @notice Advance time by a random amount to test time-dependent behavior.
+    function advanceTime(uint8 daysToAdvance) public {
+        uint256 daysToWarp = bound(uint256(daysToAdvance), 1, 365);
+        vm.warp(block.timestamp + daysToWarp * 1 days);
+    }
+
+    /// @notice Attempt to liquidate expired loans.
+    function liquidateLoans(uint8 count) public {
+        uint256 loanCount = bound(uint256(count), 1, 10);
+        if (RUNS == 0) return;
+
+        uint256 startingLoanId = (REVNET_ID * 1_000_000_000_000) + 1;
+        try LOANS.liquidateExpiredLoansFrom(REVNET_ID, startingLoanId, loanCount) {} catch {}
+    }
+
     function reallocateCollateralFromLoan(
         uint16 collateralPercent,
         uint256 amountToPay,
@@ -558,10 +573,12 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow, JBTest {
             new REVLoansCallHandler(jbMultiTerminal(), LOANS_CONTRACT, jbPermissions(), jbTokens(), REVNET_ID, USER);
 
         // Calls to perform via the handler
-        bytes4[] memory selectors = new bytes4[](3);
+        bytes4[] memory selectors = new bytes4[](5);
         selectors[0] = REVLoansCallHandler.payBorrow.selector;
         selectors[1] = REVLoansCallHandler.repayLoan.selector;
         selectors[2] = REVLoansCallHandler.reallocateCollateralFromLoan.selector;
+        selectors[3] = REVLoansCallHandler.advanceTime.selector;
+        selectors[4] = REVLoansCallHandler.liquidateLoans.selector;
 
         targetContract(address(PAY_HANDLER));
         targetSelector(FuzzSelector({addr: address(PAY_HANDLER), selectors: selectors}));
@@ -599,5 +616,70 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow, JBTest {
 
     function _getTotalBorrowedFromContract(uint256 _revnetId) internal view returns (uint256) {
         return LOANS_CONTRACT.totalBorrowedFrom(_revnetId, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
+    }
+
+    /// @notice INV-RL-3: loan.amount <= type(uint112).max for all active loans (C-1 regression).
+    /// @dev Verifies that no loan amount exceeds the uint112 storage boundary.
+    function invariant_C_LoanAmountFitsUint112() public view {
+        if (PAY_HANDLER.RUNS() == 0) return;
+
+        for (uint256 i = 1; i <= PAY_HANDLER.RUNS(); i++) {
+            uint256 loanId = (REVNET_ID * 1_000_000_000_000) + i;
+
+            // Skip if loan was liquidated/burned
+            try IERC721(address(LOANS_CONTRACT)).ownerOf(loanId) {} catch {
+                continue;
+            }
+
+            REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
+            if (loan.amount == 0) continue;
+
+            assertLe(
+                uint256(loan.amount),
+                uint256(type(uint112).max),
+                "INV-RL-3: loan.amount must fit in uint112"
+            );
+            assertLe(
+                uint256(loan.collateral),
+                uint256(type(uint112).max),
+                "INV-RL-3: loan.collateral must fit in uint112"
+            );
+        }
+    }
+
+    /// @notice INV-RL-4: Active loans always have non-zero collateral.
+    /// @dev Borrowable amounts can decrease as the revnet evolves (new payments change the
+    ///      cashout curve), so we only check that collateral > 0 for active loans.
+    function invariant_D_ActiveLoansHaveCollateral() public view {
+        if (PAY_HANDLER.RUNS() == 0) return;
+
+        for (uint256 i = 1; i <= PAY_HANDLER.RUNS(); i++) {
+            uint256 loanId = (REVNET_ID * 1_000_000_000_000) + i;
+
+            // Skip if loan was liquidated/burned
+            try IERC721(address(LOANS_CONTRACT)).ownerOf(loanId) {} catch {
+                continue;
+            }
+
+            REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
+            if (loan.amount == 0) continue;
+
+            // Active loans must have non-zero collateral backing them.
+            assertGt(
+                uint256(loan.collateral),
+                0,
+                "INV-RL-4: Active loan must have non-zero collateral"
+            );
+        }
+    }
+
+    /// @notice INV-RL-5: Total collateral tracked by handler matches contract state.
+    /// @dev This is already checked by invariant_A, but we add an explicit named check.
+    function invariant_E_CollateralConsistency() public view {
+        assertEq(
+            PAY_HANDLER.COLLATERAL_SUM(),
+            LOANS_CONTRACT.totalCollateralOf(REVNET_ID),
+            "INV-RL-5: Handler collateral sum must match contract totalCollateralOf"
+        );
     }
 }
