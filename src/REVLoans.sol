@@ -282,6 +282,21 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         return token == JBConstants.NATIVE_TOKEN ? address(this).balance : IERC20(token).balanceOf(address(this));
     }
 
+    /// @dev This function reads live surplus from the revnet's terminals. A potential concern is flash loan
+    /// manipulation: an attacker could temporarily inflate surplus via `addToBalanceOf` or `pay`, borrow at the
+    /// inflated rate, then repay the flash loan. However, this attack is economically irrational:
+    ///
+    /// - `addToBalanceOf` permanently donates funds to the project (no recovery mechanism). The attacker's extra
+    ///   borrowable amount equals `donation * (collateralCount / totalSupply)`, which is always less than the
+    ///   donation since `collateralCount < totalSupply`. The attacker loses more than they gain.
+    /// - `pay` increases both surplus AND totalSupply (via newly minted tokens), so the net effect on the
+    ///   borrowable-amount-per-token ratio is neutral — the increased surplus is offset by supply dilution.
+    /// - With non-zero `cashOutTaxRate`, the bonding curve is concave, making the attack even less profitable.
+    /// - Refinancing during inflated surplus (`reallocateCollateralFromLoan`) does not help either: the freed
+    ///   collateral can only borrow a fraction of the donated amount, keeping the attack net-negative.
+    ///
+    /// In summary, any attempt to inflate surplus to increase borrowing power costs the attacker more than it yields,
+    /// because the bonding curve ensures no individual can extract more than their proportional share of surplus.
     /// @dev The amount that can be borrowed from a revnet given a certain amount of collateral.
     /// @param revnetId The ID of the revnet to check for borrowable assets from.
     /// @param collateralCount The amount of collateral that the loan will be collateralized with.
