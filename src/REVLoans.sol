@@ -69,6 +69,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     error REVLoans_RevnetsMismatch(address revnetOwner, address revnets);
     error REVLoans_Unauthorized(address caller, address owner);
     error REVLoans_UnderMinBorrowAmount(uint256 minBorrowAmount, uint256 borrowAmount);
+    error REVLoans_InvalidSource(address terminal, address token);
     error REVLoans_ZeroCollateralLoanIsInvalid();
 
     //*********************************************************************//
@@ -500,6 +501,13 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
 
         // A loan needs to have collateral.
         if (collateralCount == 0) revert REVLoans_ZeroCollateralLoanIsInvalid();
+
+        // Validate the source terminal is a registered terminal for the revnet.
+        // Without this, attackers can supply malicious terminal contracts that corrupt
+        // the _loanSourcesOf array and the totalBorrowed accounting.
+        if (!DIRECTORY.isTerminalOf(revnetId, IJBTerminal(address(source.terminal)))) {
+            revert REVLoans_InvalidSource(address(source.terminal), source.token);
+        }
 
         // Make sure the prepaid fee percent is between `MIN_PREPAID_FEE_PERCENT` and `MAX_PREPAID_FEE_PERCENT`. Meaning
         // an 16 year loan can be paid upfront with a
