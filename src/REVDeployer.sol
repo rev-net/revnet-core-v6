@@ -319,11 +319,15 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             cashOutTaxRate: context.cashOutTaxRate
         });
 
+        // Gross up the fee amount to account for the terminal's fee deduction on hook spec amounts.
+        // Without this, the fee terminal receives feeAmount * 97.5% instead of the full intended feeAmount.
+        uint256 grossFeeAmount = mulDiv(feeAmount, JBConstants.MAX_FEE, JBConstants.MAX_FEE - FEE);
+
         // Assemble a cash out hook specification to invoke `afterCashOutRecordedWith(…)` with, to process the fee.
         hookSpecifications = new JBCashOutHookSpecification[](1);
         hookSpecifications[0] = JBCashOutHookSpecification({
             hook: IJBCashOutHook(address(this)),
-            amount: feeAmount,
+            amount: grossFeeAmount,
             metadata: abi.encode(feeTerminal)
         });
 
