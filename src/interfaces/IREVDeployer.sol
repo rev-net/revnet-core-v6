@@ -61,6 +61,7 @@ interface IREVDeployer {
     function FEE_REVNET_ID() external view returns (uint256);
     function PUBLISHER() external view returns (CTPublisher);
     function HOOK_DEPLOYER() external view returns (IJB721TiersHookDeployer);
+    function LOANS() external view returns (address);
 
     function amountToAutoIssue(
         uint256 revnetId,
@@ -80,7 +81,6 @@ interface IREVDeployer {
         returns (address[] memory suckers);
     function hashedEncodedConfigurationOf(uint256 revnetId) external view returns (bytes32);
     function isSplitOperatorOf(uint256 revnetId, address addr) external view returns (bool);
-    function loansOf(uint256 revnetId) external view returns (address);
     function tiered721HookOf(uint256 revnetId) external view returns (IJB721TiersHook);
 
     function autoIssueFor(uint256 revnetId, uint256 stageId, address beneficiary) external;

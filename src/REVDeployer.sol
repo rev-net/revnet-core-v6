@@ -110,6 +110,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @notice Deploys tiered ERC-721 hooks for revnets.
     IJB721TiersHookDeployer public immutable override HOOK_DEPLOYER;
 
+    /// @notice The loan contract used by all revnets.
+    /// @dev Revnets can offer loans to their participants, collateralized by their tokens.
+    /// Participants can borrow up to the current cash out value of their tokens.
+    address public immutable override LOANS;
+
     /// @notice Stores Juicebox project (and revnet) access permissions.
     IJBPermissions public immutable override PERMISSIONS;
 
@@ -151,12 +156,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @custom:param revnetId The ID of the revnet to get the hashed encoded configuration for.
     mapping(uint256 revnetId => bytes32 hashedEncodedConfiguration) public override hashedEncodedConfigurationOf;
 
-    /// @notice Each revnet's loan contract.
-    /// @dev Revnets can offer loans to their participants, collateralized by their tokens.
-    /// Participants can borrow up to the current cash out value of their tokens.
-    /// @custom:param revnetId The ID of the revnet to get the loan contract of.
-    mapping(uint256 revnetId => address) public override loansOf;
-
     /// @notice Each revnet's tiered ERC-721 hook.
     /// @custom:param revnetId The ID of the revnet to get the tiered ERC-721 hook for.
     // slither-disable-next-line uninitialized-state
@@ -181,6 +180,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @param feeRevnetId The Juicebox project ID of the revnet that will receive fees.
     /// @param hookDeployer The deployer to use for revnet's tiered ERC-721 hooks.
     /// @param publisher The croptop publisher revnets can use to publish ERC-721 posts to their tiered ERC-721 hooks.
+    /// @param loans The loan contract used by all revnets.
     /// @param trustedForwarder The trusted forwarder for the ERC2771Context.
     constructor(
         IJBController controller,
@@ -188,6 +188,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         uint256 feeRevnetId,
         IJB721TiersHookDeployer hookDeployer,
         CTPublisher publisher,
+        address loans,
         address trustedForwarder
     )
         ERC2771Context(trustedForwarder)
@@ -200,6 +201,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         FEE_REVNET_ID = feeRevnetId;
         HOOK_DEPLOYER = hookDeployer;
         PUBLISHER = publisher;
+        LOANS = loans;
 
         // Give the sucker registry permission to map tokens for all revnets.
         _setPermission({operator: address(SUCKER_REGISTRY), revnetId: 0, permissionId: JBPermissionIds.MAP_SUCKER_TOKEN});
@@ -350,7 +352,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     {
         IJBRulesetDataHook buybackHook = buybackHookOf[revnetId];
         // The buyback hook, loans contract, and suckers are allowed to mint the revnet's tokens.
-        return addr == loansOf[revnetId] || addr == address(buybackHook)
+        return addr == LOANS || addr == address(buybackHook)
             || buybackHook.hasMintPermissionFor(revnetId, ruleset, addr) || _isSuckerOf({revnetId: revnetId, addr: addr});
     }
 
@@ -1043,15 +1045,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             }
         }
 
-        // If specified, set up the loan contract.
-        if (configuration.loans != address(0)) {
-            _setPermission({
-                operator: address(configuration.loans),
-                revnetId: revnetId,
-                permissionId: JBPermissionIds.USE_ALLOWANCE
-            });
-            loansOf[revnetId] = configuration.loans;
-        }
+        // Give the loan contract permission to use the revnet's surplus allowance.
+        _setPermission({operator: LOANS, revnetId: revnetId, permissionId: JBPermissionIds.USE_ALLOWANCE});
 
         // Give the split operator their permissions.
         _setSplitOperatorOf({revnetId: revnetId, operator: configuration.splitOperator});
@@ -1134,7 +1129,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         // Add the base configuration to the byte-encoded configuration.
         bytes memory encodedConfiguration = abi.encode(
             configuration.baseCurrency,
-            configuration.loans,
             configuration.description.name,
             configuration.description.ticker,
             configuration.description.salt

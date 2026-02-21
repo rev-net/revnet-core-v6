@@ -122,8 +122,7 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
                 baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                 splitOperator: multisig(),
                 stageConfigurations: stageConfigurations,
-                loanSources: new REVLoanSource[](0),
-                loans: address(0)
+                loanSources: new REVLoanSource[](0)
             }),
             terminalConfigurations: terminalConfigurations,
             buybackHookConfiguration: REVBuybackHookConfig({
@@ -207,8 +206,7 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
                 baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                 splitOperator: multisig(),
                 stageConfigurations: stageConfigurations,
-                loanSources: _loanSources,
-                loans: address(LOANS_CONTRACT)
+                loanSources: _loanSources
             }),
             terminalConfigurations: terminalConfigurations,
             buybackHookConfiguration: REVBuybackHookConfig({
@@ -236,8 +234,11 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
         TOKEN = new MockERC20("1/2 ETH", "1/2");
 
+        // Pre-compute where REVLoans will be deployed (next CREATE after REVDeployer's CREATE2).
+        address predictedLoans = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1);
+
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, TRUSTED_FORWARDER
+            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, predictedLoans, TRUSTED_FORWARDER
         );
 
         LOANS_CONTRACT = new REVLoans({
@@ -514,8 +515,7 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
                 baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                 splitOperator: multisig(),
                 stageConfigurations: stages,
-                loanSources: new REVLoanSource[](0),
-                loans: address(0)
+                loanSources: new REVLoanSource[](0)
             }),
             terminalConfigurations: tc,
             buybackHookConfiguration: REVBuybackHookConfig({
@@ -1010,8 +1010,11 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow, JBTest {
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
 
+        // Pre-compute where REVLoans will be deployed (next CREATE after REVDeployer's CREATE2).
+        address predictedLoans = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1);
+
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, TRUSTED_FORWARDER
+            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, predictedLoans, TRUSTED_FORWARDER
         );
 
         LOANS_CONTRACT = new REVLoans({
@@ -1066,8 +1069,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow, JBTest {
                     baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                     splitOperator: multisig(),
                     stageConfigurations: stages,
-                    loanSources: new REVLoanSource[](0),
-                    loans: address(0)
+                    loanSources: new REVLoanSource[](0)
                 }),
                 terminalConfigurations: tc,
                 buybackHookConfiguration: REVBuybackHookConfig({
@@ -1151,8 +1153,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow, JBTest {
                     baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                     splitOperator: multisig(),
                     stageConfigurations: stages,
-                    loanSources: loanSources,
-                    loans: address(LOANS_CONTRACT)
+                    loanSources: loanSources
                 }),
                 terminalConfigurations: tc,
                 buybackHookConfiguration: REVBuybackHookConfig({

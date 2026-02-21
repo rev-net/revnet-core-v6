@@ -62,7 +62,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, TRUSTED_FORWARDER
+            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, makeAddr("loans"), TRUSTED_FORWARDER
         );
 
         vm.prank(multisig());
@@ -132,8 +132,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
             stageConfigurations: stages,
-            loanSources: new REVLoanSource[](0),
-            loans: address(0)
+            loanSources: new REVLoanSource[](0)
         });
 
         REVBuybackPoolConfig[] memory pools = new REVBuybackPoolConfig[](1);

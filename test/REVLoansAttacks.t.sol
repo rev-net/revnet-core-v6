@@ -216,8 +216,7 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
             stageConfigurations: stageConfigurations,
-            loanSources: _loanSources,
-            loans: address(0)
+            loanSources: _loanSources
         });
 
         REVBuybackPoolConfig[] memory buybackPoolConfigurations = new REVBuybackPoolConfig[](1);
@@ -293,8 +292,7 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
             stageConfigurations: stageConfigurations,
-            loanSources: _loanSources,
-            loans: address(LOANS_CONTRACT)
+            loanSources: _loanSources
         });
 
         REVBuybackPoolConfig[] memory buybackPoolConfigurations = new REVBuybackPoolConfig[](1);
@@ -336,8 +334,11 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
             0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed
         );
 
+        // Pre-compute where REVLoans will be deployed (next CREATE after REVDeployer's CREATE2).
+        address predictedLoans = vm.computeCreateAddress(address(this), vm.getNonce(address(this)) + 1);
+
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, TRUSTED_FORWARDER
+            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, predictedLoans, TRUSTED_FORWARDER
         );
 
         LOANS_CONTRACT = new REVLoans({

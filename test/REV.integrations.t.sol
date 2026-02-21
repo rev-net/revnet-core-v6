@@ -158,13 +158,11 @@ contract REVnet_Integrations is TestBaseWorkflow, JBTest {
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
             stageConfigurations: stageConfigurations,
-            loanSources: _loanSources,
-            loans: address(0)
+            loanSources: _loanSources
         });
 
         ENCODED_CONFIG = abi.encode(
             revnetConfiguration.baseCurrency,
-            revnetConfiguration.loans,
             revnetConfiguration.description.name,
             revnetConfiguration.description.ticker,
             revnetConfiguration.description.salt
@@ -209,7 +207,7 @@ contract REVnet_Integrations is TestBaseWorkflow, JBTest {
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, TRUSTED_FORWARDER
+            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, makeAddr("loans"), TRUSTED_FORWARDER
         );
 
         // Deploy the ARB sucker deployer.
