@@ -299,6 +299,13 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     /// In summary, any attempt to inflate surplus to increase borrowing power costs the attacker more than it yields,
     /// because the bonding curve ensures no individual can extract more than their proportional share of surplus.
     /// @dev The amount that can be borrowed from a revnet given a certain amount of collateral.
+    /// @dev The system intentionally allows up to 100% LTV (loan-to-value) by design. The borrowable amount equals
+    /// what the collateral tokens would receive if cashed out, computed via the bonding curve formula in
+    /// `JBCashOuts.cashOutFrom`. The `cashOutTaxRate` configured for the current stage serves as an implicit margin
+    /// buffer: a non-zero tax rate reduces the cash-out value below the pro-rata share of surplus, creating an
+    /// effective collateralization margin. For example, a 20% `cashOutTaxRate` means borrowers can only extract ~80%
+    /// of their pro-rata surplus, providing a ~20% buffer against collateral depreciation before liquidation.
+    /// A `cashOutTaxRate` of 0 means the full pro-rata amount is borrowable (true 100% LTV with no margin).
     /// @param revnetId The ID of the revnet to check for borrowable assets from.
     /// @param collateralCount The amount of collateral that the loan will be collateralized with.
     /// @param decimals The decimals the resulting fixed point value will include.
@@ -612,6 +619,9 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
 
             // Burn the loan.
             _burn(loanId);
+
+            // Clear stale loan data for gas refund.
+            delete _loanOf[loanId];
 
             if (loan.collateral > 0) {
                 // The collateral was burned at deposit time -- there is nothing to return. This bookkeeping
@@ -1075,6 +1085,9 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
                 caller: _msgSender()
             });
 
+            // Clear stale loan data for gas refund.
+            delete _loanOf[loanId];
+
             return (loanId, loan);
         } else {
             // Make a new loan with the remaining amount and collateral.
@@ -1117,6 +1130,9 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
                 beneficiary: beneficiary,
                 caller: _msgSender()
             });
+
+            // Clear stale loan data for gas refund.
+            delete _loanOf[loanId];
 
             return (paidOffLoanId, paidOffLoan);
         }
@@ -1183,6 +1199,9 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
 
         // Mint the replacement loan.
         _mint({to: _msgSender(), tokenId: reallocatedLoanId});
+
+        // Clear stale loan data for gas refund.
+        delete _loanOf[loanId];
 
         emit ReallocateCollateral({
             loanId: loanId,
