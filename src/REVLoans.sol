@@ -823,14 +823,13 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
             : JBFees.feeAmountFrom({amountBeforeFee: addedBorrowAmount, feePercent: REV_PREPAID_FEE_PERCENT});
 
         if (revFeeAmount > 0) {
-            // Increase the allowance for the beneficiary.
-            uint256 payValue = revFeeAmount == 0
-                ? 0
-                : _beforeTransferTo({to: address(feeTerminal), token: loan.source.token, amount: revFeeAmount});
+            // Increase the allowance for the fee terminal.
+            uint256 payValue =
+                _beforeTransferTo({to: address(feeTerminal), token: loan.source.token, amount: revFeeAmount});
 
-            // Pay the fee. Send the REV to the msg.sender.
+            // Pay the fee. Send the REV to the beneficiary. Reverts if fee payment fails.
             // slither-disable-next-line arbitrary-send-eth,unused-return
-            try feeTerminal.pay{value: payValue}({
+            feeTerminal.pay{value: payValue}({
                 projectId: REV_ID,
                 token: loan.source.token,
                 amount: revFeeAmount,
@@ -838,7 +837,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
                 minReturnedTokens: 0,
                 memo: "Fee from loan",
                 metadata: bytes(abi.encodePacked(revnetId))
-            }) {} catch (bytes memory) {}
+            });
         }
 
         // Transfer the remaining balance to the borrower.
