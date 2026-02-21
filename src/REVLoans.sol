@@ -2,6 +2,7 @@
 pragma solidity 0.8.23;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -45,7 +46,7 @@ import {REVLoanSource} from "./structs/REVLoanSource.sol";
 /// cannot be
 /// recouped.
 /// @dev The loaned amounts include the fees taken, meaning the amount paid back is the amount borrowed plus the fees.
-contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
+contract REVLoans is ERC721, ERC2771Context, Ownable, ReentrancyGuard, IREVLoans {
     // A library that parses the packed ruleset metadata into a friendlier format.
     using JBRulesetMetadataResolver for JBRuleset;
 
@@ -490,6 +491,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     )
         public
         override
+        nonReentrant
         returns (uint256 loanId, REVLoan memory)
     {
         // Get a reference to the revnet owner.
@@ -565,7 +567,11 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     /// @param revnetId The ID of the revnet to liquidate loans from.
     /// @param startingLoanId The ID of the loan to start iterating from.
     /// @param count The amount of loans iterate over since the last liquidated loan.
-    function liquidateExpiredLoansFrom(uint256 revnetId, uint256 startingLoanId, uint256 count) external override {
+    function liquidateExpiredLoansFrom(uint256 revnetId, uint256 startingLoanId, uint256 count)
+        external
+        override
+        nonReentrant
+    {
         // Iterate over the desired number of loans to check for liquidation.
         for (uint256 i; i < count; i++) {
             // Get a reference to the next loan ID.
@@ -628,6 +634,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         external
         payable
         override
+        nonReentrant
         returns (uint256 reallocatedLoanId, uint256 newLoanId, REVLoan memory reallocatedLoan, REVLoan memory newLoan)
     {
         // Make sure only the loan's owner can manage it.
@@ -674,6 +681,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         external
         payable
         override
+        nonReentrant
         returns (uint256 paidOffLoanId, REVLoan memory paidOffloan)
     {
         // Make sure only the loan's owner can manage it.
