@@ -351,7 +351,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         IJBRulesetDataHook buybackHook = buybackHookOf[revnetId];
         // The buyback hook, loans contract, and suckers are allowed to mint the revnet's tokens.
         return addr == loansOf[revnetId] || addr == address(buybackHook)
-            || buybackHook.hasMintPermissionFor(revnetId, ruleset, addr) || _isSuckerOf({revnetId: revnetId, addr: addr});
+            || (address(buybackHook) != address(0) && buybackHook.hasMintPermissionFor(revnetId, ruleset, addr))
+            || _isSuckerOf({revnetId: revnetId, addr: addr});
     }
 
     /// @dev Make sure this contract can only receive project NFTs from `JBProjects`.
