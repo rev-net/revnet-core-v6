@@ -604,7 +604,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
                 });
             }
 
-            // If the fee can't be processed, return the funds to the project.
+            // If the fee can't be processed, try to return the funds to the project.
             payValue = _beforeTransferTo({
                 to: msg.sender,
                 token: context.forwardedAmount.token,
@@ -612,14 +612,18 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             });
 
             // slither-disable-next-line arbitrary-send-eth
-            IJBTerminal(msg.sender).addToBalanceOf{value: payValue}({
+            try IJBTerminal(msg.sender).addToBalanceOf{value: payValue}({
                 projectId: context.projectId,
                 token: context.forwardedAmount.token,
                 amount: context.forwardedAmount.value,
                 shouldReturnHeldFees: false,
                 memo: "",
                 metadata: bytes(abi.encodePacked(FEE_REVNET_ID))
-            });
+            }) {} catch {
+                // If both fee payment and return-to-project fail, accept the loss.
+                // The fee tokens remain in the REVDeployer for later recovery.
+                // This prevents bricking ALL cash-outs when the fee terminal is dysfunctional.
+            }
         }
     }
 
