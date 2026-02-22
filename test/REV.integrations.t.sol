@@ -239,13 +239,16 @@ contract REVnet_Integrations is TestBaseWorkflow, JBTest {
         FeeProjectConfig memory feeProjectConfig = getFeeProjectConfig();
 
         // Configure the project.
+        REVDeploy721TiersHookConfig memory empty721Config;
         vm.prank(address(multisig()));
-        REVNET_ID = REV_DEPLOYER.deployFor({
+        (REVNET_ID, ) = REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID, // Zero to deploy a new revnet
             configuration: feeProjectConfig.configuration,
             terminalConfigurations: feeProjectConfig.terminalConfigurations,
             buybackHookConfiguration: feeProjectConfig.buybackHookConfiguration,
-            suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration
+            suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration,
+            tiered721HookConfiguration: empty721Config,
+            allowedPosts: new REVCroptopAllowedPost[](0)
         });
     }
 
@@ -254,6 +257,8 @@ contract REVnet_Integrations is TestBaseWorkflow, JBTest {
         assertGt(FEE_PROJECT_ID, 0);
         assertGt(jbProjects().count(), 0);
         assertGt(REVNET_ID, 0);
+        // Every revnet should have a 721 hook deployed (even with empty config).
+        assertGt(uint160(address(REV_DEPLOYER.tiered721HookOf(REVNET_ID))), 0, "721 hook should be deployed");
     }
 
     function test_preMint() public {
@@ -370,12 +375,15 @@ contract REVnet_Integrations is TestBaseWorkflow, JBTest {
         projectConfig.configuration.stageConfigurations = stageConfigurations;
         projectConfig.configuration.description.salt = "FeeChange";
 
-        uint256 revnetProjectId = REV_DEPLOYER.deployFor({
+        REVDeploy721TiersHookConfig memory empty721Config;
+        (uint256 revnetProjectId, ) = REV_DEPLOYER.deployFor({
             revnetId: 0, // Zero to deploy a new revnet
             configuration: projectConfig.configuration,
             terminalConfigurations: projectConfig.terminalConfigurations,
             buybackHookConfiguration: projectConfig.buybackHookConfiguration,
-            suckerDeploymentConfiguration: projectConfig.suckerDeploymentConfiguration
+            suckerDeploymentConfiguration: projectConfig.suckerDeploymentConfiguration,
+            tiered721HookConfiguration: empty721Config,
+            allowedPosts: new REVCroptopAllowedPost[](0)
         });
 
         {
@@ -401,12 +409,15 @@ contract REVnet_Integrations is TestBaseWorkflow, JBTest {
             abi.encodeWithSelector(REVDeployer.REVDeployer_Unauthorized.selector, FEE_PROJECT_ID, address(this))
         );
         // Configure the project.
-        REVNET_ID = REV_DEPLOYER.deployFor({
+        REVDeploy721TiersHookConfig memory empty721Config;
+        (REVNET_ID, ) = REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID, // Zero to deploy a new revnet
             configuration: feeProjectConfig.configuration,
             terminalConfigurations: feeProjectConfig.terminalConfigurations,
             buybackHookConfiguration: feeProjectConfig.buybackHookConfiguration,
-            suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration
+            suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration,
+            tiered721HookConfiguration: empty721Config,
+            allowedPosts: new REVCroptopAllowedPost[](0)
         });
     }
 }

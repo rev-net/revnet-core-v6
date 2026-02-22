@@ -178,8 +178,9 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
             poolConfigurations: buybackPoolConfigurations
         });
 
+        REVDeploy721TiersHookConfig memory empty721Config;
         vm.prank(multisig());
-        uint256 revnetId = REV_DEPLOYER.deployFor({
+        (uint256 revnetId, ) = REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
@@ -187,7 +188,9 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0),
                 salt: keccak256("C4_TEST")
-            })
+            }),
+            tiered721HookConfiguration: empty721Config,
+            allowedPosts: new REVCroptopAllowedPost[](0)
         });
 
         // Verify no buyback hook is set
@@ -309,8 +312,9 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
             poolConfigurations: new REVBuybackPoolConfig[](0)
         });
 
+        REVDeploy721TiersHookConfig memory empty721Config;
         vm.prank(multisig());
-        uint256 revnetId = REV_DEPLOYER.deployFor({
+        (uint256 revnetId, ) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
@@ -318,7 +322,9 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0),
                 salt: keccak256("H5_TEST")
-            })
+            }),
+            tiered721HookConfiguration: empty721Config,
+            allowedPosts: new REVCroptopAllowedPost[](0)
         });
 
         // Verify the revnet was deployed

@@ -352,6 +352,8 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
         vm.prank(address(multisig()));
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);
 
+        REVDeploy721TiersHookConfig memory empty721Config;
+
         AttackProjectConfig memory feeProjectConfig = _getFeeProjectConfig();
         vm.prank(address(multisig()));
         REV_DEPLOYER.deployFor({
@@ -359,17 +361,21 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
             configuration: feeProjectConfig.configuration,
             terminalConfigurations: feeProjectConfig.terminalConfigurations,
             buybackHookConfiguration: feeProjectConfig.buybackHookConfiguration,
-            suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration
+            suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration,
+            tiered721HookConfiguration: empty721Config,
+            allowedPosts: new REVCroptopAllowedPost[](0)
         });
 
         // Deploy second revnet with loans enabled
         AttackProjectConfig memory revnetConfig = _getRevnetConfig();
-        REVNET_ID = REV_DEPLOYER.deployFor({
+        (REVNET_ID, ) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: revnetConfig.configuration,
             terminalConfigurations: revnetConfig.terminalConfigurations,
             buybackHookConfiguration: revnetConfig.buybackHookConfiguration,
-            suckerDeploymentConfiguration: revnetConfig.suckerDeploymentConfiguration
+            suckerDeploymentConfiguration: revnetConfig.suckerDeploymentConfiguration,
+            tiered721HookConfiguration: empty721Config,
+            allowedPosts: new REVCroptopAllowedPost[](0)
         });
 
         vm.deal(USER, 1000e18);

@@ -76,18 +76,20 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
     {
         require(numStages >= 1 && numStages <= 5, "1-5 stages");
 
-        JBAccountingContext[] memory tokensToAccept = new JBAccountingContext[](1);
-        tokensToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
-        });
-
-        JBTerminalConfig[] memory terminalConfigs = new JBTerminalConfig[](1);
-        terminalConfigs[0] = JBTerminalConfig({
-            terminal: jbMultiTerminal(),
-            accountingContextsToAccept: tokensToAccept
-        });
+        JBTerminalConfig[] memory terminalConfigs;
+        {
+            JBAccountingContext[] memory tokensToAccept = new JBAccountingContext[](1);
+            tokensToAccept[0] = JBAccountingContext({
+                token: JBConstants.NATIVE_TOKEN,
+                decimals: 18,
+                currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            });
+            terminalConfigs = new JBTerminalConfig[](1);
+            terminalConfigs[0] = JBTerminalConfig({
+                terminal: jbMultiTerminal(),
+                accountingContextsToAccept: tokensToAccept
+            });
+        }
 
         REVStageConfig[] memory stages = new REVStageConfig[](numStages);
         stageIds = new uint256[](numStages);
@@ -136,24 +138,30 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
             loans: address(0)
         });
 
-        REVBuybackPoolConfig[] memory pools = new REVBuybackPoolConfig[](1);
-        pools[0] = REVBuybackPoolConfig({token: JBConstants.NATIVE_TOKEN, fee: 10_000, twapWindow: 2 days});
+        {
+            REVBuybackPoolConfig[] memory pools = new REVBuybackPoolConfig[](1);
+            pools[0] = REVBuybackPoolConfig({token: JBConstants.NATIVE_TOKEN, fee: 10_000, twapWindow: 2 days});
+            bytes32 deploySalt = keccak256(abi.encodePacked("AUTOISSUE", numStages));
 
-        vm.prank(multisig());
-        revnetId = REV_DEPLOYER.deployFor({
-            revnetId: 0,
-            configuration: config,
-            terminalConfigurations: terminalConfigs,
-            buybackHookConfiguration: REVBuybackHookConfig({
-                dataHook: IJBRulesetDataHook(address(0)),
-                hookToConfigure: IJBBuybackHook(address(0)),
-                poolConfigurations: pools
-            }),
-            suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256(abi.encodePacked("AUTOISSUE", numStages))
-            })
-        });
+            REVDeploy721TiersHookConfig memory empty721Config;
+            vm.prank(multisig());
+            (revnetId, ) = REV_DEPLOYER.deployFor({
+                revnetId: 0,
+                configuration: config,
+                terminalConfigurations: terminalConfigs,
+                buybackHookConfiguration: REVBuybackHookConfig({
+                    dataHook: IJBRulesetDataHook(address(0)),
+                    hookToConfigure: IJBBuybackHook(address(0)),
+                    poolConfigurations: pools
+                }),
+                suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
+                    deployerConfigurations: new JBSuckerDeployerConfig[](0),
+                    salt: deploySalt
+                }),
+                tiered721HookConfiguration: empty721Config,
+                allowedPosts: new REVCroptopAllowedPost[](0)
+            });
+        }
     }
 
     // ───────────────────── Stage ID computation ─────────────────────

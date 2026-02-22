@@ -31,6 +31,8 @@ import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVBuybackPoolConfig} from "../src/structs/REVBuybackPoolConfig.sol";
 import {REVStageConfig} from "../src/structs/REVStageConfig.sol";
 import {REVSuckerDeploymentConfig} from "../src/structs/REVSuckerDeploymentConfig.sol";
+import {REVDeploy721TiersHookConfig} from "../src/structs/REVDeploy721TiersHookConfig.sol";
+import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 import {REVLoans, IREVLoans} from "./../src/REVLoans.sol";
 
 struct FeeProjectConfig {
@@ -341,12 +343,15 @@ contract DeployScript is Script, Sphinx {
         FeeProjectConfig memory feeProjectConfig = getFeeProjectConfig(revloans);
 
         // Configure the project.
+        REVDeploy721TiersHookConfig memory empty721Config;
         _basicDeployer.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: feeProjectConfig.configuration,
             terminalConfigurations: feeProjectConfig.terminalConfigurations,
             buybackHookConfiguration: feeProjectConfig.buybackHookConfiguration,
-            suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration
+            suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration,
+            tiered721HookConfiguration: empty721Config,
+            allowedPosts: new REVCroptopAllowedPost[](0)
         });
     }
 

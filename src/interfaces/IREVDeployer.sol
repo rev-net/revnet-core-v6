@@ -89,16 +89,6 @@ interface IREVDeployer {
         REVConfig memory configuration,
         JBTerminalConfig[] memory terminalConfigurations,
         REVBuybackHookConfig memory buybackHookConfiguration,
-        REVSuckerDeploymentConfig memory suckerDeploymentConfiguration
-    )
-        external
-        returns (uint256);
-
-    function deployWith721sFor(
-        uint256 revnetId,
-        REVConfig calldata configuration,
-        JBTerminalConfig[] memory terminalConfigurations,
-        REVBuybackHookConfig memory buybackHookConfiguration,
         REVSuckerDeploymentConfig memory suckerDeploymentConfiguration,
         REVDeploy721TiersHookConfig memory tiered721HookConfiguration,
         REVCroptopAllowedPost[] memory allowedPosts

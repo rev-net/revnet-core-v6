@@ -252,6 +252,8 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
         vm.prank(multisig());
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);
 
+        REVDeploy721TiersHookConfig memory empty721Config;
+
         InvincibilityProjectConfig memory feeConfig = _getFeeProjectConfig();
         vm.prank(multisig());
         REV_DEPLOYER.deployFor({
@@ -259,17 +261,21 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
             configuration: feeConfig.configuration,
             terminalConfigurations: feeConfig.terminalConfigurations,
             buybackHookConfiguration: feeConfig.buybackHookConfiguration,
-            suckerDeploymentConfiguration: feeConfig.suckerDeploymentConfiguration
+            suckerDeploymentConfiguration: feeConfig.suckerDeploymentConfiguration,
+            tiered721HookConfiguration: empty721Config,
+            allowedPosts: new REVCroptopAllowedPost[](0)
         });
 
         // Deploy second revnet with loans
         InvincibilityProjectConfig memory revConfig = _getRevnetConfig();
-        REVNET_ID = REV_DEPLOYER.deployFor({
+        (REVNET_ID, ) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: revConfig.configuration,
             terminalConfigurations: revConfig.terminalConfigurations,
             buybackHookConfiguration: revConfig.buybackHookConfiguration,
-            suckerDeploymentConfiguration: revConfig.suckerDeploymentConfiguration
+            suckerDeploymentConfiguration: revConfig.suckerDeploymentConfiguration,
+            tiered721HookConfiguration: empty721Config,
+            allowedPosts: new REVCroptopAllowedPost[](0)
         });
 
         vm.deal(USER, 10_000e18);
@@ -506,8 +512,9 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
             extraMetadata: 0
         });
 
+        REVDeploy721TiersHookConfig memory empty721Config;
         vm.prank(multisig());
-        uint256 h5RevnetId = REV_DEPLOYER.deployFor({
+        (uint256 h5RevnetId, ) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: REVConfig({
                 description: REVDescription("H5Test", "H5T", "ipfs://h5", "H5_TOKEN"),
@@ -526,7 +533,9 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0),
                 salt: keccak256("H5_INVINCIBILITY")
-            })
+            }),
+            tiered721HookConfiguration: empty721Config,
+            allowedPosts: new REVCroptopAllowedPost[](0)
         });
 
         // Stage 0 auto-issuance stored at block.timestamp
@@ -1058,6 +1067,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow, JBTest {
             vm.prank(multisig());
             jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);
 
+            REVDeploy721TiersHookConfig memory empty721Config;
             vm.prank(multisig());
             REV_DEPLOYER.deployFor({
                 revnetId: FEE_PROJECT_ID,
@@ -1078,7 +1088,9 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow, JBTest {
                 suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                     deployerConfigurations: new JBSuckerDeployerConfig[](0),
                     salt: keccak256("REV_INV")
-                })
+                }),
+                tiered721HookConfiguration: empty721Config,
+                allowedPosts: new REVCroptopAllowedPost[](0)
             });
         }
 
@@ -1144,7 +1156,8 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow, JBTest {
             REVLoanSource[] memory loanSources = new REVLoanSource[](1);
             loanSources[0] = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 
-            REVNET_ID = REV_DEPLOYER.deployFor({
+            REVDeploy721TiersHookConfig memory empty721Config2;
+            (REVNET_ID, ) = REV_DEPLOYER.deployFor({
                 revnetId: 0,
                 configuration: REVConfig({
                     description: REVDescription("NANA", "$NANA", "ipfs://nana", "NANA_TOKEN_INV"),
@@ -1163,7 +1176,9 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow, JBTest {
                 suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                     deployerConfigurations: new JBSuckerDeployerConfig[](0),
                     salt: keccak256("NANA_INV")
-                })
+                }),
+                tiered721HookConfiguration: empty721Config2,
+                allowedPosts: new REVCroptopAllowedPost[](0)
             });
         }
 

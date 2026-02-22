@@ -162,8 +162,9 @@ contract REVLifecycle_Local is TestBaseWorkflow, JBTest {
             poolConfigurations: new REVBuybackPoolConfig[](0)
         });
 
+        REVDeploy721TiersHookConfig memory empty721Config;
         vm.prank(multisig());
-        REVNET_ID = REV_DEPLOYER.deployFor({
+        (REVNET_ID, ) = REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
@@ -171,7 +172,9 @@ contract REVLifecycle_Local is TestBaseWorkflow, JBTest {
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0),
                 salt: keccak256("LIFECYCLE_TEST")
-            })
+            }),
+            tiered721HookConfiguration: empty721Config,
+            allowedPosts: new REVCroptopAllowedPost[](0)
         });
     }
 

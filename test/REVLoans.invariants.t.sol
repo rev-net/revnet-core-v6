@@ -543,27 +543,32 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow, JBTest {
 
         // Build the config.
         FeeProjectConfig memory feeProjectConfig = getFeeProjectConfig();
+        REVDeploy721TiersHookConfig memory empty721Config;
 
         // Configure the project.
         vm.prank(address(multisig()));
-        REVNET_ID = REV_DEPLOYER.deployFor({
+        (REVNET_ID, ) = REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID, // Zero to deploy a new revnet
             configuration: feeProjectConfig.configuration,
             terminalConfigurations: feeProjectConfig.terminalConfigurations,
             buybackHookConfiguration: feeProjectConfig.buybackHookConfiguration,
-            suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration
+            suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration,
+            tiered721HookConfiguration: empty721Config,
+            allowedPosts: new REVCroptopAllowedPost[](0)
         });
 
         // Configure second revnet
         FeeProjectConfig memory fee2Config = getSecondProjectConfig();
 
         // Configure the second project.
-        REVNET_ID = REV_DEPLOYER.deployFor({
+        (REVNET_ID, ) = REV_DEPLOYER.deployFor({
             revnetId: 0, // Zero to deploy a new revnet
             configuration: fee2Config.configuration,
             terminalConfigurations: fee2Config.terminalConfigurations,
             buybackHookConfiguration: fee2Config.buybackHookConfiguration,
-            suckerDeploymentConfiguration: fee2Config.suckerDeploymentConfiguration
+            suckerDeploymentConfiguration: fee2Config.suckerDeploymentConfiguration,
+            tiered721HookConfiguration: empty721Config,
+            allowedPosts: new REVCroptopAllowedPost[](0)
         });
 
         INITIAL_TIMESTAMP = block.timestamp;
