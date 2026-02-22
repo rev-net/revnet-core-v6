@@ -18,7 +18,6 @@ import {JBConstants} from "@bananapus/core-v5/src/libraries/JBConstants.sol";
 import {JBAccountingContext} from "@bananapus/core-v5/src/structs/JBAccountingContext.sol";
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {REVBuybackPoolConfig} from "../src/structs/REVBuybackPoolConfig.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
@@ -166,8 +165,7 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
             description: REVDescription("Test", "TST", "ipfs://test", "TEST_SALT"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
-            stageConfigurations: stageConfigurations,
-            loanSources: new REVLoanSource[](0)
+            stageConfigurations: stageConfigurations
         });
 
         REVBuybackPoolConfig[] memory buybackPoolConfigurations = new REVBuybackPoolConfig[](0);
@@ -297,8 +295,7 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
             description: REVDescription("H5Test", "H5T", "ipfs://h5test", "H5_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
-            stageConfigurations: stageConfigurations,
-            loanSources: new REVLoanSource[](0)
+            stageConfigurations: stageConfigurations
         });
 
         REVBuybackHookConfig memory buybackHookConfiguration = REVBuybackHookConfig({

@@ -19,7 +19,6 @@ import {JBAccountingContext} from "@bananapus/core-v5/src/structs/JBAccountingCo
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVLoan} from "../src/structs/REVLoan.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {REVBuybackPoolConfig} from "../src/structs/REVBuybackPoolConfig.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
@@ -151,8 +150,7 @@ contract REVLifecycle_Local is TestBaseWorkflow, JBTest {
             description: REVDescription("Lifecycle", "LIFE", "ipfs://lifecycle", "LIFE_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
-            stageConfigurations: stageConfigurations,
-            loanSources: new REVLoanSource[](0)
+            stageConfigurations: stageConfigurations
         });
 
         REVBuybackHookConfig memory buybackHookConfiguration = REVBuybackHookConfig({

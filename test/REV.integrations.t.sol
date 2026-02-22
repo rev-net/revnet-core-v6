@@ -18,7 +18,6 @@ import {JBConstants} from "@bananapus/core-v5/src/libraries/JBConstants.sol";
 import {JBAccountingContext} from "@bananapus/core-v5/src/structs/JBAccountingContext.sol";
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {REVBuybackPoolConfig} from "../src/structs/REVBuybackPoolConfig.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
@@ -150,15 +149,12 @@ contract REVnet_Integrations is TestBaseWorkflow, JBTest {
             extraMetadata: (1 << 2) // Enable adding new suckers.
         });
 
-        REVLoanSource[] memory _loanSources = new REVLoanSource[](0);
-
         // The project's revnet configuration
         REVConfig memory revnetConfiguration = REVConfig({
             description: REVDescription(name, symbol, projectUri, ERC20_SALT),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
-            stageConfigurations: stageConfigurations,
-            loanSources: _loanSources
+            stageConfigurations: stageConfigurations
         });
 
         ENCODED_CONFIG = abi.encode(

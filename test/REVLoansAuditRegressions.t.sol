@@ -182,16 +182,11 @@ contract REVLoansAuditRegressions_Local is TestBaseWorkflow, JBTest {
             extraMetadata: 0
         });
 
-        // Configure loan sources to include the real terminal
-        REVLoanSource[] memory loanSources = new REVLoanSource[](1);
-        loanSources[0] = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: IJBPayoutTerminal(address(jbMultiTerminal()))});
-
         REVConfig memory revnetConfiguration = REVConfig({
             description: REVDescription("H6Test", "H6T", "ipfs://h6test", "H6_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
-            stageConfigurations: stageConfigurations,
-            loanSources: loanSources
+            stageConfigurations: stageConfigurations
         });
 
         REVBuybackHookConfig memory buybackHookConfiguration = REVBuybackHookConfig({

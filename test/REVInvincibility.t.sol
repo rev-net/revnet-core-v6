@@ -121,8 +121,7 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
                 description: REVDescription("Revnet", "$REV", "ipfs://QmNRHT91HcDgMcenebYX7rJigt77cgNcosvuhX21wkF3tx", "REV_TOKEN"),
                 baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                 splitOperator: multisig(),
-                stageConfigurations: stageConfigurations,
-                loanSources: new REVLoanSource[](0)
+                stageConfigurations: stageConfigurations
             }),
             terminalConfigurations: terminalConfigurations,
             buybackHookConfiguration: REVBuybackHookConfig({
@@ -197,16 +196,12 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
             extraMetadata: 0
         });
 
-        REVLoanSource[] memory _loanSources = new REVLoanSource[](1);
-        _loanSources[0] = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
-
         return InvincibilityProjectConfig({
             configuration: REVConfig({
                 description: REVDescription("NANA", "$NANA", "ipfs://nana", "NANA_TOKEN"),
                 baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                 splitOperator: multisig(),
-                stageConfigurations: stageConfigurations,
-                loanSources: _loanSources
+                stageConfigurations: stageConfigurations
             }),
             terminalConfigurations: terminalConfigurations,
             buybackHookConfiguration: REVBuybackHookConfig({
@@ -511,8 +506,7 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
                 description: REVDescription("H5Test", "H5T", "ipfs://h5", "H5_TOKEN"),
                 baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                 splitOperator: multisig(),
-                stageConfigurations: stages,
-                loanSources: new REVLoanSource[](0)
+                stageConfigurations: stages
             }),
             terminalConfigurations: tc,
             buybackHookConfiguration: REVBuybackHookConfig({
@@ -1062,8 +1056,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow, JBTest {
                     description: REVDescription("Revnet", "$REV", "ipfs://rev", "REV_TOKEN_INV"),
                     baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                     splitOperator: multisig(),
-                    stageConfigurations: stages,
-                    loanSources: new REVLoanSource[](0)
+                    stageConfigurations: stages
                 }),
                 terminalConfigurations: tc,
                 buybackHookConfiguration: REVBuybackHookConfig({
@@ -1137,17 +1130,13 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow, JBTest {
                 extraMetadata: 0
             });
 
-            REVLoanSource[] memory loanSources = new REVLoanSource[](1);
-            loanSources[0] = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
-
             REVNET_ID = REV_DEPLOYER.deployFor({
                 revnetId: 0,
                 configuration: REVConfig({
                     description: REVDescription("NANA", "$NANA", "ipfs://nana", "NANA_TOKEN_INV"),
                     baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                     splitOperator: multisig(),
-                    stageConfigurations: stages,
-                    loanSources: loanSources
+                    stageConfigurations: stages
                 }),
                 terminalConfigurations: tc,
                 buybackHookConfiguration: REVBuybackHookConfig({

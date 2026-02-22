@@ -51,7 +51,6 @@ import {REVBuybackPoolConfig} from "./structs/REVBuybackPoolConfig.sol";
 import {REVConfig} from "./structs/REVConfig.sol";
 import {REVCroptopAllowedPost} from "./structs/REVCroptopAllowedPost.sol";
 import {REVDeploy721TiersHookConfig} from "./structs/REVDeploy721TiersHookConfig.sol";
-import {REVLoanSource} from "./structs/REVLoanSource.sol";
 import {REVStageConfig} from "./structs/REVStageConfig.sol";
 import {REVSuckerDeploymentConfig} from "./structs/REVSuckerDeploymentConfig.sol";
 
@@ -65,7 +64,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     // --------------------------- custom errors ------------------------- //
     //*********************************************************************//
 
-    error REVDeployer_LoanSourceDoesntMatchTerminalConfigurations(address token, address terminal);
     error REVDeployer_AutoIssuanceBeneficiaryZeroAddress();
     error REVDeployer_CashOutDelayNotFinished(uint256 cashOutDelay, uint256 blockTimestamp);
     error REVDeployer_CashOutsCantBeTurnedOffCompletely(uint256 cashOutTaxRate, uint256 maxCashOutTaxRate);
@@ -414,48 +412,42 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     }
 
     /// @notice Initialize a fund access limit group for the loan contract to use.
-    /// @dev Returns an unlimited surplus allowance for each token which can be loaned out.
-    /// @param configuration The revnet's configuration.
+    /// @dev Returns an unlimited surplus allowance for each terminal+token pair derived from the terminal configurations.
     /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
     /// @return fundAccessLimitGroups The fund access limit groups for the loans.
-    function _makeLoanFundAccessLimits(
-        REVConfig calldata configuration,
-        JBTerminalConfig[] calldata terminalConfigurations
-    )
+    function _makeLoanFundAccessLimits(JBTerminalConfig[] calldata terminalConfigurations)
         internal
         pure
         returns (JBFundAccessLimitGroup[] memory fundAccessLimitGroups)
     {
+        // Count the total number of accounting contexts across all terminals.
+        uint256 count;
+        for (uint256 i; i < terminalConfigurations.length; i++) {
+            count += terminalConfigurations[i].accountingContextsToAccept.length;
+        }
+
         // Initialize the fund access limit groups.
-        fundAccessLimitGroups = new JBFundAccessLimitGroup[](configuration.loanSources.length);
+        fundAccessLimitGroups = new JBFundAccessLimitGroup[](count);
 
         // Set up the fund access limits for the loans.
-        for (uint256 i; i < configuration.loanSources.length; i++) {
-            // Set the loan source being iterated on.
-            REVLoanSource calldata loanSource = configuration.loanSources[i];
+        uint256 index;
+        for (uint256 i; i < terminalConfigurations.length; i++) {
+            JBTerminalConfig calldata terminalConfiguration = terminalConfigurations[i];
+            for (uint256 j; j < terminalConfiguration.accountingContextsToAccept.length; j++) {
+                JBAccountingContext calldata accountingContext = terminalConfiguration.accountingContextsToAccept[j];
 
-            // Keep a reference to the currency of the loan source.
-            uint32 currency =
-                _matchingCurrencyOf({terminalConfigurations: terminalConfigurations, loanSource: loanSource});
+                // Set up an unlimited allowance for the loan contract to use.
+                JBCurrencyAmount[] memory loanAllowances = new JBCurrencyAmount[](1);
+                loanAllowances[0] = JBCurrencyAmount({currency: accountingContext.currency, amount: type(uint224).max});
 
-            // If the currency is 0 it means the loan source doesn't match the terminal configurations.
-            if (currency == 0) {
-                revert REVDeployer_LoanSourceDoesntMatchTerminalConfigurations(
-                    loanSource.token, address(loanSource.terminal)
-                );
+                // Set up the fund access limits for the loans.
+                fundAccessLimitGroups[index++] = JBFundAccessLimitGroup({
+                    terminal: address(terminalConfiguration.terminal),
+                    token: accountingContext.token,
+                    payoutLimits: new JBCurrencyAmount[](0),
+                    surplusAllowances: loanAllowances
+                });
             }
-
-            // Set up an unlimited allowance for the loan contract to use.
-            JBCurrencyAmount[] memory loanAllowances = new JBCurrencyAmount[](1);
-            loanAllowances[0] = JBCurrencyAmount({currency: currency, amount: type(uint224).max});
-
-            // Set up the fund access limits for the loans.
-            fundAccessLimitGroups[i] = JBFundAccessLimitGroup({
-                terminal: address(loanSource.terminal),
-                token: loanSource.token,
-                payoutLimits: new JBCurrencyAmount[](0),
-                surplusAllowances: loanAllowances
-            });
         }
     }
 
@@ -500,34 +492,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             splitGroups: splitGroups,
             fundAccessLimitGroups: fundAccessLimitGroups
         });
-    }
-
-    /// @notice Returns the currency of the loan source, if a matching terminal configuration is found.
-    /// @param terminalConfigurations The terminals to check.
-    /// @param loanSource The loan source to check.
-    /// @return currency The currency of the loan source.
-    function _matchingCurrencyOf(
-        JBTerminalConfig[] calldata terminalConfigurations,
-        REVLoanSource calldata loanSource
-    )
-        internal
-        pure
-        returns (uint32)
-    {
-        for (uint256 i; i < terminalConfigurations.length; i++) {
-            JBTerminalConfig calldata terminalConfiguration = terminalConfigurations[i];
-            if (terminalConfiguration.terminal == loanSource.terminal) {
-                for (uint256 j; j < terminalConfiguration.accountingContextsToAccept.length; j++) {
-                    JBAccountingContext calldata accountingContext = terminalConfiguration.accountingContextsToAccept[j];
-                    if (accountingContext.token == loanSource.token) {
-                        return accountingContext.currency;
-                    }
-                }
-            }
-        }
-
-        // No currency found for the terminal and token combination.
-        return 0;
     }
 
     /// @notice Returns the next project ID.
@@ -1136,7 +1100,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
 
         // Initialize fund access limit groups for the loan contract to use.
         JBFundAccessLimitGroup[] memory fundAccessLimitGroups =
-            _makeLoanFundAccessLimits({configuration: configuration, terminalConfigurations: terminalConfigurations});
+            _makeLoanFundAccessLimits({terminalConfigurations: terminalConfigurations});
 
         // Iterate through each stage to set up its ruleset.
         for (uint256 i; i < configuration.stageConfigurations.length; i++) {

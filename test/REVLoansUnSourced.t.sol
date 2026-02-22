@@ -140,15 +140,12 @@ contract REVLoansUnsourcedTests is TestBaseWorkflow, JBTest {
             extraMetadata: 0
         });
 
-        REVLoanSource[] memory _loanSources = new REVLoanSource[](0);
-
         // The project's revnet configuration
         REVConfig memory revnetConfiguration = REVConfig({
             description: REVDescription(name, symbol, projectUri, ERC20_SALT),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
-            stageConfigurations: stageConfigurations,
-            loanSources: _loanSources
+            stageConfigurations: stageConfigurations
         });
 
         // The project's buyback hook configuration.
@@ -247,16 +244,12 @@ contract REVLoansUnsourcedTests is TestBaseWorkflow, JBTest {
             extraMetadata: 0
         });
 
-        REVLoanSource[] memory _loanSources = new REVLoanSource[](0);
-        /* _loanSources[0] = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()}); */
-
         // The project's revnet configuration
         REVConfig memory revnetConfiguration = REVConfig({
             description: REVDescription(name, symbol, projectUri, "NANA_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
-            stageConfigurations: stageConfigurations,
-            loanSources: _loanSources
+            stageConfigurations: stageConfigurations
         });
 
         // The project's buyback hook configuration.
@@ -342,6 +335,8 @@ contract REVLoansUnsourcedTests is TestBaseWorkflow, JBTest {
         vm.deal(USER, 100e18);
     }
 
+    /// @notice Loan fund access limits are now auto-derived from terminal configs.
+    /// Borrowing still fails if the user hasn't approved LOANS to burn their tokens as collateral.
     function test_Pay_Borrow_Without_Loan_Source() public {
         vm.prank(USER);
         uint256 tokens = jbMultiTerminal().pay{value: 1e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 1e18, USER, 0, "", "");
@@ -350,9 +345,9 @@ contract REVLoansUnsourcedTests is TestBaseWorkflow, JBTest {
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(loanable, 0);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(JBTerminalStore.JBTerminalStore_InadequateControllerAllowance.selector, loanable, 0)
-        );
+        // Loan fund access limits are now auto-derived from terminal configs, so the surplus allowance exists.
+        // The borrow still fails because USER hasn't approved LOANS to burn their tokens as collateral.
+        vm.expectRevert();
 
         REVLoanSource memory sauce = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 

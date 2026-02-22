@@ -27,7 +27,6 @@ import {REVAutoIssuance} from "../src/structs/REVAutoIssuance.sol";
 import {REVBuybackHookConfig} from "../src/structs/REVBuybackHookConfig.sol";
 import {REVConfig} from "../src/structs/REVConfig.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVBuybackPoolConfig} from "../src/structs/REVBuybackPoolConfig.sol";
 import {REVStageConfig} from "../src/structs/REVStageConfig.sol";
 import {REVSuckerDeploymentConfig} from "../src/structs/REVSuckerDeploymentConfig.sol";
@@ -211,21 +210,13 @@ contract DeployScript is Script, Sphinx {
             extraMetadata: 4 // Allow adding suckers.
         });
 
-        REVConfig memory revnetConfiguration;
-        {
-            // Thr projects loan configuration.
-            REVLoanSource[] memory loanSources = new REVLoanSource[](1);
-            loanSources[0] = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: core.terminal});
-
-            // The project's revnet configuration
-            revnetConfiguration = REVConfig({
-                description: REVDescription(NAME, SYMBOL, PROJECT_URI, ERC20_SALT),
-                baseCurrency: ETH_CURRENCY,
-                splitOperator: OPERATOR,
-                stageConfigurations: stageConfigurations,
-                loanSources: loanSources
-            });
-        }
+        // The project's revnet configuration
+        REVConfig memory revnetConfiguration = REVConfig({
+            description: REVDescription(NAME, SYMBOL, PROJECT_URI, ERC20_SALT),
+            baseCurrency: ETH_CURRENCY,
+            splitOperator: OPERATOR,
+            stageConfigurations: stageConfigurations
+        });
 
         // The project's buyback hook configuration.
         REVBuybackPoolConfig[] memory buybackPoolConfigurations = new REVBuybackPoolConfig[](1);
