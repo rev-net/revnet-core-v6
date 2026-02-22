@@ -727,20 +727,24 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         // Get a reference to the revnet ID of the loan being repaid.
         uint256 revnetId = revnetIdOfLoanWith(loanId);
 
-        // Get the new borrow amount.
-        uint256 newBorrowAmount = _borrowAmountFrom({
-            loan: loan,
-            revnetId: revnetId,
-            collateralCount: loan.collateral - collateralCountToReturn
-        });
+        // Scope to limit newBorrowAmount's stack lifetime.
+        uint256 repayBorrowAmount;
+        {
+            // Get the new borrow amount.
+            uint256 newBorrowAmount = _borrowAmountFrom({
+                loan: loan,
+                revnetId: revnetId,
+                collateralCount: loan.collateral - collateralCountToReturn
+            });
 
-        // Make sure the new borrow amount is less than the loan's amount.
-        if (newBorrowAmount > loan.amount) {
-            revert REVLoans_NewBorrowAmountGreaterThanLoanAmount(newBorrowAmount, loan.amount);
+            // Make sure the new borrow amount is less than the loan's amount.
+            if (newBorrowAmount > loan.amount) {
+                revert REVLoans_NewBorrowAmountGreaterThanLoanAmount(newBorrowAmount, loan.amount);
+            }
+
+            // Get the amount of the loan being repaid.
+            repayBorrowAmount = loan.amount - newBorrowAmount;
         }
-
-        // Get the amount of the loan being repaid.
-        uint256 repayBorrowAmount = loan.amount - newBorrowAmount;
 
         // Revert if this repayment would do nothing — no borrow amount repaid and no collateral returned.
         // Without this check, a zero-amount repayment would burn the old loan NFT and mint a new one,
@@ -762,6 +766,9 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
             revert REVLoans_OverMaxRepayBorrowAmount(maxRepayBorrowAmount, repayBorrowAmount);
         }
 
+        // Cache the source token before _repayLoan deletes the loan storage.
+        address sourceToken = loan.source.token;
+
         (paidOffLoanId, paidOffloan) = _repayLoan({
             loanId: loanId,
             loan: loan,
@@ -777,7 +784,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
             _transferFrom({
                 from: address(this),
                 to: payable(_msgSender()),
-                token: loan.source.token,
+                token: sourceToken,
                 amount: maxRepayBorrowAmount - repayBorrowAmount
             });
         }
@@ -1072,12 +1079,15 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
                 beneficiary: beneficiary
             });
 
+            // Snapshot the loan to memory before deleting storage.
+            REVLoan memory loanSnapshot = loan;
+
             emit RepayLoan({
                 loanId: loanId,
                 revnetId: revnetId,
                 paidOffLoanId: loanId,
-                loan: loan,
-                paidOffLoan: loan,
+                loan: loanSnapshot,
+                paidOffLoan: loanSnapshot,
                 repayBorrowAmount: repayBorrowAmount,
                 sourceFeeAmount: sourceFeeAmount,
                 collateralCountToReturn: collateralCountToReturn,
@@ -1088,7 +1098,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
             // Clear stale loan data for gas refund.
             delete _loanOf[loanId];
 
-            return (loanId, loan);
+            return (loanId, loanSnapshot);
         } else {
             // Make a new loan with the remaining amount and collateral.
             // Get a reference to the replacement loan ID.
