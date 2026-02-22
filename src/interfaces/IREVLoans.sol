@@ -10,7 +10,6 @@ import {IJBProjects} from "@bananapus/core-v5/src/interfaces/IJBProjects.sol";
 import {IJBTokenUriResolver} from "@bananapus/core-v5/src/interfaces/IJBTokenUriResolver.sol";
 import {JBSingleAllowance} from "@bananapus/core-v5/src/structs/JBSingleAllowance.sol";
 
-import {IREVDeployer} from "./IREVDeployer.sol";
 import {REVLoan} from "./../structs/REVLoan.sol";
 import {REVLoanSource} from "./../structs/REVLoanSource.sol";
 
@@ -52,7 +51,6 @@ interface IREVLoans {
     function LOAN_LIQUIDATION_DURATION() external view returns (uint256);
     function PERMIT2() external view returns (IPermit2);
     function CONTROLLER() external view returns (IJBController);
-    function REVNETS() external view returns (IREVDeployer);
     function DIRECTORY() external view returns (IJBDirectory);
     function PRICES() external view returns (IJBPrices);
     function PROJECTS() external view returns (IJBProjects);

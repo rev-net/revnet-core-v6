@@ -27,7 +27,6 @@ import {JBAccountingContext} from "@bananapus/core-v5/src/structs/JBAccountingCo
 import {JBRuleset} from "@bananapus/core-v5/src/structs/JBRuleset.sol";
 import {JBSingleAllowance} from "@bananapus/core-v5/src/structs/JBSingleAllowance.sol";
 
-import {IREVDeployer} from "./interfaces/IREVDeployer.sol";
 import {IREVLoans} from "./interfaces/IREVLoans.sol";
 import {REVLoan} from "./structs/REVLoan.sol";
 import {REVLoanSource} from "./structs/REVLoanSource.sol";
@@ -66,7 +65,6 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     error REVLoans_NoMsgValueAllowed();
     error REVLoans_LoanExpired(uint256 timeSinceLoanCreated, uint256 loanLiquidationDuration);
     error REVLoans_ReallocatingMoreCollateralThanBorrowedAmountAllows(uint256 newBorrowAmount, uint256 loanAmount);
-    error REVLoans_RevnetsMismatch(address revnetOwner, address revnets);
     error REVLoans_Unauthorized(address caller, address owner);
     error REVLoans_UnderMinBorrowAmount(uint256 minBorrowAmount, uint256 borrowAmount);
     error REVLoans_ZeroCollateralLoanIsInvalid();
@@ -108,9 +106,6 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
 
     /// @notice The controller of revnets that use this loans contract.
     IJBController public immutable override CONTROLLER;
-
-    /// @notice Mints ERC-721s that represent project ownership and transfers.
-    IREVDeployer public immutable override REVNETS;
 
     /// @notice The directory of terminals and controllers for revnets.
     IJBDirectory public immutable override DIRECTORY;
@@ -171,13 +166,13 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     // -------------------------- constructor ---------------------------- //
     //*********************************************************************//
 
-    /// @param revnets A contract from which revnets using this loans contract are deployed.
+    /// @param controller The controller that manages revnets using this loans contract.
     /// @param revId The ID of the REV revnet that will receive the fees.
     /// @param owner The owner of the contract that can set the URI resolver.
     /// @param permit2 A permit2 utility.
     /// @param trustedForwarder A trusted forwarder of transactions to this contract.
     constructor(
-        IREVDeployer revnets,
+        IJBController controller,
         uint256 revId,
         address owner,
         IPermit2 permit2,
@@ -187,11 +182,10 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         ERC2771Context(trustedForwarder)
         Ownable(owner)
     {
-        REVNETS = revnets;
-        CONTROLLER = revnets.CONTROLLER();
-        DIRECTORY = revnets.DIRECTORY();
-        PRICES = revnets.CONTROLLER().PRICES();
-        PROJECTS = revnets.PROJECTS();
+        CONTROLLER = controller;
+        DIRECTORY = controller.DIRECTORY();
+        PRICES = controller.PRICES();
+        PROJECTS = controller.DIRECTORY().PROJECTS();
         REV_ID = revId;
         PERMIT2 = permit2;
     }
@@ -492,12 +486,6 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         override
         returns (uint256 loanId, REVLoan memory)
     {
-        // Get a reference to the revnet owner.
-        address revnetOwner = PROJECTS.ownerOf(revnetId);
-
-        // Make sure the revnet was deployed with the deployer this loan expects.
-        if (revnetOwner != address(REVNETS)) revert REVLoans_RevnetsMismatch(revnetOwner, address(REVNETS));
-
         // A loan needs to have collateral.
         if (collateralCount == 0) revert REVLoans_ZeroCollateralLoanIsInvalid();
 

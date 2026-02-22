@@ -293,84 +293,42 @@ contract DeployScript is Script, Sphinx {
         // TODO figure out how to reference project ID if the contracts are already deployed.
         uint256 FEE_PROJECT_ID = core.projects.createFor(safeAddress());
 
-        // Pre-compute the REVLoans address so we can pass it to REVDeployer's constructor.
-        // REVLoans uses CREATE2, so its address is deterministic from salt + initcode.
-        // We need the REVDeployer address for REVLoans' constructor args, but REVDeployer also needs
-        // the REVLoans address. We break this cycle by pre-computing both CREATE2 addresses.
-        REVDeployer _basicDeployer;
-        REVLoans revloans;
-        {
-            // Pre-compute the REVDeployer address (without loans, to get a first approximation).
-            // Then pre-compute REVLoans address using that, then re-compute REVDeployer with the loans address.
-            // Step 1: Pre-compute REVLoans address by first computing REVDeployer address.
-            // For CREATE2: address = keccak256(0xff ++ deployer ++ salt ++ keccak256(initcode ++ args))
-            // We compute REVDeployer's address assuming a given REVLoans address, then compute REVLoans.
+        // Deploy REVLoans first — it only depends on the controller.
+        (address _revloansAddr, bool _revloansIsDeployed) = _isDeployed(
+            REVLOANS_SALT,
+            type(REVLoans).creationCode,
+            abi.encode(core.controller, FEE_PROJECT_ID, LOANS_OWNER, PERMIT2, TRUSTED_FORWARDER)
+        );
+        REVLoans revloans = _revloansIsDeployed
+            ? REVLoans(payable(_revloansAddr))
+            : new REVLoans{salt: REVLOANS_SALT}({
+                controller: core.controller,
+                revId: FEE_PROJECT_ID,
+                owner: LOANS_OWNER,
+                permit2: PERMIT2,
+                trustedForwarder: TRUSTED_FORWARDER
+            });
 
-            // First, pre-compute where REVDeployer will be.
-            // We need REVLoans address for this, but REVLoans needs REVDeployer address.
-            // Since both use CREATE2 from the same deployer with known salts, we pre-compute REVDeployer
-            // with a placeholder, then compute REVLoans, then verify.
-
-            // Pre-compute REVDeployer address (we'll verify after deployment).
-            (address _deployer, bool _revDeployerIsDeployed) = _isDeployed(
-                DEPLOYER_SALT,
-                type(REVDeployer).creationCode,
-                abi.encode(
-                    core.controller, suckers.registry, FEE_PROJECT_ID, hook.hook_deployer, croptop.publisher,
-                    address(0), // placeholder for loans — will be replaced after pre-computing
-                    TRUSTED_FORWARDER
-                )
+        // Deploy REVDeployer with the REVLoans address.
+        (address _deployerAddr, bool _deployerIsDeployed) = _isDeployed(
+            DEPLOYER_SALT,
+            type(REVDeployer).creationCode,
+            abi.encode(
+                core.controller, suckers.registry, FEE_PROJECT_ID, hook.hook_deployer, croptop.publisher,
+                address(revloans), TRUSTED_FORWARDER
+            )
+        );
+        REVDeployer _basicDeployer = _deployerIsDeployed
+            ? REVDeployer(payable(_deployerAddr))
+            : new REVDeployer{salt: DEPLOYER_SALT}(
+                core.controller,
+                suckers.registry,
+                FEE_PROJECT_ID,
+                hook.hook_deployer,
+                croptop.publisher,
+                address(revloans),
+                TRUSTED_FORWARDER
             );
-
-            // Pre-compute REVLoans address using the pre-computed REVDeployer address.
-            (address _revloans, bool _revloansIsDeployed) = _isDeployed(
-                REVLOANS_SALT,
-                type(REVLoans).creationCode,
-                abi.encode(IREVDeployer(_deployer), FEE_PROJECT_ID, PERMIT2, TRUSTED_FORWARDER)
-            );
-
-            // Now re-compute REVDeployer with the actual REVLoans address.
-            (_deployer, _revDeployerIsDeployed) = _isDeployed(
-                DEPLOYER_SALT,
-                type(REVDeployer).creationCode,
-                abi.encode(
-                    core.controller, suckers.registry, FEE_PROJECT_ID, hook.hook_deployer, croptop.publisher,
-                    _revloans,
-                    TRUSTED_FORWARDER
-                )
-            );
-
-            // Re-compute REVLoans with the corrected REVDeployer address.
-            (_revloans, _revloansIsDeployed) = _isDeployed(
-                REVLOANS_SALT,
-                type(REVLoans).creationCode,
-                abi.encode(IREVDeployer(_deployer), FEE_PROJECT_ID, PERMIT2, TRUSTED_FORWARDER)
-            );
-
-            // Deploy REVLoans first (it references the pre-computed REVDeployer address).
-            revloans = !_revloansIsDeployed
-                ? new REVLoans{salt: REVLOANS_SALT}({
-                    revnets: IREVDeployer(_deployer),
-                    revId: FEE_PROJECT_ID,
-                    owner: LOANS_OWNER,
-                    permit2: PERMIT2,
-                    trustedForwarder: TRUSTED_FORWARDER
-                })
-                : REVLoans(payable(_revloans));
-
-            // Deploy REVDeployer with the known REVLoans address.
-            _basicDeployer = !_revDeployerIsDeployed
-                ? new REVDeployer{salt: DEPLOYER_SALT}(
-                    core.controller,
-                    suckers.registry,
-                    FEE_PROJECT_ID,
-                    hook.hook_deployer,
-                    croptop.publisher,
-                    address(revloans),
-                    TRUSTED_FORWARDER
-                )
-                : REVDeployer(payable(_deployer));
-        }
 
         // Approve the basic deployer to configure the project.
         core.projects.approve(address(_basicDeployer), FEE_PROJECT_ID);
