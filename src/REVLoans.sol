@@ -921,29 +921,44 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     )
         internal
     {
+        // Snapshot deltas from current state before writing.
+        uint256 addedBorrowAmount = newBorrowAmount > loan.amount ? newBorrowAmount - loan.amount : 0;
+        uint256 repaidBorrowAmount = loan.amount > newBorrowAmount ? loan.amount - newBorrowAmount : 0;
+        uint256 addedCollateralCount = newCollateralCount > loan.collateral ? newCollateralCount - loan.collateral : 0;
+        uint256 returnedCollateralCount =
+            loan.collateral > newCollateralCount ? loan.collateral - newCollateralCount : 0;
+
+        // EFFECTS: Write loan state before any external calls (CEI pattern).
+        // Any reentrant call will see the updated loan values, reverting on overflow.
+        if (newBorrowAmount > type(uint112).max) revert REVLoans_OverflowAlert(newBorrowAmount, type(uint112).max);
+        if (newCollateralCount > type(uint112).max) revert REVLoans_OverflowAlert(newCollateralCount, type(uint112).max);
+        loan.amount = uint112(newBorrowAmount);
+        loan.collateral = uint112(newCollateralCount);
+
+        // INTERACTIONS: Execute external calls with pre-computed deltas.
+
         // Add to the loan if needed...
-        if (newBorrowAmount > loan.amount) {
-            // Add the new amount to the loan.
+        if (addedBorrowAmount > 0) {
             _addTo({
                 loan: loan,
                 revnetId: revnetId,
-                addedBorrowAmount: newBorrowAmount - loan.amount,
+                addedBorrowAmount: addedBorrowAmount,
                 sourceFeeAmount: sourceFeeAmount,
                 beneficiary: beneficiary
             });
             // ... or pay off the loan if needed.
-        } else if (loan.amount > newBorrowAmount) {
-            _removeFrom({loan: loan, revnetId: revnetId, repaidBorrowAmount: loan.amount - newBorrowAmount});
+        } else if (repaidBorrowAmount > 0) {
+            _removeFrom({loan: loan, revnetId: revnetId, repaidBorrowAmount: repaidBorrowAmount});
         }
 
         // Add collateral if needed...
-        if (newCollateralCount > loan.collateral) {
-            _addCollateralTo({revnetId: revnetId, amount: newCollateralCount - loan.collateral});
+        if (addedCollateralCount > 0) {
+            _addCollateralTo({revnetId: revnetId, amount: addedCollateralCount});
             // ... or return collateral if needed.
-        } else if (loan.collateral > newCollateralCount) {
+        } else if (returnedCollateralCount > 0) {
             _returnCollateralFrom({
                 revnetId: revnetId,
-                collateralCount: loan.collateral - newCollateralCount,
+                collateralCount: returnedCollateralCount,
                 beneficiary: beneficiary
             });
         }
@@ -969,12 +984,6 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
                 metadata: bytes(abi.encodePacked(REV_ID))
             });
         }
-
-        // Store the loans updated values, reverting on overflow.
-        if (newBorrowAmount > type(uint112).max) revert REVLoans_OverflowAlert(newBorrowAmount, type(uint112).max);
-        if (newCollateralCount > type(uint112).max) revert REVLoans_OverflowAlert(newCollateralCount, type(uint112).max);
-        loan.amount = uint112(newBorrowAmount);
-        loan.collateral = uint112(newCollateralCount);
     }
 
     /// @notice Accepts an incoming token.
