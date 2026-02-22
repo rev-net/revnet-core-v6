@@ -24,11 +24,9 @@ import {JBSplit} from "@bananapus/core-v5/src/structs/JBSplit.sol";
 
 import {REVDeployer} from "./../src/REVDeployer.sol";
 import {REVAutoIssuance} from "../src/structs/REVAutoIssuance.sol";
-import {REVBuybackHookConfig} from "../src/structs/REVBuybackHookConfig.sol";
 import {REVConfig} from "../src/structs/REVConfig.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
-import {REVBuybackPoolConfig} from "../src/structs/REVBuybackPoolConfig.sol";
 import {REVStageConfig} from "../src/structs/REVStageConfig.sol";
 import {REVSuckerDeploymentConfig} from "../src/structs/REVSuckerDeploymentConfig.sol";
 import {REVLoans, IREVLoans} from "./../src/REVLoans.sol";
@@ -36,7 +34,6 @@ import {REVLoans, IREVLoans} from "./../src/REVLoans.sol";
 struct FeeProjectConfig {
     REVConfig configuration;
     JBTerminalConfig[] terminalConfigurations;
-    REVBuybackHookConfig buybackHookConfiguration;
     REVSuckerDeploymentConfig suckerDeploymentConfiguration;
 }
 
@@ -228,17 +225,6 @@ contract DeployScript is Script, Sphinx {
             });
         }
 
-        // The project's buyback hook configuration.
-        REVBuybackPoolConfig[] memory buybackPoolConfigurations = new REVBuybackPoolConfig[](1);
-        buybackPoolConfigurations[0] =
-            REVBuybackPoolConfig({token: JBConstants.NATIVE_TOKEN, fee: 10_000, twapWindow: 2 days});
-
-        REVBuybackHookConfig memory buybackHookConfiguration = REVBuybackHookConfig({
-            dataHook: buybackHook.registry,
-            hookToConfigure: buybackHook.hook,
-            poolConfigurations: buybackPoolConfigurations
-        });
-
         // Organize the instructions for how this project will connect to other chains.
         JBTokenMapping[] memory tokenMappings = new JBTokenMapping[](1);
         tokenMappings[0] = JBTokenMapping({
@@ -285,7 +271,6 @@ contract DeployScript is Script, Sphinx {
         return FeeProjectConfig({
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
-            buybackHookConfiguration: buybackHookConfiguration,
             suckerDeploymentConfiguration: suckerDeploymentConfiguration
         });
     }
@@ -300,7 +285,14 @@ contract DeployScript is Script, Sphinx {
             (address _deployer, bool _revDeployerIsDeployed) = _isDeployed(
                 DEPLOYER_SALT,
                 type(REVDeployer).creationCode,
-                abi.encode(core.controller, suckers.registry, FEE_PROJECT_ID, hook.hook_deployer, croptop.publisher)
+                abi.encode(
+                    core.controller,
+                    suckers.registry,
+                    FEE_PROJECT_ID,
+                    hook.hook_deployer,
+                    croptop.publisher,
+                    buybackHook.registry
+                )
             );
 
             _basicDeployer = !_revDeployerIsDeployed
@@ -310,6 +302,7 @@ contract DeployScript is Script, Sphinx {
                     FEE_PROJECT_ID,
                     hook.hook_deployer,
                     croptop.publisher,
+                    buybackHook.registry,
                     TRUSTED_FORWARDER
                 )
                 : REVDeployer(payable(_deployer));
@@ -345,7 +338,6 @@ contract DeployScript is Script, Sphinx {
             revnetId: FEE_PROJECT_ID,
             configuration: feeProjectConfig.configuration,
             terminalConfigurations: feeProjectConfig.terminalConfigurations,
-            buybackHookConfiguration: feeProjectConfig.buybackHookConfiguration,
             suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration
         });
     }

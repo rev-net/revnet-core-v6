@@ -12,14 +12,12 @@ import "@bananapus/721-hook-v5/script/helpers/Hook721DeploymentLib.sol";
 import "@bananapus/suckers-v5/script/helpers/SuckerDeploymentLib.sol";
 import "@croptop/core-v5/script/helpers/CroptopDeploymentLib.sol";
 import "@bananapus/swap-terminal-v5/script/helpers/SwapTerminalDeploymentLib.sol";
-import "@bananapus/buyback-hook-v5/script/helpers/BuybackDeploymentLib.sol";
 
 import {JBConstants} from "@bananapus/core-v5/src/libraries/JBConstants.sol";
 import {JBAccountingContext} from "@bananapus/core-v5/src/structs/JBAccountingContext.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
 import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
-import {REVBuybackPoolConfig} from "../src/structs/REVBuybackPoolConfig.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v5/src/structs/JBSuckerDeployerConfig.sol";
 import {JBSuckerRegistry} from "@bananapus/suckers-v5/src/JBSuckerRegistry.sol";
@@ -62,7 +60,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, TRUSTED_FORWARDER
+            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBBuybackHookRegistry(address(0)), TRUSTED_FORWARDER
         );
 
         vm.prank(multisig());
@@ -136,19 +134,11 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
             loans: address(0)
         });
 
-        REVBuybackPoolConfig[] memory pools = new REVBuybackPoolConfig[](1);
-        pools[0] = REVBuybackPoolConfig({token: JBConstants.NATIVE_TOKEN, fee: 10_000, twapWindow: 2 days});
-
         vm.prank(multisig());
         revnetId = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: config,
             terminalConfigurations: terminalConfigs,
-            buybackHookConfiguration: REVBuybackHookConfig({
-                dataHook: IJBRulesetDataHook(address(0)),
-                hookToConfigure: IJBBuybackHook(address(0)),
-                poolConfigurations: pools
-            }),
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0),
                 salt: keccak256(abi.encodePacked("AUTOISSUE", numStages))
@@ -156,7 +146,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
         });
     }
 
-    // ───────────────────── Stage ID computation ─────────────────────
+    // ───────────────── Stage ID computation ─────────────────────
 
     /// @notice Verify all auto-issuance storage keys match block.timestamp + i for 3 stages.
     function test_stageIdComputation_3stages() external {
@@ -170,7 +160,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
         }
     }
 
-    // ───────────────────── Multi-stage claiming ─────────────────────
+    // ───────────────── Multi-stage claiming ─────────────────────
 
     /// @notice Deploy 3-stage revnet, advance time, claim auto-issuance from each stage.
     function test_multiStage_allStagesClaimable() external {
@@ -209,7 +199,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
         );
     }
 
-    // ───────────────────── Wrong stageId reverts ─────────────────────
+    // ───────────────── Wrong stageId reverts ─────────────────────
 
     /// @notice Calling autoIssueFor with wrong stageId reverts with NothingToAutoIssue.
     function test_stageIdMismatch_nothingToAutoIssue() external {
@@ -222,7 +212,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
         REV_DEPLOYER.autoIssueFor(revnetId, wrongStageId, multisig());
     }
 
-    // ───────────────────── Double claim prevented ─────────────────────
+    // ───────────────── Double claim prevented ─────────────────────
 
     /// @notice Claiming once zeroes storage; second claim reverts.
     function test_autoIssue_doubleClaimPrevented() external {
@@ -243,7 +233,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
         REV_DEPLOYER.autoIssueFor(revnetId, stageIds[0], multisig());
     }
 
-    // ───────────────────── Stage not started ─────────────────────
+    // ───────────────── Stage not started ─────────────────────
 
     /// @notice Calling autoIssueFor before stage start time reverts.
     function test_stageNotStarted_reverts() external {
@@ -255,7 +245,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
         REV_DEPLOYER.autoIssueFor(revnetId, stageIds[1], multisig());
     }
 
-    // ───────────────────── H-5: Stage ID vs Ruleset ID comparison ─────────────────────
+    // ───────────────── H-5: Stage ID vs Ruleset ID comparison ─────────────────────
 
     /// @notice H-5 EXPLORATION: Compare stored stageIds with actual ruleset IDs.
     /// Stage IDs use block.timestamp + i during deployment.
