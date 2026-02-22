@@ -75,6 +75,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     error REVDeployer_StageNotStarted(uint256 stageId);
     error REVDeployer_StagesRequired();
     error REVDeployer_StageTimesMustIncrease();
+    error REVDeployer_NothingToBurn();
     error REVDeployer_Unauthorized(uint256 revnetId, address caller);
 
     //*********************************************************************//
@@ -794,6 +795,16 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         });
 
         return (revnetId, hook);
+    }
+
+    /// @notice Burn any of a revnet's tokens held by this contract.
+    /// @dev Project tokens can end up here from reserved token distribution when splits don't sum to 100%.
+    /// @param revnetId The ID of the revnet whose tokens should be burned.
+    function burnHeldTokensOf(uint256 revnetId) external override {
+        uint256 balance = CONTROLLER.TOKENS().totalBalanceOf(address(this), revnetId);
+        if (balance == 0) revert REVDeployer_NothingToBurn();
+        CONTROLLER.burnTokensOf(address(this), revnetId, balance, "");
+        emit BurnHeldTokens(revnetId, balance, _msgSender());
     }
 
     /// @notice Change a revnet's split operator.
