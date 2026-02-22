@@ -862,6 +862,10 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, newCollateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         uint256 amountDiff = borrowableFromNewCollateral > loan.amount ? 0 : loan.amount - borrowableFromNewCollateral;
+
+        // Skip fuzz runs where both repay amount and collateral return are zero (M-27 fix rejects these).
+        vm.assume(amountDiff > 0 || collateralReturned > 0);
+
         uint256 maxAmountPaidDown = loan.amount;
 
         // Calculate the fee.
