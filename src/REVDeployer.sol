@@ -205,6 +205,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
 
         // Give the sucker registry permission to map tokens for all revnets.
         _setPermission({operator: address(SUCKER_REGISTRY), revnetId: 0, permissionId: JBPermissionIds.MAP_SUCKER_TOKEN});
+
+        // Give the loan contract permission to use the surplus allowance of all revnets.
+        _setPermission({operator: LOANS, revnetId: 0, permissionId: JBPermissionIds.USE_ALLOWANCE});
     }
 
     //*********************************************************************//
@@ -1044,9 +1047,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
                 }
             }
         }
-
-        // Give the loan contract permission to use the revnet's surplus allowance.
-        _setPermission({operator: LOANS, revnetId: revnetId, permissionId: JBPermissionIds.USE_ALLOWANCE});
 
         // Give the split operator their permissions.
         _setSplitOperatorOf({revnetId: revnetId, operator: configuration.splitOperator});

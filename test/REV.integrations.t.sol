@@ -391,6 +391,30 @@ contract REVnet_Integrations is TestBaseWorkflow, JBTest {
         }
     }
 
+    function test_loans_has_use_allowance_permission() public view {
+        // The loans contract should have USE_ALLOWANCE permission for any revnet via the wildcard grant.
+        bool hasPermission = jbPermissions().hasPermission({
+            operator: address(REV_DEPLOYER.LOANS()),
+            account: address(REV_DEPLOYER),
+            projectId: REVNET_ID,
+            permissionId: JBPermissionIds.USE_ALLOWANCE,
+            includeRoot: false,
+            includeWildcardProjectId: true
+        });
+        assertTrue(hasPermission, "LOANS should have USE_ALLOWANCE for deployed revnet");
+
+        // Also holds for a revnet that doesn't exist yet — the wildcard covers all projects.
+        bool hasPermissionForFuture = jbPermissions().hasPermission({
+            operator: address(REV_DEPLOYER.LOANS()),
+            account: address(REV_DEPLOYER),
+            projectId: 999,
+            permissionId: JBPermissionIds.USE_ALLOWANCE,
+            includeRoot: false,
+            includeWildcardProjectId: true
+        });
+        assertTrue(hasPermissionForFuture, "LOANS should have USE_ALLOWANCE for any project via wildcard");
+    }
+
     function test_deployer_not_owner() public {
         // Build the config.
         FeeProjectConfig memory feeProjectConfig = getFeeProjectConfig();
