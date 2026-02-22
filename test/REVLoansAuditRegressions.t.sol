@@ -254,29 +254,15 @@ contract REVLoansAuditRegressions_Local is TestBaseWorkflow, JBTest {
         );
         assertGt(borrowable, 0, "should have borrowable amount");
 
-        // H-6 PROOF: Use vm.expectCall to prove the fake terminal's useAllowanceOf
-        // is called. This works even if the outer call reverts, because expectCall
-        // records the call was made regardless.
-        // The code calls accountingContextForTokenOf first, then useAllowanceOf.
-        vm.expectCall(
-            address(fakeTerminal),
-            abi.encodeWithSelector(IJBTerminal.accountingContextForTokenOf.selector, REVNET_ID, JBConstants.NATIVE_TOKEN)
-        );
-        vm.expectCall(
-            address(fakeTerminal),
-            abi.encodeWithSelector(IJBPayoutTerminal.useAllowanceOf.selector)
-        );
-
-        // The borrow will reach the fake terminal (proving no validation),
-        // but will revert downstream when trying to transfer 0 - fees (underflow).
+        // H-6 FIX: borrowFrom now validates the source terminal is registered in the directory.
+        // The fake terminal is rejected before any calls are made to it.
         vm.prank(USER);
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                REVLoans.REVLoans_InvalidSource.selector, address(fakeTerminal), JBConstants.NATIVE_TOKEN
+            )
+        );
         LOANS_CONTRACT.borrowFrom(REVNET_ID, fakeSource, borrowable, tokens, payable(USER), 500);
-
-        // If we reach here, both vm.expectCall checks passed:
-        // 1. accountingContextForTokenOf was called on the fake terminal
-        // 2. useAllowanceOf was called on the fake terminal
-        // This proves H-6: no directory validation before calling the source terminal
     }
 
     /// @notice Verify that the configured loan source (real terminal) is properly registered.
