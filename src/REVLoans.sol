@@ -381,8 +381,8 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         // If the loan period has passed the prepaid time frame, take a fee.
         if (timeSinceLoanCreated <= loan.prepaidDuration) return 0;
 
-        // If the loan period has passed the liqidation time frame, do not allow loan management.
-        if (timeSinceLoanCreated > LOAN_LIQUIDATION_DURATION) {
+        // If the loan period has reached or passed the liquidation time frame, do not allow loan management.
+        if (timeSinceLoanCreated >= LOAN_LIQUIDATION_DURATION) {
             revert REVLoans_LoanExpired(timeSinceLoanCreated, LOAN_LIQUIDATION_DURATION);
         }
 
@@ -448,20 +448,36 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
             JBAccountingContext memory accountingContext =
                 source.terminal.accountingContextForTokenOf({projectId: revnetId, token: source.token});
 
-            // Normalize the price to the provided currency and decimals.
-            uint256 pricePerUnit = accountingContext.currency == currency
-                ? 10 ** decimals
-                : PRICES.pricePerUnitOf({
+            // Get a reference to the amount of tokens loaned out.
+            uint256 tokensLoaned = totalBorrowedFrom[revnetId][source.terminal][source.token];
+
+            // Skip if no tokens are loaned from this source.
+            if (tokensLoaned == 0) continue;
+
+            // Normalize the token amount from the source's decimals to the target decimals.
+            uint256 normalizedTokens;
+            if (accountingContext.decimals > decimals) {
+                normalizedTokens = tokensLoaned / (10 ** (accountingContext.decimals - decimals));
+            } else if (accountingContext.decimals < decimals) {
+                normalizedTokens = tokensLoaned * (10 ** (decimals - accountingContext.decimals));
+            } else {
+                normalizedTokens = tokensLoaned;
+            }
+
+            // If the currency matches, add the normalized amount directly.
+            if (accountingContext.currency == currency) {
+                borrowedAmount += normalizedTokens;
+            } else {
+                // Otherwise, convert via the price feed.
+                uint256 pricePerUnit = PRICES.pricePerUnitOf({
                     projectId: revnetId,
                     pricingCurrency: accountingContext.currency,
                     unitCurrency: currency,
                     decimals: decimals
                 });
 
-            // Get a reference to the amount of tokens loaned out.
-            uint256 tokensLoaned = totalBorrowedFrom[revnetId][source.terminal][source.token];
-
-            borrowedAmount += mulDiv(tokensLoaned, 10 ** decimals, pricePerUnit);
+                borrowedAmount += mulDiv(normalizedTokens, 10 ** decimals, pricePerUnit);
+            }
         }
     }
 
@@ -626,12 +642,14 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         uint256 prepaidFeePercent
     )
         external
-        payable
         override
         returns (uint256 reallocatedLoanId, uint256 newLoanId, REVLoan memory reallocatedLoan, REVLoan memory newLoan)
     {
         // Make sure only the loan's owner can manage it.
         if (_ownerOf(loanId) != _msgSender()) revert REVLoans_Unauthorized(_msgSender(), _ownerOf(loanId));
+
+        // Make sure no ETH is sent — this function does not accept native tokens.
+        if (msg.value != 0) revert REVLoans_NoMsgValueAllowed();
 
         // Keep a reference to the revnet ID of the loan being reallocated.
         uint256 revnetId = revnetIdOfLoanWith(loanId);

@@ -124,7 +124,6 @@ interface IREVLoans {
         uint256 prepaidFeePercent
     )
         external
-        payable
         returns (uint256 reallocatedLoanId, uint256 newLoanId, REVLoan memory reallocatedLoan, REVLoan memory newLoan);
     function setTokenUriResolver(IJBTokenUriResolver resolver) external;
 }
