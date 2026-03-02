@@ -35,12 +35,12 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 
 | Dependency | Import | Used For |
 |------------|--------|----------|
-| `@bananapus/core-v5` | `IJBController`, `IJBDirectory`, `IJBPermissions`, `IJBProjects`, `IJBTerminal`, `IJBPrices` | Project lifecycle, rulesets, token minting/burning, fund access, terminal payments, price feeds |
-| `@bananapus/721-hook-v5` | `IJB721TiersHook`, `IJB721TiersHookDeployer` | Deploying and registering tiered ERC-721 pay hooks |
-| `@bananapus/buyback-hook-v5` | `IJBBuybackHook` | Configuring Uniswap buyback pools per revnet |
-| `@bananapus/suckers-v5` | `IJBSuckerRegistry` | Deploying cross-chain suckers, checking sucker status for fee exemption |
-| `@croptop/core-v5` | `CTPublisher` | Configuring croptop posting criteria for 721 tiers |
-| `@bananapus/permission-ids-v5` | `JBPermissionIds` | Permission ID constants (SET_SPLIT_GROUPS, USE_ALLOWANCE, etc.) |
+| `@bananapus/core-v6` | `IJBController`, `IJBDirectory`, `IJBPermissions`, `IJBProjects`, `IJBTerminal`, `IJBPrices` | Project lifecycle, rulesets, token minting/burning, fund access, terminal payments, price feeds |
+| `@bananapus/721-hook-v6` | `IJB721TiersHook`, `IJB721TiersHookDeployer` | Deploying and registering tiered ERC-721 pay hooks |
+| `@bananapus/buyback-hook-v6` | `IJBBuybackHook` | Configuring Uniswap buyback pools per revnet |
+| `@bananapus/suckers-v6` | `IJBSuckerRegistry` | Deploying cross-chain suckers, checking sucker status for fee exemption |
+| `@croptop/core-v6` | `CTPublisher` | Configuring croptop posting criteria for 721 tiers |
+| `@bananapus/permission-ids-v6` | `JBPermissionIds` | Permission ID constants (SET_SPLIT_GROUPS, USE_ALLOWANCE, etc.) |
 | `@openzeppelin/contracts` | `ERC721`, `ERC2771Context`, `Ownable`, `SafeERC20` | Loan NFTs, meta-transactions, ownership, safe token transfers |
 | `@uniswap/permit2` | `IPermit2`, `IAllowanceTransfer` | Gasless token approvals for loan repayments |
 | `@prb/math` | `mulDiv` | Precise fixed-point multiplication and division |
@@ -82,12 +82,12 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 ## Example Integration
 
 ```solidity
-import {REVConfig} from "@rev-net/core-v5/src/structs/REVConfig.sol";
-import {REVStageConfig} from "@rev-net/core-v5/src/structs/REVStageConfig.sol";
-import {REVDescription} from "@rev-net/core-v5/src/structs/REVDescription.sol";
-import {REVBuybackHookConfig} from "@rev-net/core-v5/src/structs/REVBuybackHookConfig.sol";
-import {REVSuckerDeploymentConfig} from "@rev-net/core-v5/src/structs/REVSuckerDeploymentConfig.sol";
-import {IREVDeployer} from "@rev-net/core-v5/src/interfaces/IREVDeployer.sol";
+import {REVConfig} from "@rev-net/core-v6/src/structs/REVConfig.sol";
+import {REVStageConfig} from "@rev-net/core-v6/src/structs/REVStageConfig.sol";
+import {REVDescription} from "@rev-net/core-v6/src/structs/REVDescription.sol";
+import {REVBuybackHookConfig} from "@rev-net/core-v6/src/structs/REVBuybackHookConfig.sol";
+import {REVSuckerDeploymentConfig} from "@rev-net/core-v6/src/structs/REVSuckerDeploymentConfig.sol";
+import {IREVDeployer} from "@rev-net/core-v6/src/interfaces/IREVDeployer.sol";
 
 // Deploy a simple revnet with one stage.
 function deployRevnet(IREVDeployer deployer, JBTerminalConfig[] memory terminals) external {
