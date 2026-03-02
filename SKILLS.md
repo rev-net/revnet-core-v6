@@ -79,6 +79,34 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 - `REV_PREPAID_FEE_PERCENT` is `10` (1%) -- this is the protocol-level fee on loans paid to the $REV revnet.
 - `MIN_PREPAID_FEE_PERCENT` is `25` (2.5%) and `MAX_PREPAID_FEE_PERCENT` is `500` (50%) -- bounds on the borrower-chosen prepaid fee.
 
+### CRITICAL: NATIVE_TOKEN Accounting on Non-ETH Chains
+
+When deploying a revnet to a chain where the native token is NOT ETH (e.g. Celo, Polygon), the terminal must NOT use `JBConstants.NATIVE_TOKEN` as its accounting context. `NATIVE_TOKEN` represents whatever is native on that chain (CELO on Celo, MATIC on Polygon), but `baseCurrency=1` (ETH) assumes ETH-denominated value.
+
+**The matching hash does NOT catch this.** It covers economic parameters (baseCurrency, stages, auto-issuances) but NOT terminal configurations, accounting contexts, or sucker token mappings. Two deployments with identical matching hashes can have completely different terminal setups.
+
+**On non-ETH chains:** Use ERC-20 WETH (e.g. `0xD221812de1BD094f35587EE8E174B07B6167D9Af` on Celo) or USDC as the terminal's accounting context.
+
+**Correct (Celo):**
+```solidity
+JBAccountingContext({
+    token: WETH_CELO,     // ERC-20 WETH, not native CELO
+    decimals: 18,
+    currency: uint32(uint160(WETH_CELO))
+})
+```
+
+**Wrong (Celo):**
+```solidity
+JBAccountingContext({
+    token: JBConstants.NATIVE_TOKEN,  // This is CELO, not ETH!
+    decimals: 18,
+    currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+})
+```
+
+See also: `SECURITY.md` in this repo and INTEROP-6 in `AUDIT_FINDINGS.md`.
+
 ## Example Integration
 
 ```solidity
