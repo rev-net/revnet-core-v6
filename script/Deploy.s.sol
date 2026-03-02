@@ -79,8 +79,8 @@ contract DeployScript is Script, Sphinx {
     function configureSphinx() public override {
         // TODO: Update to contain revnet devs.
         sphinxConfig.projectName = "revnet-core-v5";
-        sphinxConfig.mainnets = ["ethereum", "optimism", "base", "arbitrum"];
-        sphinxConfig.testnets = ["ethereum_sepolia", "optimism_sepolia", "base_sepolia", "arbitrum_sepolia"];
+        sphinxConfig.mainnets = ["ethereum", "optimism", "base", "arbitrum", "celo"];
+        sphinxConfig.testnets = ["ethereum_sepolia", "optimism_sepolia", "base_sepolia", "arbitrum_sepolia", "celo_sepolia"];
     }
 
     function run() public {
@@ -263,6 +263,15 @@ contract DeployScript is Script, Sphinx {
 
                 suckerDeployerConfigurations[2] =
                     JBSuckerDeployerConfig({deployer: suckers.arbitrumDeployer, mappings: tokenMappings});
+            } else if (block.chainid == 42_220) {
+                // Celo Mainnet -> L1 (via CCIP). CCIP not available on Celo Sepolia.
+                suckerDeployerConfigurations = new JBSuckerDeployerConfig[](1);
+                suckerDeployerConfigurations[0] =
+                    JBSuckerDeployerConfig({deployer: suckers.celoDeployer, mappings: tokenMappings});
+
+                if (address(suckerDeployerConfigurations[0].deployer) == address(0)) {
+                    revert("Celo > L1 CCIP Sucker is not configured");
+                }
             } else {
                 suckerDeployerConfigurations = new JBSuckerDeployerConfig[](1);
                 // L2 -> Mainnet
