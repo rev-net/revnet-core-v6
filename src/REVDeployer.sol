@@ -664,19 +664,16 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         });
     }
 
-    /// @notice Launch a revnet, or convert an existing Juicebox project into a revnet.
-    /// @dev When converting an existing project (revnetId != 0), be aware of the following:
-    /// - Pre-existing token supply is not accounted for by the new revnet economics. The revnet's issuance rate,
-    ///   cash-out tax rate, and auto-issuance schedules will apply on top of any tokens already in circulation.
-    /// - Existing token holders may experience dilution from new issuance or changes in cash-out value
-    ///   depending on the revnet's stage configurations.
-    /// - Conversion is a one-way operation: the project's ownership NFT is permanently transferred to this
+    /// @notice Launch a revnet, or initialize an existing Juicebox project as a revnet.
+    /// @dev When initializing an existing project (revnetId != 0):
+    /// - The project must not yet have a controller or rulesets. `JBController.launchRulesetsFor` enforces this —
+    ///   it reverts if rulesets have already been launched, and `JBDirectory.setControllerOf` only allows setting the
+    ///   first controller. This means conversion only works for blank projects (just an ID with no on-chain state).
+    /// - This is useful in deploy scripts where the project ID is needed before configuration (e.g. for cross-chain
+    ///   sucker peer mappings): create the project first, then initialize it as a revnet here.
+    /// - Initialization is a one-way operation: the project's ownership NFT is permanently transferred to this
     ///   REVDeployer, and the project becomes subject to immutable revnet rules. This cannot be undone.
-    /// - The project owner is responsible for communicating the conversion and its economic implications to
-    ///   existing token holders before calling this function.
-    /// - This is by design: the project owner must explicitly initiate the conversion by calling this function
-    ///   (which transfers their JBProjects NFT), signaling informed consent.
-    /// @param revnetId The ID of the Juicebox project to turn into a revnet. Send 0 to deploy a new revnet.
+    /// @param revnetId The ID of the Juicebox project to initialize as a revnet. Send 0 to deploy a new revnet.
     /// @param configuration Core revnet configuration. See `REVConfig`.
     /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
     /// @param buybackHookConfiguration The buyback hook and pools to set up for the revnet.
@@ -761,10 +758,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     }
 
     /// @notice Launch a revnet which sells tiered ERC-721s and (optionally) allows croptop posts to its ERC-721 tiers.
-    /// @dev When converting an existing project (revnetId != 0), the same caveats from `deployFor` apply:
-    /// pre-existing token supply is not accounted for, existing holders may be affected by new economics,
-    /// and the conversion is irreversible. See `deployFor` documentation for full details.
-    /// @param revnetId The ID of the Juicebox project to turn into a revnet. Send 0 to deploy a new revnet.
+    /// @dev When initializing an existing project (revnetId != 0), the project must be blank (no controller or
+    /// rulesets). The initialization is irreversible. See `deployFor` documentation for full details.
+    /// @param revnetId The ID of the Juicebox project to initialize as a revnet. Send 0 to deploy a new revnet.
     /// @param configuration Core revnet configuration. See `REVConfig`.
     /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
     /// @param buybackHookConfiguration The buyback hook and pools to set up for the revnet.
@@ -958,14 +954,14 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         });
     }
 
-    /// @notice Deploy a revnet, or convert an existing Juicebox project into a revnet.
-    /// @dev When converting an existing project (`shouldDeployNewRevnet == false`):
+    /// @notice Deploy a revnet, or initialize an existing Juicebox project as a revnet.
+    /// @dev When initializing an existing project (`shouldDeployNewRevnet == false`):
+    /// - The project must be blank — no controller or rulesets. This is enforced by `JBController.launchRulesetsFor`,
+    ///   which reverts if rulesets exist, and by `JBDirectory.setControllerOf`, which only allows setting the first
+    ///   controller. Without a controller, no tokens or terminals can exist, so the project is guaranteed to be
+    ///   uninitialized.
     /// - The project's JBProjects NFT is permanently transferred to this contract. This is irreversible.
-    /// - Pre-existing tokens remain in circulation but are not factored into the revnet's economic model.
-    ///   The initial issuance weight, cash-out tax curves, and auto-issuance splits treat the pre-existing
-    ///   supply as external to the revnet's lifecycle.
-    /// - The project owner should ensure existing holders understand the new economics before converting.
-    /// @param revnetId The ID of the Juicebox project to turn into a revnet. Send 0 to deploy a new revnet.
+    /// @param revnetId The ID of the Juicebox project to initialize as a revnet. Send 0 to deploy a new revnet.
     /// @param shouldDeployNewRevnet Whether to deploy a new revnet or convert an existing Juicebox project into a
     /// revnet.
     /// @param configuration Core revnet configuration. See `REVConfig`.
@@ -1010,10 +1006,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             // Make sure the caller is the owner of the Juicebox project.
             if (_msgSender() != owner) revert REVDeployer_Unauthorized(revnetId, _msgSender());
 
-            // If we're converting an existing Juicebox project into a revnet,
-            // transfer the `JBProjects` NFT to this deployer.
-            // Note: Any pre-existing token supply will persist but is not accounted for
-            // by the revnet's economic model. See the @dev note above for details.
+            // Initialize the existing Juicebox project as a revnet by
+            // transferring the `JBProjects` NFT to this deployer. This is irreversible.
             IERC721(PROJECTS).safeTransferFrom({from: owner, to: address(this), tokenId: revnetId});
 
             // Launch the revnet rulesets for the pre-existing project.
