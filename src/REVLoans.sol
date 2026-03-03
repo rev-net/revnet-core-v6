@@ -648,8 +648,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         // Make sure only the loan's owner can manage it.
         if (_ownerOf(loanId) != _msgSender()) revert REVLoans_Unauthorized(_msgSender(), _ownerOf(loanId));
 
-        // Make sure no ETH is sent — this function does not accept native tokens.
-        if (msg.value != 0) revert REVLoans_NoMsgValueAllowed();
+        // Note: this function is not payable, so the EVM prevents sending ETH at the call level.
 
         // Keep a reference to the revnet ID of the loan being reallocated.
         uint256 revnetId = revnetIdOfLoanWith(loanId);
