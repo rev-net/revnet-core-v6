@@ -60,7 +60,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBBuybackHookRegistry(address(0)), TRUSTED_FORWARDER
+            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBRulesetDataHook(address(0)), TRUSTED_FORWARDER
         );
 
         vm.prank(multisig());

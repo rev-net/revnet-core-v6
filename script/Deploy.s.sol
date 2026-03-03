@@ -20,6 +20,7 @@ import {JBTokenMapping} from "@bananapus/suckers-v5/src/structs/JBTokenMapping.s
 import {IPermit2} from "@uniswap/permit2/src/interfaces/IPermit2.sol";
 import {IJBSplitHook} from "@bananapus/core-v5/src/interfaces/IJBSplitHook.sol";
 import {IJBTerminal} from "@bananapus/core-v5/src/interfaces/IJBTerminal.sol";
+import {IJBRulesetDataHook} from "@bananapus/core-v5/src/interfaces/IJBRulesetDataHook.sol";
 import {JBSplit} from "@bananapus/core-v5/src/structs/JBSplit.sol";
 
 import {REVDeployer} from "./../src/REVDeployer.sol";
@@ -291,7 +292,7 @@ contract DeployScript is Script, Sphinx {
                     FEE_PROJECT_ID,
                     hook.hook_deployer,
                     croptop.publisher,
-                    buybackHook.registry
+                    IJBRulesetDataHook(address(buybackHook.registry))
                 )
             );
 
@@ -302,7 +303,7 @@ contract DeployScript is Script, Sphinx {
                     FEE_PROJECT_ID,
                     hook.hook_deployer,
                     croptop.publisher,
-                    buybackHook.registry,
+                    IJBRulesetDataHook(address(buybackHook.registry)),
                     TRUSTED_FORWARDER
                 )
                 : REVDeployer(payable(_deployer));

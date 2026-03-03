@@ -9,7 +9,7 @@ import {IJBPermissions} from "@bananapus/core-v5/src/interfaces/IJBPermissions.s
 import {IJBProjects} from "@bananapus/core-v5/src/interfaces/IJBProjects.sol";
 import {JBRulesetConfig} from "@bananapus/core-v5/src/structs/JBRulesetConfig.sol";
 import {JBTerminalConfig} from "@bananapus/core-v5/src/structs/JBTerminalConfig.sol";
-import {IJBBuybackHookRegistry} from "@bananapus/buyback-hook-v5/src/interfaces/IJBBuybackHookRegistry.sol";
+import {IJBRulesetDataHook} from "@bananapus/core-v5/src/interfaces/IJBRulesetDataHook.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v5/src/interfaces/IJBSuckerRegistry.sol";
 import {CTPublisher} from "@croptop/core-v5/src/CTPublisher.sol";
 
@@ -58,7 +58,7 @@ interface IREVDeployer {
     function SUCKER_REGISTRY() external view returns (IJBSuckerRegistry);
     function FEE_REVNET_ID() external view returns (uint256);
     function PUBLISHER() external view returns (CTPublisher);
-    function BUYBACK_HOOK_REGISTRY() external view returns (IJBBuybackHookRegistry);
+    function BUYBACK_HOOK() external view returns (IJBRulesetDataHook);
     function HOOK_DEPLOYER() external view returns (IJB721TiersHookDeployer);
 
     function amountToAutoIssue(

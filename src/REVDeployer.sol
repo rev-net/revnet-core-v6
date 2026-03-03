@@ -9,8 +9,6 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {mulDiv} from "@prb/math/src/Common.sol";
 import {IJB721TiersHook} from "@bananapus/721-hook-v5/src/interfaces/IJB721TiersHook.sol";
 import {IJB721TiersHookDeployer} from "@bananapus/721-hook-v5/src/interfaces/IJB721TiersHookDeployer.sol";
-import {IJBBuybackHook} from "@bananapus/buyback-hook-v5/src/interfaces/IJBBuybackHook.sol";
-import {IJBBuybackHookRegistry} from "@bananapus/buyback-hook-v5/src/interfaces/IJBBuybackHookRegistry.sol";
 import {IJBCashOutHook} from "@bananapus/core-v5/src/interfaces/IJBCashOutHook.sol";
 import {IJBController} from "@bananapus/core-v5/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v5/src/interfaces/IJBDirectory.sol";
@@ -93,20 +91,12 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @dev When suckers withdraw funds, they do not pay cash out fees.
     uint256 public constant override FEE = 25; // 2.5%
 
-    /// @notice The default Uniswap V3 fee tier used when auto-configuring buyback pools during deployment.
-    /// @dev 10000 = 1% fee tier, which is standard for new/low-liquidity token pairs.
-    uint24 public constant DEFAULT_POOL_FEE = 10_000;
-
-    /// @notice The default TWAP window (in seconds) used when auto-configuring buyback pools during deployment.
-    /// @dev 30 minutes. The buyback hook enforces bounds of 5 minutes to 2 days.
-    uint256 public constant DEFAULT_TWAP_WINDOW = 1800;
-
     //*********************************************************************//
     // --------------- public immutable stored properties ---------------- //
     //*********************************************************************//
 
-    /// @notice The buyback hook registry used to route payments through buyback hooks.
-    IJBBuybackHookRegistry public immutable override BUYBACK_HOOK_REGISTRY;
+    /// @notice The buyback hook used as a data hook to route payments through buyback pools.
+    IJBRulesetDataHook public immutable override BUYBACK_HOOK;
 
     /// @notice The controller used to create and manage Juicebox projects for revnets.
     IJBController public immutable override CONTROLLER;
@@ -186,7 +176,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @param feeRevnetId The Juicebox project ID of the revnet that will receive fees.
     /// @param hookDeployer The deployer to use for revnet's tiered ERC-721 hooks.
     /// @param publisher The croptop publisher revnets can use to publish ERC-721 posts to their tiered ERC-721 hooks.
-    /// @param buybackHookRegistry The buyback hook registry used to route payments through buyback hooks.
+    /// @param buybackHook The buyback hook used as a data hook to route payments through buyback pools.
     /// @param trustedForwarder The trusted forwarder for the ERC2771Context.
     constructor(
         IJBController controller,
@@ -194,7 +184,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         uint256 feeRevnetId,
         IJB721TiersHookDeployer hookDeployer,
         CTPublisher publisher,
-        IJBBuybackHookRegistry buybackHookRegistry,
+        IJBRulesetDataHook buybackHook,
         address trustedForwarder
     )
         ERC2771Context(trustedForwarder)
@@ -207,7 +197,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         FEE_REVNET_ID = feeRevnetId;
         HOOK_DEPLOYER = hookDeployer;
         PUBLISHER = publisher;
-        BUYBACK_HOOK_REGISTRY = buybackHookRegistry;
+        BUYBACK_HOOK = buybackHook;
 
         // Give the sucker registry permission to map tokens for all revnets.
         _setPermission({operator: address(SUCKER_REGISTRY), revnetId: 0, permissionId: JBPermissionIds.MAP_SUCKER_TOKEN});
@@ -230,11 +220,19 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         override
         returns (uint256 weight, JBPayHookSpecification[] memory hookSpecifications)
     {
-        // Keep a reference to the specifications provided by the buyback hook registry.
+        // Keep a reference to the specifications provided by the buyback hook.
         JBPayHookSpecification[] memory buybackHookSpecifications;
 
-        // Delegate to the buyback hook registry.
-        (weight, buybackHookSpecifications) = BUYBACK_HOOK_REGISTRY.beforePayRecordedWith(context);
+        // Read the weight and specifications from the buyback hook.
+        // If there's no buyback hook, use the default weight.
+        if (BUYBACK_HOOK != IJBRulesetDataHook(address(0))) {
+            (weight, buybackHookSpecifications) = BUYBACK_HOOK.beforePayRecordedWith(context);
+        } else {
+            weight = context.weight;
+        }
+
+        // Is there a buyback hook specification?
+        bool usesBuybackHook = buybackHookSpecifications.length == 1;
 
         // Keep a reference to the revnet's tiered ERC-721 hook.
         IJB721TiersHook tiered721Hook = tiered721HookOf[context.projectId];
@@ -242,8 +240,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         // Is there a tiered ERC-721 hook?
         bool usesTiered721Hook = address(tiered721Hook) != address(0);
 
-        // Initialize the returned specification array.
-        hookSpecifications = new JBPayHookSpecification[]((usesTiered721Hook ? 1 : 0) + 1);
+        // Initialize the returned specification array with enough room to include the specifications we're using.
+        hookSpecifications = new JBPayHookSpecification[]((usesTiered721Hook ? 1 : 0) + (usesBuybackHook ? 1 : 0));
 
         // If we have a tiered ERC-721 hook, add it to the array.
         if (usesTiered721Hook) {
@@ -251,8 +249,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
                 JBPayHookSpecification({hook: IJBPayHook(address(tiered721Hook)), amount: 0, metadata: bytes("")});
         }
 
-        // Add the buyback hook specification.
-        hookSpecifications[usesTiered721Hook ? 1 : 0] = buybackHookSpecifications[0];
+        // If we have a buyback hook specification, add it to the end of the array.
+        if (usesBuybackHook) hookSpecifications[hookSpecifications.length - 1] = buybackHookSpecifications[0];
     }
 
     /// @notice Determine how a cash out from a revnet should be processed.
@@ -345,10 +343,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         override
         returns (bool)
     {
-        // The loans contract, buyback hook registry (and its delegates), and suckers are allowed to mint the revnet's
-        // tokens.
-        return addr == loansOf[revnetId] || addr == address(BUYBACK_HOOK_REGISTRY)
-            || BUYBACK_HOOK_REGISTRY.hasMintPermissionFor(revnetId, ruleset, addr)
+        // The loans contract, buyback hook (and its delegates), and suckers are allowed to mint the revnet's tokens.
+        return addr == loansOf[revnetId] || addr == address(BUYBACK_HOOK)
+            || (BUYBACK_HOOK != IJBRulesetDataHook(address(0)) && BUYBACK_HOOK.hasMintPermissionFor(revnetId, ruleset, addr))
             || _isSuckerOf({revnetId: revnetId, addr: addr});
     }
 
@@ -1004,10 +1001,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             salt: keccak256(abi.encode(configuration.description.salt, encodedConfigurationHash, _msgSender()))
         });
 
-        // Set up buyback pools for each terminal token using sensible defaults.
-        // Reads tokens from terminal accounting contexts. Silently skips if the Uniswap pool doesn't exist yet.
-        _setupBuybackPools({revnetId: revnetId, terminalConfigurations: terminalConfigurations});
-
         // If specified, set up the loan contract.
         if (configuration.loans != address(0)) {
             _setPermission({
@@ -1072,32 +1065,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             salt: keccak256(abi.encode(encodedConfigurationHash, suckerDeploymentConfiguration.salt, _msgSender())),
             configurations: suckerDeploymentConfiguration.deployerConfigurations
         });
-    }
-
-    /// @notice Set up buyback pools for each terminal token using default fee and TWAP window.
-    /// @dev Reads terminal tokens from accounting contexts. Silently skips if the Uniswap pool doesn't exist.
-    /// @param revnetId The ID of the revnet to set up buyback pools for.
-    /// @param terminalConfigurations The terminal configurations containing accounting contexts with token addresses.
-    function _setupBuybackPools(
-        uint256 revnetId,
-        JBTerminalConfig[] calldata terminalConfigurations
-    )
-        internal
-    {
-        // Iterate over terminal configurations to find terminal tokens.
-        for (uint256 i; i < terminalConfigurations.length; i++) {
-            JBAccountingContext[] calldata contexts = terminalConfigurations[i].accountingContextsToAccept;
-            for (uint256 j; j < contexts.length; j++) {
-                // Try to set up a pool for this token with default fee and TWAP window.
-                // Silently continues if the pool doesn't exist on Uniswap.
-                try IJBBuybackHook(address(BUYBACK_HOOK_REGISTRY.hookOf(revnetId))).setPoolFor({
-                    projectId: revnetId,
-                    fee: DEFAULT_POOL_FEE,
-                    twapWindow: DEFAULT_TWAP_WINDOW,
-                    terminalToken: contexts[j].token
-                }) {} catch {}
-            }
-        }
     }
 
     /// @notice Convert a revnet's stages into a series of Juicebox project rulesets.
