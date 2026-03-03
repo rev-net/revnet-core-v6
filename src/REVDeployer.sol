@@ -224,15 +224,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         JBPayHookSpecification[] memory buybackHookSpecifications;
 
         // Read the weight and specifications from the buyback hook.
-        // If there's no buyback hook, use the default weight.
-        if (BUYBACK_HOOK != IJBRulesetDataHook(address(0))) {
-            (weight, buybackHookSpecifications) = BUYBACK_HOOK.beforePayRecordedWith(context);
-        } else {
-            weight = context.weight;
-        }
-
-        // Is there a buyback hook specification?
-        bool usesBuybackHook = buybackHookSpecifications.length == 1;
+        (weight, buybackHookSpecifications) = BUYBACK_HOOK.beforePayRecordedWith(context);
 
         // Keep a reference to the revnet's tiered ERC-721 hook.
         IJB721TiersHook tiered721Hook = tiered721HookOf[context.projectId];
@@ -240,8 +232,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         // Is there a tiered ERC-721 hook?
         bool usesTiered721Hook = address(tiered721Hook) != address(0);
 
-        // Initialize the returned specification array with enough room to include the specifications we're using.
-        hookSpecifications = new JBPayHookSpecification[]((usesTiered721Hook ? 1 : 0) + (usesBuybackHook ? 1 : 0));
+        // Initialize the returned specification array.
+        hookSpecifications = new JBPayHookSpecification[]((usesTiered721Hook ? 1 : 0) + 1);
 
         // If we have a tiered ERC-721 hook, add it to the array.
         if (usesTiered721Hook) {
@@ -249,8 +241,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
                 JBPayHookSpecification({hook: IJBPayHook(address(tiered721Hook)), amount: 0, metadata: bytes("")});
         }
 
-        // If we have a buyback hook specification, add it to the end of the array.
-        if (usesBuybackHook) hookSpecifications[hookSpecifications.length - 1] = buybackHookSpecifications[0];
+        // Add the buyback hook specification.
+        hookSpecifications[usesTiered721Hook ? 1 : 0] = buybackHookSpecifications[0];
     }
 
     /// @notice Determine how a cash out from a revnet should be processed.
@@ -345,7 +337,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     {
         // The loans contract, buyback hook (and its delegates), and suckers are allowed to mint the revnet's tokens.
         return addr == loansOf[revnetId] || addr == address(BUYBACK_HOOK)
-            || (BUYBACK_HOOK != IJBRulesetDataHook(address(0)) && BUYBACK_HOOK.hasMintPermissionFor(revnetId, ruleset, addr))
+            || BUYBACK_HOOK.hasMintPermissionFor(revnetId, ruleset, addr)
             || _isSuckerOf({revnetId: revnetId, addr: addr});
     }
 
