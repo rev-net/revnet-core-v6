@@ -51,6 +51,8 @@ interface IREVDeployer {
 
     event SetAdditionalOperator(uint256 revnetId, address additionalOperator, uint256[] permissionIds, address caller);
 
+    event BurnHeldTokens(uint256 indexed revnetId, uint256 count, address caller);
+
     function CASH_OUT_DELAY() external view returns (uint256);
     function CONTROLLER() external view returns (IJBController);
     function DIRECTORY() external view returns (IJBDirectory);
@@ -107,4 +109,6 @@ interface IREVDeployer {
         returns (uint256, IJB721TiersHook hook);
 
     function setSplitOperatorOf(uint256 revnetId, address newSplitOperator) external;
+
+    function burnHeldTokensOf(uint256 revnetId) external;
 }

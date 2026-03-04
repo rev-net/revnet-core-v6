@@ -75,6 +75,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     error REVDeployer_StageNotStarted(uint256 stageId);
     error REVDeployer_StagesRequired();
     error REVDeployer_StageTimesMustIncrease();
+    error REVDeployer_NothingToBurn();
     error REVDeployer_Unauthorized(uint256 revnetId, address caller);
 
     //*********************************************************************//
@@ -255,7 +256,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         }
 
         // If we have a buyback hook specification, add it to the end of the array.
-        if (usesBuybackHook) hookSpecifications[1] = buybackHookSpecifications[0];
+        if (usesBuybackHook) hookSpecifications[usesTiered721Hook ? 1 : 0] = buybackHookSpecifications[0];
     }
 
     /// @notice Determine how a cash out from a revnet should be processed.
@@ -544,17 +545,18 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         uint256[] memory customSplitOperatorPermissionIndexes = _extraOperatorPermissions[revnetId];
 
         // Make the array that merges the default and custom operator permissions.
-        allOperatorPermissions = new uint256[](6 + customSplitOperatorPermissionIndexes.length);
+        allOperatorPermissions = new uint256[](7 + customSplitOperatorPermissionIndexes.length);
         allOperatorPermissions[0] = JBPermissionIds.SET_SPLIT_GROUPS;
         allOperatorPermissions[1] = JBPermissionIds.SET_BUYBACK_POOL;
         allOperatorPermissions[2] = JBPermissionIds.SET_BUYBACK_TWAP;
         allOperatorPermissions[3] = JBPermissionIds.SET_PROJECT_URI;
         allOperatorPermissions[4] = JBPermissionIds.ADD_PRICE_FEED;
         allOperatorPermissions[5] = JBPermissionIds.SUCKER_SAFETY;
+        allOperatorPermissions[6] = JBPermissionIds.ADD_SWAP_TERMINAL_POOL;
 
         // Copy the custom permissions into the array.
         for (uint256 i; i < customSplitOperatorPermissionIndexes.length; i++) {
-            allOperatorPermissions[6 + i] = customSplitOperatorPermissionIndexes[i];
+            allOperatorPermissions[7 + i] = customSplitOperatorPermissionIndexes[i];
         }
     }
 
@@ -565,6 +567,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @notice Processes the fee from a cash out.
     /// @param context Cash out context passed in by the terminal.
     function afterCashOutRecordedWith(JBAfterCashOutRecordedContext calldata context) external payable {
+        // No caller validation needed — this hook only pays fees to the fee project using funds forwarded by the caller.
+        // A non-terminal caller would just be donating their own funds as fees. There's nothing to exploit.
+
         // If there's sufficient approval, transfer normally.
         if (context.forwardedAmount.token != JBConstants.NATIVE_TOKEN) {
             IERC20(context.forwardedAmount.token).safeTransferFrom({
@@ -664,8 +669,16 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         });
     }
 
-    /// @notice Launch a revnet, or convert an existing Juicebox project into a revnet.
-    /// @param revnetId The ID of the Juicebox project to turn into a revnet. Send 0 to deploy a new revnet.
+    /// @notice Launch a revnet, or initialize an existing Juicebox project as a revnet.
+    /// @dev When initializing an existing project (revnetId != 0):
+    /// - The project must not yet have a controller or rulesets. `JBController.launchRulesetsFor` enforces this —
+    ///   it reverts if rulesets have already been launched, and `JBDirectory.setControllerOf` only allows setting the
+    ///   first controller. This means conversion only works for blank projects (just an ID with no on-chain state).
+    /// - This is useful in deploy scripts where the project ID is needed before configuration (e.g. for cross-chain
+    ///   sucker peer mappings): create the project first, then initialize it as a revnet here.
+    /// - Initialization is a one-way operation: the project's ownership NFT is permanently transferred to this
+    ///   REVDeployer, and the project becomes subject to immutable revnet rules. This cannot be undone.
+    /// @param revnetId The ID of the Juicebox project to initialize as a revnet. Send 0 to deploy a new revnet.
     /// @param configuration Core revnet configuration. See `REVConfig`.
     /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
     /// @param buybackHookConfiguration The buyback hook and pools to set up for the revnet.
@@ -750,7 +763,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     }
 
     /// @notice Launch a revnet which sells tiered ERC-721s and (optionally) allows croptop posts to its ERC-721 tiers.
-    /// @param revnetId The ID of the Juicebox project to turn into a revnet. Send 0 to deploy a new revnet.
+    /// @dev When initializing an existing project (revnetId != 0), the project must be blank (no controller or
+    /// rulesets). The initialization is irreversible. See `deployFor` documentation for full details.
+    /// @param revnetId The ID of the Juicebox project to initialize as a revnet. Send 0 to deploy a new revnet.
     /// @param configuration Core revnet configuration. See `REVConfig`.
     /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
     /// @param buybackHookConfiguration The buyback hook and pools to set up for the revnet.
@@ -794,6 +809,16 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         });
 
         return (revnetId, hook);
+    }
+
+    /// @notice Burn any of a revnet's tokens held by this contract.
+    /// @dev Project tokens can end up here from reserved token distribution when splits don't sum to 100%.
+    /// @param revnetId The ID of the revnet whose tokens should be burned.
+    function burnHeldTokensOf(uint256 revnetId) external override {
+        uint256 balance = CONTROLLER.TOKENS().totalBalanceOf(address(this), revnetId);
+        if (balance == 0) revert REVDeployer_NothingToBurn();
+        CONTROLLER.burnTokensOf(address(this), revnetId, balance, "");
+        emit BurnHeldTokens(revnetId, balance, _msgSender());
     }
 
     /// @notice Change a revnet's split operator.
@@ -944,8 +969,14 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         });
     }
 
-    /// @notice Deploy a revnet, or convert an existing Juicebox project into a revnet.
-    /// @param revnetId The ID of the Juicebox project to turn into a revnet. Send 0 to deploy a new revnet.
+    /// @notice Deploy a revnet, or initialize an existing Juicebox project as a revnet.
+    /// @dev When initializing an existing project (`shouldDeployNewRevnet == false`):
+    /// - The project must be blank — no controller or rulesets. This is enforced by `JBController.launchRulesetsFor`,
+    ///   which reverts if rulesets exist, and by `JBDirectory.setControllerOf`, which only allows setting the first
+    ///   controller. Without a controller, no tokens or terminals can exist, so the project is guaranteed to be
+    ///   uninitialized.
+    /// - The project's JBProjects NFT is permanently transferred to this contract. This is irreversible.
+    /// @param revnetId The ID of the Juicebox project to initialize as a revnet. Send 0 to deploy a new revnet.
     /// @param shouldDeployNewRevnet Whether to deploy a new revnet or convert an existing Juicebox project into a
     /// revnet.
     /// @param configuration Core revnet configuration. See `REVConfig`.
@@ -990,8 +1021,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             // Make sure the caller is the owner of the Juicebox project.
             if (_msgSender() != owner) revert REVDeployer_Unauthorized(revnetId, _msgSender());
 
-            // If we're converting an existing Juicebox project into a revnet,
-            // transfer the `JBProjects` NFT to this deployer.
+            // Initialize the existing Juicebox project as a revnet by
+            // transferring the `JBProjects` NFT to this deployer. This is irreversible.
             IERC721(PROJECTS).safeTransferFrom({from: owner, to: address(this), tokenId: revnetId});
 
             // Launch the revnet rulesets for the pre-existing project.
@@ -1111,6 +1142,13 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     }
 
     /// @notice Convert a revnet's stages into a series of Juicebox project rulesets.
+    /// @dev Stage transitions affect outstanding loan health. When a new stage activates, parameters such as
+    /// `cashOutTaxRate` and `weight` change, which directly impact the borrowable amount calculated by
+    /// `REVLoans._borrowableAmountFrom`. Loans originated under a previous stage's parameters may become
+    /// under-collateralized if the new stage has a higher `cashOutTaxRate` (reducing the borrowable amount per unit
+    /// of collateral) or lower issuance weight (reducing the surplus-per-token ratio). Borrowers should monitor
+    /// upcoming stage transitions and adjust their positions accordingly, as loans that fall below their required
+    /// collateralization may become eligible for liquidation.
     /// @param revnetId The ID of the revnet to make rulesets for.
     /// @param configuration The configuration containing the revnet's stages.
     /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
