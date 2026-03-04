@@ -445,4 +445,181 @@ contract TestPR11_LowFindings is TestBaseWorkflow, JBTest {
         assertEq(loanAfter.collateral, 0, "Loan collateral should be 0 after liquidation");
         assertEq(loanAfter.createdAt, 0, "Loan createdAt should be 0 after liquidation");
     }
+
+    /// @notice Partial repay (return some but not all collateral) clears old loan storage
+    /// and creates a replacement loan. Exercises the `else` branch in `_repayLoan`.
+    function test_partialRepay_clearsOldLoanStorage() public {
+        uint256 revnetId = _deploySingleStageRevnet();
+
+        // Pay ETH into revnet to get tokens.
+        vm.prank(USER);
+        uint256 tokens =
+            jbMultiTerminal().pay{value: 10 ether}(revnetId, JBConstants.NATIVE_TOKEN, 10 ether, USER, 0, "", "");
+
+        uint256 loanable = LOANS_CONTRACT.borrowableAmountFrom(
+            revnetId, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
+        );
+        vm.assume(loanable > 0);
+
+        // Mock permission for BURN (permission ID 10).
+        mockExpect(
+            address(jbPermissions()),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, revnetId, 10, true, true)),
+            abi.encode(true)
+        );
+
+        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        uint256 minPrepaid = LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT();
+
+        vm.prank(USER);
+        (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(revnetId, source, loanable, tokens, payable(USER), minPrepaid);
+
+        REVLoan memory loanBefore = LOANS_CONTRACT.loanOf(loanId);
+        assertGt(loanBefore.collateral, 1, "Need >1 collateral for partial return");
+
+        // Partial repay: return HALF the collateral (triggers else branch in _repayLoan).
+        uint256 halfCollateral = loanBefore.collateral / 2;
+        JBSingleAllowance memory allowance;
+
+        // Send loan.amount as maxRepay — more than enough for partial repay.
+        vm.prank(USER);
+        (uint256 newLoanId, REVLoan memory newLoan) = LOANS_CONTRACT.repayLoan{value: loanBefore.amount}(
+            loanId, loanBefore.amount, halfCollateral, payable(USER), allowance
+        );
+
+        // Old loan storage should be cleared (the delete we're testing).
+        REVLoan memory oldLoan = LOANS_CONTRACT.loanOf(loanId);
+        assertEq(oldLoan.amount, 0, "Old loan amount should be 0 after partial repay");
+        assertEq(oldLoan.collateral, 0, "Old loan collateral should be 0 after partial repay");
+        assertEq(oldLoan.createdAt, 0, "Old loan createdAt should be 0 after partial repay");
+
+        // New replacement loan should exist with remaining values.
+        assertGt(newLoan.amount, 0, "New loan should have amount");
+        assertGt(newLoan.collateral, 0, "New loan should have collateral");
+        assertLt(newLoan.amount, loanBefore.amount, "New loan amount should be less than original");
+
+        // Verify via storage read too (not just return value).
+        REVLoan memory newLoanFromStorage = LOANS_CONTRACT.loanOf(newLoanId);
+        assertEq(newLoanFromStorage.amount, newLoan.amount, "Storage should match return value");
+    }
+
+    /// @notice Repaying with excess ETH correctly refunds the difference.
+    /// This tests the sourceToken caching fix — before the fix, `loan.source.token` was read
+    /// after `_repayLoan` deleted the storage, yielding `address(0)` and reverting.
+    function test_repayLoan_refundsExcessWithCorrectToken() public {
+        uint256 revnetId = _deploySingleStageRevnet();
+
+        // Pay ETH into revnet to get tokens.
+        vm.prank(USER);
+        uint256 tokens =
+            jbMultiTerminal().pay{value: 10 ether}(revnetId, JBConstants.NATIVE_TOKEN, 10 ether, USER, 0, "", "");
+
+        uint256 loanable = LOANS_CONTRACT.borrowableAmountFrom(
+            revnetId, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
+        );
+        vm.assume(loanable > 0);
+
+        // Mock permission for BURN (permission ID 10).
+        mockExpect(
+            address(jbPermissions()),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, revnetId, 10, true, true)),
+            abi.encode(true)
+        );
+
+        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        uint256 minPrepaid = LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT();
+
+        vm.prank(USER);
+        (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(revnetId, source, loanable, tokens, payable(USER), minPrepaid);
+
+        REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
+
+        // Partial repay returning half collateral. Send 2x the loan amount — guaranteed excess.
+        uint256 halfCollateral = loan.collateral / 2;
+        uint256 excessivePayment = loan.amount * 2;
+
+        uint256 balBefore = USER.balance;
+        JBSingleAllowance memory allowance;
+
+        vm.prank(USER);
+        LOANS_CONTRACT.repayLoan{value: excessivePayment}(
+            loanId, excessivePayment, halfCollateral, payable(USER), allowance
+        );
+
+        uint256 balAfter = USER.balance;
+
+        // User sent `excessivePayment` but should get excess back.
+        // Net cost = repayBorrowAmount (includes fee). Must be less than loan.amount.
+        uint256 netCost = balBefore - balAfter;
+        assertLt(netCost, excessivePayment, "User should have been refunded excess ETH");
+        assertGt(netCost, 0, "User should have paid something");
+    }
+
+    /// @notice Reallocation clears old loan storage after creating replacement.
+    /// Exercises the `delete _loanOf[loanId]` in `_reallocateCollateralFromLoan`.
+    function test_reallocateCollateral_clearsOldLoanStorage() public {
+        uint256 revnetId = _deploySingleStageRevnet();
+
+        // Pay ETH into revnet to get tokens.
+        vm.prank(USER);
+        uint256 tokens =
+            jbMultiTerminal().pay{value: 10 ether}(revnetId, JBConstants.NATIVE_TOKEN, 10 ether, USER, 0, "", "");
+
+        uint256 loanable = LOANS_CONTRACT.borrowableAmountFrom(
+            revnetId, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
+        );
+        vm.assume(loanable > 0);
+
+        // Mock permission for BURN (permission ID 10).
+        mockExpect(
+            address(jbPermissions()),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, revnetId, 10, true, true)),
+            abi.encode(true)
+        );
+
+        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        uint256 minPrepaid = LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT();
+
+        // Borrow the full max against all tokens.
+        vm.prank(USER);
+        (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(revnetId, source, loanable, tokens, payable(USER), minPrepaid);
+
+        REVLoan memory loanBefore = LOANS_CONTRACT.loanOf(loanId);
+        assertGt(loanBefore.collateral, 0, "Loan should have collateral");
+
+        // Increase surplus WITHOUT minting new tokens — makes existing collateral worth more.
+        // This allows reallocating collateral since borrowable(reduced collateral) > loan.amount.
+        address DONOR = makeAddr("donor");
+        vm.deal(DONOR, 100 ether);
+        vm.prank(DONOR);
+        jbMultiTerminal().addToBalanceOf{value: 50 ether}(
+            revnetId, JBConstants.NATIVE_TOKEN, 50 ether, false, "", ""
+        );
+
+        // Transfer a small amount of collateral (10%) to a new loan.
+        uint256 collateralToTransfer = loanBefore.collateral / 10;
+        assertGt(collateralToTransfer, 0, "Must transfer some collateral");
+
+        vm.prank(USER);
+        (uint256 reallocatedLoanId, uint256 newLoanId, REVLoan memory reallocatedLoan,) = LOANS_CONTRACT
+            .reallocateCollateralFromLoan(
+            loanId, collateralToTransfer, source, 0, 0, payable(USER), minPrepaid
+        );
+
+        // Old loan storage should be cleared.
+        REVLoan memory oldLoan = LOANS_CONTRACT.loanOf(loanId);
+        assertEq(oldLoan.amount, 0, "Old loan amount should be 0 after reallocation");
+        assertEq(oldLoan.collateral, 0, "Old loan collateral should be 0 after reallocation");
+        assertEq(oldLoan.createdAt, 0, "Old loan createdAt should be 0 after reallocation");
+
+        // Reallocated loan should have reduced collateral but same amount.
+        assertEq(reallocatedLoan.amount, loanBefore.amount, "Reallocated loan should keep original amount");
+        assertLt(
+            reallocatedLoan.collateral, loanBefore.collateral, "Reallocated loan should have less collateral"
+        );
+
+        // New loan should exist.
+        assertTrue(newLoanId != loanId, "New loan should have different ID");
+        assertTrue(newLoanId != reallocatedLoanId, "New loan should differ from reallocated loan");
+    }
 }
