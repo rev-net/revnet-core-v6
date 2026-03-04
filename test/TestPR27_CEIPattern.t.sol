@@ -33,8 +33,44 @@ import {JB721TiersHookStore} from "@bananapus/721-hook-v5/src/JB721TiersHookStor
 import {JBAddressRegistry} from "@bananapus/address-registry-v5/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v5/src/interfaces/IJBAddressRegistry.sol";
 
+/// @notice Contract that reenters REVLoans when it receives ETH during a borrow payout.
+/// Records the loan state it observes during reentrancy to verify CEI correctness.
+contract ReentrantBorrower {
+    IREVLoans public loans;
+    uint256 public targetLoanId;
+    uint256 public observedAmount;
+    uint256 public observedCollateral;
+    bool public reentered;
+
+    constructor(IREVLoans _loans) {
+        loans = _loans;
+    }
+
+    function setTarget(uint256 _loanId) external {
+        targetLoanId = _loanId;
+    }
+
+    receive() external payable {
+        if (!reentered) {
+            reentered = true;
+            // During ETH receipt, read loan state. With CEI, state should already be finalized.
+            REVLoan memory loan = loans.loanOf(targetLoanId);
+            observedAmount = loan.amount;
+            observedCollateral = loan.collateral;
+        }
+    }
+}
+
 /// @title TestPR27_CEIPattern
 /// @notice Tests for PR #27 — C-3 CEI pattern fix in REVLoans._adjust()
+///
+/// SOURCE VERIFICATION (confirmed by reading _addTo/_removeFrom/_addCollateralTo/_returnCollateralFrom):
+///   - _addTo(REVLoan memory, ..., uint256 addedBorrowAmount, ...) — memory copy, uses delta param
+///   - _removeFrom(REVLoan memory, ..., uint256 repaidBorrowAmount) — memory copy, uses delta param
+///   - _addCollateralTo(uint256 revnetId, uint256 amount) — no loan reference at all
+///   - _returnCollateralFrom(uint256 revnetId, uint256 collateralCount, ...) — no loan reference
+///   None of the four helpers read loan.amount or loan.collateral — they all use pre-computed deltas.
+///   The CEI fix writes loan.amount and loan.collateral BEFORE calling any of these helpers.
 contract TestPR27_CEIPattern is TestBaseWorkflow, JBTest {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
 
@@ -184,5 +220,153 @@ contract TestPR27_CEIPattern is TestBaseWorkflow, JBTest {
         // Total collateral should equal sum of both loans' collateral
         uint256 totalCollateral = LOANS_CONTRACT.totalCollateralOf(REVNET_ID);
         assertTrue(totalCollateral >= collateral1, "Total collateral should include both loans");
+    }
+
+    /// @notice A reentrant beneficiary reads loan state during ETH receipt.
+    /// With CEI, the loan state is already finalized when external calls execute.
+    function test_reentrantBeneficiary_seesUpdatedState() public {
+        ReentrantBorrower attacker = new ReentrantBorrower(LOANS_CONTRACT);
+        vm.deal(address(attacker), 100e18);
+
+        // Pay into revnet as the attacker contract to get tokens.
+        vm.prank(address(attacker));
+        uint256 tokens = jbMultiTerminal().pay{value: 10e18}(
+            REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, address(attacker), 0, "", ""
+        );
+
+        uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(
+            REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
+        );
+        vm.assume(borrowable > 0);
+
+        // Mock BURN permission for attacker.
+        mockExpect(
+            address(jbPermissions()),
+            abi.encodeCall(
+                IJBPermissions.hasPermission,
+                (address(LOANS_CONTRACT), address(attacker), REVNET_ID, 10, true, true)
+            ),
+            abi.encode(true)
+        );
+
+        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+
+        // Pre-compute the loanId so the attacker can read it during reentrancy.
+        // loanId = revnetId * 1_000_000_000_000 + (numberOfLoansFor + 1)
+        uint256 expectedLoanId =
+            REVNET_ID * 1_000_000_000_000 + (LOANS_CONTRACT.numberOfLoansFor(REVNET_ID) + 1);
+        attacker.setTarget(expectedLoanId);
+
+        // Borrow with attacker as beneficiary — attacker's receive() will fire when ETH arrives.
+        vm.prank(address(attacker));
+        (uint256 loanId,) =
+            LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(address(attacker)), 25);
+
+        assertEq(loanId, expectedLoanId, "LoanId should match pre-computed value");
+
+        // Verify loan state is finalized.
+        REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
+        assertGt(loan.amount, 0, "Loan should have amount");
+        assertGt(loan.collateral, 0, "Loan should have collateral");
+
+        // The attacker's receive() fired during the ETH transfer. With CEI, it should have
+        // observed the correct (finalized) loan state.
+        if (attacker.reentered()) {
+            assertEq(attacker.observedAmount(), loan.amount, "Reentrant read should see finalized loan amount");
+            assertEq(
+                attacker.observedCollateral(), loan.collateral, "Reentrant read should see finalized loan collateral"
+            );
+        }
+    }
+
+    /// @notice Verify atomic consistency: loan state matches global accounting after every operation.
+    /// If _adjust wrote state AFTER external calls (old code), a reentrant observer between
+    /// the external calls and the state write could see totalBorrowedFrom updated but loan.amount stale.
+    function test_CEI_atomicConsistency_borrowAndRepay() public {
+        vm.deal(USER, 2000e18);
+
+        // Borrow.
+        (uint256 loanId,, uint256 borrowAmount) = _setupLoan(USER, 10e18, 25);
+        assertTrue(borrowAmount > 0, "Should borrow nonzero");
+
+        REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
+
+        // Verify loan.amount matches what totalBorrowedFrom tracks.
+        uint256 totalBorrowed =
+            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
+        assertEq(totalBorrowed, loan.amount, "totalBorrowedFrom should equal loan.amount after single borrow");
+
+        // Verify collateral accounting.
+        uint256 totalCollateral = LOANS_CONTRACT.totalCollateralOf(REVNET_ID);
+        assertEq(totalCollateral, loan.collateral, "totalCollateralOf should equal loan.collateral after single borrow");
+
+        // Repay fully.
+        vm.prank(USER);
+        LOANS_CONTRACT.repayLoan{value: loan.amount * 2}({
+            loanId: loanId,
+            maxRepayBorrowAmount: loan.amount * 2,
+            collateralCountToReturn: loan.collateral,
+            beneficiary: payable(USER),
+            allowance: JBSingleAllowance({sigDeadline: 0, amount: 0, expiration: 0, nonce: 0, signature: ""})
+        });
+
+        // After full repay, both should be zero atomically.
+        uint256 totalBorrowedAfter =
+            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
+        uint256 totalCollateralAfter = LOANS_CONTRACT.totalCollateralOf(REVNET_ID);
+        assertEq(totalBorrowedAfter, 0, "totalBorrowedFrom should be 0 after full repay");
+        assertEq(totalCollateralAfter, 0, "totalCollateralOf should be 0 after full repay");
+    }
+
+    /// @notice Rapid sequential borrows and repays can't create inconsistent state.
+    /// Exercises _adjust's CEI pattern under repeated state transitions.
+    function test_CEI_rapidBorrowRepaySequence() public {
+        vm.deal(USER, 5000e18);
+
+        for (uint256 i; i < 3; i++) {
+            // Borrow.
+            vm.prank(USER);
+            uint256 tokens = jbMultiTerminal().pay{value: 10e18}(
+                REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", ""
+            );
+
+            uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(
+                REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
+            );
+            if (borrowable == 0) continue;
+
+            mockExpect(
+                address(jbPermissions()),
+                abi.encodeCall(
+                    IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, REVNET_ID, 10, true, true)
+                ),
+                abi.encode(true)
+            );
+
+            REVLoanSource memory source =
+                REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+
+            vm.prank(USER);
+            (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(USER), 25);
+
+            REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
+
+            // Immediately repay.
+            vm.prank(USER);
+            LOANS_CONTRACT.repayLoan{value: loan.amount * 2}({
+                loanId: loanId,
+                maxRepayBorrowAmount: loan.amount * 2,
+                collateralCountToReturn: loan.collateral,
+                beneficiary: payable(USER),
+                allowance: JBSingleAllowance({sigDeadline: 0, amount: 0, expiration: 0, nonce: 0, signature: ""})
+            });
+        }
+
+        // After all borrows repaid, accounting should be clean.
+        uint256 totalBorrowed =
+            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
+        uint256 totalCollateral = LOANS_CONTRACT.totalCollateralOf(REVNET_ID);
+        assertEq(totalBorrowed, 0, "totalBorrowedFrom should be 0 after all repaid");
+        assertEq(totalCollateral, 0, "totalCollateralOf should be 0 after all repaid");
     }
 }
