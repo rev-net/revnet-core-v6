@@ -64,6 +64,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     error REVLoans_PermitAllowanceNotEnough(uint256 allowanceAmount, uint256 requiredAmount);
     error REVLoans_NewBorrowAmountGreaterThanLoanAmount(uint256 newBorrowAmount, uint256 loanAmount);
     error REVLoans_NoMsgValueAllowed();
+    error REVLoans_NothingToRepay();
     error REVLoans_LoanExpired(uint256 timeSinceLoanCreated, uint256 loanLiquidationDuration);
     error REVLoans_ReallocatingMoreCollateralThanBorrowedAmountAllows(uint256 newBorrowAmount, uint256 loanAmount);
     error REVLoans_RevnetsMismatch(address revnetOwner, address revnets);
@@ -730,6 +731,11 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
 
         // Get the amount of the loan being repaid.
         uint256 repayBorrowAmount = loan.amount - newBorrowAmount;
+
+        // Revert if this repayment would do nothing — no borrow amount repaid and no collateral returned.
+        // Without this check, a zero-amount repayment would burn the old loan NFT and mint a new one,
+        // incrementing numberOfLoansFor without limit.
+        if (repayBorrowAmount == 0 && collateralCountToReturn == 0) revert REVLoans_NothingToRepay();
 
         // Keep a reference to the fee that'll be taken.
         uint256 sourceFeeAmount = _determineSourceFeeAmount(loan, repayBorrowAmount);
