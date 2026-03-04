@@ -565,6 +565,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @notice Processes the fee from a cash out.
     /// @param context Cash out context passed in by the terminal.
     function afterCashOutRecordedWith(JBAfterCashOutRecordedContext calldata context) external payable {
+        // No caller validation needed — this hook only pays fees to the fee project using funds forwarded by the caller.
+        // A non-terminal caller would just be donating their own funds as fees. There's nothing to exploit.
+
         // If there's sufficient approval, transfer normally.
         if (context.forwardedAmount.token != JBConstants.NATIVE_TOKEN) {
             IERC20(context.forwardedAmount.token).safeTransferFrom({
