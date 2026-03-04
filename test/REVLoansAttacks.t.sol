@@ -6,13 +6,13 @@ import /* {*} from */ "@bananapus/core-v5/test/helpers/TestBaseWorkflow.sol";
 import /* {*} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
     import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v5/src/CTPublisher.sol";
+import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
 
 import "@bananapus/core-v5/script/helpers/CoreDeploymentLib.sol";
 import "@bananapus/721-hook-v5/script/helpers/Hook721DeploymentLib.sol";
 import "@bananapus/suckers-v5/script/helpers/SuckerDeploymentLib.sol";
 import "@croptop/core-v5/script/helpers/CroptopDeploymentLib.sol";
 import "@bananapus/swap-terminal-v5/script/helpers/SwapTerminalDeploymentLib.sol";
-import "@bananapus/buyback-hook-v5/script/helpers/BuybackDeploymentLib.sol";
 
 import {JBConstants} from "@bananapus/core-v5/src/libraries/JBConstants.sol";
 import {JBAccountingContext} from "@bananapus/core-v5/src/structs/JBAccountingContext.sol";
@@ -23,7 +23,6 @@ import {REVLoan} from "../src/structs/REVLoan.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
 import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
-import {REVBuybackPoolConfig} from "../src/structs/REVBuybackPoolConfig.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v5/src/structs/JBSuckerDeployerConfig.sol";
 import {JBSuckerRegistry} from "@bananapus/suckers-v5/src/JBSuckerRegistry.sol";
@@ -136,7 +135,6 @@ contract ReentrantTerminal is ERC165, IJBPayoutTerminal {
 struct AttackProjectConfig {
     REVConfig configuration;
     JBTerminalConfig[] terminalConfigurations;
-    REVBuybackHookConfig buybackHookConfiguration;
     REVSuckerDeploymentConfig suckerDeploymentConfiguration;
 }
 
@@ -156,6 +154,7 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
     MockERC20 TOKEN;
     IJBSuckerRegistry SUCKER_REGISTRY;
     CTPublisher PUBLISHER;
+    MockBuybackDataHook MOCK_BUYBACK;
 
     uint256 FEE_PROJECT_ID;
     uint256 REVNET_ID;
@@ -216,19 +215,9 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
             stageConfigurations: stageConfigurations
         });
 
-        REVBuybackPoolConfig[] memory buybackPoolConfigurations = new REVBuybackPoolConfig[](1);
-        buybackPoolConfigurations[0] =
-            REVBuybackPoolConfig({token: JBConstants.NATIVE_TOKEN, fee: 10_000, twapWindow: 2 days});
-        REVBuybackHookConfig memory buybackHookConfiguration = REVBuybackHookConfig({
-            dataHook: IJBRulesetDataHook(address(0)),
-            hookToConfigure: IJBBuybackHook(address(0)),
-            poolConfigurations: buybackPoolConfigurations
-        });
-
         return AttackProjectConfig({
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
-            buybackHookConfiguration: buybackHookConfiguration,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0),
                 salt: keccak256(abi.encodePacked("REV"))
@@ -287,19 +276,9 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
             stageConfigurations: stageConfigurations
         });
 
-        REVBuybackPoolConfig[] memory buybackPoolConfigurations = new REVBuybackPoolConfig[](1);
-        buybackPoolConfigurations[0] =
-            REVBuybackPoolConfig({token: JBConstants.NATIVE_TOKEN, fee: 10_000, twapWindow: 2 days});
-        REVBuybackHookConfig memory buybackHookConfiguration = REVBuybackHookConfig({
-            dataHook: IJBRulesetDataHook(address(0)),
-            hookToConfigure: IJBBuybackHook(address(0)),
-            poolConfigurations: buybackPoolConfigurations
-        });
-
         return AttackProjectConfig({
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
-            buybackHookConfiguration: buybackHookConfiguration,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0),
                 salt: keccak256(abi.encodePacked("NANA"))
@@ -318,6 +297,7 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
+        MOCK_BUYBACK = new MockBuybackDataHook();
         TOKEN = new MockERC20("1/2 ETH", "1/2");
 
         MockPriceFeed priceFeed = new MockPriceFeed(1e21, 6);
@@ -336,7 +316,7 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
         });
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, address(LOANS_CONTRACT), TRUSTED_FORWARDER
+            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBRulesetDataHook(address(MOCK_BUYBACK)), address(LOANS_CONTRACT), TRUSTED_FORWARDER
         );
 
         // Deploy fee project
@@ -349,7 +329,6 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
             revnetId: FEE_PROJECT_ID,
             configuration: feeProjectConfig.configuration,
             terminalConfigurations: feeProjectConfig.terminalConfigurations,
-            buybackHookConfiguration: feeProjectConfig.buybackHookConfiguration,
             suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration
         });
 
@@ -359,7 +338,6 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
             revnetId: 0,
             configuration: revnetConfig.configuration,
             terminalConfigurations: revnetConfig.terminalConfigurations,
-            buybackHookConfiguration: revnetConfig.buybackHookConfiguration,
             suckerDeploymentConfiguration: revnetConfig.suckerDeploymentConfiguration
         });
 

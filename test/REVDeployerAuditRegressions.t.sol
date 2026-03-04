@@ -6,20 +6,19 @@ import /* {*} from */ "@bananapus/core-v5/test/helpers/TestBaseWorkflow.sol";
 import /* {*} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
     import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v5/src/CTPublisher.sol";
+import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
 
 import "@bananapus/core-v5/script/helpers/CoreDeploymentLib.sol";
 import "@bananapus/721-hook-v5/script/helpers/Hook721DeploymentLib.sol";
 import "@bananapus/suckers-v5/script/helpers/SuckerDeploymentLib.sol";
 import "@croptop/core-v5/script/helpers/CroptopDeploymentLib.sol";
 import "@bananapus/swap-terminal-v5/script/helpers/SwapTerminalDeploymentLib.sol";
-import "@bananapus/buyback-hook-v5/script/helpers/BuybackDeploymentLib.sol";
 
 import {JBConstants} from "@bananapus/core-v5/src/libraries/JBConstants.sol";
 import {JBAccountingContext} from "@bananapus/core-v5/src/structs/JBAccountingContext.sol";
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
-import {REVBuybackPoolConfig} from "../src/structs/REVBuybackPoolConfig.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v5/src/structs/JBSuckerDeployerConfig.sol";
 import {JBSuckerRegistry} from "@bananapus/suckers-v5/src/JBSuckerRegistry.sol";
@@ -44,6 +43,7 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
     IREVLoans LOANS_CONTRACT;
     IJBSuckerRegistry SUCKER_REGISTRY;
     CTPublisher PUBLISHER;
+    MockBuybackDataHook MOCK_BUYBACK;
 
     uint256 FEE_PROJECT_ID;
 
@@ -60,6 +60,7 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
+        MOCK_BUYBACK = new MockBuybackDataHook();
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
@@ -71,7 +72,7 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
         });
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, address(LOANS_CONTRACT), TRUSTED_FORWARDER
+            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBRulesetDataHook(address(MOCK_BUYBACK)), address(LOANS_CONTRACT), TRUSTED_FORWARDER
         );
 
         vm.prank(multisig());
@@ -127,11 +128,12 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
     }
 
     //*********************************************************************//
-    // --- [C-4] hasMintPermissionFor reverts on address(0) ------------- //
+    // --- [C-4] hasMintPermissionFor returns false for random addresses - //
     //*********************************************************************//
 
-    /// @notice Tests that calling hasMintPermissionFor when no buyback hook is set causes
-    ///         a revert because the function tries to call on address(0).
+    /// @notice Tests that calling hasMintPermissionFor returns false for random addresses.
+    /// @dev With the buyback hook removed, hasMintPermissionFor should return false
+    ///      for addresses that are not the loans contract or a sucker.
     function test_C4_hasMintPermissionFor_noBuybackHook() public {
         // Deploy a revnet WITHOUT a buyback hook
         JBAccountingContext[] memory accountingContextsToAccept = new JBAccountingContext[](1);
@@ -169,41 +171,27 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
             stageConfigurations: stageConfigurations
         });
 
-        REVBuybackPoolConfig[] memory buybackPoolConfigurations = new REVBuybackPoolConfig[](0);
-        REVBuybackHookConfig memory buybackHookConfiguration = REVBuybackHookConfig({
-            dataHook: IJBRulesetDataHook(address(0)),
-            hookToConfigure: IJBBuybackHook(address(0)),
-            poolConfigurations: buybackPoolConfigurations
-        });
-
         vm.prank(multisig());
         uint256 revnetId = REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
-            buybackHookConfiguration: buybackHookConfiguration,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0),
                 salt: keccak256("C4_TEST")
             })
         });
 
-        // Verify no buyback hook is set
-        IJBRulesetDataHook buybackHook = REV_DEPLOYER.buybackHookOf(revnetId);
-        assertEq(address(buybackHook), address(0), "no buyback hook should be set");
-
-        // The C-4 bug: hasMintPermissionFor tries to call buybackHook.hasMintPermissionFor(...)
-        // when buybackHook == address(0), which reverts because there's no code at address(0).
-        // If the address is the loans contract or a sucker, the earlier checks pass and we never
-        // reach the buybackHook call. The bug occurs for OTHER addresses.
+        // hasMintPermissionFor should return false for random addresses
         address someRandomAddr = address(0x12345);
 
         // Get the current ruleset for the call
         JBRuleset memory currentRuleset = jbRulesets().currentOf(revnetId);
 
-        // This call should revert because it tries to call address(0).hasMintPermissionFor(...)
-        vm.expectRevert();
-        REV_DEPLOYER.hasMintPermissionFor(revnetId, currentRuleset, someRandomAddr);
+        // With buyback hook removed, hasMintPermissionFor should return false
+        // for addresses that are not the loans contract or a sucker.
+        bool hasPerm = REV_DEPLOYER.hasMintPermissionFor(revnetId, currentRuleset, someRandomAddr);
+        assertFalse(hasPerm, "C-4: random address should not have mint permission");
     }
 
     //*********************************************************************//
@@ -299,18 +287,11 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
             stageConfigurations: stageConfigurations
         });
 
-        REVBuybackHookConfig memory buybackHookConfiguration = REVBuybackHookConfig({
-            dataHook: IJBRulesetDataHook(address(0)),
-            hookToConfigure: IJBBuybackHook(address(0)),
-            poolConfigurations: new REVBuybackPoolConfig[](0)
-        });
-
         vm.prank(multisig());
         uint256 revnetId = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
-            buybackHookConfiguration: buybackHookConfiguration,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0),
                 salt: keccak256("H5_TEST")

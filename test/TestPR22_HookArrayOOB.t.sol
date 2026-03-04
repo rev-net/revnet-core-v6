@@ -6,19 +6,18 @@ import /* {*} from */ "@bananapus/core-v5/test/helpers/TestBaseWorkflow.sol";
 import /* {*} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
     import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v5/src/CTPublisher.sol";
+import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
 import "@bananapus/core-v5/script/helpers/CoreDeploymentLib.sol";
 import "@bananapus/721-hook-v5/script/helpers/Hook721DeploymentLib.sol";
 import "@bananapus/suckers-v5/script/helpers/SuckerDeploymentLib.sol";
 import "@croptop/core-v5/script/helpers/CroptopDeploymentLib.sol";
 import "@bananapus/swap-terminal-v5/script/helpers/SwapTerminalDeploymentLib.sol";
-import "@bananapus/buyback-hook-v5/script/helpers/BuybackDeploymentLib.sol";
 import {JBConstants} from "@bananapus/core-v5/src/libraries/JBConstants.sol";
 import {JBAccountingContext} from "@bananapus/core-v5/src/structs/JBAccountingContext.sol";
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
 import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
-import {REVBuybackPoolConfig} from "../src/structs/REVBuybackPoolConfig.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v5/src/structs/JBSuckerDeployerConfig.sol";
 import {JBSuckerRegistry} from "@bananapus/suckers-v5/src/JBSuckerRegistry.sol";
@@ -48,6 +47,7 @@ contract TestPR22_HookArrayOOB is TestBaseWorkflow, JBTest {
     IREVLoans LOANS_CONTRACT;
     IJBSuckerRegistry SUCKER_REGISTRY;
     CTPublisher PUBLISHER;
+    MockBuybackDataHook MOCK_BUYBACK;
 
     uint256 FEE_PROJECT_ID;
 
@@ -63,6 +63,7 @@ contract TestPR22_HookArrayOOB is TestBaseWorkflow, JBTest {
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
+        MOCK_BUYBACK = new MockBuybackDataHook();
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
             projects: jbProjects(),
@@ -72,7 +73,7 @@ contract TestPR22_HookArrayOOB is TestBaseWorkflow, JBTest {
             trustedForwarder: TRUSTED_FORWARDER
         });
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, address(LOANS_CONTRACT), TRUSTED_FORWARDER
+            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBRulesetDataHook(address(MOCK_BUYBACK)), address(LOANS_CONTRACT), TRUSTED_FORWARDER
         );
         vm.prank(multisig());
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);
@@ -85,7 +86,6 @@ contract TestPR22_HookArrayOOB is TestBaseWorkflow, JBTest {
         returns (
             REVConfig memory cfg,
             JBTerminalConfig[] memory tc,
-            REVBuybackHookConfig memory bbh,
             REVSuckerDeploymentConfig memory sdc
         )
     {
@@ -121,12 +121,6 @@ contract TestPR22_HookArrayOOB is TestBaseWorkflow, JBTest {
             stageConfigurations: stages
         });
 
-        bbh = REVBuybackHookConfig({
-            dataHook: IJBRulesetDataHook(address(0)),
-            hookToConfigure: IJBBuybackHook(address(0)),
-            poolConfigurations: new REVBuybackPoolConfig[](0)
-        });
-
         sdc = REVSuckerDeploymentConfig({
             deployerConfigurations: new JBSuckerDeployerConfig[](0),
             salt: keccak256(abi.encodePacked("TEST"))
@@ -141,7 +135,6 @@ contract TestPR22_HookArrayOOB is TestBaseWorkflow, JBTest {
         (
             REVConfig memory feeCfg,
             JBTerminalConfig[] memory feeTc,
-            REVBuybackHookConfig memory feeBbh,
             REVSuckerDeploymentConfig memory feeSdc
         ) = _buildMinimalConfig();
 
@@ -151,7 +144,6 @@ contract TestPR22_HookArrayOOB is TestBaseWorkflow, JBTest {
             revnetId: FEE_PROJECT_ID,
             configuration: feeCfg,
             terminalConfigurations: feeTc,
-            buybackHookConfiguration: feeBbh,
             suckerDeploymentConfiguration: feeSdc
         });
 
@@ -159,7 +151,6 @@ contract TestPR22_HookArrayOOB is TestBaseWorkflow, JBTest {
         (
             REVConfig memory cfg,
             JBTerminalConfig[] memory tc,
-            REVBuybackHookConfig memory bbh,
             REVSuckerDeploymentConfig memory sdc
         ) = _buildMinimalConfig();
         // Use a different salt so the ERC20 deploy doesn't clash
@@ -169,7 +160,6 @@ contract TestPR22_HookArrayOOB is TestBaseWorkflow, JBTest {
             revnetId: 0,
             configuration: cfg,
             terminalConfigurations: tc,
-            buybackHookConfiguration: bbh,
             suckerDeploymentConfiguration: sdc
         });
     }
@@ -230,8 +220,9 @@ contract TestPR22_HookArrayOOB is TestBaseWorkflow, JBTest {
 
         (uint256 weight, JBPayHookSpecification[] memory specs) = REV_DEPLOYER.beforePayRecordedWith(context);
 
-        // With no buyback hook and no 721 hook, weight should be the context weight and specs should be empty
+        // With the global buyback hook but no 721 hook, weight should be the context weight
+        // and specs should contain exactly the buyback hook specification.
         assertEq(weight, context.weight, "Weight should be the default context weight");
-        assertEq(specs.length, 0, "Should have no hook specifications when no hooks configured");
+        assertEq(specs.length, 1, "Should have exactly the buyback hook specification");
     }
 }

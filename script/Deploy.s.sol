@@ -20,14 +20,13 @@ import {JBTokenMapping} from "@bananapus/suckers-v5/src/structs/JBTokenMapping.s
 import {IPermit2} from "@uniswap/permit2/src/interfaces/IPermit2.sol";
 import {IJBSplitHook} from "@bananapus/core-v5/src/interfaces/IJBSplitHook.sol";
 import {IJBTerminal} from "@bananapus/core-v5/src/interfaces/IJBTerminal.sol";
+import {IJBRulesetDataHook} from "@bananapus/core-v5/src/interfaces/IJBRulesetDataHook.sol";
 import {JBSplit} from "@bananapus/core-v5/src/structs/JBSplit.sol";
 
 import {REVDeployer} from "./../src/REVDeployer.sol";
 import {REVAutoIssuance} from "../src/structs/REVAutoIssuance.sol";
-import {REVBuybackHookConfig} from "../src/structs/REVBuybackHookConfig.sol";
 import {REVConfig} from "../src/structs/REVConfig.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
-import {REVBuybackPoolConfig} from "../src/structs/REVBuybackPoolConfig.sol";
 import {REVStageConfig} from "../src/structs/REVStageConfig.sol";
 import {REVSuckerDeploymentConfig} from "../src/structs/REVSuckerDeploymentConfig.sol";
 import {REVLoans, IREVLoans} from "./../src/REVLoans.sol";
@@ -35,7 +34,6 @@ import {REVLoans, IREVLoans} from "./../src/REVLoans.sol";
 struct FeeProjectConfig {
     REVConfig configuration;
     JBTerminalConfig[] terminalConfigurations;
-    REVBuybackHookConfig buybackHookConfiguration;
     REVSuckerDeploymentConfig suckerDeploymentConfiguration;
 }
 
@@ -218,17 +216,6 @@ contract DeployScript is Script, Sphinx {
             stageConfigurations: stageConfigurations
         });
 
-        // The project's buyback hook configuration.
-        REVBuybackPoolConfig[] memory buybackPoolConfigurations = new REVBuybackPoolConfig[](1);
-        buybackPoolConfigurations[0] =
-            REVBuybackPoolConfig({token: JBConstants.NATIVE_TOKEN, fee: 10_000, twapWindow: 2 days});
-
-        REVBuybackHookConfig memory buybackHookConfiguration = REVBuybackHookConfig({
-            dataHook: buybackHook.registry,
-            hookToConfigure: buybackHook.hook,
-            poolConfigurations: buybackPoolConfigurations
-        });
-
         // Organize the instructions for how this project will connect to other chains.
         JBTokenMapping[] memory tokenMappings = new JBTokenMapping[](1);
         tokenMappings[0] = JBTokenMapping({
@@ -275,7 +262,6 @@ contract DeployScript is Script, Sphinx {
         return FeeProjectConfig({
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
-            buybackHookConfiguration: buybackHookConfiguration,
             suckerDeploymentConfiguration: suckerDeploymentConfiguration
         });
     }
@@ -301,13 +287,13 @@ contract DeployScript is Script, Sphinx {
                 trustedForwarder: TRUSTED_FORWARDER
             });
 
-        // Deploy REVDeployer with the REVLoans address.
+        // Deploy REVDeployer with the REVLoans and buyback hook addresses.
         (address _deployerAddr, bool _deployerIsDeployed) = _isDeployed(
             DEPLOYER_SALT,
             type(REVDeployer).creationCode,
             abi.encode(
                 core.controller, suckers.registry, FEE_PROJECT_ID, hook.hook_deployer, croptop.publisher,
-                address(revloans), TRUSTED_FORWARDER
+                IJBRulesetDataHook(address(buybackHook.registry)), address(revloans), TRUSTED_FORWARDER
             )
         );
         REVDeployer _basicDeployer = _deployerIsDeployed
@@ -318,6 +304,7 @@ contract DeployScript is Script, Sphinx {
                 FEE_PROJECT_ID,
                 hook.hook_deployer,
                 croptop.publisher,
+                IJBRulesetDataHook(address(buybackHook.registry)),
                 address(revloans),
                 TRUSTED_FORWARDER
             );
@@ -333,7 +320,6 @@ contract DeployScript is Script, Sphinx {
             revnetId: FEE_PROJECT_ID,
             configuration: feeProjectConfig.configuration,
             terminalConfigurations: feeProjectConfig.terminalConfigurations,
-            buybackHookConfiguration: feeProjectConfig.buybackHookConfiguration,
             suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration
         });
     }

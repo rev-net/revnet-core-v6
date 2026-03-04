@@ -7,13 +7,12 @@ import {IJBController} from "@bananapus/core-v5/src/interfaces/IJBController.sol
 import {IJBDirectory} from "@bananapus/core-v5/src/interfaces/IJBDirectory.sol";
 import {IJBPermissions} from "@bananapus/core-v5/src/interfaces/IJBPermissions.sol";
 import {IJBProjects} from "@bananapus/core-v5/src/interfaces/IJBProjects.sol";
-import {IJBRulesetDataHook} from "@bananapus/core-v5/src/interfaces/IJBRulesetDataHook.sol";
 import {JBRulesetConfig} from "@bananapus/core-v5/src/structs/JBRulesetConfig.sol";
 import {JBTerminalConfig} from "@bananapus/core-v5/src/structs/JBTerminalConfig.sol";
+import {IJBRulesetDataHook} from "@bananapus/core-v5/src/interfaces/IJBRulesetDataHook.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v5/src/interfaces/IJBSuckerRegistry.sol";
 import {CTPublisher} from "@croptop/core-v5/src/CTPublisher.sol";
 
-import {REVBuybackHookConfig} from "../structs/REVBuybackHookConfig.sol";
 import {REVConfig} from "../structs/REVConfig.sol";
 import {REVCroptopAllowedPost} from "../structs/REVCroptopAllowedPost.sol";
 import {REVDeploy721TiersHookConfig} from "../structs/REVDeploy721TiersHookConfig.sol";
@@ -32,7 +31,6 @@ interface IREVDeployer {
         uint256 indexed revnetId,
         REVConfig configuration,
         JBTerminalConfig[] terminalConfigurations,
-        REVBuybackHookConfig buybackHookConfiguration,
         REVSuckerDeploymentConfig suckerDeploymentConfiguration,
         JBRulesetConfig[] rulesetConfigurations,
         bytes32 encodedConfigurationHash,
@@ -62,6 +60,7 @@ interface IREVDeployer {
     function SUCKER_REGISTRY() external view returns (IJBSuckerRegistry);
     function FEE_REVNET_ID() external view returns (uint256);
     function PUBLISHER() external view returns (CTPublisher);
+    function BUYBACK_HOOK() external view returns (IJBRulesetDataHook);
     function HOOK_DEPLOYER() external view returns (IJB721TiersHookDeployer);
     function LOANS() external view returns (address);
 
@@ -73,7 +72,6 @@ interface IREVDeployer {
         external
         view
         returns (uint256);
-    function buybackHookOf(uint256 revnetId) external view returns (IJBRulesetDataHook);
     function cashOutDelayOf(uint256 revnetId) external view returns (uint256);
     function deploySuckersFor(
         uint256 revnetId,
@@ -90,7 +88,6 @@ interface IREVDeployer {
         uint256 revnetId,
         REVConfig memory configuration,
         JBTerminalConfig[] memory terminalConfigurations,
-        REVBuybackHookConfig memory buybackHookConfiguration,
         REVSuckerDeploymentConfig memory suckerDeploymentConfiguration
     )
         external
@@ -100,7 +97,6 @@ interface IREVDeployer {
         uint256 revnetId,
         REVConfig calldata configuration,
         JBTerminalConfig[] memory terminalConfigurations,
-        REVBuybackHookConfig memory buybackHookConfiguration,
         REVSuckerDeploymentConfig memory suckerDeploymentConfiguration,
         REVDeploy721TiersHookConfig memory tiered721HookConfiguration,
         REVCroptopAllowedPost[] memory allowedPosts

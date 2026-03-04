@@ -6,6 +6,7 @@ import /* {*} from */ "@bananapus/core-v5/test/helpers/TestBaseWorkflow.sol";
 import /* {*} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
     import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v5/src/CTPublisher.sol";
+import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
 
 import "@bananapus/core-v5/script/helpers/CoreDeploymentLib.sol";
 import "@bananapus/721-hook-v5/script/helpers/Hook721DeploymentLib.sol";
@@ -108,6 +109,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow, JBTest {
     MockERC20 TOKEN;
     IJBSuckerRegistry SUCKER_REGISTRY;
     CTPublisher PUBLISHER;
+    MockBuybackDataHook MOCK_BUYBACK;
     RevertingFeeTerminal REVERTING_TERMINAL;
 
     uint256 FEE_PROJECT_ID;
@@ -249,6 +251,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow, JBTest {
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
+        MOCK_BUYBACK = new MockBuybackDataHook();
         TOKEN = new MockERC20("1/2 ETH", "1/2");
         REVERTING_TERMINAL = new RevertingFeeTerminal();
 
@@ -268,7 +271,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow, JBTest {
         });
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, address(LOANS_CONTRACT), TRUSTED_FORWARDER
+            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBRulesetDataHook(address(MOCK_BUYBACK)), address(LOANS_CONTRACT), TRUSTED_FORWARDER
         );
 
         // Deploy fee project.
@@ -281,7 +284,6 @@ contract REVLoansFeeRecovery is TestBaseWorkflow, JBTest {
             revnetId: FEE_PROJECT_ID,
             configuration: feeProjectConfig.configuration,
             terminalConfigurations: feeProjectConfig.terminalConfigurations,
-            buybackHookConfiguration: REVBuybackHookConfig({dataHook: IJBRulesetDataHook(address(0)), hookToConfigure: IJBBuybackHook(address(0)), poolConfigurations: new REVBuybackPoolConfig[](0)}),
             suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration
         });
 
@@ -291,7 +293,6 @@ contract REVLoansFeeRecovery is TestBaseWorkflow, JBTest {
             revnetId: 0,
             configuration: revnetConfig.configuration,
             terminalConfigurations: revnetConfig.terminalConfigurations,
-            buybackHookConfiguration: REVBuybackHookConfig({dataHook: IJBRulesetDataHook(address(0)), hookToConfigure: IJBBuybackHook(address(0)), poolConfigurations: new REVBuybackPoolConfig[](0)}),
             suckerDeploymentConfiguration: revnetConfig.suckerDeploymentConfiguration
         });
 
