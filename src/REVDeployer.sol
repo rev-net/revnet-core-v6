@@ -1142,6 +1142,13 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     }
 
     /// @notice Convert a revnet's stages into a series of Juicebox project rulesets.
+    /// @dev Stage transitions affect outstanding loan health. When a new stage activates, parameters such as
+    /// `cashOutTaxRate` and `weight` change, which directly impact the borrowable amount calculated by
+    /// `REVLoans._borrowableAmountFrom`. Loans originated under a previous stage's parameters may become
+    /// under-collateralized if the new stage has a higher `cashOutTaxRate` (reducing the borrowable amount per unit
+    /// of collateral) or lower issuance weight (reducing the surplus-per-token ratio). Borrowers should monitor
+    /// upcoming stage transitions and adjust their positions accordingly, as loans that fall below their required
+    /// collateralization may become eligible for liquidation.
     /// @param revnetId The ID of the revnet to make rulesets for.
     /// @param configuration The configuration containing the revnet's stages.
     /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
