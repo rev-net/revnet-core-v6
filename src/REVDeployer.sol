@@ -255,7 +255,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         }
 
         // If we have a buyback hook specification, add it to the end of the array.
-        if (usesBuybackHook) hookSpecifications[1] = buybackHookSpecifications[0];
+        if (usesBuybackHook) hookSpecifications[usesTiered721Hook ? 1 : 0] = buybackHookSpecifications[0];
     }
 
     /// @notice Determine how a cash out from a revnet should be processed.
