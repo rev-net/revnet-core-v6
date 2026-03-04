@@ -470,6 +470,9 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     //*********************************************************************//
 
     /// @notice Open a loan by borrowing from a revnet.
+    /// @dev Collateral tokens are permanently burned when the loan is created. They are re-minted to the borrower
+    /// only upon repayment. If the loan expires (after LOAN_LIQUIDATION_DURATION), the collateral is permanently
+    /// lost and cannot be recovered.
     /// @param revnetId The ID of the revnet being borrowed from.
     /// @param source The source of the loan being borrowed.
     /// @param minBorrowAmount The minimum amount being borrowed, denominated in the token of the source's accounting
@@ -559,9 +562,16 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         return (loanId, loan);
     }
 
-    /// @notice Cleans up any liquiditated loans.
-    /// @dev Since some loans may be reallocated or paid off, loans within startingLoanId and startingLoanId + count may
-    /// be skipped, so choose these parameters carefully to avoid extra gas usage.
+    /// @notice Liquidates loans that have exceeded the 10-year liquidation duration.
+    /// @dev Liquidation permanently destroys the collateral backing expired loans. Since collateral tokens were burned
+    /// at deposit time (not held in escrow), there is nothing to return upon liquidation -- the collateral count is
+    /// simply removed from tracking. The borrower retains whatever funds they received from the loan, but the
+    /// collateral tokens that were burned to secure the loan are permanently lost.
+    /// @dev This is an intentional design choice to keep the protocol simple and to incentivize timely repayment or
+    /// refinancing. Borrowers have the full LOAN_LIQUIDATION_DURATION (10 years) to repay their loan and recover
+    /// their collateral via re-minting.
+    /// @dev Since some loans may be reallocated or paid off, loans within startingLoanId and startingLoanId + count
+    /// may be skipped, so choose these parameters carefully to avoid extra gas usage.
     /// @param revnetId The ID of the revnet to liquidate loans from.
     /// @param startingLoanId The ID of the loan to start iterating from.
     /// @param count The amount of loans iterate over since the last liquidated loan.
@@ -588,6 +598,8 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
             _burn(loanId);
 
             if (loan.collateral > 0) {
+                // The collateral was burned at deposit time -- there is nothing to return. This bookkeeping
+                // removal means the collateral tokens are permanently lost.
                 // Decrement the total amount of collateral tokens supporting loans from this revnet.
                 totalCollateralOf[revnetId] -= loan.collateral;
             }
@@ -753,14 +765,16 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     // --------------------- internal transactions ----------------------- //
     //*********************************************************************//
 
-    /// @notice Adds collateral to a loan.
+    /// @notice Adds collateral to a loan by burning the collateral tokens permanently.
+    /// @dev The collateral tokens are burned via the controller, not held in escrow. They are only re-minted if the
+    /// loan is repaid. If the loan expires and is liquidated, the burned collateral is permanently lost.
     /// @param revnetId The ID of the revnet the loan is being added in.
     /// @param amount The new amount of collateral being added to the loan.
     function _addCollateralTo(uint256 revnetId, uint256 amount) internal {
         // Increment the total amount of collateral tokens.
         totalCollateralOf[revnetId] += amount;
 
-        // Burn the tokens that are tracked as collateral.
+        // Permanently burn the tokens that are tracked as collateral. These are only re-minted upon repayment.
         CONTROLLER.burnTokensOf({
             holder: _msgSender(),
             projectId: revnetId,
