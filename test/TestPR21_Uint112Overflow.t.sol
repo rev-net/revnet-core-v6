@@ -74,17 +74,18 @@ contract TestPR21_Uint112Overflow is TestBaseWorkflow, JBTest {
             0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed
         );
 
-        REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, TRUSTED_FORWARDER
-        );
-
         LOANS_CONTRACT = new REVLoans({
-            revnets: REV_DEPLOYER,
+            controller: jbController(),
+            projects: jbProjects(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
             trustedForwarder: TRUSTED_FORWARDER
         });
+
+        REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
+            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, address(LOANS_CONTRACT), TRUSTED_FORWARDER
+        );
 
         // Deploy fee project
         vm.prank(multisig());
@@ -118,8 +119,7 @@ contract TestPR21_Uint112Overflow is TestBaseWorkflow, JBTest {
         REVConfig memory cfg = REVConfig({
             description: REVDescription("Revnet", "$REV", "ipfs://test", ERC20_SALT),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(), stageConfigurations: stages,
-            loanSources: new REVLoanSource[](0), loans: address(0)
+            splitOperator: multisig(), stageConfigurations: stages
         });
         REVBuybackHookConfig memory bbh = REVBuybackHookConfig({
             dataHook: IJBRulesetDataHook(address(0)), hookToConfigure: IJBBuybackHook(address(0)),
@@ -161,8 +161,7 @@ contract TestPR21_Uint112Overflow is TestBaseWorkflow, JBTest {
         REVConfig memory cfg = REVConfig({
             description: REVDescription("NANA", "$NANA", "ipfs://test2", "NANA_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(), stageConfigurations: stages,
-            loanSources: ls, loans: address(LOANS_CONTRACT)
+            splitOperator: multisig(), stageConfigurations: stages
         });
         REVBuybackHookConfig memory bbh = REVBuybackHookConfig({
             dataHook: IJBRulesetDataHook(address(0)), hookToConfigure: IJBBuybackHook(address(0)),

@@ -121,9 +121,7 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
                 description: REVDescription("Revnet", "$REV", "ipfs://QmNRHT91HcDgMcenebYX7rJigt77cgNcosvuhX21wkF3tx", "REV_TOKEN"),
                 baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                 splitOperator: multisig(),
-                stageConfigurations: stageConfigurations,
-                loanSources: new REVLoanSource[](0),
-                loans: address(0)
+                stageConfigurations: stageConfigurations
             }),
             terminalConfigurations: terminalConfigurations,
             buybackHookConfiguration: REVBuybackHookConfig({
@@ -198,17 +196,12 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
             extraMetadata: 0
         });
 
-        REVLoanSource[] memory _loanSources = new REVLoanSource[](1);
-        _loanSources[0] = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
-
         return InvincibilityProjectConfig({
             configuration: REVConfig({
                 description: REVDescription("NANA", "$NANA", "ipfs://nana", "NANA_TOKEN"),
                 baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                 splitOperator: multisig(),
-                stageConfigurations: stageConfigurations,
-                loanSources: _loanSources,
-                loans: address(LOANS_CONTRACT)
+                stageConfigurations: stageConfigurations
             }),
             terminalConfigurations: terminalConfigurations,
             buybackHookConfiguration: REVBuybackHookConfig({
@@ -236,17 +229,18 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
         TOKEN = new MockERC20("1/2 ETH", "1/2");
 
-        REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, TRUSTED_FORWARDER
-        );
-
         LOANS_CONTRACT = new REVLoans({
-            revnets: REV_DEPLOYER,
+            controller: jbController(),
+            projects: jbProjects(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
             trustedForwarder: TRUSTED_FORWARDER
         });
+
+        REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
+            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, address(LOANS_CONTRACT), TRUSTED_FORWARDER
+        );
 
         // Deploy fee project
         vm.prank(multisig());
@@ -513,9 +507,7 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
                 description: REVDescription("H5Test", "H5T", "ipfs://h5", "H5_TOKEN"),
                 baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                 splitOperator: multisig(),
-                stageConfigurations: stages,
-                loanSources: new REVLoanSource[](0),
-                loans: address(0)
+                stageConfigurations: stages
             }),
             terminalConfigurations: tc,
             buybackHookConfiguration: REVBuybackHookConfig({
@@ -1010,17 +1002,18 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow, JBTest {
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
 
-        REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, TRUSTED_FORWARDER
-        );
-
         LOANS_CONTRACT = new REVLoans({
-            revnets: REV_DEPLOYER,
+            controller: jbController(),
+            projects: jbProjects(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
             trustedForwarder: TRUSTED_FORWARDER
         });
+
+        REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
+            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, address(LOANS_CONTRACT), TRUSTED_FORWARDER
+        );
 
         // Deploy fee project
         {
@@ -1065,9 +1058,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow, JBTest {
                     description: REVDescription("Revnet", "$REV", "ipfs://rev", "REV_TOKEN_INV"),
                     baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                     splitOperator: multisig(),
-                    stageConfigurations: stages,
-                    loanSources: new REVLoanSource[](0),
-                    loans: address(0)
+                    stageConfigurations: stages
                 }),
                 terminalConfigurations: tc,
                 buybackHookConfiguration: REVBuybackHookConfig({
@@ -1141,18 +1132,13 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow, JBTest {
                 extraMetadata: 0
             });
 
-            REVLoanSource[] memory loanSources = new REVLoanSource[](1);
-            loanSources[0] = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
-
             REVNET_ID = REV_DEPLOYER.deployFor({
                 revnetId: 0,
                 configuration: REVConfig({
                     description: REVDescription("NANA", "$NANA", "ipfs://nana", "NANA_TOKEN_INV"),
                     baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                     splitOperator: multisig(),
-                    stageConfigurations: stages,
-                    loanSources: loanSources,
-                    loans: address(LOANS_CONTRACT)
+                    stageConfigurations: stages
                 }),
                 terminalConfigurations: tc,
                 buybackHookConfiguration: REVBuybackHookConfig({

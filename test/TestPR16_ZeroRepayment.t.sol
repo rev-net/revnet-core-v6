@@ -66,8 +66,8 @@ contract TestPR16_ZeroRepayment is TestBaseWorkflow, JBTest {
         MockPriceFeed priceFeed = new MockPriceFeed(1e21, 6);
         vm.prank(multisig());
         jbPrices().addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
-        REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, TRUSTED_FORWARDER);
-        LOANS_CONTRACT = new REVLoans({revnets: REV_DEPLOYER, revId: FEE_PROJECT_ID, owner: address(this), permit2: permit2(), trustedForwarder: TRUSTED_FORWARDER});
+        LOANS_CONTRACT = new REVLoans({controller: jbController(), projects: jbProjects(), revId: FEE_PROJECT_ID, owner: address(this), permit2: permit2(), trustedForwarder: TRUSTED_FORWARDER});
+        REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, address(LOANS_CONTRACT), TRUSTED_FORWARDER);
         vm.prank(multisig());
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);
         _deployFeeProject();
@@ -88,7 +88,7 @@ contract TestPR16_ZeroRepayment is TestBaseWorkflow, JBTest {
         REVAutoIssuance[] memory ai = new REVAutoIssuance[](1);
         ai[0] = REVAutoIssuance({chainId: uint32(block.chainid), count: uint104(70_000e18), beneficiary: multisig()});
         stages[0] = REVStageConfig({startsAtOrAfter: uint40(block.timestamp), autoIssuances: ai, splitPercent: 2000, splits: splits, initialIssuance: uint112(1000e18), issuanceCutFrequency: 90 days, issuanceCutPercent: JBConstants.MAX_WEIGHT_CUT_PERCENT / 2, cashOutTaxRate: 6000, extraMetadata: 0});
-        REVConfig memory cfg = REVConfig({description: REVDescription("Revnet", "$REV", "ipfs://test", "REV_TOKEN"), baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)), splitOperator: multisig(), stageConfigurations: stages, loanSources: new REVLoanSource[](0), loans: address(0)});
+        REVConfig memory cfg = REVConfig({description: REVDescription("Revnet", "$REV", "ipfs://test", "REV_TOKEN"), baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)), splitOperator: multisig(), stageConfigurations: stages});
         REVBuybackHookConfig memory bbh = REVBuybackHookConfig({dataHook: IJBRulesetDataHook(address(0)), hookToConfigure: IJBBuybackHook(address(0)), poolConfigurations: new REVBuybackPoolConfig[](0)});
         vm.prank(multisig());
         REV_DEPLOYER.deployFor({revnetId: FEE_PROJECT_ID, configuration: cfg, terminalConfigurations: tc, buybackHookConfiguration: bbh, suckerDeploymentConfiguration: REVSuckerDeploymentConfig({deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")})});
@@ -109,7 +109,7 @@ contract TestPR16_ZeroRepayment is TestBaseWorkflow, JBTest {
         stages[0] = REVStageConfig({startsAtOrAfter: uint40(block.timestamp), autoIssuances: ai, splitPercent: 2000, splits: splits, initialIssuance: uint112(1000e18), issuanceCutFrequency: 90 days, issuanceCutPercent: JBConstants.MAX_WEIGHT_CUT_PERCENT / 2, cashOutTaxRate: 6000, extraMetadata: 0});
         REVLoanSource[] memory ls = new REVLoanSource[](1);
         ls[0] = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
-        REVConfig memory cfg = REVConfig({description: REVDescription("NANA", "$NANA", "ipfs://test2", "NANA_TOKEN"), baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)), splitOperator: multisig(), stageConfigurations: stages, loanSources: ls, loans: address(LOANS_CONTRACT)});
+        REVConfig memory cfg = REVConfig({description: REVDescription("NANA", "$NANA", "ipfs://test2", "NANA_TOKEN"), baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)), splitOperator: multisig(), stageConfigurations: stages});
         REVBuybackHookConfig memory bbh = REVBuybackHookConfig({dataHook: IJBRulesetDataHook(address(0)), hookToConfigure: IJBBuybackHook(address(0)), poolConfigurations: new REVBuybackPoolConfig[](0)});
         REVNET_ID = REV_DEPLOYER.deployFor({revnetId: 0, configuration: cfg, terminalConfigurations: tc, buybackHookConfiguration: bbh, suckerDeploymentConfiguration: REVSuckerDeploymentConfig({deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NANA")})});
     }

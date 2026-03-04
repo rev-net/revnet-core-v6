@@ -17,7 +17,6 @@ import "@bananapus/buyback-hook-v5/script/helpers/BuybackDeploymentLib.sol";
 import {JBConstants} from "@bananapus/core-v5/src/libraries/JBConstants.sol";
 import {JBAccountingContext} from "@bananapus/core-v5/src/structs/JBAccountingContext.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {REVBuybackPoolConfig} from "../src/structs/REVBuybackPoolConfig.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
@@ -62,7 +61,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, TRUSTED_FORWARDER
+            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, makeAddr("loans"), TRUSTED_FORWARDER
         );
 
         vm.prank(multisig());
@@ -131,9 +130,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
             description: REVDescription("TestRevnet", "TREV", "ipfs://test", bytes32(uint256(numStages))),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
-            stageConfigurations: stages,
-            loanSources: new REVLoanSource[](0),
-            loans: address(0)
+            stageConfigurations: stages
         });
 
         REVBuybackPoolConfig[] memory pools = new REVBuybackPoolConfig[](1);
