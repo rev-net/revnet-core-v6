@@ -102,9 +102,7 @@ contract TestPR09_ConversionDocumentation is TestBaseWorkflow, JBTest {
             description: REVDescription(name, symbol, "ipfs://test", salt),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
-            stageConfigurations: stageConfigurations,
-            loanSources: new REVLoanSource[](0),
-            loans: address(0)
+            stageConfigurations: stageConfigurations
         });
 
         REVBuybackPoolConfig[] memory buybackPoolConfigurations = new REVBuybackPoolConfig[](1);
@@ -134,17 +132,17 @@ contract TestPR09_ConversionDocumentation is TestBaseWorkflow, JBTest {
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
         TOKEN = new MockERC20("1/2 ETH", "1/2");
 
-        REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, TRUSTED_FORWARDER
-        );
-
         LOANS_CONTRACT = new REVLoans({
-            revnets: REV_DEPLOYER,
+            controller: jbController(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
             trustedForwarder: TRUSTED_FORWARDER
         });
+
+        REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
+            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, address(LOANS_CONTRACT), TRUSTED_FORWARDER
+        );
 
         // Deploy fee project as revnet.
         vm.prank(multisig());

@@ -163,9 +163,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow, JBTest {
             description: REVDescription("Revnet", "$REV", "ipfs://QmNRHT91HcDgMcenebYX7rJigt77cgNcosvuhX21wkF3tx", ERC20_SALT),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
-            stageConfigurations: stageConfigurations,
-            loanSources: _loanSources,
-            loans: address(0)
+            stageConfigurations: stageConfigurations
         });
 
         return FeeRecoveryProjectConfig({
@@ -227,9 +225,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow, JBTest {
             description: REVDescription("NANA", "$NANA", "ipfs://QmNRHT91HcDgMcenebYX7rJigt77cgNxosvuhX21wkF3tx", "NANA_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
-            stageConfigurations: stageConfigurations,
-            loanSources: _loanSources,
-            loans: address(LOANS_CONTRACT)
+            stageConfigurations: stageConfigurations
         });
 
         return FeeRecoveryProjectConfig({
@@ -262,17 +258,17 @@ contract REVLoansFeeRecovery is TestBaseWorkflow, JBTest {
             0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed
         );
 
-        REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBRulesetDataHook(address(0)), TRUSTED_FORWARDER
-        );
-
         LOANS_CONTRACT = new REVLoans({
-            revnets: REV_DEPLOYER,
+            controller: jbController(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
             trustedForwarder: TRUSTED_FORWARDER
         });
+
+        REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
+            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, address(LOANS_CONTRACT), TRUSTED_FORWARDER
+        );
 
         // Deploy fee project.
         vm.prank(multisig());
@@ -284,6 +280,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow, JBTest {
             revnetId: FEE_PROJECT_ID,
             configuration: feeProjectConfig.configuration,
             terminalConfigurations: feeProjectConfig.terminalConfigurations,
+            buybackHookConfiguration: REVBuybackHookConfig({dataHook: IJBRulesetDataHook(address(0)), hookToConfigure: IJBBuybackHook(address(0)), poolConfigurations: new REVBuybackPoolConfig[](0)}),
             suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration
         });
 
@@ -293,6 +290,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow, JBTest {
             revnetId: 0,
             configuration: revnetConfig.configuration,
             terminalConfigurations: revnetConfig.terminalConfigurations,
+            buybackHookConfiguration: REVBuybackHookConfig({dataHook: IJBRulesetDataHook(address(0)), hookToConfigure: IJBBuybackHook(address(0)), poolConfigurations: new REVBuybackPoolConfig[](0)}),
             suckerDeploymentConfiguration: revnetConfig.suckerDeploymentConfiguration
         });
 
