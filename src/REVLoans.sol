@@ -422,7 +422,13 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         return ERC2771Context._msgSender();
     }
 
-    /// @notice The total borrowed amount from a revnet.
+    /// @notice The total borrowed amount from a revnet, aggregated across all loan sources.
+    /// @dev Each source's `totalBorrowedFrom` is stored in the source token's native decimals (e.g. 6 for USDC,
+    /// 18 for ETH). Before aggregation, each amount is normalized to the target `decimals` to prevent mixed-decimal
+    /// arithmetic errors. For cross-currency sources, the normalized amount is then converted via the price feed.
+    /// @dev Callers should ensure the price feed has sufficient precision for the target `decimals`. Inverse price
+    /// feeds may truncate to zero at low decimal counts (e.g. a feed returning 1e21 at 6 decimals inverts to
+    /// mulDiv(1e6, 1e6, 1e21) = 0), which would cause a division-by-zero in the price conversion.
     /// @param revnetId The ID of the revnet to check for borrowed assets from.
     /// @param decimals The decimals the resulting fixed point value will include.
     /// @param currency The currency the resulting value will be in terms of.
@@ -620,6 +626,8 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     /// @notice Refinances a loan by transferring extra collateral from an existing loan to a new loan.
     /// @dev Useful if a loan's collateral has gone up in value since the loan was created.
     /// @dev Refinancing a loan will burn the original and create two new loans.
+    /// @dev This function is intentionally not payable — it only moves existing collateral between loans and does
+    /// not accept new funds. Any ETH sent with the call will be rejected by the EVM.
     /// @param loanId The ID of the loan to reallocate collateral from.
     /// @param collateralCountToTransfer The amount of collateral to transfer from the original loan.
     /// @param source The source of the loan to create.
