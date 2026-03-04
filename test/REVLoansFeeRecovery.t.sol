@@ -263,7 +263,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow, JBTest {
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBRulesetDataHook(address(0)), TRUSTED_FORWARDER
+            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, TRUSTED_FORWARDER
         );
 
         LOANS_CONTRACT = new REVLoans({
@@ -284,6 +284,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow, JBTest {
             revnetId: FEE_PROJECT_ID,
             configuration: feeProjectConfig.configuration,
             terminalConfigurations: feeProjectConfig.terminalConfigurations,
+            buybackHookConfiguration: REVBuybackHookConfig({dataHook: IJBRulesetDataHook(address(0)), hookToConfigure: IJBBuybackHook(address(0)), poolConfigurations: new REVBuybackPoolConfig[](0)}),
             suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration
         });
 
@@ -293,6 +294,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow, JBTest {
             revnetId: 0,
             configuration: revnetConfig.configuration,
             terminalConfigurations: revnetConfig.terminalConfigurations,
+            buybackHookConfiguration: REVBuybackHookConfig({dataHook: IJBRulesetDataHook(address(0)), hookToConfigure: IJBBuybackHook(address(0)), poolConfigurations: new REVBuybackPoolConfig[](0)}),
             suckerDeploymentConfiguration: revnetConfig.suckerDeploymentConfiguration
         });
 
