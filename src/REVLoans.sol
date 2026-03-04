@@ -953,7 +953,9 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
             });
         }
 
-        // Store the loans updated values.
+        // Store the loans updated values, reverting on overflow.
+        if (newBorrowAmount > type(uint112).max) revert REVLoans_OverflowAlert(newBorrowAmount, type(uint112).max);
+        if (newCollateralCount > type(uint112).max) revert REVLoans_OverflowAlert(newCollateralCount, type(uint112).max);
         loan.amount = uint112(newBorrowAmount);
         loan.collateral = uint112(newCollateralCount);
     }
