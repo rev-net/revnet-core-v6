@@ -49,6 +49,8 @@ interface IREVDeployer {
 
     event SetAdditionalOperator(uint256 revnetId, address additionalOperator, uint256[] permissionIds, address caller);
 
+    event BurnHeldTokens(uint256 indexed revnetId, uint256 count, address caller);
+
     function CASH_OUT_DELAY() external view returns (uint256);
     function CONTROLLER() external view returns (IJBController);
     function DIRECTORY() external view returns (IJBDirectory);
@@ -60,6 +62,7 @@ interface IREVDeployer {
     function PUBLISHER() external view returns (CTPublisher);
     function BUYBACK_HOOK() external view returns (IJBRulesetDataHook);
     function HOOK_DEPLOYER() external view returns (IJB721TiersHookDeployer);
+    function LOANS() external view returns (address);
 
     function amountToAutoIssue(
         uint256 revnetId,
@@ -78,7 +81,6 @@ interface IREVDeployer {
         returns (address[] memory suckers);
     function hashedEncodedConfigurationOf(uint256 revnetId) external view returns (bytes32);
     function isSplitOperatorOf(uint256 revnetId, address addr) external view returns (bool);
-    function loansOf(uint256 revnetId) external view returns (address);
     function tiered721HookOf(uint256 revnetId) external view returns (IJB721TiersHook);
 
     function autoIssueFor(uint256 revnetId, uint256 stageId, address beneficiary) external;
@@ -103,4 +105,6 @@ interface IREVDeployer {
         returns (uint256, IJB721TiersHook hook);
 
     function setSplitOperatorOf(uint256 revnetId, address newSplitOperator) external;
+
+    function burnHeldTokensOf(uint256 revnetId) external;
 }

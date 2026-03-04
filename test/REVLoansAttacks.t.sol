@@ -6,6 +6,7 @@ import /* {*} from */ "@bananapus/core-v5/test/helpers/TestBaseWorkflow.sol";
 import /* {*} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
     import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v5/src/CTPublisher.sol";
+import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
 
 import "@bananapus/core-v5/script/helpers/CoreDeploymentLib.sol";
 import "@bananapus/721-hook-v5/script/helpers/Hook721DeploymentLib.sol";
@@ -153,6 +154,7 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
     MockERC20 TOKEN;
     IJBSuckerRegistry SUCKER_REGISTRY;
     CTPublisher PUBLISHER;
+    MockBuybackDataHook MOCK_BUYBACK;
 
     uint256 FEE_PROJECT_ID;
     uint256 REVNET_ID;
@@ -206,15 +208,11 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
             extraMetadata: 0
         });
 
-        REVLoanSource[] memory _loanSources = new REVLoanSource[](0);
-
         REVConfig memory revnetConfiguration = REVConfig({
             description: REVDescription(name, symbol, projectUri, ERC20_SALT),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
-            stageConfigurations: stageConfigurations,
-            loanSources: _loanSources,
-            loans: address(0)
+            stageConfigurations: stageConfigurations
         });
 
         return AttackProjectConfig({
@@ -271,17 +269,11 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
             extraMetadata: 0
         });
 
-        // Configure loan sources with the multi terminal
-        REVLoanSource[] memory _loanSources = new REVLoanSource[](1);
-        _loanSources[0] = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
-
         REVConfig memory revnetConfiguration = REVConfig({
             description: REVDescription(name, symbol, projectUri, "NANA_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
-            stageConfigurations: stageConfigurations,
-            loanSources: _loanSources,
-            loans: address(LOANS_CONTRACT)
+            stageConfigurations: stageConfigurations
         });
 
         return AttackProjectConfig({
@@ -305,6 +297,7 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
+        MOCK_BUYBACK = new MockBuybackDataHook();
         TOKEN = new MockERC20("1/2 ETH", "1/2");
 
         MockPriceFeed priceFeed = new MockPriceFeed(1e21, 6);
@@ -313,17 +306,18 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
             0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed
         );
 
-        REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBRulesetDataHook(address(0)), TRUSTED_FORWARDER
-        );
-
         LOANS_CONTRACT = new REVLoans({
-            revnets: REV_DEPLOYER,
+            controller: jbController(),
+            projects: jbProjects(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
             trustedForwarder: TRUSTED_FORWARDER
         });
+
+        REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
+            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBRulesetDataHook(address(MOCK_BUYBACK)), address(LOANS_CONTRACT), TRUSTED_FORWARDER
+        );
 
         // Deploy fee project
         vm.prank(address(multisig()));

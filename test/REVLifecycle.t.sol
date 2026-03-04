@@ -6,6 +6,7 @@ import /* {*} from */ "@bananapus/core-v5/test/helpers/TestBaseWorkflow.sol";
 import /* {*} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
     import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v5/src/CTPublisher.sol";
+import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
 
 import "@bananapus/core-v5/script/helpers/CoreDeploymentLib.sol";
 import "@bananapus/721-hook-v5/script/helpers/Hook721DeploymentLib.sol";
@@ -18,7 +19,6 @@ import {JBAccountingContext} from "@bananapus/core-v5/src/structs/JBAccountingCo
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVLoan} from "../src/structs/REVLoan.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v5/src/structs/JBSuckerDeployerConfig.sol";
@@ -42,6 +42,7 @@ contract REVLifecycle_Local is TestBaseWorkflow, JBTest {
     IREVLoans LOANS_CONTRACT;
     IJBSuckerRegistry SUCKER_REGISTRY;
     CTPublisher PUBLISHER;
+    MockBuybackDataHook MOCK_BUYBACK;
 
     uint256 FEE_PROJECT_ID;
     uint256 REVNET_ID;
@@ -64,18 +65,20 @@ contract REVLifecycle_Local is TestBaseWorkflow, JBTest {
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
-
-        REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBRulesetDataHook(address(0)), TRUSTED_FORWARDER
-        );
+        MOCK_BUYBACK = new MockBuybackDataHook();
 
         LOANS_CONTRACT = new REVLoans({
-            revnets: REV_DEPLOYER,
+            controller: jbController(),
+            projects: jbProjects(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
             trustedForwarder: TRUSTED_FORWARDER
         });
+
+        REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
+            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBRulesetDataHook(address(MOCK_BUYBACK)), address(LOANS_CONTRACT), TRUSTED_FORWARDER
+        );
 
         vm.prank(multisig());
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);
@@ -149,9 +152,7 @@ contract REVLifecycle_Local is TestBaseWorkflow, JBTest {
             description: REVDescription("Lifecycle", "LIFE", "ipfs://lifecycle", "LIFE_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
-            stageConfigurations: stageConfigurations,
-            loanSources: new REVLoanSource[](0),
-            loans: address(0)
+            stageConfigurations: stageConfigurations
         });
 
         vm.prank(multisig());

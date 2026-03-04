@@ -10,7 +10,6 @@ import {IJBProjects} from "@bananapus/core-v5/src/interfaces/IJBProjects.sol";
 import {IJBTokenUriResolver} from "@bananapus/core-v5/src/interfaces/IJBTokenUriResolver.sol";
 import {JBSingleAllowance} from "@bananapus/core-v5/src/structs/JBSingleAllowance.sol";
 
-import {IREVDeployer} from "./IREVDeployer.sol";
 import {REVLoan} from "./../structs/REVLoan.sol";
 import {REVLoanSource} from "./../structs/REVLoanSource.sol";
 
@@ -52,7 +51,6 @@ interface IREVLoans {
     function LOAN_LIQUIDATION_DURATION() external view returns (uint256);
     function PERMIT2() external view returns (IPermit2);
     function CONTROLLER() external view returns (IJBController);
-    function REVNETS() external view returns (IREVDeployer);
     function DIRECTORY() external view returns (IJBDirectory);
     function PRICES() external view returns (IJBPrices);
     function PROJECTS() external view returns (IJBProjects);
@@ -63,7 +61,7 @@ interface IREVLoans {
 
     function borrowableAmountFrom(
         uint256 revnetId,
-        uint256 collateral,
+        uint256 collateralCount,
         uint256 decimals,
         uint256 currency
     )
@@ -97,12 +95,12 @@ interface IREVLoans {
         uint256 revnetId,
         REVLoanSource calldata source,
         uint256 minBorrowAmount,
-        uint256 collateral,
+        uint256 collateralCount,
         address payable beneficiary,
         uint256 prepaidFeePercent
     )
         external
-        returns (uint256 loanId, REVLoan memory loan);
+        returns (uint256 loanId, REVLoan memory);
     function liquidateExpiredLoansFrom(uint256 revnetId, uint256 startingLoanId, uint256 count) external;
     function repayLoan(
         uint256 loanId,
@@ -113,18 +111,17 @@ interface IREVLoans {
     )
         external
         payable
-        returns (uint256 paidOffLoanId, REVLoan memory loan);
+        returns (uint256 paidOffLoanId, REVLoan memory paidOffloan);
     function reallocateCollateralFromLoan(
         uint256 loanId,
-        uint256 collateralToTransfer,
+        uint256 collateralCountToTransfer,
         REVLoanSource calldata source,
         uint256 minBorrowAmount,
-        uint256 collateralToAdd,
+        uint256 collateralCountToAdd,
         address payable beneficiary,
         uint256 prepaidFeePercent
     )
         external
-        payable
         returns (uint256 reallocatedLoanId, uint256 newLoanId, REVLoan memory reallocatedLoan, REVLoan memory newLoan);
     function setTokenUriResolver(IJBTokenUriResolver resolver) external;
 }

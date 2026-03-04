@@ -6,6 +6,7 @@ import /* {*} from */ "@bananapus/core-v5/test/helpers/TestBaseWorkflow.sol";
 import /* {*} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
     import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v5/src/CTPublisher.sol";
+import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
 
 import "@bananapus/core-v5/script/helpers/CoreDeploymentLib.sol";
 import "@bananapus/721-hook-v5/script/helpers/Hook721DeploymentLib.sol";
@@ -16,7 +17,6 @@ import "@bananapus/swap-terminal-v5/script/helpers/SwapTerminalDeploymentLib.sol
 import {JBConstants} from "@bananapus/core-v5/src/libraries/JBConstants.sol";
 import {JBAccountingContext} from "@bananapus/core-v5/src/structs/JBAccountingContext.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v5/src/structs/JBSuckerDeployerConfig.sol";
@@ -40,6 +40,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
     IJBAddressRegistry ADDRESS_REGISTRY;
     IJBSuckerRegistry SUCKER_REGISTRY;
     CTPublisher PUBLISHER;
+    MockBuybackDataHook MOCK_BUYBACK;
 
     uint256 FEE_PROJECT_ID;
     uint256 decimals = 18;
@@ -58,9 +59,10 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
+        MOCK_BUYBACK = new MockBuybackDataHook();
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBRulesetDataHook(address(0)), TRUSTED_FORWARDER
+            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBRulesetDataHook(address(MOCK_BUYBACK)), makeAddr("loans"), TRUSTED_FORWARDER
         );
 
         vm.prank(multisig());
@@ -129,9 +131,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
             description: REVDescription("TestRevnet", "TREV", "ipfs://test", bytes32(uint256(numStages))),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
-            stageConfigurations: stages,
-            loanSources: new REVLoanSource[](0),
-            loans: address(0)
+            stageConfigurations: stages
         });
 
         vm.prank(multisig());
