@@ -231,6 +231,7 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            projects: jbProjects(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
@@ -1003,6 +1004,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow, JBTest {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            projects: jbProjects(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),

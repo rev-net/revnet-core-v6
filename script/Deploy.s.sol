@@ -288,12 +288,13 @@ contract DeployScript is Script, Sphinx {
         (address _revloansAddr, bool _revloansIsDeployed) = _isDeployed(
             REVLOANS_SALT,
             type(REVLoans).creationCode,
-            abi.encode(core.controller, FEE_PROJECT_ID, LOANS_OWNER, PERMIT2, TRUSTED_FORWARDER)
+            abi.encode(core.controller, core.projects, FEE_PROJECT_ID, LOANS_OWNER, PERMIT2, TRUSTED_FORWARDER)
         );
         REVLoans revloans = _revloansIsDeployed
             ? REVLoans(payable(_revloansAddr))
             : new REVLoans{salt: REVLOANS_SALT}({
                 controller: core.controller,
+                projects: core.projects,
                 revId: FEE_PROJECT_ID,
                 owner: LOANS_OWNER,
                 permit2: PERMIT2,

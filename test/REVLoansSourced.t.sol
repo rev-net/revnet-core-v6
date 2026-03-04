@@ -318,6 +318,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            projects: jbProjects(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
@@ -521,7 +522,8 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
         }
 
         // Forward time to right before the loan reaches liquidation.
-        vm.warp(block.timestamp + 3650 days);
+        // Use 3650 days - 1 because liquidation triggers at >= LOAN_LIQUIDATION_DURATION.
+        vm.warp(block.timestamp + 3650 days - 1);
 
         // Repay the loan.
         uint256 balanceBefore = TOKEN.balanceOf(USER);
@@ -803,7 +805,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
         ///
         percentOfCollateralToRemove = bound(percentOfCollateralToRemove, 0, 10_000);
         prepaidFeePercent = bound(prepaidFeePercent, 25, 500);
-        daysToWarp = bound(daysToWarp, 0, 3650);
+        daysToWarp = bound(daysToWarp, 0, 3649);
 
         daysToWarp = daysToWarp * 1 days;
 

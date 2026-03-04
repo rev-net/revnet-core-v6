@@ -67,7 +67,7 @@ contract TestPR10_LiquidationBehavior is TestBaseWorkflow, JBTest {
         MockPriceFeed priceFeed = new MockPriceFeed(1e21, 6);
         vm.prank(multisig());
         jbPrices().addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
-        LOANS_CONTRACT = new REVLoans({controller: jbController(), revId: FEE_PROJECT_ID, owner: address(this), permit2: permit2(), trustedForwarder: TRUSTED_FORWARDER});
+        LOANS_CONTRACT = new REVLoans({controller: jbController(), projects: jbProjects(), revId: FEE_PROJECT_ID, owner: address(this), permit2: permit2(), trustedForwarder: TRUSTED_FORWARDER});
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, address(LOANS_CONTRACT), TRUSTED_FORWARDER);
         vm.prank(multisig());
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);
@@ -252,7 +252,9 @@ contract TestPR10_LiquidationBehavior is TestBaseWorkflow, JBTest {
         // 4. The loan data in _loanOf[loanId] is NOT deleted (no `delete` statement),
         //    but the loan is effectively dead since the NFT is burned and tracking is zeroed.
         REVLoan memory loanAfter = LOANS_CONTRACT.loanOf(loanId);
-        // The loan struct data still persists (this is by design — no delete in the code)
-        assertTrue(loanAfter.amount > 0, "Loan data persists in storage (no delete, but NFT burned)");
+        // The loan struct data is deleted for a gas refund (delete _loanOf[loanId]).
+        assertEq(loanAfter.amount, 0, "Loan data should be cleared after liquidation");
+        assertEq(loanAfter.collateral, 0, "Loan collateral should be cleared after liquidation");
+        assertEq(loanAfter.createdAt, 0, "Loan createdAt should be cleared after liquidation");
     }
 }

@@ -76,6 +76,7 @@ contract TestPR21_Uint112Overflow is TestBaseWorkflow, JBTest {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            projects: jbProjects(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),

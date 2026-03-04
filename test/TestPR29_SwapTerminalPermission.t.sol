@@ -60,6 +60,7 @@ contract TestPR29_SwapTerminalPermission is TestBaseWorkflow, JBTest {
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            projects: jbProjects(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),

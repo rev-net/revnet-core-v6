@@ -65,7 +65,7 @@ contract TestPR32_MixedFixes is TestBaseWorkflow, JBTest {
         MockPriceFeed priceFeed = new MockPriceFeed(1e21, 6);
         vm.prank(multisig());
         jbPrices().addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
-        LOANS_CONTRACT = new REVLoans({controller: jbController(), revId: FEE_PROJECT_ID, owner: address(this), permit2: permit2(), trustedForwarder: TRUSTED_FORWARDER});
+        LOANS_CONTRACT = new REVLoans({controller: jbController(), projects: jbProjects(), revId: FEE_PROJECT_ID, owner: address(this), permit2: permit2(), trustedForwarder: TRUSTED_FORWARDER});
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, address(LOANS_CONTRACT), TRUSTED_FORWARDER);
         vm.prank(multisig());
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);

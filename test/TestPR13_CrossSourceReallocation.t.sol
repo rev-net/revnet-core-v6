@@ -31,10 +31,9 @@ import {JB721TiersHookStore} from "@bananapus/721-hook-v5/src/JB721TiersHookStor
 import {JBAddressRegistry} from "@bananapus/address-registry-v5/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v5/src/interfaces/IJBAddressRegistry.sol";
 
-/// @notice Tests proving that flash loan surplus manipulation is economically unprofitable (PR #12).
-contract TestPR12_FlashLoanSurplus is TestBaseWorkflow, JBTest {
+/// @notice Tests for PR #13: cross-source reallocation prevention.
+contract TestPR13_CrossSourceReallocation is TestBaseWorkflow, JBTest {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
-    bytes32 ERC20_SALT = "REV_TOKEN";
 
     REVDeployer REV_DEPLOYER;
     JB721TiersHook EXAMPLE_HOOK;
@@ -50,7 +49,6 @@ contract TestPR12_FlashLoanSurplus is TestBaseWorkflow, JBTest {
     uint256 REVNET_ID;
 
     address USER = makeAddr("user");
-    address ATTACKER = makeAddr("attacker");
 
     address private constant TRUSTED_FORWARDER = 0xB2b5841DBeF766d4b521221732F9B618fCf34A87;
 
@@ -74,7 +72,6 @@ contract TestPR12_FlashLoanSurplus is TestBaseWorkflow, JBTest {
         _deployFeeProject();
         _deployRevnet();
         vm.deal(USER, 1000e18);
-        vm.deal(ATTACKER, 1000e18);
     }
 
     function _deployFeeProject() internal {
@@ -127,86 +124,96 @@ contract TestPR12_FlashLoanSurplus is TestBaseWorkflow, JBTest {
         (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee);
     }
 
-    /// @notice Donate ETH via addToBalanceOf, then borrow. The donation costs more than the extra borrowable amount.
-    function test_addToBalance_surplusInflation_unprofitable() public {
-        // First, user pays to establish baseline tokens
+    /// @notice Reallocating with the same source (token + terminal) should succeed.
+    function test_reallocateWithSameSource_succeeds() public {
+        // Setup: user pays and borrows
+        (uint256 loanId, uint256 tokenCount,) = _setupLoan(USER, 10e18, 25);
+        require(loanId != 0, "Loan setup failed");
+
+        // Donate a large amount to inflate surplus, making each collateral token worth significantly more.
+        // This ensures that after removing some collateral, the remaining collateral still supports the loan amount.
+        address donor = makeAddr("donor");
+        vm.deal(donor, 500e18);
+        vm.prank(donor);
+        jbMultiTerminal().addToBalanceOf{value: 500e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 500e18, false, "", "");
+
+        // User pays more to get additional tokens for the new loan's extra collateral
         vm.prank(USER);
-        uint256 userTokens = jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
+        uint256 extraTokens = jbMultiTerminal().pay{value: 50e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 50e18, USER, 0, "", "");
 
-        // Check borrowable amount before donation
-        uint256 borrowableBefore = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, userTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        // Transfer a small portion of collateral so the remaining collateral (now worth much more) supports the loan
+        uint256 collateralToTransfer = tokenCount / 10; // Transfer 10% of collateral
 
-        // Attacker donates 100 ETH to inflate surplus
-        uint256 donationAmount = 100e18;
-        vm.prank(ATTACKER);
-        jbMultiTerminal().addToBalanceOf{value: donationAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, donationAmount, false, "", "");
+        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 
-        // Check borrowable amount after donation
-        uint256 borrowableAfter = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, userTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        // Mock burn permission for the new loan's borrowFrom call
+        mockExpect(address(jbPermissions()), abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, REVNET_ID, 10, true, true)), abi.encode(true));
 
-        // The gain in borrowable amount
-        uint256 borrowableGain = borrowableAfter - borrowableBefore;
+        vm.prank(USER);
+        (uint256 reallocatedLoanId, uint256 newLoanId,,) = LOANS_CONTRACT.reallocateCollateralFromLoan(
+            loanId,
+            collateralToTransfer,
+            source,
+            0, // minBorrowAmount
+            extraTokens, // collateralCountToAdd
+            payable(USER),
+            25 // prepaidFeePercent
+        );
 
-        // The donation cost (100 ETH) is always more than the extra borrowable amount gained.
-        // Because borrowable = surplus * (collateralCount / totalSupply) * bonding_curve_factor,
-        // and collateralCount < totalSupply, so gain < donation.
-        assertGt(donationAmount, borrowableGain, "Donation should cost more than the extra borrowable amount gained");
+        // Verify both loans exist
+        assertTrue(reallocatedLoanId != 0, "Reallocated loan should exist");
+        assertTrue(newLoanId != 0, "New loan should exist");
+
+        // Verify new loan has correct source
+        REVLoan memory newLoan = LOANS_CONTRACT.loanOf(newLoanId);
+        assertEq(newLoan.source.token, JBConstants.NATIVE_TOKEN, "New loan source token should match");
+        assertEq(address(newLoan.source.terminal), address(jbMultiTerminal()), "New loan source terminal should match");
     }
 
-    /// @notice Pay into revnet (minting tokens). borrowable-per-existing-token should not increase because supply dilution offsets surplus increase.
-    function test_pay_surplusInflation_neutral() public {
-        // User pays to get tokens
+    /// @notice Reallocating with a different token should revert with SourceMismatch.
+    function test_reallocateWithDifferentToken_reverts() public {
+        // Setup: user pays and borrows with NATIVE_TOKEN source
+        (uint256 loanId,,) = _setupLoan(USER, 10e18, 25);
+        require(loanId != 0, "Loan setup failed");
+
+        // Try to reallocate with a different token (TOKEN instead of NATIVE_TOKEN)
+        REVLoanSource memory wrongSource = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
+
         vm.prank(USER);
-        uint256 userTokens = jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
-
-        // Check borrowable-per-token for existing user's tokens
-        uint256 borrowableBefore = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, userTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
-
-        // Someone else pays 100 ETH (this mints new tokens AND increases surplus)
-        address payer = makeAddr("payer");
-        vm.deal(payer, 100e18);
-        vm.prank(payer);
-        jbMultiTerminal().pay{value: 100e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 100e18, payer, 0, "", "");
-
-        // Check borrowable for the SAME user tokens after the payment
-        uint256 borrowableAfter = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, userTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
-
-        // With a non-zero cashOutTaxRate (concave bonding curve), paying in actually DECREASES
-        // the per-token borrowable amount for existing holders due to dilution.
-        // At minimum, it should not increase the per-token borrowable amount.
-        assertLe(borrowableAfter, borrowableBefore, "Paying in should not increase per-token borrowable amount");
+        vm.expectRevert(REVLoans.REVLoans_SourceMismatch.selector);
+        LOANS_CONTRACT.reallocateCollateralFromLoan(
+            loanId,
+            1, // collateralCountToTransfer (any nonzero value)
+            wrongSource,
+            0, // minBorrowAmount
+            0, // collateralCountToAdd
+            payable(USER),
+            25 // prepaidFeePercent
+        );
     }
 
-    /// @notice Full attack simulation: donate, borrow max, verify net negative.
-    function test_flashLoanSimulation_netNegative() public {
-        // Attacker first buys tokens to have something to borrow against
-        vm.prank(ATTACKER);
-        uint256 attackerTokens = jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, ATTACKER, 0, "", "");
+    /// @notice Reallocating with a different terminal should revert with SourceMismatch.
+    function test_reallocateWithDifferentTerminal_reverts() public {
+        // Setup: user pays and borrows with jbMultiTerminal
+        (uint256 loanId,,) = _setupLoan(USER, 10e18, 25);
+        require(loanId != 0, "Loan setup failed");
 
-        // Check borrowable before donation
-        uint256 borrowableBefore = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, attackerTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        // Create a fake terminal address
+        address fakeTerminal = makeAddr("fakeTerminal");
 
-        // Attacker donates 100 ETH to inflate surplus (simulating flash loan injection)
-        uint256 donationAmount = 100e18;
-        vm.prank(ATTACKER);
-        jbMultiTerminal().addToBalanceOf{value: donationAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, donationAmount, false, "", "");
+        // Try to reallocate with a different terminal
+        REVLoanSource memory wrongSource = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: IJBPayoutTerminal(fakeTerminal)});
 
-        // Check borrowable after donation
-        uint256 borrowableAfter = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, attackerTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
-
-        // Extra borrowable gained by the attacker through the donation
-        uint256 extraBorrowable = borrowableAfter - borrowableBefore;
-
-        // The attacker's net position:
-        // - Lost: donationAmount (100 ETH, permanently donated — no recovery mechanism)
-        // - Gained: extraBorrowable (the additional amount they can borrow)
-        // Net = extraBorrowable - donationAmount, which should be negative
-        assertGt(donationAmount, extraBorrowable, "Attack should be net negative: donation > extra borrowable");
-
-        // Furthermore, the extra borrowable is strictly less than donation because
-        // gain = donation * (collateral / totalSupply) * cashOutTaxRate_factor
-        // and collateral < totalSupply, so the multiplier is always < 1
-        // This means the attacker loses a significant fraction of their flash loan
-        assertTrue(extraBorrowable < donationAmount, "Extra borrowable must be strictly less than donation");
+        vm.prank(USER);
+        vm.expectRevert(REVLoans.REVLoans_SourceMismatch.selector);
+        LOANS_CONTRACT.reallocateCollateralFromLoan(
+            loanId,
+            1, // collateralCountToTransfer
+            wrongSource,
+            0, // minBorrowAmount
+            0, // collateralCountToAdd
+            payable(USER),
+            25 // prepaidFeePercent
+        );
     }
 }
