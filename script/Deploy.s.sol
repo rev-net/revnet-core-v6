@@ -61,10 +61,10 @@ contract DeployScript is Script, Sphinx {
     uint32 ETH_CURRENCY = JBCurrencyIds.ETH;
     uint8 DECIMALS = 18;
     uint256 DECIMAL_MULTIPLIER = 10 ** DECIMALS;
-    bytes32 ERC20_SALT = "_REV_ERC20_SALT__";
-    bytes32 SUCKER_SALT = "_REV_SUCKER_SALT__";
-    bytes32 DEPLOYER_SALT = "_REV_DEPLOYER_SALT__";
-    bytes32 REVLOANS_SALT = "_REV_LOANS_SALT__";
+    bytes32 ERC20_SALT = "_REV_ERC20_SALT_V6_";
+    bytes32 SUCKER_SALT = "_REV_SUCKER_SALT_V6_";
+    bytes32 DEPLOYER_SALT = "_REV_DEPLOYER_SALT_V6_";
+    bytes32 REVLOANS_SALT = "_REV_LOANS_SALT_V6_";
     address LOANS_OWNER;
     address OPERATOR;
     address TRUSTED_FORWARDER;
