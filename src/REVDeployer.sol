@@ -18,6 +18,7 @@ import {IJBPermissions} from "@bananapus/core-v5/src/interfaces/IJBPermissions.s
 import {IJBProjects} from "@bananapus/core-v5/src/interfaces/IJBProjects.sol";
 import {IJBRulesetApprovalHook} from "@bananapus/core-v5/src/interfaces/IJBRulesetApprovalHook.sol";
 import {IJBRulesetDataHook} from "@bananapus/core-v5/src/interfaces/IJBRulesetDataHook.sol";
+import {IJBBuybackHook} from "@bananapus/buyback-hook-v5/src/interfaces/IJBBuybackHook.sol";
 import {IJBSplitHook} from "@bananapus/core-v5/src/interfaces/IJBSplitHook.sol";
 import {IJBTerminal} from "@bananapus/core-v5/src/interfaces/IJBTerminal.sol";
 import {JBCashOuts} from "@bananapus/core-v5/src/libraries/JBCashOuts.sol";
@@ -89,6 +90,14 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @dev Fees are charged on cashouts if the cash out tax rate is greater than 0%.
     /// @dev When suckers withdraw funds, they do not pay cash out fees.
     uint256 public constant override FEE = 25; // 2.5%
+
+    /// @notice The default Uniswap pool fee tier used when auto-configuring buyback pools.
+    /// @dev 10_000 = 1%. This is the standard fee tier for most project token pairs.
+    uint24 public constant DEFAULT_BUYBACK_POOL_FEE = 10_000;
+
+    /// @notice The default TWAP window used when auto-configuring buyback pools.
+    /// @dev 2 days provides robust manipulation resistance.
+    uint32 public constant DEFAULT_BUYBACK_TWAP_WINDOW = 2 days;
 
     //*********************************************************************//
     // --------------- public immutable stored properties ---------------- //
@@ -993,6 +1002,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             salt: keccak256(abi.encode(configuration.description.salt, encodedConfigurationHash, _msgSender()))
         });
 
+        // Auto-configure buyback pools for each token accepted by the revnet's terminals.
+        _configureBuybackPoolsFor({revnetId: revnetId, terminalConfigurations: terminalConfigurations});
 
         // Give the split operator their permissions.
         _setSplitOperatorOf({revnetId: revnetId, operator: configuration.splitOperator});
@@ -1020,8 +1031,34 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         });
     }
 
-    /// @notice Deploy suckers for a revnet.
-    /// @param revnetId The ID of the revnet to deploy suckers for.
+    /// @notice Auto-configure buyback pools for each token accepted by the revnet's terminals.
+    /// @dev Uses sensible defaults for the Uniswap pool fee tier and TWAP window. The split operator
+    /// can later adjust these via `SET_BUYBACK_POOL` and `SET_BUYBACK_TWAP` permissions.
+    /// @param revnetId The ID of the revnet to configure buyback pools for.
+    /// @param terminalConfigurations The terminal configurations containing the accepted tokens.
+    function _configureBuybackPoolsFor(
+        uint256 revnetId,
+        JBTerminalConfig[] calldata terminalConfigurations
+    )
+        internal
+    {
+        // Configure a buyback pool for each unique token across all terminals.
+        for (uint256 i; i < terminalConfigurations.length; i++) {
+            JBAccountingContext[] calldata contexts = terminalConfigurations[i].accountingContextsToAccept;
+
+            for (uint256 j; j < contexts.length; j++) {
+                // Set up a buyback pool for this terminal token with default fee and TWAP window.
+                // slither-disable-next-line unused-return
+                IJBBuybackHook(address(BUYBACK_HOOK)).setPoolFor({
+                    projectId: revnetId,
+                    fee: DEFAULT_BUYBACK_POOL_FEE,
+                    twapWindow: DEFAULT_BUYBACK_TWAP_WINDOW,
+                    terminalToken: contexts[j].token
+                });
+            }
+        }
+    }
+
     /// @param encodedConfigurationHash A hash that represents the revnet's configuration.
     /// See `_makeRulesetConfigurations(…)` for encoding details. Clients can read the encoded configuration
     /// from the `DeployRevnet` event emitted by this contract.
