@@ -80,7 +80,8 @@ contract DeployScript is Script, Sphinx {
         // TODO: Update to contain revnet devs.
         sphinxConfig.projectName = "revnet-core-v5";
         sphinxConfig.mainnets = ["ethereum", "optimism", "base", "arbitrum"];
-        sphinxConfig.testnets = ["ethereum_sepolia", "optimism_sepolia", "base_sepolia", "arbitrum_sepolia"];
+        sphinxConfig.testnets =
+            ["ethereum_sepolia", "optimism_sepolia", "base_sepolia", "arbitrum_sepolia", "tempo_testnet"];
     }
 
     function run() public {
@@ -253,7 +254,10 @@ contract DeployScript is Script, Sphinx {
         {
             JBSuckerDeployerConfig[] memory suckerDeployerConfigurations;
             if (block.chainid == 1 || block.chainid == 11_155_111) {
-                suckerDeployerConfigurations = new JBSuckerDeployerConfig[](3);
+                // On L1: deploy suckers to OP, Base, Arbitrum (+ Tempo on testnet if deployer is available).
+                bool _hasTempoDeployer = address(suckers.tempoDeployer) != address(0);
+                suckerDeployerConfigurations =
+                    new JBSuckerDeployerConfig[](_hasTempoDeployer ? 4 : 3);
                 // OP
                 suckerDeployerConfigurations[0] =
                     JBSuckerDeployerConfig({deployer: suckers.optimismDeployer, mappings: tokenMappings});
@@ -263,6 +267,21 @@ contract DeployScript is Script, Sphinx {
 
                 suckerDeployerConfigurations[2] =
                     JBSuckerDeployerConfig({deployer: suckers.arbitrumDeployer, mappings: tokenMappings});
+
+                // Tempo: uses NATIVE_TOKEN <-> NATIVE_TOKEN mapping for now.
+                // TODO: When WETH is deployed on Tempo, update to use a Tempo-specific tokenMappings with
+                // localToken: NATIVE_TOKEN, remoteToken: WETH_ON_TEMPO.
+                if (_hasTempoDeployer) {
+                    suckerDeployerConfigurations[3] =
+                        JBSuckerDeployerConfig({deployer: suckers.tempoDeployer, mappings: tokenMappings});
+                }
+            } else if (block.chainid == 42_429) {
+                // Tempo -> ETH via CCIP.
+                // TODO: When WETH is deployed on Tempo, update to use a Tempo-specific tokenMappings with
+                // localToken: WETH_ON_TEMPO, remoteToken: NATIVE_TOKEN.
+                suckerDeployerConfigurations = new JBSuckerDeployerConfig[](1);
+                suckerDeployerConfigurations[0] =
+                    JBSuckerDeployerConfig({deployer: suckers.tempoDeployer, mappings: tokenMappings});
             } else {
                 suckerDeployerConfigurations = new JBSuckerDeployerConfig[](1);
                 // L2 -> Mainnet
