@@ -130,8 +130,9 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     /// @custom:param revnetId The ID of the revnet issuing the loan.
     /// @custom:param terminal The terminal that the loan is issued from.
     /// @custom:param token The token being loaned.
-    mapping(uint256 revnetId => mapping(IJBPayoutTerminal terminal => mapping(address token => bool))) public override
-        isLoanSourceOf;
+    mapping(uint256 revnetId => mapping(IJBPayoutTerminal terminal => mapping(address token => bool)))
+        public
+        override isLoanSourceOf;
 
     /// @notice The amount of loans that have been created.
     /// @custom:param revnetId The ID of the revnet to get the number of loans from.
@@ -700,9 +701,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
 
         // Refinance the loan.
         (reallocatedLoanId, reallocatedLoan) = _reallocateCollateralFromLoan({
-            loanId: loanId,
-            revnetId: revnetId,
-            collateralCountToRemove: collateralCountToTransfer
+            loanId: loanId, revnetId: revnetId, collateralCountToRemove: collateralCountToTransfer
         });
 
         // Make a new loan with the leftover collateral from reallocating.
@@ -756,9 +755,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         {
             // Get the new borrow amount.
             uint256 newBorrowAmount = _borrowAmountFrom({
-                loan: loan,
-                revnetId: revnetId,
-                collateralCount: loan.collateral - collateralCountToReturn
+                loan: loan, revnetId: revnetId, collateralCount: loan.collateral - collateralCountToReturn
             });
 
             // Make sure the new borrow amount is less than the loan's amount.
@@ -838,10 +835,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
 
         // Permanently burn the tokens that are tracked as collateral. These are only re-minted upon repayment.
         CONTROLLER.burnTokensOf({
-            holder: _msgSender(),
-            projectId: revnetId,
-            tokenCount: amount,
-            memo: "Adding collateral to loan"
+            holder: _msgSender(), projectId: revnetId, tokenCount: amount, memo: "Adding collateral to loan"
         });
     }
 
@@ -878,16 +872,17 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
 
             // Pull the amount to be loaned out of the revnet. This will incure the protocol fee.
             // slither-disable-next-line unused-return
-            netAmountPaidOut = loan.source.terminal.useAllowanceOf({
-                projectId: revnetId,
-                token: loan.source.token,
-                amount: addedBorrowAmount,
-                currency: accountingContext.currency,
-                minTokensPaidOut: 0,
-                beneficiary: payable(address(this)),
-                feeBeneficiary: beneficiary,
-                memo: "Lending out to a borrower"
-            });
+            netAmountPaidOut = loan.source.terminal
+                .useAllowanceOf({
+                    projectId: revnetId,
+                    token: loan.source.token,
+                    amount: addedBorrowAmount,
+                    currency: accountingContext.currency,
+                    minTokensPaidOut: 0,
+                    beneficiary: payable(address(this)),
+                    feeBeneficiary: beneficiary,
+                    memo: "Lending out to a borrower"
+                });
         }
 
         // Keep a reference to the fee terminal.
@@ -913,14 +908,13 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
                 minReturnedTokens: 0,
                 memo: "Fee from loan",
                 metadata: bytes(abi.encodePacked(revnetId))
-            }) {} catch (bytes memory) {
+            }) {}
+            catch (bytes memory) {
                 // If the fee can't be processed, decrease the ERC-20 allowance and zero out the fee
                 // so the borrower receives it instead.
                 if (loan.source.token != JBConstants.NATIVE_TOKEN) {
-                    IERC20(loan.source.token).safeDecreaseAllowance({
-                        spender: address(feeTerminal),
-                        requestedDecrease: revFeeAmount
-                    });
+                    IERC20(loan.source.token)
+                        .safeDecreaseAllowance({spender: address(feeTerminal), requestedDecrease: revFeeAmount});
                 }
                 revFeeAmount = 0;
             }
@@ -964,7 +958,9 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         // EFFECTS: Write loan state before any external calls (CEI pattern).
         // Any reentrant call will see the updated loan values, reverting on overflow.
         if (newBorrowAmount > type(uint112).max) revert REVLoans_OverflowAlert(newBorrowAmount, type(uint112).max);
-        if (newCollateralCount > type(uint112).max) revert REVLoans_OverflowAlert(newCollateralCount, type(uint112).max);
+        if (newCollateralCount > type(uint112).max) {
+            revert REVLoans_OverflowAlert(newCollateralCount, type(uint112).max);
+        }
         loan.amount = uint112(newBorrowAmount);
         loan.collateral = uint112(newCollateralCount);
 
@@ -990,9 +986,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
             // ... or return collateral if needed.
         } else if (returnedCollateralCount > 0) {
             _returnCollateralFrom({
-                revnetId: revnetId,
-                collateralCount: returnedCollateralCount,
-                beneficiary: beneficiary
+                revnetId: revnetId, collateralCount: returnedCollateralCount, beneficiary: beneficiary
             });
         }
 
@@ -1000,9 +994,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         if (sourceFeeAmount > 0) {
             // Increase the allowance for the beneficiary.
             uint256 payValue = _beforeTransferTo({
-                to: address(loan.source.terminal),
-                token: loan.source.token,
-                amount: sourceFeeAmount
+                to: address(loan.source.terminal), token: loan.source.token, amount: sourceFeeAmount
             });
 
             // Pay the fee.
@@ -1048,10 +1040,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
             // Keep a reference to the permit rules.
             IAllowanceTransfer.PermitSingle memory permitSingle = IAllowanceTransfer.PermitSingle({
                 details: IAllowanceTransfer.PermitDetails({
-                    token: token,
-                    amount: allowance.amount,
-                    expiration: allowance.expiration,
-                    nonce: allowance.nonce
+                    token: token, amount: allowance.amount, expiration: allowance.expiration, nonce: allowance.nonce
                 }),
                 spender: address(this),
                 sigDeadline: allowance.sigDeadline
@@ -1246,7 +1235,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
             newCollateralCount: newCollateralCount,
             sourceFeeAmount: 0,
             beneficiary: payable(_msgSender()) // use the msgSender as the beneficiary, who will have the returned
-                // collateral tokens debited from their balance for the new loan.
+            // collateral tokens debited from their balance for the new loan.
         });
 
         // Mint the replacement loan.
@@ -1275,8 +1264,9 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         totalBorrowedFrom[revnetId][loan.source.terminal][loan.source.token] -= repaidBorrowAmount;
 
         // Increase the allowance for the beneficiary.
-        uint256 payValue =
-            _beforeTransferTo({to: address(loan.source.terminal), token: loan.source.token, amount: repaidBorrowAmount});
+        uint256 payValue = _beforeTransferTo({
+            to: address(loan.source.terminal), token: loan.source.token, amount: repaidBorrowAmount
+        });
 
         // Add the loaned amount back to the revnet.
         loan.source.terminal.addToBalanceOf{value: payValue}({

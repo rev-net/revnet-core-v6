@@ -4,7 +4,7 @@ pragma solidity 0.8.23;
 import "forge-std/Test.sol";
 import /* {*} from */ "@bananapus/core-v5/test/helpers/TestBaseWorkflow.sol";
 import /* {*} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
-    import /* {*} from */ "./../src/REVDeployer.sol";
+import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v5/src/CTPublisher.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
 import "@bananapus/core-v5/script/helpers/CoreDeploymentLib.sol";
@@ -65,9 +65,26 @@ contract TestPR13_CrossSourceReallocation is TestBaseWorkflow, JBTest {
         TOKEN = new MockERC20("1/2 ETH", "1/2");
         MockPriceFeed priceFeed = new MockPriceFeed(1e21, 6);
         vm.prank(multisig());
-        jbPrices().addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
-        LOANS_CONTRACT = new REVLoans({controller: jbController(), projects: jbProjects(), revId: FEE_PROJECT_ID, owner: address(this), permit2: permit2(), trustedForwarder: TRUSTED_FORWARDER});
-        REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBRulesetDataHook(address(MOCK_BUYBACK)), address(LOANS_CONTRACT), TRUSTED_FORWARDER);
+        jbPrices()
+            .addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
+        LOANS_CONTRACT = new REVLoans({
+            controller: jbController(),
+            projects: jbProjects(),
+            revId: FEE_PROJECT_ID,
+            owner: address(this),
+            permit2: permit2(),
+            trustedForwarder: TRUSTED_FORWARDER
+        });
+        REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
+            jbController(),
+            SUCKER_REGISTRY,
+            FEE_PROJECT_ID,
+            HOOK_DEPLOYER,
+            PUBLISHER,
+            IJBRulesetDataHook(address(MOCK_BUYBACK)),
+            address(LOANS_CONTRACT),
+            TRUSTED_FORWARDER
+        );
         vm.prank(multisig());
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);
         _deployFeeProject();
@@ -77,7 +94,9 @@ contract TestPR13_CrossSourceReallocation is TestBaseWorkflow, JBTest {
 
     function _deployFeeProject() internal {
         JBAccountingContext[] memory acc = new JBAccountingContext[](2);
-        acc[0] = JBAccountingContext({token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))});
+        acc[0] = JBAccountingContext({
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+        });
         acc[1] = JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
         JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
         tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
@@ -87,15 +106,39 @@ contract TestPR13_CrossSourceReallocation is TestBaseWorkflow, JBTest {
         splits[0].percent = 10_000;
         REVAutoIssuance[] memory ai = new REVAutoIssuance[](1);
         ai[0] = REVAutoIssuance({chainId: uint32(block.chainid), count: uint104(70_000e18), beneficiary: multisig()});
-        stages[0] = REVStageConfig({startsAtOrAfter: uint40(block.timestamp), autoIssuances: ai, splitPercent: 2000, splits: splits, initialIssuance: uint112(1000e18), issuanceCutFrequency: 90 days, issuanceCutPercent: JBConstants.MAX_WEIGHT_CUT_PERCENT / 2, cashOutTaxRate: 6000, extraMetadata: 0});
-        REVConfig memory cfg = REVConfig({description: REVDescription("Revnet", "$REV", "ipfs://test", "REV_TOKEN"), baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)), splitOperator: multisig(), stageConfigurations: stages});
+        stages[0] = REVStageConfig({
+            startsAtOrAfter: uint40(block.timestamp),
+            autoIssuances: ai,
+            splitPercent: 2000,
+            splits: splits,
+            initialIssuance: uint112(1000e18),
+            issuanceCutFrequency: 90 days,
+            issuanceCutPercent: JBConstants.MAX_WEIGHT_CUT_PERCENT / 2,
+            cashOutTaxRate: 6000,
+            extraMetadata: 0
+        });
+        REVConfig memory cfg = REVConfig({
+            description: REVDescription("Revnet", "$REV", "ipfs://test", "REV_TOKEN"),
+            baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
+            splitOperator: multisig(),
+            stageConfigurations: stages
+        });
         vm.prank(multisig());
-        REV_DEPLOYER.deployFor({revnetId: FEE_PROJECT_ID, configuration: cfg, terminalConfigurations: tc, suckerDeploymentConfiguration: REVSuckerDeploymentConfig({deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")})});
+        REV_DEPLOYER.deployFor({
+            revnetId: FEE_PROJECT_ID,
+            configuration: cfg,
+            terminalConfigurations: tc,
+            suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")
+            })
+        });
     }
 
     function _deployRevnet() internal {
         JBAccountingContext[] memory acc = new JBAccountingContext[](2);
-        acc[0] = JBAccountingContext({token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))});
+        acc[0] = JBAccountingContext({
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+        });
         acc[1] = JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
         JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
         tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
@@ -105,19 +148,54 @@ contract TestPR13_CrossSourceReallocation is TestBaseWorkflow, JBTest {
         splits[0].percent = 10_000;
         REVAutoIssuance[] memory ai = new REVAutoIssuance[](1);
         ai[0] = REVAutoIssuance({chainId: uint32(block.chainid), count: uint104(70_000e18), beneficiary: multisig()});
-        stages[0] = REVStageConfig({startsAtOrAfter: uint40(block.timestamp), autoIssuances: ai, splitPercent: 2000, splits: splits, initialIssuance: uint112(1000e18), issuanceCutFrequency: 90 days, issuanceCutPercent: JBConstants.MAX_WEIGHT_CUT_PERCENT / 2, cashOutTaxRate: 6000, extraMetadata: 0});
+        stages[0] = REVStageConfig({
+            startsAtOrAfter: uint40(block.timestamp),
+            autoIssuances: ai,
+            splitPercent: 2000,
+            splits: splits,
+            initialIssuance: uint112(1000e18),
+            issuanceCutFrequency: 90 days,
+            issuanceCutPercent: JBConstants.MAX_WEIGHT_CUT_PERCENT / 2,
+            cashOutTaxRate: 6000,
+            extraMetadata: 0
+        });
         REVLoanSource[] memory ls = new REVLoanSource[](1);
         ls[0] = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
-        REVConfig memory cfg = REVConfig({description: REVDescription("NANA", "$NANA", "ipfs://test2", "NANA_TOKEN"), baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)), splitOperator: multisig(), stageConfigurations: stages});
-        REVNET_ID = REV_DEPLOYER.deployFor({revnetId: 0, configuration: cfg, terminalConfigurations: tc, suckerDeploymentConfiguration: REVSuckerDeploymentConfig({deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NANA")})});
+        REVConfig memory cfg = REVConfig({
+            description: REVDescription("NANA", "$NANA", "ipfs://test2", "NANA_TOKEN"),
+            baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
+            splitOperator: multisig(),
+            stageConfigurations: stages
+        });
+        REVNET_ID = REV_DEPLOYER.deployFor({
+            revnetId: 0,
+            configuration: cfg,
+            terminalConfigurations: tc,
+            suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NANA")
+            })
+        });
     }
 
-    function _setupLoan(address user, uint256 ethAmount, uint256 prepaidFee) internal returns (uint256 loanId, uint256 tokenCount, uint256 borrowAmount) {
+    function _setupLoan(
+        address user,
+        uint256 ethAmount,
+        uint256 prepaidFee
+    )
+        internal
+        returns (uint256 loanId, uint256 tokenCount, uint256 borrowAmount)
+    {
         vm.prank(user);
-        tokenCount = jbMultiTerminal().pay{value: ethAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, ethAmount, user, 0, "", "");
-        borrowAmount = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        tokenCount =
+            jbMultiTerminal().pay{value: ethAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, ethAmount, user, 0, "", "");
+        borrowAmount =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         if (borrowAmount == 0) return (0, tokenCount, 0);
-        mockExpect(address(jbPermissions()), abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), user, REVNET_ID, 10, true, true)), abi.encode(true));
+        mockExpect(
+            address(jbPermissions()),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), user, REVNET_ID, 10, true, true)),
+            abi.encode(true)
+        );
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
         vm.prank(user);
         (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee);
@@ -138,7 +216,8 @@ contract TestPR13_CrossSourceReallocation is TestBaseWorkflow, JBTest {
 
         // User pays more to get additional tokens for the new loan's extra collateral
         vm.prank(USER);
-        uint256 extraTokens = jbMultiTerminal().pay{value: 50e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 50e18, USER, 0, "", "");
+        uint256 extraTokens =
+            jbMultiTerminal().pay{value: 50e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 50e18, USER, 0, "", "");
 
         // Transfer a small portion of collateral so the remaining collateral (now worth much more) supports the loan
         uint256 collateralToTransfer = tokenCount / 10; // Transfer 10% of collateral
@@ -146,7 +225,11 @@ contract TestPR13_CrossSourceReallocation is TestBaseWorkflow, JBTest {
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 
         // Mock burn permission for the new loan's borrowFrom call
-        mockExpect(address(jbPermissions()), abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, REVNET_ID, 10, true, true)), abi.encode(true));
+        mockExpect(
+            address(jbPermissions()),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, REVNET_ID, 10, true, true)),
+            abi.encode(true)
+        );
 
         vm.prank(USER);
         (uint256 reallocatedLoanId, uint256 newLoanId,,) = LOANS_CONTRACT.reallocateCollateralFromLoan(
@@ -201,7 +284,8 @@ contract TestPR13_CrossSourceReallocation is TestBaseWorkflow, JBTest {
         address fakeTerminal = makeAddr("fakeTerminal");
 
         // Try to reallocate with a different terminal
-        REVLoanSource memory wrongSource = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: IJBPayoutTerminal(fakeTerminal)});
+        REVLoanSource memory wrongSource =
+            REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: IJBPayoutTerminal(fakeTerminal)});
 
         vm.prank(USER);
         vm.expectRevert(REVLoans.REVLoans_SourceMismatch.selector);

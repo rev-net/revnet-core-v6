@@ -4,7 +4,7 @@ pragma solidity 0.8.23;
 import "forge-std/Test.sol";
 import /* {*} from */ "@bananapus/core-v5/test/helpers/TestBaseWorkflow.sol";
 import /* {*} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
-    import /* {*} from */ "./../src/REVDeployer.sol";
+import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v5/src/CTPublisher.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
 import "@bananapus/core-v5/script/helpers/CoreDeploymentLib.sol";
@@ -65,9 +65,26 @@ contract TestPR32_MixedFixes is TestBaseWorkflow, JBTest {
         TOKEN = new MockERC20("1/2 ETH", "1/2");
         MockPriceFeed priceFeed = new MockPriceFeed(1e21, 6);
         vm.prank(multisig());
-        jbPrices().addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
-        LOANS_CONTRACT = new REVLoans({controller: jbController(), projects: jbProjects(), revId: FEE_PROJECT_ID, owner: address(this), permit2: permit2(), trustedForwarder: TRUSTED_FORWARDER});
-        REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBRulesetDataHook(address(MOCK_BUYBACK)), address(LOANS_CONTRACT), TRUSTED_FORWARDER);
+        jbPrices()
+            .addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
+        LOANS_CONTRACT = new REVLoans({
+            controller: jbController(),
+            projects: jbProjects(),
+            revId: FEE_PROJECT_ID,
+            owner: address(this),
+            permit2: permit2(),
+            trustedForwarder: TRUSTED_FORWARDER
+        });
+        REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
+            jbController(),
+            SUCKER_REGISTRY,
+            FEE_PROJECT_ID,
+            HOOK_DEPLOYER,
+            PUBLISHER,
+            IJBRulesetDataHook(address(MOCK_BUYBACK)),
+            address(LOANS_CONTRACT),
+            TRUSTED_FORWARDER
+        );
         vm.prank(multisig());
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);
         _deployFeeProject();
@@ -77,7 +94,9 @@ contract TestPR32_MixedFixes is TestBaseWorkflow, JBTest {
 
     function _deployFeeProject() internal {
         JBAccountingContext[] memory acc = new JBAccountingContext[](2);
-        acc[0] = JBAccountingContext({token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))});
+        acc[0] = JBAccountingContext({
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+        });
         acc[1] = JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
         JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
         tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
@@ -87,15 +106,39 @@ contract TestPR32_MixedFixes is TestBaseWorkflow, JBTest {
         splits[0].percent = 10_000;
         REVAutoIssuance[] memory ai = new REVAutoIssuance[](1);
         ai[0] = REVAutoIssuance({chainId: uint32(block.chainid), count: uint104(70_000e18), beneficiary: multisig()});
-        stages[0] = REVStageConfig({startsAtOrAfter: uint40(block.timestamp), autoIssuances: ai, splitPercent: 2000, splits: splits, initialIssuance: uint112(1000e18), issuanceCutFrequency: 90 days, issuanceCutPercent: JBConstants.MAX_WEIGHT_CUT_PERCENT / 2, cashOutTaxRate: 6000, extraMetadata: 0});
-        REVConfig memory cfg = REVConfig({description: REVDescription("Revnet", "$REV", "ipfs://test", "REV_TOKEN"), baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)), splitOperator: multisig(), stageConfigurations: stages});
+        stages[0] = REVStageConfig({
+            startsAtOrAfter: uint40(block.timestamp),
+            autoIssuances: ai,
+            splitPercent: 2000,
+            splits: splits,
+            initialIssuance: uint112(1000e18),
+            issuanceCutFrequency: 90 days,
+            issuanceCutPercent: JBConstants.MAX_WEIGHT_CUT_PERCENT / 2,
+            cashOutTaxRate: 6000,
+            extraMetadata: 0
+        });
+        REVConfig memory cfg = REVConfig({
+            description: REVDescription("Revnet", "$REV", "ipfs://test", "REV_TOKEN"),
+            baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
+            splitOperator: multisig(),
+            stageConfigurations: stages
+        });
         vm.prank(multisig());
-        REV_DEPLOYER.deployFor({revnetId: FEE_PROJECT_ID, configuration: cfg, terminalConfigurations: tc, suckerDeploymentConfiguration: REVSuckerDeploymentConfig({deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")})});
+        REV_DEPLOYER.deployFor({
+            revnetId: FEE_PROJECT_ID,
+            configuration: cfg,
+            terminalConfigurations: tc,
+            suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")
+            })
+        });
     }
 
     function _deployRevnet() internal {
         JBAccountingContext[] memory acc = new JBAccountingContext[](2);
-        acc[0] = JBAccountingContext({token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))});
+        acc[0] = JBAccountingContext({
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+        });
         acc[1] = JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
         JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
         tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
@@ -105,25 +148,61 @@ contract TestPR32_MixedFixes is TestBaseWorkflow, JBTest {
         splits[0].percent = 10_000;
         REVAutoIssuance[] memory ai = new REVAutoIssuance[](1);
         ai[0] = REVAutoIssuance({chainId: uint32(block.chainid), count: uint104(70_000e18), beneficiary: multisig()});
-        stages[0] = REVStageConfig({startsAtOrAfter: uint40(block.timestamp), autoIssuances: ai, splitPercent: 2000, splits: splits, initialIssuance: uint112(1000e18), issuanceCutFrequency: 90 days, issuanceCutPercent: JBConstants.MAX_WEIGHT_CUT_PERCENT / 2, cashOutTaxRate: 6000, extraMetadata: 0});
+        stages[0] = REVStageConfig({
+            startsAtOrAfter: uint40(block.timestamp),
+            autoIssuances: ai,
+            splitPercent: 2000,
+            splits: splits,
+            initialIssuance: uint112(1000e18),
+            issuanceCutFrequency: 90 days,
+            issuanceCutPercent: JBConstants.MAX_WEIGHT_CUT_PERCENT / 2,
+            cashOutTaxRate: 6000,
+            extraMetadata: 0
+        });
         REVLoanSource[] memory ls = new REVLoanSource[](1);
         ls[0] = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
-        REVConfig memory cfg = REVConfig({description: REVDescription("NANA", "$NANA", "ipfs://test2", "NANA_TOKEN"), baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)), splitOperator: multisig(), stageConfigurations: stages});
-        REVNET_ID = REV_DEPLOYER.deployFor({revnetId: 0, configuration: cfg, terminalConfigurations: tc, suckerDeploymentConfiguration: REVSuckerDeploymentConfig({deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NANA")})});
+        REVConfig memory cfg = REVConfig({
+            description: REVDescription("NANA", "$NANA", "ipfs://test2", "NANA_TOKEN"),
+            baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
+            splitOperator: multisig(),
+            stageConfigurations: stages
+        });
+        REVNET_ID = REV_DEPLOYER.deployFor({
+            revnetId: 0,
+            configuration: cfg,
+            terminalConfigurations: tc,
+            suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NANA")
+            })
+        });
     }
 
-    function _setupLoan(address user, uint256 ethAmount, uint256 prepaidFee) internal returns (uint256 loanId, uint256 tokenCount, uint256 borrowAmount) {
+    function _setupLoan(
+        address user,
+        uint256 ethAmount,
+        uint256 prepaidFee
+    )
+        internal
+        returns (uint256 loanId, uint256 tokenCount, uint256 borrowAmount)
+    {
         vm.prank(user);
-        tokenCount = jbMultiTerminal().pay{value: ethAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, ethAmount, user, 0, "", "");
-        borrowAmount = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        tokenCount =
+            jbMultiTerminal().pay{value: ethAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, ethAmount, user, 0, "", "");
+        borrowAmount =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         if (borrowAmount == 0) return (0, tokenCount, 0);
-        mockExpect(address(jbPermissions()), abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), user, REVNET_ID, 10, true, true)), abi.encode(true));
+        mockExpect(
+            address(jbPermissions()),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), user, REVNET_ID, 10, true, true)),
+            abi.encode(true)
+        );
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
         vm.prank(user);
         (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee);
     }
 
-    /// @notice At exactly LOAN_LIQUIDATION_DURATION, determineSourceFeeAmount should revert with LoanExpired (>= boundary).
+    /// @notice At exactly LOAN_LIQUIDATION_DURATION, determineSourceFeeAmount should revert with LoanExpired (>=
+    /// boundary).
     function test_liquidationBoundary_exactDuration_isLiquidatable() public {
         (uint256 loanId,,) = _setupLoan(USER, 10e18, 25);
         require(loanId != 0, "Loan setup failed");
@@ -199,25 +278,24 @@ contract TestPR32_MixedFixes is TestBaseWorkflow, JBTest {
 
         // Get extra tokens to add as collateral to the new loan
         vm.prank(USER);
-        uint256 extraTokens = jbMultiTerminal().pay{value: 50e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 50e18, USER, 0, "", "");
+        uint256 extraTokens =
+            jbMultiTerminal().pay{value: 50e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 50e18, USER, 0, "", "");
 
         uint256 collateralToTransfer = tokenCount / 10;
 
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 
         // Mock burn permission
-        mockExpect(address(jbPermissions()), abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, REVNET_ID, 10, true, true)), abi.encode(true));
+        mockExpect(
+            address(jbPermissions()),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, REVNET_ID, 10, true, true)),
+            abi.encode(true)
+        );
 
         // Call without msg.value — should succeed
         vm.prank(USER);
         (uint256 reallocatedLoanId, uint256 newLoanId,,) = LOANS_CONTRACT.reallocateCollateralFromLoan(
-            loanId,
-            collateralToTransfer,
-            source,
-            0,
-            extraTokens,
-            payable(USER),
-            25
+            loanId, collateralToTransfer, source, 0, extraTokens, payable(USER), 25
         );
 
         assertTrue(reallocatedLoanId != 0, "Reallocated loan should exist");
@@ -231,7 +309,9 @@ contract TestPR32_MixedFixes is TestBaseWorkflow, JBTest {
     /// @notice Deploy a revnet with BOTH ETH (18 dec) and TOKEN (6 dec) as loan sources.
     function _deployMixedDecimalRevnet() internal {
         JBAccountingContext[] memory acc = new JBAccountingContext[](2);
-        acc[0] = JBAccountingContext({token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))});
+        acc[0] = JBAccountingContext({
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+        });
         acc[1] = JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
         JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
         tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
@@ -242,12 +322,34 @@ contract TestPR32_MixedFixes is TestBaseWorkflow, JBTest {
         REVAutoIssuance[] memory ai = new REVAutoIssuance[](1);
         ai[0] = REVAutoIssuance({chainId: uint32(block.chainid), count: uint104(70_000e18), beneficiary: multisig()});
         // cashOutTaxRate=0 for proportional math (simpler assertions).
-        stages[0] = REVStageConfig({startsAtOrAfter: uint40(block.timestamp), autoIssuances: ai, splitPercent: 2000, splits: splits, initialIssuance: uint112(1000e18), issuanceCutFrequency: 90 days, issuanceCutPercent: JBConstants.MAX_WEIGHT_CUT_PERCENT / 2, cashOutTaxRate: 0, extraMetadata: 0});
+        stages[0] = REVStageConfig({
+            startsAtOrAfter: uint40(block.timestamp),
+            autoIssuances: ai,
+            splitPercent: 2000,
+            splits: splits,
+            initialIssuance: uint112(1000e18),
+            issuanceCutFrequency: 90 days,
+            issuanceCutPercent: JBConstants.MAX_WEIGHT_CUT_PERCENT / 2,
+            cashOutTaxRate: 0,
+            extraMetadata: 0
+        });
         REVLoanSource[] memory ls = new REVLoanSource[](2);
         ls[0] = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
         ls[1] = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
-        REVConfig memory cfg = REVConfig({description: REVDescription("Mixed", "$MIX", "ipfs://mix", "MIX_TOKEN"), baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)), splitOperator: multisig(), stageConfigurations: stages});
-        MIXED_REVNET_ID = REV_DEPLOYER.deployFor({revnetId: 0, configuration: cfg, terminalConfigurations: tc, suckerDeploymentConfiguration: REVSuckerDeploymentConfig({deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("MIXED")})});
+        REVConfig memory cfg = REVConfig({
+            description: REVDescription("Mixed", "$MIX", "ipfs://mix", "MIX_TOKEN"),
+            baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
+            splitOperator: multisig(),
+            stageConfigurations: stages
+        });
+        MIXED_REVNET_ID = REV_DEPLOYER.deployFor({
+            revnetId: 0,
+            configuration: cfg,
+            terminalConfigurations: tc,
+            suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("MIXED")
+            })
+        });
     }
 
     /// @notice When only the ETH source has borrows, TOKEN source (0 borrowed) should be skipped via `continue`.
@@ -257,26 +359,43 @@ contract TestPR32_MixedFixes is TestBaseWorkflow, JBTest {
 
         // Pay ETH to get project tokens.
         vm.prank(USER);
-        uint256 tokenCount = jbMultiTerminal().pay{value: 10e18}(MIXED_REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
+        uint256 tokenCount =
+            jbMultiTerminal().pay{value: 10e18}(MIXED_REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
 
         // Borrow from ETH source.
-        uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(MIXED_REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(
+            MIXED_REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
+        );
         require(borrowable > 0, "Must have borrowable amount");
 
-        mockExpect(address(jbPermissions()), abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, MIXED_REVNET_ID, 10, true, true)), abi.encode(true));
+        mockExpect(
+            address(jbPermissions()),
+            abi.encodeCall(
+                IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, MIXED_REVNET_ID, 10, true, true)
+            ),
+            abi.encode(true)
+        );
         REVLoanSource memory ethSource = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
         vm.prank(USER);
-        (uint256 loanId, REVLoan memory loan) = LOANS_CONTRACT.borrowFrom(MIXED_REVNET_ID, ethSource, 0, tokenCount, payable(USER), 25);
+        (uint256 loanId, REVLoan memory loan) =
+            LOANS_CONTRACT.borrowFrom(MIXED_REVNET_ID, ethSource, 0, tokenCount, payable(USER), 25);
 
         // Verify loan created and TOKEN source has zero borrowed.
         assertTrue(loanId != 0, "ETH loan should be created");
         assertTrue(loan.amount > 0, "Loan amount should be nonzero");
-        assertEq(LOANS_CONTRACT.totalBorrowedFrom(MIXED_REVNET_ID, jbMultiTerminal(), address(TOKEN)), 0, "TOKEN source should have zero borrowed");
-        assertTrue(LOANS_CONTRACT.totalBorrowedFrom(MIXED_REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN) > 0, "ETH source should have nonzero borrowed");
+        assertEq(
+            LOANS_CONTRACT.totalBorrowedFrom(MIXED_REVNET_ID, jbMultiTerminal(), address(TOKEN)),
+            0,
+            "TOKEN source should have zero borrowed"
+        );
+        assertTrue(
+            LOANS_CONTRACT.totalBorrowedFrom(MIXED_REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN) > 0,
+            "ETH source should have nonzero borrowed"
+        );
     }
 
-    /// @notice Borrow from TOKEN (6-decimal) source, verify totalBorrowed tracked and borrowable works in 18-dec context.
-    /// @dev This is the core normalization test. Without decimal normalization, _totalBorrowedFrom would treat
+    /// @notice Borrow from TOKEN (6-decimal) source, verify totalBorrowed tracked and borrowable works in 18-dec
+    /// context. @dev This is the core normalization test. Without decimal normalization, _totalBorrowedFrom would treat
     /// the 6-decimal TOKEN amount as if it were in 18 decimals, making it ~10^12 times too small.
     function test_mixedDecimals_borrowFromTokenSource_normalizedCorrectly() public {
         _deployMixedDecimalRevnet();
@@ -293,14 +412,23 @@ contract TestPR32_MixedFixes is TestBaseWorkflow, JBTest {
 
         // Record borrowable BEFORE any borrow (queried in 18-decimal ETH context).
         uint256 smallCollateral = tokenCount / 10;
-        uint256 borrowableBefore = LOANS_CONTRACT.borrowableAmountFrom(MIXED_REVNET_ID, smallCollateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        uint256 borrowableBefore = LOANS_CONTRACT.borrowableAmountFrom(
+            MIXED_REVNET_ID, smallCollateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
+        );
         assertTrue(borrowableBefore > 0, "Must have borrowable amount before borrow");
 
         // Borrow from TOKEN source using a small portion of collateral.
-        mockExpect(address(jbPermissions()), abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, MIXED_REVNET_ID, 10, true, true)), abi.encode(true));
+        mockExpect(
+            address(jbPermissions()),
+            abi.encodeCall(
+                IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, MIXED_REVNET_ID, 10, true, true)
+            ),
+            abi.encode(true)
+        );
         REVLoanSource memory tokenSource = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
         vm.prank(USER);
-        (uint256 loanId, REVLoan memory loan) = LOANS_CONTRACT.borrowFrom(MIXED_REVNET_ID, tokenSource, 0, smallCollateral, payable(USER), 25);
+        (uint256 loanId, REVLoan memory loan) =
+            LOANS_CONTRACT.borrowFrom(MIXED_REVNET_ID, tokenSource, 0, smallCollateral, payable(USER), 25);
 
         assertTrue(loanId != 0, "TOKEN loan should be created");
         assertTrue(loan.amount > 0, "Loan amount should be nonzero");
@@ -313,14 +441,17 @@ contract TestPR32_MixedFixes is TestBaseWorkflow, JBTest {
         // This calls _totalBorrowedFrom which must normalize the 6-dec TOKEN amount to 18-dec.
         // Without normalization: TOKEN borrow treated as near-zero → borrowable barely changes.
         // With normalization: TOKEN borrow properly scaled → borrowable reflects the outstanding debt.
-        uint256 borrowableAfter = LOANS_CONTRACT.borrowableAmountFrom(MIXED_REVNET_ID, smallCollateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        uint256 borrowableAfter = LOANS_CONTRACT.borrowableAmountFrom(
+            MIXED_REVNET_ID, smallCollateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
+        );
 
         // borrowableAfter should still be nonzero (the revnet has surplus).
         assertTrue(borrowableAfter > 0, "Should still have borrowable amount after TOKEN borrow");
 
         // Also query in TOKEN's own 6-decimal context to verify the same-currency normalization path.
         // Since only TOKEN source has borrows and ETH source has 0 (skipped via `continue`), this is safe.
-        uint256 borrowableInToken = LOANS_CONTRACT.borrowableAmountFrom(MIXED_REVNET_ID, smallCollateral, 6, uint32(uint160(address(TOKEN))));
+        uint256 borrowableInToken =
+            LOANS_CONTRACT.borrowableAmountFrom(MIXED_REVNET_ID, smallCollateral, 6, uint32(uint160(address(TOKEN))));
         assertTrue(borrowableInToken > 0, "Borrowable in TOKEN terms should be nonzero");
     }
 
@@ -343,27 +474,43 @@ contract TestPR32_MixedFixes is TestBaseWorkflow, JBTest {
 
         // STEP 2: Borrow from TOKEN source (ETH totalBorrowed=0 → skipped via `continue`, no inverse price needed).
         uint256 smallCollateral = tokenTokenCount / 20;
-        mockExpect(address(jbPermissions()), abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, MIXED_REVNET_ID, 10, true, true)), abi.encode(true));
+        mockExpect(
+            address(jbPermissions()),
+            abi.encodeCall(
+                IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, MIXED_REVNET_ID, 10, true, true)
+            ),
+            abi.encode(true)
+        );
         REVLoanSource memory tokenSource = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
         vm.prank(USER);
-        (uint256 tokenLoanId,) = LOANS_CONTRACT.borrowFrom(MIXED_REVNET_ID, tokenSource, 0, smallCollateral, payable(USER), 25);
+        (uint256 tokenLoanId,) =
+            LOANS_CONTRACT.borrowFrom(MIXED_REVNET_ID, tokenSource, 0, smallCollateral, payable(USER), 25);
         assertTrue(tokenLoanId != 0, "TOKEN loan should be created");
 
         // STEP 3: Pay ETH to create ETH surplus.
         vm.prank(USER);
-        uint256 ethTokenCount = jbMultiTerminal().pay{value: 10e18}(MIXED_REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
+        uint256 ethTokenCount =
+            jbMultiTerminal().pay{value: 10e18}(MIXED_REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
 
         // STEP 4: Borrow from ETH source. Now _totalBorrowedFrom(revnetId, 18, ETH_CURRENCY) must normalize
         // the TOKEN borrow (6 dec) to 18 dec using the DIRECT TOKEN→ETH feed. This is the key normalization test.
         uint256 ethCollateral = ethTokenCount / 20;
-        mockExpect(address(jbPermissions()), abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, MIXED_REVNET_ID, 10, true, true)), abi.encode(true));
+        mockExpect(
+            address(jbPermissions()),
+            abi.encodeCall(
+                IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, MIXED_REVNET_ID, 10, true, true)
+            ),
+            abi.encode(true)
+        );
         REVLoanSource memory ethSource = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
         vm.prank(USER);
-        (uint256 ethLoanId,) = LOANS_CONTRACT.borrowFrom(MIXED_REVNET_ID, ethSource, 0, ethCollateral, payable(USER), 25);
+        (uint256 ethLoanId,) =
+            LOANS_CONTRACT.borrowFrom(MIXED_REVNET_ID, ethSource, 0, ethCollateral, payable(USER), 25);
         assertTrue(ethLoanId != 0, "ETH loan should be created");
 
         // Both sources should have tracked borrows.
-        uint256 ethBorrowed = LOANS_CONTRACT.totalBorrowedFrom(MIXED_REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
+        uint256 ethBorrowed =
+            LOANS_CONTRACT.totalBorrowedFrom(MIXED_REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
         uint256 tokenBorrowed = LOANS_CONTRACT.totalBorrowedFrom(MIXED_REVNET_ID, jbMultiTerminal(), address(TOKEN));
         assertTrue(ethBorrowed > 0, "ETH borrow should be tracked");
         assertTrue(tokenBorrowed > 0, "TOKEN borrow should be tracked");
@@ -374,7 +521,9 @@ contract TestPR32_MixedFixes is TestBaseWorkflow, JBTest {
         // Query borrowable in 18-decimal ETH context. This exercises _totalBorrowedFrom's
         // cross-decimal normalization: TOKEN borrows (6 dec) must be normalized to 18 dec before
         // aggregation with the direct TOKEN→ETH price feed.
-        uint256 borrowableInEth = LOANS_CONTRACT.borrowableAmountFrom(MIXED_REVNET_ID, ethCollateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        uint256 borrowableInEth = LOANS_CONTRACT.borrowableAmountFrom(
+            MIXED_REVNET_ID, ethCollateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
+        );
         assertTrue(borrowableInEth > 0, "Should still have borrowable after both borrows (18-dec ETH)");
     }
 }

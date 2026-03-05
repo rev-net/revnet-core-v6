@@ -4,7 +4,7 @@ pragma solidity 0.8.23;
 import "forge-std/Test.sol";
 import /* {*} from */ "@bananapus/core-v5/test/helpers/TestBaseWorkflow.sol";
 import /* {*} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
-    import /* {*} from */ "./../src/REVDeployer.sol";
+import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v5/src/CTPublisher.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
 
@@ -82,9 +82,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
 
         // Accept the chain's native currency through the multi terminal.
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
         // For the tests we need to allow these payments, otherwise other revnets can't pay a fee.
@@ -107,9 +105,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
         {
             REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
             issuanceConfs[0] = REVAutoIssuance({
-                chainId: uint32(block.chainid),
-                count: uint104(70_000 * decimalMultiplier),
-                beneficiary: multisig()
+                chainId: uint32(block.chainid), count: uint104(70_000 * decimalMultiplier), beneficiary: multisig()
             });
 
             stageConfigurations[0] = REVStageConfig({
@@ -161,8 +157,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256(abi.encodePacked("REV"))
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("REV"))
             })
         });
     }
@@ -180,9 +175,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
 
         // Accept the chain's native currency through the multi terminal.
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
         accountingContextsToAccept[1] =
@@ -203,9 +196,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
         {
             REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
             issuanceConfs[0] = REVAutoIssuance({
-                chainId: uint32(block.chainid),
-                count: uint104(70_000 * decimalMultiplier),
-                beneficiary: multisig()
+                chainId: uint32(block.chainid), count: uint104(70_000 * decimalMultiplier), beneficiary: multisig()
             });
 
             stageConfigurations[0] = REVStageConfig({
@@ -257,8 +248,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256(abi.encodePacked("NANA"))
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("NANA"))
             })
         });
     }
@@ -290,9 +280,8 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
 
         // Configure the price feed for the pair.
         vm.prank(multisig());
-        jbPrices().addPriceFeedFor(
-            0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed
-        );
+        jbPrices()
+            .addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
@@ -304,7 +293,14 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
         });
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBRulesetDataHook(address(MOCK_BUYBACK)), address(LOANS_CONTRACT), TRUSTED_FORWARDER
+            jbController(),
+            SUCKER_REGISTRY,
+            FEE_PROJECT_ID,
+            HOOK_DEPLOYER,
+            PUBLISHER,
+            IJBRulesetDataHook(address(MOCK_BUYBACK)),
+            address(LOANS_CONTRACT),
+            TRUSTED_FORWARDER
         );
 
         // Approve the basic deployer to configure the project.
@@ -609,8 +605,9 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
             FeeProjectConfig memory projectConfig = getSecondProjectConfig();
             REVAutoIssuance[] memory issuanceConfs;
             issuanceConfs = new REVAutoIssuance[](1);
-            issuanceConfs[0] =
-                REVAutoIssuance({chainId: uint32(block.chainid), count: uint104(autoIssuance), beneficiary: multisig()});
+            issuanceConfs[0] = REVAutoIssuance({
+                chainId: uint32(block.chainid), count: uint104(autoIssuance), beneficiary: multisig()
+            });
 
             JBSplit[] memory splits = new JBSplit[](1);
             splits[0].beneficiary = payable(multisig());
@@ -666,39 +663,42 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
             revnetProjectId, tokensToCashout, useNative ? 18 : 6, uint32(uint160(token))
         );
 
-        uint256 fullReclaimableSurplus = jbMultiTerminal().STORE().currentReclaimableSurplusOf({
-            projectId: revnetProjectId,
-            tokenCount: tokensToCashout,
-            totalSupply: totalSupplyExcludingAutoMint,
-            surplus: nativeSurplus
-        });
+        uint256 fullReclaimableSurplus = jbMultiTerminal().STORE()
+            .currentReclaimableSurplusOf({
+                projectId: revnetProjectId,
+                tokenCount: tokensToCashout,
+                totalSupply: totalSupplyExcludingAutoMint,
+                surplus: nativeSurplus
+            });
 
         assertGe(fullReclaimableSurplus, loanable);
 
         uint256 feeTokenCount =
             cashOutTaxRate == 0 ? 0 : mulDiv(tokensToCashout, jbMultiTerminal().FEE(), JBConstants.MAX_FEE);
 
-        uint256 reclaimableSurplus = jbMultiTerminal().STORE().currentReclaimableSurplusOf({
-            projectId: revnetProjectId,
-            tokenCount: tokensToCashout - feeTokenCount,
-            totalSupply: totalSupplyExcludingAutoMint,
-            surplus: nativeSurplus
-        });
+        uint256 reclaimableSurplus = jbMultiTerminal().STORE()
+            .currentReclaimableSurplusOf({
+                projectId: revnetProjectId,
+                tokenCount: tokensToCashout - feeTokenCount,
+                totalSupply: totalSupplyExcludingAutoMint,
+                surplus: nativeSurplus
+            });
 
         // In the `revFee` calculation we decrease the `nativeSurplus` by the `reclaimableSurplus`
         // but due to a `stack too deep` we can't do that there, so we decrease it here.
         // This is not the correct value for this variable, however in `revFee` is the last time we use this variable.
         nativeSurplus -= reclaimableSurplus;
 
-        uint256 revFee = jbMultiTerminal().STORE().currentReclaimableSurplusOf({
-            projectId: revnetProjectId,
-            tokenCount: feeTokenCount,
-            totalSupply: totalSupplyExcludingAutoMint - (tokensToCashout - feeTokenCount),
-            surplus: nativeSurplus
-        });
+        uint256 revFee = jbMultiTerminal().STORE()
+            .currentReclaimableSurplusOf({
+                projectId: revnetProjectId,
+                tokenCount: feeTokenCount,
+                totalSupply: totalSupplyExcludingAutoMint - (tokensToCashout - feeTokenCount),
+                surplus: nativeSurplus
+            });
 
         assertGe(fullReclaimableSurplus, mulDiv((reclaimableSurplus + revFee), 995, 1000)); // small marging for curve
-            // rounding.
+        // rounding.
 
         uint256 balanceBefore = _balanceOf(token, USER);
 
@@ -825,8 +825,9 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
         uint256 collateralReturned = mulDiv(loan.collateral, percentOfCollateralToRemove, 10_000);
 
         uint256 newCollateral = loan.collateral - collateralReturned;
-        uint256 borrowableFromNewCollateral =
-            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, newCollateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        uint256 borrowableFromNewCollateral = LOANS_CONTRACT.borrowableAmountFrom(
+            REVNET_ID, newCollateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
+        );
 
         uint256 amountDiff = borrowableFromNewCollateral > loan.amount ? 0 : loan.amount - borrowableFromNewCollateral;
 
@@ -1161,9 +1162,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
             permissionIds[0] = JBPermissionIds.BURN_TOKENS;
 
             JBPermissionsData memory permissionsData = JBPermissionsData({
-                operator: address(LOANS_CONTRACT),
-                projectId: uint56(revnetProjectId),
-                permissionIds: permissionIds
+                operator: address(LOANS_CONTRACT), projectId: uint56(revnetProjectId), permissionIds: permissionIds
             });
 
             // Give the loans contract permission to our tokens.
@@ -1612,8 +1611,9 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
         uint256 collateralReturned = mulDiv(loan.collateral, 1000, 10_000);
 
         uint256 newCollateral = loan.collateral - collateralReturned;
-        uint256 borrowableFromNewCollateral =
-            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, newCollateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        uint256 borrowableFromNewCollateral = LOANS_CONTRACT.borrowableAmountFrom(
+            REVNET_ID, newCollateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
+        );
 
         // Needed for edge case seeds like 17721, 11407, 334
         if (borrowableFromNewCollateral > 0) borrowableFromNewCollateral -= 1;
@@ -1717,13 +1717,8 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
                 REVLoans.REVLoans_CollateralExceedsLoan.selector, loan.collateral + 1, loan.collateral
             )
         );
-        LOANS_CONTRACT.repayLoan{value: 0}(
-            // collateral exceeds with + 1
-            loanId,
-            0,
-            loan.collateral + 1,
-            payable(USER),
-            allowance
+        LOANS_CONTRACT.repayLoan{value: 0}(// collateral exceeds with + 1
+            loanId, 0, loan.collateral + 1, payable(USER), allowance
         );
     }
 

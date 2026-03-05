@@ -97,8 +97,7 @@ contract REVInvincibilityHandler is JBTest {
 
         vm.deal(USER, payAmount);
 
-        uint256 receivedTokens =
-            TERMINAL.pay{value: payAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, 0, USER, 0, "", "");
+        uint256 receivedTokens = TERMINAL.pay{value: payAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, 0, USER, 0, "", "");
 
         if (receivedTokens == 0) return;
 
@@ -136,7 +135,10 @@ contract REVInvincibilityHandler is JBTest {
 
         uint256 id = (REVNET_ID * 1_000_000_000_000) + callCount_payAndBorrow;
 
-        try IERC721(address(LOANS)).ownerOf(id) {} catch { return; }
+        try IERC721(address(LOANS)).ownerOf(id) {}
+            catch {
+            return;
+        }
 
         REVLoan memory latestLoan = LOANS.loanOf(id);
         if (latestLoan.amount == 0) return;
@@ -168,8 +170,11 @@ contract REVInvincibilityHandler is JBTest {
         JBSingleAllowance memory allowance;
         vm.deal(USER, type(uint256).max);
 
-        try LOANS.repayLoan{value: amountPaidDown}(id, amountPaidDown, collateralReturned, payable(USER), allowance)
-        returns (uint256, REVLoan memory adjustedLoan) {
+        try LOANS.repayLoan{value: amountPaidDown}(
+            id, amountPaidDown, collateralReturned, payable(USER), allowance
+        ) returns (
+            uint256, REVLoan memory adjustedLoan
+        ) {
             COLLATERAL_RETURNED += collateralReturned;
             COLLATERAL_SUM -= collateralReturned;
             REPAID_SUM += (latestLoan.amount - adjustedLoan.amount);
@@ -192,7 +197,10 @@ contract REVInvincibilityHandler is JBTest {
 
         uint256 id = (REVNET_ID * 1_000_000_000_000) + callCount_payAndBorrow;
 
-        try IERC721(address(LOANS)).ownerOf(id) {} catch { return; }
+        try IERC721(address(LOANS)).ownerOf(id) {}
+            catch {
+            return;
+        }
 
         REVLoan memory latestLoan = LOANS.loanOf(id);
         if (latestLoan.amount == 0) return;
@@ -223,7 +231,9 @@ contract REVInvincibilityHandler is JBTest {
             collateralToAdd,
             payable(USER),
             prepaidFee
-        ) returns (uint256, uint256, REVLoan memory, REVLoan memory newLoan) {
+        ) returns (
+            uint256, uint256, REVLoan memory, REVLoan memory newLoan
+        ) {
             COLLATERAL_SUM += collateralToAdd;
             BORROWED_SUM += newLoan.amount;
             PAID_IN_SUM += payAmount;
@@ -287,7 +297,9 @@ contract REVInvincibilityHandler is JBTest {
             minTokensReclaimed: 0,
             beneficiary: payable(USER),
             metadata: ""
-        }) returns (uint256 reclaimAmount) {
+        }) returns (
+            uint256 reclaimAmount
+        ) {
             CASHED_OUT_SUM += reclaimAmount;
             ++callCount_cashOut;
         } catch {}
@@ -300,9 +312,7 @@ contract REVInvincibilityHandler is JBTest {
         uint256 amount = bound(seed, 0.01 ether, 1 ether);
         vm.deal(address(this), amount);
 
-        TERMINAL.addToBalanceOf{value: amount}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, amount, false, "", ""
-        );
+        TERMINAL.addToBalanceOf{value: amount}(REVNET_ID, JBConstants.NATIVE_TOKEN, amount, false, "", "");
 
         ADDED_TO_BALANCE_SUM += amount;
         ++callCount_addToBalance;
@@ -338,9 +348,9 @@ contract REVInvincibilityHandler is JBTest {
     // Helpers
     // =========================================================================
     function totalOperations() public view returns (uint256) {
-        return callCount_payAndBorrow + callCount_repayLoan + callCount_reallocateCollateral
-            + callCount_liquidateLoans + callCount_advanceTime + callCount_payInto + callCount_cashOut
-            + callCount_addToBalance + callCount_sendReservedTokens + callCount_changeStage;
+        return callCount_payAndBorrow + callCount_repayLoan + callCount_reallocateCollateral + callCount_liquidateLoans
+            + callCount_advanceTime + callCount_payInto + callCount_cashOut + callCount_addToBalance
+            + callCount_sendReservedTokens + callCount_changeStage;
     }
 
     receive() external payable {}

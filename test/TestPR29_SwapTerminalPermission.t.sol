@@ -4,7 +4,7 @@ pragma solidity 0.8.23;
 import "forge-std/Test.sol";
 import /* {*} from */ "@bananapus/core-v5/test/helpers/TestBaseWorkflow.sol";
 import /* {*} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
-    import /* {*} from */ "./../src/REVDeployer.sol";
+import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v5/src/CTPublisher.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
 import "@bananapus/core-v5/script/helpers/CoreDeploymentLib.sol";
@@ -68,17 +68,21 @@ contract TestPR29_SwapTerminalPermission is TestBaseWorkflow, JBTest {
             trustedForwarder: TRUSTED_FORWARDER
         });
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBRulesetDataHook(address(MOCK_BUYBACK)), address(LOANS_CONTRACT), TRUSTED_FORWARDER
+            jbController(),
+            SUCKER_REGISTRY,
+            FEE_PROJECT_ID,
+            HOOK_DEPLOYER,
+            PUBLISHER,
+            IJBRulesetDataHook(address(MOCK_BUYBACK)),
+            address(LOANS_CONTRACT),
+            TRUSTED_FORWARDER
         );
         vm.prank(multisig());
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);
 
         // Deploy the fee project as a revnet
-        (
-            REVConfig memory feeCfg,
-            JBTerminalConfig[] memory feeTc,
-            REVSuckerDeploymentConfig memory feeSdc
-        ) = _buildConfig("FeeProject", "FEE", "FEE_SALT");
+        (REVConfig memory feeCfg, JBTerminalConfig[] memory feeTc, REVSuckerDeploymentConfig memory feeSdc) =
+            _buildConfig("FeeProject", "FEE", "FEE_SALT");
 
         vm.prank(multisig());
         REV_DEPLOYER.deployFor({
@@ -89,17 +93,11 @@ contract TestPR29_SwapTerminalPermission is TestBaseWorkflow, JBTest {
         });
 
         // Deploy the test revnet
-        (
-            REVConfig memory cfg,
-            JBTerminalConfig[] memory tc,
-            REVSuckerDeploymentConfig memory sdc
-        ) = _buildConfig("TestRevnet", "TST", "TST_SALT");
+        (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
+            _buildConfig("TestRevnet", "TST", "TST_SALT");
 
         TEST_REVNET_ID = REV_DEPLOYER.deployFor({
-            revnetId: 0,
-            configuration: cfg,
-            terminalConfigurations: tc,
-            suckerDeploymentConfiguration: sdc
+            revnetId: 0, configuration: cfg, terminalConfigurations: tc, suckerDeploymentConfiguration: sdc
         });
     }
 
@@ -110,17 +108,11 @@ contract TestPR29_SwapTerminalPermission is TestBaseWorkflow, JBTest {
     )
         internal
         view
-        returns (
-            REVConfig memory cfg,
-            JBTerminalConfig[] memory tc,
-            REVSuckerDeploymentConfig memory sdc
-        )
+        returns (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc)
     {
         JBAccountingContext[] memory acc = new JBAccountingContext[](1);
         acc[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         tc = new JBTerminalConfig[](1);
         tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
@@ -149,21 +141,21 @@ contract TestPR29_SwapTerminalPermission is TestBaseWorkflow, JBTest {
         });
 
         sdc = REVSuckerDeploymentConfig({
-            deployerConfigurations: new JBSuckerDeployerConfig[](0),
-            salt: keccak256(abi.encodePacked("TEST"))
+            deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("TEST"))
         });
     }
 
     /// @notice Verify the split operator (multisig) has the ADD_SWAP_TERMINAL_POOL permission.
     function test_splitOperator_hasSwapTerminalPoolPermission() public view {
-        bool hasPermission = jbPermissions().hasPermission({
-            operator: multisig(),
-            account: address(REV_DEPLOYER),
-            projectId: TEST_REVNET_ID,
-            permissionId: JBPermissionIds.ADD_SWAP_TERMINAL_POOL,
-            includeRoot: false,
-            includeWildcardProjectId: false
-        });
+        bool hasPermission = jbPermissions()
+            .hasPermission({
+                operator: multisig(),
+                account: address(REV_DEPLOYER),
+                projectId: TEST_REVNET_ID,
+                permissionId: JBPermissionIds.ADD_SWAP_TERMINAL_POOL,
+                includeRoot: false,
+                includeWildcardProjectId: false
+            });
         assertTrue(hasPermission, "Split operator should have ADD_SWAP_TERMINAL_POOL permission");
     }
 
@@ -171,27 +163,30 @@ contract TestPR29_SwapTerminalPermission is TestBaseWorkflow, JBTest {
     function test_allDefaultPermissionsPresent() public view {
         // All 7 default permissions that should be granted
         uint256[7] memory expectedPermissions = [
-            uint256(JBPermissionIds.SET_SPLIT_GROUPS),    // 17
-            uint256(JBPermissionIds.SET_BUYBACK_POOL),    // 25
-            uint256(JBPermissionIds.SET_BUYBACK_TWAP),    // 24
-            uint256(JBPermissionIds.SET_PROJECT_URI),     // 6
-            uint256(JBPermissionIds.ADD_PRICE_FEED),      // 18
-            uint256(JBPermissionIds.SUCKER_SAFETY),       // 30
+            uint256(JBPermissionIds.SET_SPLIT_GROUPS), // 17
+            uint256(JBPermissionIds.SET_BUYBACK_POOL), // 25
+            uint256(JBPermissionIds.SET_BUYBACK_TWAP), // 24
+            uint256(JBPermissionIds.SET_PROJECT_URI), // 6
+            uint256(JBPermissionIds.ADD_PRICE_FEED), // 18
+            uint256(JBPermissionIds.SUCKER_SAFETY), // 30
             uint256(JBPermissionIds.ADD_SWAP_TERMINAL_POOL) // 26
         ];
 
         for (uint256 i = 0; i < expectedPermissions.length; i++) {
-            bool hasPermission = jbPermissions().hasPermission({
-                operator: multisig(),
-                account: address(REV_DEPLOYER),
-                projectId: TEST_REVNET_ID,
-                permissionId: expectedPermissions[i],
-                includeRoot: false,
-                includeWildcardProjectId: false
-            });
+            bool hasPermission = jbPermissions()
+                .hasPermission({
+                    operator: multisig(),
+                    account: address(REV_DEPLOYER),
+                    projectId: TEST_REVNET_ID,
+                    permissionId: expectedPermissions[i],
+                    includeRoot: false,
+                    includeWildcardProjectId: false
+                });
             assertTrue(
                 hasPermission,
-                string.concat("Missing permission at index ", vm.toString(i), " (ID ", vm.toString(expectedPermissions[i]), ")")
+                string.concat(
+                    "Missing permission at index ", vm.toString(i), " (ID ", vm.toString(expectedPermissions[i]), ")"
+                )
             );
         }
     }

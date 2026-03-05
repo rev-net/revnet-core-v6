@@ -178,9 +178,7 @@ contract DeployScript is Script, Sphinx {
         {
             REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
             issuanceConfs[0] = REVAutoIssuance({
-                chainId: PREMINT_CHAIN_ID,
-                count: uint104(1_550_000 * DECIMAL_MULTIPLIER),
-                beneficiary: OPERATOR
+                chainId: PREMINT_CHAIN_ID, count: uint104(1_550_000 * DECIMAL_MULTIPLIER), beneficiary: OPERATOR
             });
 
             stageConfigurations[1] = REVStageConfig({
@@ -292,8 +290,14 @@ contract DeployScript is Script, Sphinx {
             DEPLOYER_SALT,
             type(REVDeployer).creationCode,
             abi.encode(
-                core.controller, suckers.registry, FEE_PROJECT_ID, hook.hook_deployer, croptop.publisher,
-                IJBRulesetDataHook(address(buybackHook.registry)), address(revloans), TRUSTED_FORWARDER
+                core.controller,
+                suckers.registry,
+                FEE_PROJECT_ID,
+                hook.hook_deployer,
+                croptop.publisher,
+                IJBRulesetDataHook(address(buybackHook.registry)),
+                address(revloans),
+                TRUSTED_FORWARDER
             )
         );
         REVDeployer _basicDeployer = _deployerIsDeployed

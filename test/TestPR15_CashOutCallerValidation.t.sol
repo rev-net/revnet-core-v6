@@ -4,7 +4,7 @@ pragma solidity 0.8.23;
 import "forge-std/Test.sol";
 import /* {*} from */ "@bananapus/core-v5/test/helpers/TestBaseWorkflow.sol";
 import /* {*} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
-    import /* {*} from */ "./../src/REVDeployer.sol";
+import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v5/src/CTPublisher.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
 
@@ -69,9 +69,7 @@ contract TestPR15_CashOutCallerValidation is TestBaseWorkflow, JBTest {
 
         JBAccountingContext[] memory accountingContextsToAccept = new JBAccountingContext[](1);
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
         JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
@@ -111,8 +109,7 @@ contract TestPR15_CashOutCallerValidation is TestBaseWorkflow, JBTest {
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256(abi.encodePacked("REV"))
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("REV"))
             })
         });
     }
@@ -126,9 +123,7 @@ contract TestPR15_CashOutCallerValidation is TestBaseWorkflow, JBTest {
 
         JBAccountingContext[] memory accountingContextsToAccept = new JBAccountingContext[](1);
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
         JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
@@ -169,8 +164,7 @@ contract TestPR15_CashOutCallerValidation is TestBaseWorkflow, JBTest {
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256(abi.encodePacked("NANA"))
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("NANA"))
             })
         });
     }
@@ -198,7 +192,14 @@ contract TestPR15_CashOutCallerValidation is TestBaseWorkflow, JBTest {
         });
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBRulesetDataHook(address(MOCK_BUYBACK)), address(LOANS_CONTRACT), TRUSTED_FORWARDER
+            jbController(),
+            SUCKER_REGISTRY,
+            FEE_PROJECT_ID,
+            HOOK_DEPLOYER,
+            PUBLISHER,
+            IJBRulesetDataHook(address(MOCK_BUYBACK)),
+            address(LOANS_CONTRACT),
+            TRUSTED_FORWARDER
         );
 
         // Approve the deployer to configure the fee project.
@@ -236,9 +237,8 @@ contract TestPR15_CashOutCallerValidation is TestBaseWorkflow, JBTest {
         assertGt(tokenCount, 0, "Should have received tokens");
 
         // Record fee project balance before cash out.
-        uint256 feeProjectBalanceBefore = jbTerminalStore().balanceOf(
-            address(jbMultiTerminal()), REVNET_ID, JBConstants.NATIVE_TOKEN
-        );
+        uint256 feeProjectBalanceBefore =
+            jbTerminalStore().balanceOf(address(jbMultiTerminal()), REVNET_ID, JBConstants.NATIVE_TOKEN);
         assertGt(feeProjectBalanceBefore, 0, "Revnet should have balance");
 
         // Warp past CASH_OUT_DELAY.
@@ -246,28 +246,27 @@ contract TestPR15_CashOutCallerValidation is TestBaseWorkflow, JBTest {
         vm.warp(block.timestamp + delay + 1);
 
         // Record fee project terminal balance before.
-        uint256 feeBalanceBefore = jbTerminalStore().balanceOf(
-            address(jbMultiTerminal()), FEE_PROJECT_ID, JBConstants.NATIVE_TOKEN
-        );
+        uint256 feeBalanceBefore =
+            jbTerminalStore().balanceOf(address(jbMultiTerminal()), FEE_PROJECT_ID, JBConstants.NATIVE_TOKEN);
 
         // Cash out tokens.
         vm.prank(USER);
-        uint256 reclaimed = jbMultiTerminal().cashOutTokensOf({
-            holder: USER,
-            projectId: REVNET_ID,
-            cashOutCount: tokenCount,
-            tokenToReclaim: JBConstants.NATIVE_TOKEN,
-            minTokensReclaimed: 0,
-            beneficiary: payable(USER),
-            metadata: ""
-        });
+        uint256 reclaimed = jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: USER,
+                projectId: REVNET_ID,
+                cashOutCount: tokenCount,
+                tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                minTokensReclaimed: 0,
+                beneficiary: payable(USER),
+                metadata: ""
+            });
 
         assertGt(reclaimed, 0, "Should have reclaimed some ETH");
 
         // Verify fee project balance increased (it received the fee).
-        uint256 feeBalanceAfter = jbTerminalStore().balanceOf(
-            address(jbMultiTerminal()), FEE_PROJECT_ID, JBConstants.NATIVE_TOKEN
-        );
+        uint256 feeBalanceAfter =
+            jbTerminalStore().balanceOf(address(jbMultiTerminal()), FEE_PROJECT_ID, JBConstants.NATIVE_TOKEN);
         assertGt(feeBalanceAfter, feeBalanceBefore, "Fee project balance should increase from cash out fee");
     }
 
@@ -304,9 +303,8 @@ contract TestPR15_CashOutCallerValidation is TestBaseWorkflow, JBTest {
         });
 
         // Record fee project balance before.
-        uint256 feeBalanceBefore = jbTerminalStore().balanceOf(
-            address(jbMultiTerminal()), FEE_PROJECT_ID, JBConstants.NATIVE_TOKEN
-        );
+        uint256 feeBalanceBefore =
+            jbTerminalStore().balanceOf(address(jbMultiTerminal()), FEE_PROJECT_ID, JBConstants.NATIVE_TOKEN);
 
         // Call afterCashOutRecordedWith from a random (non-terminal) address.
         // This should NOT revert with any authorization error.
@@ -315,9 +313,8 @@ contract TestPR15_CashOutCallerValidation is TestBaseWorkflow, JBTest {
         REV_DEPLOYER.afterCashOutRecordedWith{value: 1 ether}(context);
 
         // Verify the fee project received the ETH (donation).
-        uint256 feeBalanceAfter = jbTerminalStore().balanceOf(
-            address(jbMultiTerminal()), FEE_PROJECT_ID, JBConstants.NATIVE_TOKEN
-        );
+        uint256 feeBalanceAfter =
+            jbTerminalStore().balanceOf(address(jbMultiTerminal()), FEE_PROJECT_ID, JBConstants.NATIVE_TOKEN);
         assertGt(feeBalanceAfter, feeBalanceBefore, "Fee project should receive the donated ETH");
     }
 }

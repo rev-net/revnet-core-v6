@@ -4,7 +4,7 @@ pragma solidity 0.8.23;
 import "forge-std/Test.sol";
 import /* {*} from */ "@bananapus/core-v5/test/helpers/TestBaseWorkflow.sol";
 import /* {*} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
-    import /* {*} from */ "./../src/REVDeployer.sol";
+import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v5/src/CTPublisher.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
 
@@ -70,9 +70,7 @@ contract TestPR09_ConversionDocumentation is TestBaseWorkflow, JBTest {
 
         JBAccountingContext[] memory accountingContextsToAccept = new JBAccountingContext[](1);
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
         terminalConfigurations = new JBTerminalConfig[](1);
@@ -104,8 +102,7 @@ contract TestPR09_ConversionDocumentation is TestBaseWorkflow, JBTest {
         });
 
         suckerDeploymentConfiguration = REVSuckerDeploymentConfig({
-            deployerConfigurations: new JBSuckerDeployerConfig[](0),
-            salt: keccak256(abi.encodePacked(salt))
+            deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked(salt))
         });
     }
 
@@ -132,18 +129,22 @@ contract TestPR09_ConversionDocumentation is TestBaseWorkflow, JBTest {
         });
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBRulesetDataHook(address(MOCK_BUYBACK)), address(LOANS_CONTRACT), TRUSTED_FORWARDER
+            jbController(),
+            SUCKER_REGISTRY,
+            FEE_PROJECT_ID,
+            HOOK_DEPLOYER,
+            PUBLISHER,
+            IJBRulesetDataHook(address(MOCK_BUYBACK)),
+            address(LOANS_CONTRACT),
+            TRUSTED_FORWARDER
         );
 
         // Deploy fee project as revnet.
         vm.prank(multisig());
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);
 
-        (
-            REVConfig memory cfg,
-            JBTerminalConfig[] memory terms,
-            REVSuckerDeploymentConfig memory suckerCfg
-        ) = _getRevnetConfig("Revnet", "$REV", ERC20_SALT);
+        (REVConfig memory cfg, JBTerminalConfig[] memory terms, REVSuckerDeploymentConfig memory suckerCfg) =
+            _getRevnetConfig("Revnet", "$REV", ERC20_SALT);
 
         vm.prank(multisig());
         REV_DEPLOYER.deployFor({
@@ -165,11 +166,8 @@ contract TestPR09_ConversionDocumentation is TestBaseWorkflow, JBTest {
         jbProjects().approve(address(REV_DEPLOYER), blankId);
 
         // Get revnet config.
-        (
-            REVConfig memory cfg,
-            JBTerminalConfig[] memory terms,
-            REVSuckerDeploymentConfig memory suckerCfg
-        ) = _getRevnetConfig("BlankConvert", "$BLK", "BLANK_TOKEN");
+        (REVConfig memory cfg, JBTerminalConfig[] memory terms, REVSuckerDeploymentConfig memory suckerCfg) =
+            _getRevnetConfig("BlankConvert", "$BLK", "BLANK_TOKEN");
 
         // Deploy as revnet — should succeed since project is blank.
         vm.prank(USER);
@@ -192,9 +190,7 @@ contract TestPR09_ConversionDocumentation is TestBaseWorkflow, JBTest {
         // Launch rulesets on it directly via the controller (setting a controller + rulesets).
         JBAccountingContext[] memory accountingContextsToAccept = new JBAccountingContext[](1);
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         JBTerminalConfig[] memory termConfigs = new JBTerminalConfig[](1);
         termConfigs[0] =
@@ -233,23 +229,21 @@ contract TestPR09_ConversionDocumentation is TestBaseWorkflow, JBTest {
         });
 
         vm.prank(USER);
-        jbController().launchRulesetsFor({
-            projectId: projectId,
-            rulesetConfigurations: rulesetConfigs,
-            terminalConfigurations: termConfigs,
-            memo: ""
-        });
+        jbController()
+            .launchRulesetsFor({
+                projectId: projectId,
+                rulesetConfigurations: rulesetConfigs,
+                terminalConfigurations: termConfigs,
+                memo: ""
+            });
 
         // Now try to convert this project to a revnet — should revert.
         // Approve NFT to REV_DEPLOYER.
         vm.prank(USER);
         jbProjects().approve(address(REV_DEPLOYER), projectId);
 
-        (
-            REVConfig memory cfg,
-            JBTerminalConfig[] memory terms2,
-            REVSuckerDeploymentConfig memory suckerCfg
-        ) = _getRevnetConfig("FailConvert", "$FAIL", "FAIL_TOKEN");
+        (REVConfig memory cfg, JBTerminalConfig[] memory terms2, REVSuckerDeploymentConfig memory suckerCfg) =
+            _getRevnetConfig("FailConvert", "$FAIL", "FAIL_TOKEN");
 
         // Should revert because rulesets already launched.
         vm.prank(USER);
@@ -273,11 +267,8 @@ contract TestPR09_ConversionDocumentation is TestBaseWorkflow, JBTest {
         jbProjects().approve(address(REV_DEPLOYER), blankId);
 
         // Get config.
-        (
-            REVConfig memory cfg,
-            JBTerminalConfig[] memory terms,
-            REVSuckerDeploymentConfig memory suckerCfg
-        ) = _getRevnetConfig("Irreversible", "$IRR", "IRR_TOKEN");
+        (REVConfig memory cfg, JBTerminalConfig[] memory terms, REVSuckerDeploymentConfig memory suckerCfg) =
+            _getRevnetConfig("Irreversible", "$IRR", "IRR_TOKEN");
 
         // Deploy as revnet.
         vm.prank(USER);
@@ -292,24 +283,16 @@ contract TestPR09_ConversionDocumentation is TestBaseWorkflow, JBTest {
         assertEq(jbProjects().ownerOf(blankId), address(REV_DEPLOYER), "Owner should be REVDeployer after conversion");
 
         // Verify the original user is no longer the owner.
-        assertTrue(
-            jbProjects().ownerOf(blankId) != USER, "Original user should no longer own the project"
-        );
+        assertTrue(jbProjects().ownerOf(blankId) != USER, "Original user should no longer own the project");
     }
 
     /// @notice Deploy with revnetId=0 creates a new project.
     function test_deployNewRevnet_zeroRevnetId() public {
-        (
-            REVConfig memory cfg,
-            JBTerminalConfig[] memory terms,
-            REVSuckerDeploymentConfig memory suckerCfg
-        ) = _getRevnetConfig("NewRevnet", "$NEW", "NEW_TOKEN");
+        (REVConfig memory cfg, JBTerminalConfig[] memory terms, REVSuckerDeploymentConfig memory suckerCfg) =
+            _getRevnetConfig("NewRevnet", "$NEW", "NEW_TOKEN");
 
         uint256 newId = REV_DEPLOYER.deployFor({
-            revnetId: 0,
-            configuration: cfg,
-            terminalConfigurations: terms,
-            suckerDeploymentConfiguration: suckerCfg
+            revnetId: 0, configuration: cfg, terminalConfigurations: terms, suckerDeploymentConfiguration: suckerCfg
         });
 
         // Verify the project was created (ID > fee project).

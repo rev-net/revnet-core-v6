@@ -112,14 +112,7 @@ interface IREVDeployer {
     /// @param stageId The ID of the stage.
     /// @param beneficiary The beneficiary of the auto-mint.
     /// @return The number of tokens available to auto-issue.
-    function amountToAutoIssue(
-        uint256 revnetId,
-        uint256 stageId,
-        address beneficiary
-    )
-        external
-        view
-        returns (uint256);
+    function amountToAutoIssue(uint256 revnetId, uint256 stageId, address beneficiary) external view returns (uint256);
 
     /// @notice The timestamp when cash outs become available for a revnet's participants.
     /// @param revnetId The ID of the revnet.

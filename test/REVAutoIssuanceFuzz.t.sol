@@ -4,7 +4,7 @@ pragma solidity 0.8.23;
 import "forge-std/Test.sol";
 import /* {*} from */ "@bananapus/core-v5/test/helpers/TestBaseWorkflow.sol";
 import /* {*} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
-    import /* {*} from */ "./../src/REVDeployer.sol";
+import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v5/src/CTPublisher.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
 
@@ -62,7 +62,14 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
         MOCK_BUYBACK = new MockBuybackDataHook();
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBRulesetDataHook(address(MOCK_BUYBACK)), makeAddr("loans"), TRUSTED_FORWARDER
+            jbController(),
+            SUCKER_REGISTRY,
+            FEE_PROJECT_ID,
+            HOOK_DEPLOYER,
+            PUBLISHER,
+            IJBRulesetDataHook(address(MOCK_BUYBACK)),
+            makeAddr("loans"),
+            TRUSTED_FORWARDER
         );
 
         vm.prank(multisig());
@@ -70,24 +77,16 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
     }
 
     /// @dev Deploy a revnet with N stages, each with auto-issuance.
-    function _deployMultiStageRevnet(uint256 numStages)
-        internal
-        returns (uint256 revnetId, uint256[] memory stageIds)
-    {
+    function _deployMultiStageRevnet(uint256 numStages) internal returns (uint256 revnetId, uint256[] memory stageIds) {
         require(numStages >= 1 && numStages <= 5, "1-5 stages");
 
         JBAccountingContext[] memory tokensToAccept = new JBAccountingContext[](1);
         tokensToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
         JBTerminalConfig[] memory terminalConfigs = new JBTerminalConfig[](1);
-        terminalConfigs[0] = JBTerminalConfig({
-            terminal: jbMultiTerminal(),
-            accountingContextsToAccept: tokensToAccept
-        });
+        terminalConfigs[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: tokensToAccept});
 
         REVStageConfig[] memory stages = new REVStageConfig[](numStages);
         stageIds = new uint256[](numStages);
@@ -146,7 +145,8 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
         });
     }
 
-    // ───────────────── Stage ID computation ─────────────────────
+    // ───────────────── Stage ID computation
+    // ─────────────────────
 
     /// @notice Verify all auto-issuance storage keys match block.timestamp + i for 3 stages.
     function test_stageIdComputation_3stages() external {
@@ -160,7 +160,8 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
         }
     }
 
-    // ───────────────── Multi-stage claiming ─────────────────────
+    // ───────────────── Multi-stage claiming
+    // ─────────────────────
 
     /// @notice Deploy 3-stage revnet, advance time, claim auto-issuance from each stage.
     function test_multiStage_allStagesClaimable() external {
@@ -171,9 +172,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
 
         uint256 stage0Amount = (10_000) * decimalMultiplier;
         assertEq(
-            IJBToken(jbTokens().tokenOf(revnetId)).balanceOf(multisig()),
-            stage0Amount,
-            "Stage 0 auto-issuance claimed"
+            IJBToken(jbTokens().tokenOf(revnetId)).balanceOf(multisig()), stage0Amount, "Stage 0 auto-issuance claimed"
         );
 
         // Stage 1 starts at block.timestamp + 180 days.
@@ -199,7 +198,8 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
         );
     }
 
-    // ───────────────── Wrong stageId reverts ─────────────────────
+    // ───────────────── Wrong stageId reverts
+    // ─────────────────────
 
     /// @notice Calling autoIssueFor with wrong stageId reverts with NothingToAutoIssue.
     function test_stageIdMismatch_nothingToAutoIssue() external {
@@ -212,7 +212,8 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
         REV_DEPLOYER.autoIssueFor(revnetId, wrongStageId, multisig());
     }
 
-    // ───────────────── Double claim prevented ─────────────────────
+    // ───────────────── Double claim prevented
+    // ─────────────────────
 
     /// @notice Claiming once zeroes storage; second claim reverts.
     function test_autoIssue_doubleClaimPrevented() external {
@@ -223,9 +224,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
 
         // Storage should be zeroed.
         assertEq(
-            REV_DEPLOYER.amountToAutoIssue(revnetId, stageIds[0], multisig()),
-            0,
-            "Storage should be zeroed after claim"
+            REV_DEPLOYER.amountToAutoIssue(revnetId, stageIds[0], multisig()), 0, "Storage should be zeroed after claim"
         );
 
         // Second claim reverts.
@@ -233,7 +232,8 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
         REV_DEPLOYER.autoIssueFor(revnetId, stageIds[0], multisig());
     }
 
-    // ───────────────── Stage not started ─────────────────────
+    // ───────────────── Stage not started
+    // ─────────────────────
 
     /// @notice Calling autoIssueFor before stage start time reverts.
     function test_stageNotStarted_reverts() external {
@@ -245,7 +245,8 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
         REV_DEPLOYER.autoIssueFor(revnetId, stageIds[1], multisig());
     }
 
-    // ───────────────── H-5: Stage ID vs Ruleset ID comparison ─────────────────────
+    // ───────────────── H-5: Stage ID vs Ruleset ID comparison
+    // ─────────────────────
 
     /// @notice H-5 EXPLORATION: Compare stored stageIds with actual ruleset IDs.
     /// Stage IDs use block.timestamp + i during deployment.
@@ -257,11 +258,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
         (JBRuleset memory currentRuleset,) = jbController().currentRulesetOf(revnetId);
 
         // The first ruleset's ID should match stageIds[0] (both are block.timestamp).
-        assertEq(
-            currentRuleset.id,
-            stageIds[0],
-            "First ruleset ID should match stage 0 ID (both block.timestamp)"
-        );
+        assertEq(currentRuleset.id, stageIds[0], "First ruleset ID should match stage 0 ID (both block.timestamp)");
 
         // For stage 1, the stored key is block.timestamp + 1.
         // The actual ruleset ID depends on when JBRulesets creates it.
