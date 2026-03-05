@@ -1,10 +1,10 @@
 {
-    "name": "@bananapus/revnet-core-v6",
+    "name": "@rev-net/core-v6",
     "version": "0.0.1",
     "license": "MIT",
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/Bananapus/revnet-core-v6"
+        "url": "git+https://github.com/rev-net/revnet-core-v6"
     },
     "scripts": {
         "test": "forge test",
