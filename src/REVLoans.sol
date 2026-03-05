@@ -262,7 +262,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     }
 
     /// @notice The revnet ID for the loan with the provided loan ID.
-    /// @param loanId The loan ID of the loan to get the revent ID of.
+    /// @param loanId The loan ID of the loan to get the revnet ID of.
     /// @return The ID of the revnet.
     function revnetIdOfLoanWith(uint256 loanId) public pure override returns (uint256) {
         return loanId / _ONE_TRILLION;
@@ -1260,7 +1260,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
             revnetId: revnetId,
             reallocatedLoanId: reallocatedLoanId,
             reallocatedLoan: reallocatedLoan,
-            removedcollateralCount: collateralCountToRemove,
+            removedCollateralCount: collateralCountToRemove,
             caller: _msgSender()
         });
     }
