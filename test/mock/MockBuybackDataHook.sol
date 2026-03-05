@@ -3,12 +3,14 @@ pragma solidity 0.8.23;
 
 import {IJBRulesetDataHook} from "@bananapus/core-v5/src/interfaces/IJBRulesetDataHook.sol";
 import {IJBPayHook} from "@bananapus/core-v5/src/interfaces/IJBPayHook.sol";
+import {IJBBuybackHook} from "@bananapus/buyback-hook-v5/src/interfaces/IJBBuybackHook.sol";
 import {JBBeforePayRecordedContext} from "@bananapus/core-v5/src/structs/JBBeforePayRecordedContext.sol";
 import {JBBeforeCashOutRecordedContext} from "@bananapus/core-v5/src/structs/JBBeforeCashOutRecordedContext.sol";
 import {JBPayHookSpecification} from "@bananapus/core-v5/src/structs/JBPayHookSpecification.sol";
 import {JBCashOutHookSpecification} from "@bananapus/core-v5/src/structs/JBCashOutHookSpecification.sol";
 import {JBAfterPayRecordedContext} from "@bananapus/core-v5/src/structs/JBAfterPayRecordedContext.sol";
 import {JBRuleset} from "@bananapus/core-v5/src/structs/JBRuleset.sol";
+import {IUniswapV3Pool} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 /// @notice A minimal mock buyback data hook for tests. Returns the default weight and a no-op pay hook specification.
@@ -46,6 +48,11 @@ contract MockBuybackDataHook is IJBRulesetDataHook, IJBPayHook {
     }
 
     function afterPayRecordedWith(JBAfterPayRecordedContext calldata) external payable override {}
+
+    /// @notice No-op pool configuration for tests.
+    function setPoolFor(uint256, uint24, uint256, address) external pure returns (IUniswapV3Pool) {
+        return IUniswapV3Pool(address(0));
+    }
 
     function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
         return interfaceId == type(IJBRulesetDataHook).interfaceId || interfaceId == type(IJBPayHook).interfaceId

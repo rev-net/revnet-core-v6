@@ -75,6 +75,14 @@ interface IREVDeployer {
     /// @return The fee value.
     function FEE() external view returns (uint256);
 
+    /// @notice The default Uniswap pool fee tier for auto-configured buyback pools.
+    /// @return The fee tier (10_000 = 1%).
+    function DEFAULT_BUYBACK_POOL_FEE() external view returns (uint24);
+
+    /// @notice The default TWAP window for auto-configured buyback pools.
+    /// @return The TWAP window in seconds.
+    function DEFAULT_BUYBACK_TWAP_WINDOW() external view returns (uint32);
+
     /// @notice The registry that deploys and tracks suckers for revnets.
     /// @return The sucker registry contract.
     function SUCKER_REGISTRY() external view returns (IJBSuckerRegistry);

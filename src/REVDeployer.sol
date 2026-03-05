@@ -18,6 +18,7 @@ import {IJBPermissions} from "@bananapus/core-v5/src/interfaces/IJBPermissions.s
 import {IJBProjects} from "@bananapus/core-v5/src/interfaces/IJBProjects.sol";
 import {IJBRulesetApprovalHook} from "@bananapus/core-v5/src/interfaces/IJBRulesetApprovalHook.sol";
 import {IJBRulesetDataHook} from "@bananapus/core-v5/src/interfaces/IJBRulesetDataHook.sol";
+import {IJBBuybackHook} from "@bananapus/buyback-hook-v5/src/interfaces/IJBBuybackHook.sol";
 import {IJBSplitHook} from "@bananapus/core-v5/src/interfaces/IJBSplitHook.sol";
 import {IJBTerminal} from "@bananapus/core-v5/src/interfaces/IJBTerminal.sol";
 import {JBCashOuts} from "@bananapus/core-v5/src/libraries/JBCashOuts.sol";
@@ -89,6 +90,14 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @dev Fees are charged on cashouts if the cash out tax rate is greater than 0%.
     /// @dev When suckers withdraw funds, they do not pay cash out fees.
     uint256 public constant override FEE = 25; // 2.5%
+
+    /// @notice The default Uniswap pool fee tier used when auto-configuring buyback pools.
+    /// @dev 10_000 = 1%. This is the standard fee tier for most project token pairs.
+    uint24 public constant DEFAULT_BUYBACK_POOL_FEE = 10_000;
+
+    /// @notice The default TWAP window used when auto-configuring buyback pools.
+    /// @dev 2 days provides robust manipulation resistance.
+    uint32 public constant DEFAULT_BUYBACK_TWAP_WINDOW = 2 days;
 
     //*********************************************************************//
     // --------------- public immutable stored properties ---------------- //
@@ -399,13 +408,17 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         return SUCKER_REGISTRY.isSuckerOf(revnetId, addr);
     }
 
-    /// @notice Initialize a fund access limit group for the loan contract to use.
+    /// @notice Initialize fund access limits for the loan contract and configure buyback pools for each terminal token.
     /// @dev Returns an unlimited surplus allowance for each terminal+token pair derived from the terminal configurations.
+    /// Also auto-configures a buyback pool for each token with sensible defaults (1% fee, 2-day TWAP).
+    /// @param revnetId The ID of the revnet to configure buyback pools for.
     /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
     /// @return fundAccessLimitGroups The fund access limit groups for the loans.
-    function _makeLoanFundAccessLimits(JBTerminalConfig[] calldata terminalConfigurations)
+    function _makeLoanFundAccessLimitsAndBuybackPools(
+        uint256 revnetId,
+        JBTerminalConfig[] calldata terminalConfigurations
+    )
         internal
-        pure
         returns (JBFundAccessLimitGroup[] memory fundAccessLimitGroups)
     {
         // Count the total number of accounting contexts across all terminals.
@@ -417,7 +430,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         // Initialize the fund access limit groups.
         fundAccessLimitGroups = new JBFundAccessLimitGroup[](count);
 
-        // Set up the fund access limits for the loans.
+        // Set up the fund access limits and buyback pools.
         uint256 index;
         for (uint256 i; i < terminalConfigurations.length; i++) {
             JBTerminalConfig calldata terminalConfiguration = terminalConfigurations[i];
@@ -434,6 +447,15 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
                     token: accountingContext.token,
                     payoutLimits: new JBCurrencyAmount[](0),
                     surplusAllowances: loanAllowances
+                });
+
+                // Configure a buyback pool for this terminal token with default fee and TWAP window.
+                // slither-disable-next-line unused-return
+                IJBBuybackHook(address(BUYBACK_HOOK)).setPoolFor({
+                    projectId: revnetId,
+                    fee: DEFAULT_BUYBACK_POOL_FEE,
+                    twapWindow: DEFAULT_BUYBACK_TWAP_WINDOW,
+                    terminalToken: accountingContext.token
                 });
             }
         }
@@ -993,7 +1015,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             salt: keccak256(abi.encode(configuration.description.salt, encodedConfigurationHash, _msgSender()))
         });
 
-
         // Give the split operator their permissions.
         _setSplitOperatorOf({revnetId: revnetId, operator: configuration.splitOperator});
 
@@ -1020,8 +1041,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         });
     }
 
-    /// @notice Deploy suckers for a revnet.
-    /// @param revnetId The ID of the revnet to deploy suckers for.
     /// @param encodedConfigurationHash A hash that represents the revnet's configuration.
     /// See `_makeRulesetConfigurations(…)` for encoding details. Clients can read the encoded configuration
     /// from the `DeployRevnet` event emitted by this contract.
@@ -1086,9 +1105,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             configuration.description.salt
         );
 
-        // Initialize fund access limit groups for the loan contract to use.
+        // Initialize fund access limit groups for the loan contract and configure buyback pools.
         JBFundAccessLimitGroup[] memory fundAccessLimitGroups =
-            _makeLoanFundAccessLimits({terminalConfigurations: terminalConfigurations});
+            _makeLoanFundAccessLimitsAndBuybackPools({revnetId: revnetId, terminalConfigurations: terminalConfigurations});
 
         // Iterate through each stage to set up its ruleset.
         for (uint256 i; i < configuration.stageConfigurations.length; i++) {
