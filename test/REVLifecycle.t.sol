@@ -4,7 +4,7 @@ pragma solidity 0.8.23;
 import "forge-std/Test.sol";
 import /* {*} from */ "@bananapus/core-v5/test/helpers/TestBaseWorkflow.sol";
 import /* {*} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
-    import /* {*} from */ "./../src/REVDeployer.sol";
+import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v5/src/CTPublisher.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
 
@@ -77,7 +77,14 @@ contract REVLifecycle_Local is TestBaseWorkflow, JBTest {
         });
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBRulesetDataHook(address(MOCK_BUYBACK)), address(LOANS_CONTRACT), TRUSTED_FORWARDER
+            jbController(),
+            SUCKER_REGISTRY,
+            FEE_PROJECT_ID,
+            HOOK_DEPLOYER,
+            PUBLISHER,
+            IJBRulesetDataHook(address(MOCK_BUYBACK)),
+            address(LOANS_CONTRACT),
+            TRUSTED_FORWARDER
         );
 
         vm.prank(multisig());
@@ -94,9 +101,7 @@ contract REVLifecycle_Local is TestBaseWorkflow, JBTest {
     function _deployThreeStageRevnet() internal {
         JBAccountingContext[] memory accountingContextsToAccept = new JBAccountingContext[](1);
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
         JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
@@ -161,8 +166,7 @@ contract REVLifecycle_Local is TestBaseWorkflow, JBTest {
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256("LIFECYCLE_TEST")
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("LIFECYCLE_TEST")
             })
         });
     }
@@ -175,9 +179,8 @@ contract REVLifecycle_Local is TestBaseWorkflow, JBTest {
     function test_fullLifecycle_threeStages() public {
         // Stage 0: User1 pays 5 ETH
         vm.prank(USER1);
-        uint256 tokens1 = jbMultiTerminal().pay{value: 5e18}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, 5e18, USER1, 0, "", ""
-        );
+        uint256 tokens1 =
+            jbMultiTerminal().pay{value: 5e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 5e18, USER1, 0, "", "");
         assertGt(tokens1, 0, "user1 should receive tokens in stage 0");
 
         // Check total supply after first payment
@@ -189,9 +192,8 @@ contract REVLifecycle_Local is TestBaseWorkflow, JBTest {
 
         // Stage 1: User2 pays 5 ETH (should get fewer tokens due to weight decay)
         vm.prank(USER2);
-        uint256 tokens2 = jbMultiTerminal().pay{value: 5e18}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, 5e18, USER2, 0, "", ""
-        );
+        uint256 tokens2 =
+            jbMultiTerminal().pay{value: 5e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 5e18, USER2, 0, "", "");
         assertGt(tokens2, 0, "user2 should receive tokens in stage 1");
 
         // Total supply increased
@@ -204,15 +206,16 @@ contract REVLifecycle_Local is TestBaseWorkflow, JBTest {
         // Stage 2: User1 cashes out some tokens
         uint256 cashOutAmount = tokens1 / 2;
         vm.prank(USER1);
-        uint256 reclaimed = jbMultiTerminal().cashOutTokensOf({
-            holder: USER1,
-            projectId: REVNET_ID,
-            cashOutCount: cashOutAmount,
-            tokenToReclaim: JBConstants.NATIVE_TOKEN,
-            minTokensReclaimed: 0,
-            beneficiary: payable(USER1),
-            metadata: ""
-        });
+        uint256 reclaimed = jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: USER1,
+                projectId: REVNET_ID,
+                cashOutCount: cashOutAmount,
+                tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                minTokensReclaimed: 0,
+                beneficiary: payable(USER1),
+                metadata: ""
+            });
         assertGt(reclaimed, 0, "should reclaim some ETH");
 
         // Total supply should decrease after cash out
@@ -224,18 +227,16 @@ contract REVLifecycle_Local is TestBaseWorkflow, JBTest {
     function test_stageDecay_fewerTokensLater() public {
         // Stage 0: Pay 1 ETH
         vm.prank(USER1);
-        uint256 tokensStage0 = jbMultiTerminal().pay{value: 1e18}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, 1e18, USER1, 0, "", ""
-        );
+        uint256 tokensStage0 =
+            jbMultiTerminal().pay{value: 1e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 1e18, USER1, 0, "", "");
 
         // Warp to stage 1
         vm.warp(block.timestamp + 365 days);
 
         // Stage 1: Pay 1 ETH
         vm.prank(USER2);
-        uint256 tokensStage1 = jbMultiTerminal().pay{value: 1e18}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, 1e18, USER2, 0, "", ""
-        );
+        uint256 tokensStage1 =
+            jbMultiTerminal().pay{value: 1e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 1e18, USER2, 0, "", "");
 
         // User1 should have received more tokens (earlier stage = higher issuance)
         assertGt(tokensStage0, tokensStage1, "stage 0 payment should yield more tokens than stage 1");
@@ -245,32 +246,28 @@ contract REVLifecycle_Local is TestBaseWorkflow, JBTest {
     function test_cashOutTax_changesBetweenStages() public {
         // Pay in stage 0
         vm.prank(USER1);
-        uint256 tokens = jbMultiTerminal().pay{value: 10e18}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER1, 0, "", ""
-        );
+        uint256 tokens =
+            jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER1, 0, "", "");
 
         // Cash out half in stage 0 (50% tax)
         uint256 halfTokens = tokens / 2;
         uint256 user1BalBefore = USER1.balance;
         vm.prank(USER1);
-        uint256 reclaimedStage0 = jbMultiTerminal().cashOutTokensOf({
-            holder: USER1,
-            projectId: REVNET_ID,
-            cashOutCount: halfTokens,
-            tokenToReclaim: JBConstants.NATIVE_TOKEN,
-            minTokensReclaimed: 0,
-            beneficiary: payable(USER1),
-            metadata: ""
-        });
+        uint256 reclaimedStage0 = jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: USER1,
+                projectId: REVNET_ID,
+                cashOutCount: halfTokens,
+                tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                minTokensReclaimed: 0,
+                beneficiary: payable(USER1),
+                metadata: ""
+            });
         assertGt(reclaimedStage0, 0, "should reclaim in stage 0");
 
         // Cash out tax with 50% rate means you get less than proportional share
         // (for the only holder with all tokens cashing out half, bonding curve applies)
-        assertLt(
-            reclaimedStage0,
-            10e18 / 2,
-            "50% tax should reduce reclaim below proportional share"
-        );
+        assertLt(reclaimedStage0, 10e18 / 2, "50% tax should reduce reclaim below proportional share");
     }
 
     /// @notice Terminal balance conservation across lifecycle.
@@ -279,27 +276,26 @@ contract REVLifecycle_Local is TestBaseWorkflow, JBTest {
 
         // Pay into revnet
         vm.prank(USER1);
-        uint256 tokens = jbMultiTerminal().pay{value: payAmount}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, payAmount, USER1, 0, "", ""
-        );
+        uint256 tokens =
+            jbMultiTerminal().pay{value: payAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, payAmount, USER1, 0, "", "");
 
         // Record balance
-        uint256 terminalBalance = jbTerminalStore().balanceOf(
-            address(jbMultiTerminal()), REVNET_ID, JBConstants.NATIVE_TOKEN
-        );
+        uint256 terminalBalance =
+            jbTerminalStore().balanceOf(address(jbMultiTerminal()), REVNET_ID, JBConstants.NATIVE_TOKEN);
         assertEq(terminalBalance, payAmount, "balance should equal payment");
 
         // Cash out all tokens
         vm.prank(USER1);
-        uint256 reclaimed = jbMultiTerminal().cashOutTokensOf({
-            holder: USER1,
-            projectId: REVNET_ID,
-            cashOutCount: tokens,
-            tokenToReclaim: JBConstants.NATIVE_TOKEN,
-            minTokensReclaimed: 0,
-            beneficiary: payable(USER1),
-            metadata: ""
-        });
+        uint256 reclaimed = jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: USER1,
+                projectId: REVNET_ID,
+                cashOutCount: tokens,
+                tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                minTokensReclaimed: 0,
+                beneficiary: payable(USER1),
+                metadata: ""
+            });
 
         // With 50% cash out tax and single holder, reclaiming full supply
         // should return less than full amount (due to tax)
@@ -307,13 +303,10 @@ contract REVLifecycle_Local is TestBaseWorkflow, JBTest {
         assertLe(reclaimed, payAmount, "should not reclaim more than paid");
 
         // Remaining balance should account for what was reclaimed
-        uint256 terminalBalanceAfter = jbTerminalStore().balanceOf(
-            address(jbMultiTerminal()), REVNET_ID, JBConstants.NATIVE_TOKEN
-        );
+        uint256 terminalBalanceAfter =
+            jbTerminalStore().balanceOf(address(jbMultiTerminal()), REVNET_ID, JBConstants.NATIVE_TOKEN);
         assertEq(
-            terminalBalanceAfter + reclaimed,
-            terminalBalance,
-            "balance conservation: remaining + reclaimed = original"
+            terminalBalanceAfter + reclaimed, terminalBalance, "balance conservation: remaining + reclaimed = original"
         );
     }
 
@@ -321,15 +314,13 @@ contract REVLifecycle_Local is TestBaseWorkflow, JBTest {
     function test_earlyPayerAdvantage() public {
         // User1 pays first
         vm.prank(USER1);
-        uint256 tokens1 = jbMultiTerminal().pay{value: 5e18}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, 5e18, USER1, 0, "", ""
-        );
+        uint256 tokens1 =
+            jbMultiTerminal().pay{value: 5e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 5e18, USER1, 0, "", "");
 
         // User2 pays same amount later
         vm.prank(USER2);
-        uint256 tokens2 = jbMultiTerminal().pay{value: 5e18}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, 5e18, USER2, 0, "", ""
-        );
+        uint256 tokens2 =
+            jbMultiTerminal().pay{value: 5e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 5e18, USER2, 0, "", "");
 
         // Both should receive same tokens (same stage, no decay within a cycle without issuanceCutFrequency)
         assertEq(tokens1, tokens2, "same amount in same stage should yield same tokens");
@@ -337,15 +328,16 @@ contract REVLifecycle_Local is TestBaseWorkflow, JBTest {
         // But when user1 cashes out, they get a smaller share because the surplus grew
         // relative to their proportion of the total supply
         vm.prank(USER1);
-        uint256 reclaimed1 = jbMultiTerminal().cashOutTokensOf({
-            holder: USER1,
-            projectId: REVNET_ID,
-            cashOutCount: tokens1,
-            tokenToReclaim: JBConstants.NATIVE_TOKEN,
-            minTokensReclaimed: 0,
-            beneficiary: payable(USER1),
-            metadata: ""
-        });
+        uint256 reclaimed1 = jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: USER1,
+                projectId: REVNET_ID,
+                cashOutCount: tokens1,
+                tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                minTokensReclaimed: 0,
+                beneficiary: payable(USER1),
+                metadata: ""
+            });
 
         // Should reclaim proportional share (minus tax)
         assertGt(reclaimed1, 0, "user1 should reclaim some ETH");

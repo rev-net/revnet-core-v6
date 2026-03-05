@@ -4,7 +4,7 @@ pragma solidity 0.8.23;
 import "forge-std/Test.sol";
 import /* {*} from */ "@bananapus/core-v5/test/helpers/TestBaseWorkflow.sol";
 import /* {*} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
-    import /* {*} from */ "./../src/REVDeployer.sol";
+import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v5/src/CTPublisher.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
 
@@ -51,7 +51,9 @@ contract ReentrantTerminal is ERC165, IJBPayoutTerminal {
         uint256 _revnetId,
         uint256 _collateral,
         REVLoanSource memory _source
-    ) external {
+    )
+        external
+    {
         loans = _loans;
         revnetId = _revnetId;
         reenterCollateral = _collateral;
@@ -67,7 +69,12 @@ contract ReentrantTerminal is ERC165, IJBPayoutTerminal {
         uint256,
         string calldata,
         bytes calldata
-    ) external payable override returns (uint256) {
+    )
+        external
+        payable
+        override
+        returns (uint256)
+    {
         // On fee payment during _adjust, try to re-enter borrowFrom
         if (shouldReenter && !reentered) {
             reentered = true;
@@ -79,7 +86,8 @@ contract ReentrantTerminal is ERC165, IJBPayoutTerminal {
                 reenterCollateral,
                 payable(address(this)),
                 25 // MIN_PREPAID_FEE_PERCENT
-            ) {} catch {
+            ) {}
+                catch {
                 // Expected to revert if reentrancy guard exists
             }
         }
@@ -88,9 +96,7 @@ contract ReentrantTerminal is ERC165, IJBPayoutTerminal {
 
     function accountingContextForTokenOf(uint256, address) external pure override returns (JBAccountingContext memory) {
         return JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
     }
 
@@ -100,9 +106,30 @@ contract ReentrantTerminal is ERC165, IJBPayoutTerminal {
 
     function addAccountingContextsFor(uint256, JBAccountingContext[] calldata) external override {}
 
-    function addToBalanceOf(uint256, address, uint256, bool, string calldata, bytes calldata) external payable override {}
+    function addToBalanceOf(
+        uint256,
+        address,
+        uint256,
+        bool,
+        string calldata,
+        bytes calldata
+    )
+        external
+        payable
+        override
+    {}
 
-    function currentSurplusOf(uint256, JBAccountingContext[] memory, uint256, uint256) external pure override returns (uint256) {
+    function currentSurplusOf(
+        uint256,
+        JBAccountingContext[] memory,
+        uint256,
+        uint256
+    )
+        external
+        pure
+        override
+        returns (uint256)
+    {
         return 0;
     }
 
@@ -114,7 +141,16 @@ contract ReentrantTerminal is ERC165, IJBPayoutTerminal {
         return 0;
     }
 
-    function useAllowanceOf(uint256, address, uint256, uint256, uint256, address payable, address payable, string calldata)
+    function useAllowanceOf(
+        uint256,
+        address,
+        uint256,
+        uint256,
+        uint256,
+        address payable,
+        address payable,
+        string calldata
+    )
         external
         pure
         override
@@ -124,8 +160,7 @@ contract ReentrantTerminal is ERC165, IJBPayoutTerminal {
     }
 
     function supportsInterface(bytes4 interfaceId) public view override(ERC165, IERC165) returns (bool) {
-        return interfaceId == type(IJBTerminal).interfaceId
-            || interfaceId == type(IJBPayoutTerminal).interfaceId
+        return interfaceId == type(IJBTerminal).interfaceId || interfaceId == type(IJBPayoutTerminal).interfaceId
             || super.supportsInterface(interfaceId);
     }
 
@@ -173,9 +208,7 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
 
         JBAccountingContext[] memory accountingContextsToAccept = new JBAccountingContext[](2);
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         accountingContextsToAccept[1] =
             JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
@@ -191,9 +224,7 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
 
         REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
         issuanceConfs[0] = REVAutoIssuance({
-            chainId: uint32(block.chainid),
-            count: uint104(70_000 * decimalMultiplier),
-            beneficiary: multisig()
+            chainId: uint32(block.chainid), count: uint104(70_000 * decimalMultiplier), beneficiary: multisig()
         });
 
         stageConfigurations[0] = REVStageConfig({
@@ -219,8 +250,7 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256(abi.encodePacked("REV"))
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("REV"))
             })
         });
     }
@@ -234,9 +264,7 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
 
         JBAccountingContext[] memory accountingContextsToAccept = new JBAccountingContext[](2);
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         accountingContextsToAccept[1] =
             JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
@@ -252,9 +280,7 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
         REVStageConfig[] memory stageConfigurations = new REVStageConfig[](1);
         REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
         issuanceConfs[0] = REVAutoIssuance({
-            chainId: uint32(block.chainid),
-            count: uint104(70_000 * decimalMultiplier),
-            beneficiary: multisig()
+            chainId: uint32(block.chainid), count: uint104(70_000 * decimalMultiplier), beneficiary: multisig()
         });
 
         stageConfigurations[0] = REVStageConfig({
@@ -280,8 +306,7 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256(abi.encodePacked("NANA"))
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("NANA"))
             })
         });
     }
@@ -302,9 +327,8 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
 
         MockPriceFeed priceFeed = new MockPriceFeed(1e21, 6);
         vm.prank(multisig());
-        jbPrices().addPriceFeedFor(
-            0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed
-        );
+        jbPrices()
+            .addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
@@ -316,7 +340,14 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
         });
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBRulesetDataHook(address(MOCK_BUYBACK)), address(LOANS_CONTRACT), TRUSTED_FORWARDER
+            jbController(),
+            SUCKER_REGISTRY,
+            FEE_PROJECT_ID,
+            HOOK_DEPLOYER,
+            PUBLISHER,
+            IJBRulesetDataHook(address(MOCK_BUYBACK)),
+            address(LOANS_CONTRACT),
+            TRUSTED_FORWARDER
         );
 
         // Deploy fee project
@@ -348,18 +379,22 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
     // =========================================================================
     // Helper: create a loan and return the loanId and token count
     // =========================================================================
-    function _setupLoan(address user, uint256 ethAmount, uint256 prepaidFee)
+    function _setupLoan(
+        address user,
+        uint256 ethAmount,
+        uint256 prepaidFee
+    )
         internal
         returns (uint256 loanId, uint256 tokenCount, uint256 borrowAmount)
     {
         // Pay into revnet to get tokens
         vm.prank(user);
-        tokenCount = jbMultiTerminal().pay{value: ethAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, ethAmount, user, 0, "", "");
+        tokenCount =
+            jbMultiTerminal().pay{value: ethAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, ethAmount, user, 0, "", "");
 
         // Check borrowable amount
-        borrowAmount = LOANS_CONTRACT.borrowableAmountFrom(
-            REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        borrowAmount =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         if (borrowAmount == 0) return (0, tokenCount, 0);
 
@@ -390,14 +425,12 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
 
         uint256 hugeAmount = 100e18;
         vm.prank(USER);
-        uint256 tokens = jbMultiTerminal().pay{value: hugeAmount}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, hugeAmount, USER, 0, "", ""
-        );
+        uint256 tokens =
+            jbMultiTerminal().pay{value: hugeAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, hugeAmount, USER, 0, "", "");
 
         // Check borrowable amount
-        uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(
-            REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        uint256 borrowable =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // The borrowable amount with 18 decimals and reasonable surplus should be < uint112.max.
         // Verify it does not overflow for normal amounts.
@@ -435,9 +468,8 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
         // Verify that paying a reasonable amount stays within bounds:
         uint256 payAmount = 50e18;
         vm.prank(USER);
-        uint256 tokens = jbMultiTerminal().pay{value: payAmount}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, payAmount, USER, 0, "", ""
-        );
+        uint256 tokens =
+            jbMultiTerminal().pay{value: payAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, payAmount, USER, 0, "", "");
 
         // Token count with 18 decimals should be well within uint112 range
         assertLt(tokens, type(uint112).max, "Normal token count should not overflow uint112");
@@ -460,13 +492,11 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
         // First, create a legitimate loan to ensure the system works
         uint256 payAmount = 10e18;
         vm.prank(USER);
-        uint256 tokens = jbMultiTerminal().pay{value: payAmount}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, payAmount, USER, 0, "", ""
-        );
+        uint256 tokens =
+            jbMultiTerminal().pay{value: payAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, payAmount, USER, 0, "", "");
 
-        uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(
-            REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        uint256 borrowable =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertTrue(borrowable > 0, "Should have borrowable amount");
 
         // The reentrancy vulnerability exists because _adjust calls terminal.pay()
@@ -524,14 +554,12 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
 
         // Both users pay 10 ETH
         vm.prank(userA);
-        uint256 tokensA = jbMultiTerminal().pay{value: 10e18}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, userA, 0, "", ""
-        );
+        uint256 tokensA =
+            jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, userA, 0, "", "");
 
         vm.prank(userB);
-        uint256 tokensB = jbMultiTerminal().pay{value: 10e18}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, userB, 0, "", ""
-        );
+        uint256 tokensB =
+            jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, userB, 0, "", "");
 
         // Record pre-borrow state
         uint256 totalSupplyBefore = jbController().totalTokenSupplyWithReservedTokensOf(REVNET_ID);
@@ -545,9 +573,8 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
 
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 
-        uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(
-            REVNET_ID, tokensA, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        uint256 borrowable =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokensA, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         vm.assume(borrowable > 0);
 
         vm.prank(userA);
@@ -610,14 +637,12 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
         // Pay to get tokens
         uint256 payAmount = 10e18;
         vm.prank(USER);
-        uint256 tokens = jbMultiTerminal().pay{value: payAmount}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, payAmount, USER, 0, "", ""
-        );
+        uint256 tokens =
+            jbMultiTerminal().pay{value: payAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, payAmount, USER, 0, "", "");
 
         // Record borrowable amount before time advancement
-        uint256 borrowableBefore = LOANS_CONTRACT.borrowableAmountFrom(
-            REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        uint256 borrowableBefore =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // Advance time past the issuance cut frequency (90 days)
         // This should trigger a new cycle with a different weight
@@ -630,9 +655,8 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
         jbMultiTerminal().pay{value: 0.01e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 0.01e18, payor, 0, "", "");
 
         // Record borrowable amount after ruleset change
-        uint256 borrowableAfter = LOANS_CONTRACT.borrowableAmountFrom(
-            REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        uint256 borrowableAfter =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // The borrowable amount may differ because:
         // 1. The surplus changed (new payment added)
@@ -660,14 +684,12 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
 
         // Pay to get tokens
         vm.prank(USER);
-        uint256 tokens = jbMultiTerminal().pay{value: ethAmount}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, ethAmount, USER, 0, "", ""
-        );
+        uint256 tokens =
+            jbMultiTerminal().pay{value: ethAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, ethAmount, USER, 0, "", "");
 
         // Check borrowable
-        uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(
-            REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        uint256 borrowable =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         vm.assume(borrowable > 0);
 
         // Mock permission

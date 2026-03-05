@@ -4,7 +4,7 @@ pragma solidity 0.8.23;
 import "forge-std/Test.sol";
 import /* {*} from */ "@bananapus/core-v5/test/helpers/TestBaseWorkflow.sol";
 import /* {*} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
-    import /* {*} from */ "./../src/REVDeployer.sol";
+import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v5/src/CTPublisher.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
 
@@ -37,7 +37,15 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @notice A terminal mock that always reverts on pay(), used to simulate fee payment failure.
 contract RevertingFeeTerminal is ERC165, IJBPayoutTerminal {
-    function pay(uint256, address, uint256, address, uint256, string calldata, bytes calldata)
+    function pay(
+        uint256,
+        address,
+        uint256,
+        address,
+        uint256,
+        string calldata,
+        bytes calldata
+    )
         external
         payable
         override
@@ -47,7 +55,9 @@ contract RevertingFeeTerminal is ERC165, IJBPayoutTerminal {
     }
 
     function accountingContextForTokenOf(uint256, address) external pure override returns (JBAccountingContext memory) {
-        return JBAccountingContext({token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))});
+        return JBAccountingContext({
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+        });
     }
 
     function accountingContextsOf(uint256) external pure override returns (JBAccountingContext[] memory) {
@@ -55,9 +65,30 @@ contract RevertingFeeTerminal is ERC165, IJBPayoutTerminal {
     }
 
     function addAccountingContextsFor(uint256, JBAccountingContext[] calldata) external override {}
-    function addToBalanceOf(uint256, address, uint256, bool, string calldata, bytes calldata) external payable override {}
+    function addToBalanceOf(
+        uint256,
+        address,
+        uint256,
+        bool,
+        string calldata,
+        bytes calldata
+    )
+        external
+        payable
+        override
+    {}
 
-    function currentSurplusOf(uint256, JBAccountingContext[] memory, uint256, uint256) external pure override returns (uint256) {
+    function currentSurplusOf(
+        uint256,
+        JBAccountingContext[] memory,
+        uint256,
+        uint256
+    )
+        external
+        pure
+        override
+        returns (uint256)
+    {
         return 0;
     }
 
@@ -69,7 +100,16 @@ contract RevertingFeeTerminal is ERC165, IJBPayoutTerminal {
         return 0;
     }
 
-    function useAllowanceOf(uint256, address, uint256, uint256, uint256, address payable, address payable, string calldata)
+    function useAllowanceOf(
+        uint256,
+        address,
+        uint256,
+        uint256,
+        uint256,
+        address payable,
+        address payable,
+        string calldata
+    )
         external
         pure
         override
@@ -124,9 +164,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow, JBTest {
 
         JBAccountingContext[] memory accountingContextsToAccept = new JBAccountingContext[](2);
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         accountingContextsToAccept[1] =
             JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
@@ -142,9 +180,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow, JBTest {
 
         REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
         issuanceConfs[0] = REVAutoIssuance({
-            chainId: uint32(block.chainid),
-            count: uint104(70_000 * decimalMultiplier),
-            beneficiary: multisig()
+            chainId: uint32(block.chainid), count: uint104(70_000 * decimalMultiplier), beneficiary: multisig()
         });
 
         stageConfigurations[0] = REVStageConfig({
@@ -162,7 +198,9 @@ contract REVLoansFeeRecovery is TestBaseWorkflow, JBTest {
         REVLoanSource[] memory _loanSources = new REVLoanSource[](0);
 
         REVConfig memory revnetConfiguration = REVConfig({
-            description: REVDescription("Revnet", "$REV", "ipfs://QmNRHT91HcDgMcenebYX7rJigt77cgNcosvuhX21wkF3tx", ERC20_SALT),
+            description: REVDescription(
+                "Revnet", "$REV", "ipfs://QmNRHT91HcDgMcenebYX7rJigt77cgNcosvuhX21wkF3tx", ERC20_SALT
+            ),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
             stageConfigurations: stageConfigurations
@@ -172,8 +210,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow, JBTest {
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256(abi.encodePacked("REV"))
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("REV"))
             })
         });
     }
@@ -184,9 +221,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow, JBTest {
 
         JBAccountingContext[] memory accountingContextsToAccept = new JBAccountingContext[](2);
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         accountingContextsToAccept[1] =
             JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
@@ -202,9 +237,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow, JBTest {
         REVStageConfig[] memory stageConfigurations = new REVStageConfig[](1);
         REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
         issuanceConfs[0] = REVAutoIssuance({
-            chainId: uint32(block.chainid),
-            count: uint104(70_000 * decimalMultiplier),
-            beneficiary: multisig()
+            chainId: uint32(block.chainid), count: uint104(70_000 * decimalMultiplier), beneficiary: multisig()
         });
 
         stageConfigurations[0] = REVStageConfig({
@@ -224,7 +257,9 @@ contract REVLoansFeeRecovery is TestBaseWorkflow, JBTest {
         _loanSources[1] = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
 
         REVConfig memory revnetConfiguration = REVConfig({
-            description: REVDescription("NANA", "$NANA", "ipfs://QmNRHT91HcDgMcenebYX7rJigt77cgNxosvuhX21wkF3tx", "NANA_TOKEN"),
+            description: REVDescription(
+                "NANA", "$NANA", "ipfs://QmNRHT91HcDgMcenebYX7rJigt77cgNxosvuhX21wkF3tx", "NANA_TOKEN"
+            ),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
             stageConfigurations: stageConfigurations
@@ -234,8 +269,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow, JBTest {
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256(abi.encodePacked("NANA"))
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("NANA"))
             })
         });
     }
@@ -257,9 +291,8 @@ contract REVLoansFeeRecovery is TestBaseWorkflow, JBTest {
 
         MockPriceFeed priceFeed = new MockPriceFeed(1e21, 6);
         vm.prank(multisig());
-        jbPrices().addPriceFeedFor(
-            0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed
-        );
+        jbPrices()
+            .addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
@@ -271,7 +304,14 @@ contract REVLoansFeeRecovery is TestBaseWorkflow, JBTest {
         });
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBRulesetDataHook(address(MOCK_BUYBACK)), address(LOANS_CONTRACT), TRUSTED_FORWARDER
+            jbController(),
+            SUCKER_REGISTRY,
+            FEE_PROJECT_ID,
+            HOOK_DEPLOYER,
+            PUBLISHER,
+            IJBRulesetDataHook(address(MOCK_BUYBACK)),
+            address(LOANS_CONTRACT),
+            TRUSTED_FORWARDER
         );
 
         // Deploy fee project.
@@ -322,7 +362,11 @@ contract REVLoansFeeRecovery is TestBaseWorkflow, JBTest {
     }
 
     /// @notice Borrow against native ETH and return the borrower's balance change.
-    function _borrowNative(address user, uint256 ethAmount, uint256 prepaidFee)
+    function _borrowNative(
+        address user,
+        uint256 ethAmount,
+        uint256 prepaidFee
+    )
         internal
         returns (uint256 loanId, uint256 borrowerBalanceBefore, uint256 borrowerBalanceAfter)
     {
@@ -573,9 +617,8 @@ contract REVLoansFeeRecovery is TestBaseWorkflow, JBTest {
             vm.deal(borrower, 100e18);
 
             vm.prank(borrower);
-            uint256 tokens = jbMultiTerminal().pay{value: 5e18}(
-                REVNET_ID, JBConstants.NATIVE_TOKEN, 5e18, borrower, 0, "", ""
-            );
+            uint256 tokens =
+                jbMultiTerminal().pay{value: 5e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 5e18, borrower, 0, "", "");
 
             mockExpect(
                 address(jbPermissions()),
@@ -585,8 +628,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow, JBTest {
                 abi.encode(true)
             );
 
-            REVLoanSource memory source =
-                REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+            REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 
             vm.prank(borrower);
             LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(borrower), 25);
@@ -616,9 +658,8 @@ contract REVLoansFeeRecovery is TestBaseWorkflow, JBTest {
             REVNET_ID, JBConstants.NATIVE_TOKEN, payAmount, borrower, 0, "", ""
         );
 
-        uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(
-            REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        uint256 borrowable =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // Skip if not enough surplus to borrow.
         if (borrowable == 0) return;
@@ -654,9 +695,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow, JBTest {
 
         // The reverting terminal should not have received any ETH.
         assertEq(
-            address(REVERTING_TERMINAL).balance,
-            revertingTerminalBalanceBefore,
-            "Reverting terminal should hold no ETH"
+            address(REVERTING_TERMINAL).balance, revertingTerminalBalanceBefore, "Reverting terminal should hold no ETH"
         );
 
         // No ETH stuck in loans contract.

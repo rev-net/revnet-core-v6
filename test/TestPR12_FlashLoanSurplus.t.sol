@@ -4,7 +4,7 @@ pragma solidity 0.8.23;
 import "forge-std/Test.sol";
 import /* {*} from */ "@bananapus/core-v5/test/helpers/TestBaseWorkflow.sol";
 import /* {*} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
-    import /* {*} from */ "./../src/REVDeployer.sol";
+import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v5/src/CTPublisher.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
 import "@bananapus/core-v5/script/helpers/CoreDeploymentLib.sol";
@@ -67,9 +67,26 @@ contract TestPR12_FlashLoanSurplus is TestBaseWorkflow, JBTest {
         TOKEN = new MockERC20("1/2 ETH", "1/2");
         MockPriceFeed priceFeed = new MockPriceFeed(1e21, 6);
         vm.prank(multisig());
-        jbPrices().addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
-        LOANS_CONTRACT = new REVLoans({controller: jbController(), projects: jbProjects(), revId: FEE_PROJECT_ID, owner: address(this), permit2: permit2(), trustedForwarder: TRUSTED_FORWARDER});
-        REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBRulesetDataHook(address(MOCK_BUYBACK)), address(LOANS_CONTRACT), TRUSTED_FORWARDER);
+        jbPrices()
+            .addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
+        LOANS_CONTRACT = new REVLoans({
+            controller: jbController(),
+            projects: jbProjects(),
+            revId: FEE_PROJECT_ID,
+            owner: address(this),
+            permit2: permit2(),
+            trustedForwarder: TRUSTED_FORWARDER
+        });
+        REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
+            jbController(),
+            SUCKER_REGISTRY,
+            FEE_PROJECT_ID,
+            HOOK_DEPLOYER,
+            PUBLISHER,
+            IJBRulesetDataHook(address(MOCK_BUYBACK)),
+            address(LOANS_CONTRACT),
+            TRUSTED_FORWARDER
+        );
         vm.prank(multisig());
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);
         _deployFeeProject();
@@ -80,7 +97,9 @@ contract TestPR12_FlashLoanSurplus is TestBaseWorkflow, JBTest {
 
     function _deployFeeProject() internal {
         JBAccountingContext[] memory acc = new JBAccountingContext[](2);
-        acc[0] = JBAccountingContext({token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))});
+        acc[0] = JBAccountingContext({
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+        });
         acc[1] = JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
         JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
         tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
@@ -90,15 +109,39 @@ contract TestPR12_FlashLoanSurplus is TestBaseWorkflow, JBTest {
         splits[0].percent = 10_000;
         REVAutoIssuance[] memory ai = new REVAutoIssuance[](1);
         ai[0] = REVAutoIssuance({chainId: uint32(block.chainid), count: uint104(70_000e18), beneficiary: multisig()});
-        stages[0] = REVStageConfig({startsAtOrAfter: uint40(block.timestamp), autoIssuances: ai, splitPercent: 2000, splits: splits, initialIssuance: uint112(1000e18), issuanceCutFrequency: 90 days, issuanceCutPercent: JBConstants.MAX_WEIGHT_CUT_PERCENT / 2, cashOutTaxRate: 6000, extraMetadata: 0});
-        REVConfig memory cfg = REVConfig({description: REVDescription("Revnet", "$REV", "ipfs://test", "REV_TOKEN"), baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)), splitOperator: multisig(), stageConfigurations: stages});
+        stages[0] = REVStageConfig({
+            startsAtOrAfter: uint40(block.timestamp),
+            autoIssuances: ai,
+            splitPercent: 2000,
+            splits: splits,
+            initialIssuance: uint112(1000e18),
+            issuanceCutFrequency: 90 days,
+            issuanceCutPercent: JBConstants.MAX_WEIGHT_CUT_PERCENT / 2,
+            cashOutTaxRate: 6000,
+            extraMetadata: 0
+        });
+        REVConfig memory cfg = REVConfig({
+            description: REVDescription("Revnet", "$REV", "ipfs://test", "REV_TOKEN"),
+            baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
+            splitOperator: multisig(),
+            stageConfigurations: stages
+        });
         vm.prank(multisig());
-        REV_DEPLOYER.deployFor({revnetId: FEE_PROJECT_ID, configuration: cfg, terminalConfigurations: tc, suckerDeploymentConfiguration: REVSuckerDeploymentConfig({deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")})});
+        REV_DEPLOYER.deployFor({
+            revnetId: FEE_PROJECT_ID,
+            configuration: cfg,
+            terminalConfigurations: tc,
+            suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")
+            })
+        });
     }
 
     function _deployRevnet() internal {
         JBAccountingContext[] memory acc = new JBAccountingContext[](2);
-        acc[0] = JBAccountingContext({token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))});
+        acc[0] = JBAccountingContext({
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+        });
         acc[1] = JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
         JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
         tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
@@ -108,19 +151,54 @@ contract TestPR12_FlashLoanSurplus is TestBaseWorkflow, JBTest {
         splits[0].percent = 10_000;
         REVAutoIssuance[] memory ai = new REVAutoIssuance[](1);
         ai[0] = REVAutoIssuance({chainId: uint32(block.chainid), count: uint104(70_000e18), beneficiary: multisig()});
-        stages[0] = REVStageConfig({startsAtOrAfter: uint40(block.timestamp), autoIssuances: ai, splitPercent: 2000, splits: splits, initialIssuance: uint112(1000e18), issuanceCutFrequency: 90 days, issuanceCutPercent: JBConstants.MAX_WEIGHT_CUT_PERCENT / 2, cashOutTaxRate: 6000, extraMetadata: 0});
+        stages[0] = REVStageConfig({
+            startsAtOrAfter: uint40(block.timestamp),
+            autoIssuances: ai,
+            splitPercent: 2000,
+            splits: splits,
+            initialIssuance: uint112(1000e18),
+            issuanceCutFrequency: 90 days,
+            issuanceCutPercent: JBConstants.MAX_WEIGHT_CUT_PERCENT / 2,
+            cashOutTaxRate: 6000,
+            extraMetadata: 0
+        });
         REVLoanSource[] memory ls = new REVLoanSource[](1);
         ls[0] = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
-        REVConfig memory cfg = REVConfig({description: REVDescription("NANA", "$NANA", "ipfs://test2", "NANA_TOKEN"), baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)), splitOperator: multisig(), stageConfigurations: stages});
-        REVNET_ID = REV_DEPLOYER.deployFor({revnetId: 0, configuration: cfg, terminalConfigurations: tc, suckerDeploymentConfiguration: REVSuckerDeploymentConfig({deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NANA")})});
+        REVConfig memory cfg = REVConfig({
+            description: REVDescription("NANA", "$NANA", "ipfs://test2", "NANA_TOKEN"),
+            baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
+            splitOperator: multisig(),
+            stageConfigurations: stages
+        });
+        REVNET_ID = REV_DEPLOYER.deployFor({
+            revnetId: 0,
+            configuration: cfg,
+            terminalConfigurations: tc,
+            suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NANA")
+            })
+        });
     }
 
-    function _setupLoan(address user, uint256 ethAmount, uint256 prepaidFee) internal returns (uint256 loanId, uint256 tokenCount, uint256 borrowAmount) {
+    function _setupLoan(
+        address user,
+        uint256 ethAmount,
+        uint256 prepaidFee
+    )
+        internal
+        returns (uint256 loanId, uint256 tokenCount, uint256 borrowAmount)
+    {
         vm.prank(user);
-        tokenCount = jbMultiTerminal().pay{value: ethAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, ethAmount, user, 0, "", "");
-        borrowAmount = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        tokenCount =
+            jbMultiTerminal().pay{value: ethAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, ethAmount, user, 0, "", "");
+        borrowAmount =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         if (borrowAmount == 0) return (0, tokenCount, 0);
-        mockExpect(address(jbPermissions()), abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), user, REVNET_ID, 10, true, true)), abi.encode(true));
+        mockExpect(
+            address(jbPermissions()),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), user, REVNET_ID, 10, true, true)),
+            abi.encode(true)
+        );
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
         vm.prank(user);
         (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee);
@@ -130,18 +208,23 @@ contract TestPR12_FlashLoanSurplus is TestBaseWorkflow, JBTest {
     function test_addToBalance_surplusInflation_unprofitable() public {
         // First, user pays to establish baseline tokens
         vm.prank(USER);
-        uint256 userTokens = jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
+        uint256 userTokens =
+            jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
 
         // Check borrowable amount before donation
-        uint256 borrowableBefore = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, userTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        uint256 borrowableBefore =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, userTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // Attacker donates 100 ETH to inflate surplus
         uint256 donationAmount = 100e18;
         vm.prank(ATTACKER);
-        jbMultiTerminal().addToBalanceOf{value: donationAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, donationAmount, false, "", "");
+        jbMultiTerminal().addToBalanceOf{value: donationAmount}(
+            REVNET_ID, JBConstants.NATIVE_TOKEN, donationAmount, false, "", ""
+        );
 
         // Check borrowable amount after donation
-        uint256 borrowableAfter = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, userTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        uint256 borrowableAfter =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, userTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // The gain in borrowable amount
         uint256 borrowableGain = borrowableAfter - borrowableBefore;
@@ -152,14 +235,17 @@ contract TestPR12_FlashLoanSurplus is TestBaseWorkflow, JBTest {
         assertGt(donationAmount, borrowableGain, "Donation should cost more than the extra borrowable amount gained");
     }
 
-    /// @notice Pay into revnet (minting tokens). borrowable-per-existing-token should not increase because supply dilution offsets surplus increase.
+    /// @notice Pay into revnet (minting tokens). borrowable-per-existing-token should not increase because supply
+    /// dilution offsets surplus increase.
     function test_pay_surplusInflation_neutral() public {
         // User pays to get tokens
         vm.prank(USER);
-        uint256 userTokens = jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
+        uint256 userTokens =
+            jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
 
         // Check borrowable-per-token for existing user's tokens
-        uint256 borrowableBefore = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, userTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        uint256 borrowableBefore =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, userTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // Someone else pays 100 ETH (this mints new tokens AND increases surplus)
         address payer = makeAddr("payer");
@@ -168,7 +254,8 @@ contract TestPR12_FlashLoanSurplus is TestBaseWorkflow, JBTest {
         jbMultiTerminal().pay{value: 100e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 100e18, payer, 0, "", "");
 
         // Check borrowable for the SAME user tokens after the payment
-        uint256 borrowableAfter = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, userTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        uint256 borrowableAfter =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, userTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // With a non-zero cashOutTaxRate (concave bonding curve), paying in actually DECREASES
         // the per-token borrowable amount for existing holders due to dilution.
@@ -180,18 +267,25 @@ contract TestPR12_FlashLoanSurplus is TestBaseWorkflow, JBTest {
     function test_flashLoanSimulation_netNegative() public {
         // Attacker first buys tokens to have something to borrow against
         vm.prank(ATTACKER);
-        uint256 attackerTokens = jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, ATTACKER, 0, "", "");
+        uint256 attackerTokens =
+            jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, ATTACKER, 0, "", "");
 
         // Check borrowable before donation
-        uint256 borrowableBefore = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, attackerTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        uint256 borrowableBefore = LOANS_CONTRACT.borrowableAmountFrom(
+            REVNET_ID, attackerTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
+        );
 
         // Attacker donates 100 ETH to inflate surplus (simulating flash loan injection)
         uint256 donationAmount = 100e18;
         vm.prank(ATTACKER);
-        jbMultiTerminal().addToBalanceOf{value: donationAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, donationAmount, false, "", "");
+        jbMultiTerminal().addToBalanceOf{value: donationAmount}(
+            REVNET_ID, JBConstants.NATIVE_TOKEN, donationAmount, false, "", ""
+        );
 
         // Check borrowable after donation
-        uint256 borrowableAfter = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, attackerTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        uint256 borrowableAfter = LOANS_CONTRACT.borrowableAmountFrom(
+            REVNET_ID, attackerTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
+        );
 
         // Extra borrowable gained by the attacker through the donation
         uint256 extraBorrowable = borrowableAfter - borrowableBefore;

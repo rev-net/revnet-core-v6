@@ -4,7 +4,7 @@ pragma solidity 0.8.23;
 import "forge-std/Test.sol";
 import /* {*} from */ "@bananapus/core-v5/test/helpers/TestBaseWorkflow.sol";
 import /* {*} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
-    import /* {*} from */ "./../src/REVDeployer.sol";
+import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v5/src/CTPublisher.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
 
@@ -72,7 +72,14 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
         });
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBRulesetDataHook(address(MOCK_BUYBACK)), address(LOANS_CONTRACT), TRUSTED_FORWARDER
+            jbController(),
+            SUCKER_REGISTRY,
+            FEE_PROJECT_ID,
+            HOOK_DEPLOYER,
+            PUBLISHER,
+            IJBRulesetDataHook(address(MOCK_BUYBACK)),
+            address(LOANS_CONTRACT),
+            TRUSTED_FORWARDER
         );
 
         vm.prank(multisig());
@@ -107,11 +114,7 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
         assertEq(correctIndex, 0, "C-2 FIX: buyback hook should use index 0 when no tiered hook");
 
         // Write to the correct index (no revert)
-        specs[correctIndex] = JBPayHookSpecification({
-            hook: IJBPayHook(address(0xbeef)),
-            amount: 1 ether,
-            metadata: ""
-        });
+        specs[correctIndex] = JBPayHookSpecification({hook: IJBPayHook(address(0xbeef)), amount: 1 ether, metadata: ""});
     }
 
     /// @notice Verify both hooks present works fine (no OOB).
@@ -138,9 +141,7 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
         // Deploy a revnet WITHOUT a buyback hook
         JBAccountingContext[] memory accountingContextsToAccept = new JBAccountingContext[](1);
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
         JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
@@ -177,8 +178,7 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256("C4_TEST")
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("C4_TEST")
             })
         });
 
@@ -204,9 +204,7 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
     function test_H5_autoIssuanceStageIdMismatch() public {
         JBAccountingContext[] memory accountingContextsToAccept = new JBAccountingContext[](1);
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
         JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
@@ -227,9 +225,7 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
         {
             REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
             issuanceConfs[0] = REVAutoIssuance({
-                chainId: uint32(block.chainid),
-                count: uint104(50_000 * decimalMultiplier),
-                beneficiary: multisig()
+                chainId: uint32(block.chainid), count: uint104(50_000 * decimalMultiplier), beneficiary: multisig()
             });
 
             stageConfigurations[0] = REVStageConfig({
@@ -249,9 +245,7 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
         {
             REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
             issuanceConfs[0] = REVAutoIssuance({
-                chainId: uint32(block.chainid),
-                count: uint104(30_000 * decimalMultiplier),
-                beneficiary: multisig()
+                chainId: uint32(block.chainid), count: uint104(30_000 * decimalMultiplier), beneficiary: multisig()
             });
 
             stageConfigurations[1] = REVStageConfig({
@@ -293,8 +287,7 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256("H5_TEST")
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("H5_TEST")
             })
         });
 
@@ -305,21 +298,13 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
         // but the actual ruleset ID for stage 1 is the timestamp when that stage's ruleset
         // was queued. These may not match.
         // We verify the auto-issuance amounts are stored and can be queried.
-        uint256 stage0Amount = REV_DEPLOYER.amountToAutoIssue(
-            revnetId, block.timestamp, multisig()
-        );
+        uint256 stage0Amount = REV_DEPLOYER.amountToAutoIssue(revnetId, block.timestamp, multisig());
 
         // Stage 0 auto-issuance should be stored at block.timestamp
-        assertEq(
-            stage0Amount,
-            50_000 * decimalMultiplier,
-            "Stage 0 auto-issuance should be stored at block.timestamp"
-        );
+        assertEq(stage0Amount, 50_000 * decimalMultiplier, "Stage 0 auto-issuance should be stored at block.timestamp");
 
         // Stage 1 auto-issuance is stored at (block.timestamp + 1) per H-5
-        uint256 stage1Amount = REV_DEPLOYER.amountToAutoIssue(
-            revnetId, block.timestamp + 1, multisig()
-        );
+        uint256 stage1Amount = REV_DEPLOYER.amountToAutoIssue(revnetId, block.timestamp + 1, multisig());
         assertEq(
             stage1Amount,
             30_000 * decimalMultiplier,
@@ -335,14 +320,8 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
             // If they don't match, auto-issuance tokens for stage 1 become unclaimable
             if (actualStage1RulesetId != block.timestamp + 1) {
                 // Verify the amount at the ACTUAL ruleset ID is 0 (the mismatch)
-                uint256 amountAtActualId = REV_DEPLOYER.amountToAutoIssue(
-                    revnetId, actualStage1RulesetId, multisig()
-                );
-                assertEq(
-                    amountAtActualId,
-                    0,
-                    "H-5 CONFIRMED: auto-issuance at actual ruleset ID is 0 (mismatch)"
-                );
+                uint256 amountAtActualId = REV_DEPLOYER.amountToAutoIssue(revnetId, actualStage1RulesetId, multisig());
+                assertEq(amountAtActualId, 0, "H-5 CONFIRMED: auto-issuance at actual ruleset ID is 0 (mismatch)");
             }
         }
     }

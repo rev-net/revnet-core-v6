@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import {StdInvariant} from "forge-std/StdInvariant.sol";
 import /* {*} from */ "@bananapus/core-v5/test/helpers/TestBaseWorkflow.sol";
 import /* {*} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
-    import /* {*} from */ "./../src/REVDeployer.sol";
+import /* {*} from */ "./../src/REVDeployer.sol";
 import /* {*} from */ "./../src/REVLoans.sol";
 import "@croptop/core-v5/src/CTPublisher.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
@@ -303,9 +303,7 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow, JBTest {
 
         // Accept the chain's native currency through the multi terminal.
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
         // The terminals that the project will accept funds through.
@@ -323,9 +321,7 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow, JBTest {
         {
             REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
             issuanceConfs[0] = REVAutoIssuance({
-                chainId: uint32(block.chainid),
-                count: uint104(70_000 * decimalMultiplier),
-                beneficiary: multisig()
+                chainId: uint32(block.chainid), count: uint104(70_000 * decimalMultiplier), beneficiary: multisig()
             });
 
             stageConfigurations[0] = REVStageConfig({
@@ -377,8 +373,7 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow, JBTest {
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256(abi.encodePacked("REV"))
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("REV"))
             })
         });
     }
@@ -396,9 +391,7 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow, JBTest {
 
         // Accept the chain's native currency through the multi terminal.
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
         // The terminals that the project will accept funds through.
@@ -416,9 +409,7 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow, JBTest {
         {
             REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
             issuanceConfs[0] = REVAutoIssuance({
-                chainId: uint32(block.chainid),
-                count: uint104(70_000 * decimalMultiplier),
-                beneficiary: multisig()
+                chainId: uint32(block.chainid), count: uint104(70_000 * decimalMultiplier), beneficiary: multisig()
             });
 
             stageConfigurations[0] = REVStageConfig({
@@ -470,8 +461,7 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow, JBTest {
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256(abi.encodePacked("NANA"))
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("NANA"))
             })
         });
     }
@@ -504,7 +494,14 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow, JBTest {
         });
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBRulesetDataHook(address(MOCK_BUYBACK)), address(LOANS_CONTRACT), TRUSTED_FORWARDER
+            jbController(),
+            SUCKER_REGISTRY,
+            FEE_PROJECT_ID,
+            HOOK_DEPLOYER,
+            PUBLISHER,
+            IJBRulesetDataHook(address(MOCK_BUYBACK)),
+            address(LOANS_CONTRACT),
+            TRUSTED_FORWARDER
         );
 
         // Approve the basic deployer to configure the project.
@@ -595,22 +592,17 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow, JBTest {
             uint256 loanId = (REVNET_ID * 1_000_000_000_000) + i;
 
             // Skip if loan was liquidated/burned
-            try IERC721(address(LOANS_CONTRACT)).ownerOf(loanId) {} catch {
+            try IERC721(address(LOANS_CONTRACT)).ownerOf(loanId) {}
+            catch {
                 continue;
             }
 
             REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
             if (loan.amount == 0) continue;
 
+            assertLe(uint256(loan.amount), uint256(type(uint112).max), "INV-RL-3: loan.amount must fit in uint112");
             assertLe(
-                uint256(loan.amount),
-                uint256(type(uint112).max),
-                "INV-RL-3: loan.amount must fit in uint112"
-            );
-            assertLe(
-                uint256(loan.collateral),
-                uint256(type(uint112).max),
-                "INV-RL-3: loan.collateral must fit in uint112"
+                uint256(loan.collateral), uint256(type(uint112).max), "INV-RL-3: loan.collateral must fit in uint112"
             );
         }
     }
@@ -625,7 +617,8 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow, JBTest {
             uint256 loanId = (REVNET_ID * 1_000_000_000_000) + i;
 
             // Skip if loan was liquidated/burned
-            try IERC721(address(LOANS_CONTRACT)).ownerOf(loanId) {} catch {
+            try IERC721(address(LOANS_CONTRACT)).ownerOf(loanId) {}
+            catch {
                 continue;
             }
 
@@ -633,11 +626,7 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow, JBTest {
             if (loan.amount == 0) continue;
 
             // Active loans must have non-zero collateral backing them.
-            assertGt(
-                uint256(loan.collateral),
-                0,
-                "INV-RL-4: Active loan must have non-zero collateral"
-            );
+            assertGt(uint256(loan.collateral), 0, "INV-RL-4: Active loan must have non-zero collateral");
         }
     }
 

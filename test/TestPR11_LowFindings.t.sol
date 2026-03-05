@@ -4,7 +4,7 @@ pragma solidity 0.8.23;
 import "forge-std/Test.sol";
 import /* {*} from */ "@bananapus/core-v5/test/helpers/TestBaseWorkflow.sol";
 import /* {*} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
-    import /* {*} from */ "./../src/REVDeployer.sol";
+import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v5/src/CTPublisher.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
 
@@ -65,9 +65,7 @@ contract TestPR11_LowFindings is TestBaseWorkflow, JBTest {
 
         JBAccountingContext[] memory accountingContextsToAccept = new JBAccountingContext[](2);
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         accountingContextsToAccept[1] =
             JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
@@ -104,8 +102,7 @@ contract TestPR11_LowFindings is TestBaseWorkflow, JBTest {
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256(abi.encodePacked("REV"))
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("REV"))
             })
         });
     }
@@ -119,9 +116,7 @@ contract TestPR11_LowFindings is TestBaseWorkflow, JBTest {
 
         JBAccountingContext[] memory accountingContextsToAccept = new JBAccountingContext[](2);
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         accountingContextsToAccept[1] =
             JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
@@ -176,8 +171,7 @@ contract TestPR11_LowFindings is TestBaseWorkflow, JBTest {
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256(abi.encodePacked("TWO"))
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("TWO"))
             })
         });
     }
@@ -189,9 +183,7 @@ contract TestPR11_LowFindings is TestBaseWorkflow, JBTest {
 
         JBAccountingContext[] memory accountingContextsToAccept = new JBAccountingContext[](2);
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         accountingContextsToAccept[1] =
             JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
@@ -232,8 +224,7 @@ contract TestPR11_LowFindings is TestBaseWorkflow, JBTest {
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256(abi.encodePacked("SGL"))
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("SGL"))
             })
         });
     }
@@ -253,9 +244,8 @@ contract TestPR11_LowFindings is TestBaseWorkflow, JBTest {
 
         MockPriceFeed priceFeed = new MockPriceFeed(1e21, 6);
         vm.prank(multisig());
-        jbPrices().addPriceFeedFor(
-            0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed
-        );
+        jbPrices()
+            .addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
@@ -267,7 +257,14 @@ contract TestPR11_LowFindings is TestBaseWorkflow, JBTest {
         });
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBRulesetDataHook(address(MOCK_BUYBACK)), address(LOANS_CONTRACT), TRUSTED_FORWARDER
+            jbController(),
+            SUCKER_REGISTRY,
+            FEE_PROJECT_ID,
+            HOOK_DEPLOYER,
+            PUBLISHER,
+            IJBRulesetDataHook(address(MOCK_BUYBACK)),
+            address(LOANS_CONTRACT),
+            TRUSTED_FORWARDER
         );
 
         // Deploy fee project.
@@ -297,22 +294,18 @@ contract TestPR11_LowFindings is TestBaseWorkflow, JBTest {
         assertGt(tokens, 0, "Should have received tokens");
 
         // Check borrowable amount in stage 0 (20% tax).
-        uint256 borrowableStage0 = LOANS_CONTRACT.borrowableAmountFrom(
-            revnetId, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        uint256 borrowableStage0 =
+            LOANS_CONTRACT.borrowableAmountFrom(revnetId, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(borrowableStage0, 0, "Should have borrowable amount in stage 0");
 
         // Warp to stage 1 (60% tax).
         vm.warp(block.timestamp + 30 days + 1);
 
         // Check borrowable amount in stage 1 — should be lower due to higher tax.
-        uint256 borrowableStage1 = LOANS_CONTRACT.borrowableAmountFrom(
-            revnetId, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        uint256 borrowableStage1 =
+            LOANS_CONTRACT.borrowableAmountFrom(revnetId, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
-        assertLt(
-            borrowableStage1, borrowableStage0, "Borrowable amount should decrease when cashOutTaxRate increases"
-        );
+        assertLt(borrowableStage1, borrowableStage0, "Borrowable amount should decrease when cashOutTaxRate increases");
     }
 
     /// @notice After full repayment, loan data is deleted (storage cleared).
@@ -324,9 +317,8 @@ contract TestPR11_LowFindings is TestBaseWorkflow, JBTest {
         uint256 tokens =
             jbMultiTerminal().pay{value: 10 ether}(revnetId, JBConstants.NATIVE_TOKEN, 10 ether, USER, 0, "", "");
 
-        uint256 loanable = LOANS_CONTRACT.borrowableAmountFrom(
-            revnetId, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        uint256 loanable =
+            LOANS_CONTRACT.borrowableAmountFrom(revnetId, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         // Skip if nothing borrowable.
         vm.assume(loanable > 0);
 
@@ -372,9 +364,8 @@ contract TestPR11_LowFindings is TestBaseWorkflow, JBTest {
         uint256 tokens =
             jbMultiTerminal().pay{value: 10 ether}(revnetId, JBConstants.NATIVE_TOKEN, 10 ether, USER, 0, "", "");
 
-        uint256 loanable = LOANS_CONTRACT.borrowableAmountFrom(
-            revnetId, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        uint256 loanable =
+            LOANS_CONTRACT.borrowableAmountFrom(revnetId, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         // Skip if nothing borrowable.
         vm.assume(loanable > 0);
 
@@ -419,9 +410,8 @@ contract TestPR11_LowFindings is TestBaseWorkflow, JBTest {
         uint256 tokens =
             jbMultiTerminal().pay{value: 10 ether}(revnetId, JBConstants.NATIVE_TOKEN, 10 ether, USER, 0, "", "");
 
-        uint256 loanable = LOANS_CONTRACT.borrowableAmountFrom(
-            revnetId, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        uint256 loanable =
+            LOANS_CONTRACT.borrowableAmountFrom(revnetId, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         vm.assume(loanable > 0);
 
         // Mock permission for BURN (permission ID 10).
@@ -477,9 +467,8 @@ contract TestPR11_LowFindings is TestBaseWorkflow, JBTest {
         uint256 tokens =
             jbMultiTerminal().pay{value: 10 ether}(revnetId, JBConstants.NATIVE_TOKEN, 10 ether, USER, 0, "", "");
 
-        uint256 loanable = LOANS_CONTRACT.borrowableAmountFrom(
-            revnetId, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        uint256 loanable =
+            LOANS_CONTRACT.borrowableAmountFrom(revnetId, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         vm.assume(loanable > 0);
 
         // Mock permission for BURN (permission ID 10).
@@ -528,9 +517,8 @@ contract TestPR11_LowFindings is TestBaseWorkflow, JBTest {
         uint256 tokens =
             jbMultiTerminal().pay{value: 10 ether}(revnetId, JBConstants.NATIVE_TOKEN, 10 ether, USER, 0, "", "");
 
-        uint256 loanable = LOANS_CONTRACT.borrowableAmountFrom(
-            revnetId, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        uint256 loanable =
+            LOANS_CONTRACT.borrowableAmountFrom(revnetId, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         vm.assume(loanable > 0);
 
         // Mock permission for BURN (permission ID 10).
@@ -555,17 +543,14 @@ contract TestPR11_LowFindings is TestBaseWorkflow, JBTest {
         address DONOR = makeAddr("donor");
         vm.deal(DONOR, 100 ether);
         vm.prank(DONOR);
-        jbMultiTerminal().addToBalanceOf{value: 50 ether}(
-            revnetId, JBConstants.NATIVE_TOKEN, 50 ether, false, "", ""
-        );
+        jbMultiTerminal().addToBalanceOf{value: 50 ether}(revnetId, JBConstants.NATIVE_TOKEN, 50 ether, false, "", "");
 
         // Transfer a small amount of collateral (10%) to a new loan.
         uint256 collateralToTransfer = loanBefore.collateral / 10;
         assertGt(collateralToTransfer, 0, "Must transfer some collateral");
 
         vm.prank(USER);
-        (uint256 reallocatedLoanId, uint256 newLoanId, REVLoan memory reallocatedLoan,) = LOANS_CONTRACT
-            .reallocateCollateralFromLoan(
+        (uint256 reallocatedLoanId, uint256 newLoanId, REVLoan memory reallocatedLoan,) = LOANS_CONTRACT.reallocateCollateralFromLoan(
             loanId, collateralToTransfer, source, 0, 0, payable(USER), minPrepaid
         );
 
@@ -577,9 +562,7 @@ contract TestPR11_LowFindings is TestBaseWorkflow, JBTest {
 
         // Reallocated loan should have reduced collateral but same amount.
         assertEq(reallocatedLoan.amount, loanBefore.amount, "Reallocated loan should keep original amount");
-        assertLt(
-            reallocatedLoan.collateral, loanBefore.collateral, "Reallocated loan should have less collateral"
-        );
+        assertLt(reallocatedLoan.collateral, loanBefore.collateral, "Reallocated loan should have less collateral");
 
         // New loan should exist.
         assertTrue(newLoanId != loanId, "New loan should have different ID");

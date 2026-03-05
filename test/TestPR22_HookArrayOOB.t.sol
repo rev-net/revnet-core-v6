@@ -4,7 +4,7 @@ pragma solidity 0.8.23;
 import "forge-std/Test.sol";
 import /* {*} from */ "@bananapus/core-v5/test/helpers/TestBaseWorkflow.sol";
 import /* {*} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
-    import /* {*} from */ "./../src/REVDeployer.sol";
+import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v5/src/CTPublisher.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
 import "@bananapus/core-v5/script/helpers/CoreDeploymentLib.sol";
@@ -73,7 +73,14 @@ contract TestPR22_HookArrayOOB is TestBaseWorkflow, JBTest {
             trustedForwarder: TRUSTED_FORWARDER
         });
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, IJBRulesetDataHook(address(MOCK_BUYBACK)), address(LOANS_CONTRACT), TRUSTED_FORWARDER
+            jbController(),
+            SUCKER_REGISTRY,
+            FEE_PROJECT_ID,
+            HOOK_DEPLOYER,
+            PUBLISHER,
+            IJBRulesetDataHook(address(MOCK_BUYBACK)),
+            address(LOANS_CONTRACT),
+            TRUSTED_FORWARDER
         );
         vm.prank(multisig());
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);
@@ -83,17 +90,11 @@ contract TestPR22_HookArrayOOB is TestBaseWorkflow, JBTest {
     function _buildMinimalConfig()
         internal
         view
-        returns (
-            REVConfig memory cfg,
-            JBTerminalConfig[] memory tc,
-            REVSuckerDeploymentConfig memory sdc
-        )
+        returns (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc)
     {
         JBAccountingContext[] memory acc = new JBAccountingContext[](1);
         acc[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         tc = new JBTerminalConfig[](1);
         tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
@@ -122,21 +123,14 @@ contract TestPR22_HookArrayOOB is TestBaseWorkflow, JBTest {
         });
 
         sdc = REVSuckerDeploymentConfig({
-            deployerConfigurations: new JBSuckerDeployerConfig[](0),
-            salt: keccak256(abi.encodePacked("TEST"))
+            deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("TEST"))
         });
     }
 
     /// @notice Helper to deploy the fee project first and then deploy a test revnet.
-    function _deployFeeAndRevnet()
-        internal
-        returns (uint256 revnetId)
-    {
-        (
-            REVConfig memory feeCfg,
-            JBTerminalConfig[] memory feeTc,
-            REVSuckerDeploymentConfig memory feeSdc
-        ) = _buildMinimalConfig();
+    function _deployFeeAndRevnet() internal returns (uint256 revnetId) {
+        (REVConfig memory feeCfg, JBTerminalConfig[] memory feeTc, REVSuckerDeploymentConfig memory feeSdc) =
+            _buildMinimalConfig();
 
         // Deploy the fee project
         vm.prank(multisig());
@@ -148,19 +142,13 @@ contract TestPR22_HookArrayOOB is TestBaseWorkflow, JBTest {
         });
 
         // Deploy a new test revnet (revnetId: 0 = create new)
-        (
-            REVConfig memory cfg,
-            JBTerminalConfig[] memory tc,
-            REVSuckerDeploymentConfig memory sdc
-        ) = _buildMinimalConfig();
+        (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
+            _buildMinimalConfig();
         // Use a different salt so the ERC20 deploy doesn't clash
         cfg.description = REVDescription("Test2", "TS2", "ipfs://test2", "TEST_SALT_2");
 
         revnetId = REV_DEPLOYER.deployFor({
-            revnetId: 0,
-            configuration: cfg,
-            terminalConfigurations: tc,
-            suckerDeploymentConfiguration: sdc
+            revnetId: 0, configuration: cfg, terminalConfigurations: tc, suckerDeploymentConfiguration: sdc
         });
     }
 
@@ -209,7 +197,12 @@ contract TestPR22_HookArrayOOB is TestBaseWorkflow, JBTest {
         JBBeforePayRecordedContext memory context = JBBeforePayRecordedContext({
             terminal: address(jbMultiTerminal()),
             payer: USER,
-            amount: JBTokenAmount({token: JBConstants.NATIVE_TOKEN, value: 1 ether, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))}),
+            amount: JBTokenAmount({
+                token: JBConstants.NATIVE_TOKEN,
+                value: 1 ether,
+                decimals: 18,
+                currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            }),
             projectId: revnetId,
             rulesetId: 0,
             beneficiary: USER,

@@ -145,8 +145,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @custom:param revnetId The ID of the revnet to get the auto-mint amount for.
     /// @custom:param stageId The ID of the stage to get the auto-mint amount for.
     /// @custom:param beneficiary The beneficiary of the auto-mint.
-    mapping(uint256 revnetId => mapping(uint256 stageId => mapping(address beneficiary => uint256))) public override
-        amountToAutoIssue;
+    mapping(uint256 revnetId => mapping(uint256 stageId => mapping(address beneficiary => uint256)))
+        public
+        override amountToAutoIssue;
 
     /// @notice The timestamp of when cashouts will become available to a specific revnet's participants.
     /// @dev Only applies to existing revnets which are deploying onto a new network.
@@ -210,7 +211,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         LOANS = loans;
 
         // Give the sucker registry permission to map tokens for all revnets.
-        _setPermission({operator: address(SUCKER_REGISTRY), revnetId: 0, permissionId: JBPermissionIds.MAP_SUCKER_TOKEN});
+        _setPermission({
+            operator: address(SUCKER_REGISTRY), revnetId: 0, permissionId: JBPermissionIds.MAP_SUCKER_TOKEN
+        });
 
         // Give the loan contract permission to use the surplus allowance of all revnets.
         _setPermission({operator: LOANS, revnetId: 0, permissionId: JBPermissionIds.USE_ALLOWANCE});
@@ -322,9 +325,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         // Assemble a cash out hook specification to invoke `afterCashOutRecordedWith(…)` with, to process the fee.
         hookSpecifications = new JBCashOutHookSpecification[](1);
         hookSpecifications[0] = JBCashOutHookSpecification({
-            hook: IJBCashOutHook(address(this)),
-            amount: feeAmount,
-            metadata: abi.encode(feeTerminal)
+            hook: IJBCashOutHook(address(this)), amount: feeAmount, metadata: abi.encode(feeTerminal)
         });
 
         // Return the cash out rate and the number of revnet tokens to cash out, minus the tokens being used to pay the
@@ -409,8 +410,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     }
 
     /// @notice Initialize fund access limits for the loan contract and configure buyback pools for each terminal token.
-    /// @dev Returns an unlimited surplus allowance for each terminal+token pair derived from the terminal configurations.
-    /// Also auto-configures a buyback pool for each token with sensible defaults (1% fee, 2-day TWAP).
+    /// @dev Returns an unlimited surplus allowance for each terminal+token pair derived from the terminal
+    /// configurations. Also auto-configures a buyback pool for each token with sensible defaults (1% fee, 2-day TWAP).
     /// @param revnetId The ID of the revnet to configure buyback pools for.
     /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
     /// @return fundAccessLimitGroups The fund access limit groups for the loans.
@@ -451,12 +452,13 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
 
                 // Configure a buyback pool for this terminal token with default fee and TWAP window.
                 // slither-disable-next-line unused-return
-                IJBBuybackHook(address(BUYBACK_HOOK)).setPoolFor({
-                    projectId: revnetId,
-                    fee: DEFAULT_BUYBACK_POOL_FEE,
-                    twapWindow: DEFAULT_BUYBACK_TWAP_WINDOW,
-                    terminalToken: accountingContext.token
-                });
+                IJBBuybackHook(address(BUYBACK_HOOK))
+                    .setPoolFor({
+                        projectId: revnetId,
+                        fee: DEFAULT_BUYBACK_POOL_FEE,
+                        twapWindow: DEFAULT_BUYBACK_TWAP_WINDOW,
+                        terminalToken: accountingContext.token
+                    });
             }
         }
     }
@@ -484,7 +486,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         metadata.allowOwnerMinting = true; // Allow this contract to auto-mint tokens as the revnet's owner.
         metadata.useDataHookForPay = true; // Call this contract's `beforePayRecordedWith(…)` callback on payments.
         metadata.useDataHookForCashOut = true; // Call this contract's `beforeCashOutRecordedWith(…)` callback on cash
-            // outs.
+        // outs.
         metadata.dataHook = address(this); // This contract is the data hook.
         metadata.metadata = stageConfiguration.extraMetadata;
 
@@ -545,16 +547,13 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @notice Processes the fee from a cash out.
     /// @param context Cash out context passed in by the terminal.
     function afterCashOutRecordedWith(JBAfterCashOutRecordedContext calldata context) external payable {
-        // No caller validation needed — this hook only pays fees to the fee project using funds forwarded by the caller.
-        // A non-terminal caller would just be donating their own funds as fees. There's nothing to exploit.
+        // No caller validation needed — this hook only pays fees to the fee project using funds forwarded by the
+        // caller. A non-terminal caller would just be donating their own funds as fees. There's nothing to exploit.
 
         // If there's sufficient approval, transfer normally.
         if (context.forwardedAmount.token != JBConstants.NATIVE_TOKEN) {
-            IERC20(context.forwardedAmount.token).safeTransferFrom({
-                from: msg.sender,
-                to: address(this),
-                value: context.forwardedAmount.value
-            });
+            IERC20(context.forwardedAmount.token)
+                .safeTransferFrom({from: msg.sender, to: address(this), value: context.forwardedAmount.value});
         }
 
         // Parse the metadata forwarded from the data hook to get the fee terminal.
@@ -563,9 +562,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
 
         // Determine how much to pay in `msg.value` (in the native currency).
         uint256 payValue = _beforeTransferTo({
-            to: address(feeTerminal),
-            token: context.forwardedAmount.token,
-            amount: context.forwardedAmount.value
+            to: address(feeTerminal), token: context.forwardedAmount.token, amount: context.forwardedAmount.value
         });
 
         // Pay the fee.
@@ -578,20 +575,19 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             minReturnedTokens: 0,
             memo: "",
             metadata: bytes(abi.encodePacked(context.projectId))
-        }) {} catch (bytes memory) {
+        }) {}
+        catch (bytes memory) {
             // Decrease the allowance for the fee terminal if the token is not the native token.
             if (context.forwardedAmount.token != JBConstants.NATIVE_TOKEN) {
-                IERC20(context.forwardedAmount.token).safeDecreaseAllowance({
-                    spender: address(feeTerminal),
-                    requestedDecrease: context.forwardedAmount.value
-                });
+                IERC20(context.forwardedAmount.token)
+                    .safeDecreaseAllowance({
+                        spender: address(feeTerminal), requestedDecrease: context.forwardedAmount.value
+                    });
             }
 
             // If the fee can't be processed, return the funds to the project.
             payValue = _beforeTransferTo({
-                to: msg.sender,
-                token: context.forwardedAmount.token,
-                amount: context.forwardedAmount.value
+                to: msg.sender, token: context.forwardedAmount.token, amount: context.forwardedAmount.value
             });
 
             // slither-disable-next-line arbitrary-send-eth
@@ -629,21 +625,13 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         amountToAutoIssue[revnetId][stageId][beneficiary] = 0;
 
         emit AutoIssue({
-            revnetId: revnetId,
-            stageId: stageId,
-            beneficiary: beneficiary,
-            count: count,
-            caller: _msgSender()
+            revnetId: revnetId, stageId: stageId, beneficiary: beneficiary, count: count, caller: _msgSender()
         });
 
         // Mint the tokens.
         // slither-disable-next-line unused-return
         CONTROLLER.mintTokensOf({
-            projectId: revnetId,
-            tokenCount: count,
-            beneficiary: beneficiary,
-            memo: "",
-            useReservedPercent: false
+            projectId: revnetId, tokenCount: count, beneficiary: beneficiary, memo: "", useReservedPercent: false
         });
     }
 
@@ -681,9 +669,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
 
         // Normalize and encode the configurations.
         (JBRulesetConfig[] memory rulesetConfigurations, bytes32 encodedConfigurationHash) = _makeRulesetConfigurations({
-            revnetId: revnetId,
-            configuration: configuration,
-            terminalConfigurations: terminalConfigurations
+            revnetId: revnetId, configuration: configuration, terminalConfigurations: terminalConfigurations
         });
 
         // Deploy the revnet.
@@ -803,10 +789,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
 
         // Remove operator permissions from the old split operator.
         _setPermissionsFor({
-            account: address(this),
-            operator: _msgSender(),
-            revnetId: revnetId,
-            permissionIds: new uint8[](0)
+            account: address(this), operator: _msgSender(), revnetId: revnetId, permissionIds: new uint8[](0)
         });
 
         // Set the new split operator.
@@ -855,9 +838,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     {
         // Normalize and encode the configurations.
         (JBRulesetConfig[] memory rulesetConfigurations, bytes32 encodedConfigurationHash) = _makeRulesetConfigurations({
-            revnetId: revnetId,
-            configuration: configuration,
-            terminalConfigurations: terminalConfigurations
+            revnetId: revnetId, configuration: configuration, terminalConfigurations: terminalConfigurations
         });
 
         // Deploy the tiered ERC-721 hook contract.
@@ -918,9 +899,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
 
             // Give the croptop publisher permission to post new ERC-721 tiers on this contract's behalf.
             _setPermission({
-                operator: address(PUBLISHER),
-                revnetId: revnetId,
-                permissionId: JBPermissionIds.ADJUST_721_TIERS
+                operator: address(PUBLISHER), revnetId: revnetId, permissionId: JBPermissionIds.ADJUST_721_TIERS
             });
         }
 
@@ -1106,8 +1085,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         );
 
         // Initialize fund access limit groups for the loan contract and configure buyback pools.
-        JBFundAccessLimitGroup[] memory fundAccessLimitGroups =
-            _makeLoanFundAccessLimitsAndBuybackPools({revnetId: revnetId, terminalConfigurations: terminalConfigurations});
+        JBFundAccessLimitGroup[] memory fundAccessLimitGroups = _makeLoanFundAccessLimitsAndBuybackPools({
+            revnetId: revnetId, terminalConfigurations: terminalConfigurations
+        });
 
         // Iterate through each stage to set up its ruleset.
         for (uint256 i; i < configuration.stageConfigurations.length; i++) {
@@ -1167,8 +1147,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
                 // If there's nothing to auto-mint, continue.
                 if (autoIssuance.count == 0) continue;
 
-                encodedConfiguration =
-                    abi.encode(encodedConfiguration, autoIssuance.chainId, autoIssuance.beneficiary, autoIssuance.count);
+                encodedConfiguration = abi.encode(
+                    encodedConfiguration, autoIssuance.chainId, autoIssuance.beneficiary, autoIssuance.count
+                );
 
                 // If the issuance config is for another chain, skip it.
                 if (autoIssuance.chainId != block.chainid) continue;
@@ -1222,10 +1203,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
 
         // Give the operator the permission.
         _setPermissionsFor({
-            account: address(this),
-            operator: operator,
-            revnetId: revnetId,
-            permissionIds: permissionsIds
+            account: address(this), operator: operator, revnetId: revnetId, permissionIds: permissionsIds
         });
     }
 
@@ -1264,10 +1242,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         }
 
         _setPermissionsFor({
-            account: address(this),
-            operator: operator,
-            revnetId: revnetId,
-            permissionIds: permissionIds
+            account: address(this), operator: operator, revnetId: revnetId, permissionIds: permissionIds
         });
     }
 }
