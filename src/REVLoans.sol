@@ -891,7 +891,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         }
 
         // Keep a reference to the fee terminal.
-        IJBTerminal feeTerminal = DIRECTORY.primaryTerminalOf(REV_ID, loan.source.token);
+        IJBTerminal feeTerminal = DIRECTORY.primaryTerminalOf({projectId: REV_ID, token: loan.source.token});
 
         // Get the amount of additional fee to take for REV.
         uint256 revFeeAmount = address(feeTerminal) == address(0)
@@ -1225,7 +1225,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         }
 
         // Get a reference to the replacement loan ID.
-        reallocatedLoanId = _generateLoanId(revnetId, ++numberOfLoansFor[revnetId]);
+        reallocatedLoanId = _generateLoanId({revnetId: revnetId, loanNumber: ++numberOfLoansFor[revnetId]});
 
         // Get a reference to the loan being created.
         reallocatedLoan = _loanOf[reallocatedLoanId];
