@@ -283,7 +283,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         }
 
         // Get the terminal that will receive the cash out fee.
-        IJBTerminal feeTerminal = DIRECTORY.primaryTerminalOf(FEE_REVNET_ID, context.surplus.token);
+        IJBTerminal feeTerminal =
+            DIRECTORY.primaryTerminalOf({projectId: FEE_REVNET_ID, token: context.surplus.token});
 
         // If there's no cash out tax (100% cash out tax rate), or if there's no fee terminal, do not charge a fee.
         if (context.cashOutTaxRate == 0 || address(feeTerminal) == address(0)) {
@@ -341,7 +342,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     {
         // The loans contract, buyback hook (and its delegates), and suckers are allowed to mint the revnet's tokens.
         return addr == LOANS || addr == address(BUYBACK_HOOK)
-            || BUYBACK_HOOK.hasMintPermissionFor(revnetId, ruleset, addr)
+            || BUYBACK_HOOK.hasMintPermissionFor({projectId: revnetId, ruleset: ruleset, addr: addr})
             || _isSuckerOf({revnetId: revnetId, addr: addr});
     }
 
@@ -388,7 +389,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @param revnetId The ID of the revnet to check split operator status for.
     /// @param operator The address being checked.
     function _checkIfIsSplitOperatorOf(uint256 revnetId, address operator) internal view {
-        if (!isSplitOperatorOf(revnetId, operator)) revert REVDeployer_Unauthorized(revnetId, operator);
+        if (!isSplitOperatorOf({revnetId: revnetId, addr: operator})) {
+            revert REVDeployer_Unauthorized(revnetId, operator);
+        }
     }
 
     /// @notice A flag indicating whether an address is a revnet's sucker.
@@ -396,7 +399,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @param addr The address being checked.
     /// @return isSucker A flag indicating whether the address is one of the revnet's suckers.
     function _isSuckerOf(uint256 revnetId, address addr) internal view returns (bool) {
-        return SUCKER_REGISTRY.isSuckerOf(revnetId, addr);
+        return SUCKER_REGISTRY.isSuckerOf({projectId: revnetId, addr: addr});
     }
 
     /// @notice Initialize a fund access limit group for the loan contract to use.
@@ -590,7 +593,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @param beneficiary The address to auto-mint tokens to.
     function autoIssueFor(uint256 revnetId, uint256 stageId, address beneficiary) external override {
         // Get a reference to the ruleset for the stage.
-        (JBRuleset memory ruleset,) = CONTROLLER.getRulesetOf(revnetId, stageId);
+        (JBRuleset memory ruleset,) = CONTROLLER.getRulesetOf({projectId: revnetId, rulesetId: stageId});
 
         // Make sure the stage has started.
         if (ruleset.start > block.timestamp) {
@@ -763,9 +766,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @dev Project tokens can end up here from reserved token distribution when splits don't sum to 100%.
     /// @param revnetId The ID of the revnet whose tokens should be burned.
     function burnHeldTokensOf(uint256 revnetId) external override {
-        uint256 balance = CONTROLLER.TOKENS().totalBalanceOf(address(this), revnetId);
+        uint256 balance = CONTROLLER.TOKENS().totalBalanceOf({holder: address(this), projectId: revnetId});
         if (balance == 0) revert REVDeployer_NothingToBurn();
-        CONTROLLER.burnTokensOf(address(this), revnetId, balance, "");
+        CONTROLLER.burnTokensOf({holder: address(this), projectId: revnetId, tokenCount: balance, memo: ""});
         emit BurnHeldTokens(revnetId, balance, _msgSender());
     }
 
