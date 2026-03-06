@@ -145,31 +145,42 @@ contract TestPR29_SwapTerminalPermission is TestBaseWorkflow, JBTest {
         });
     }
 
-    /// @notice Verify the split operator (multisig) has the ADD_SWAP_TERMINAL_POOL permission.
-    function test_splitOperator_hasSwapTerminalPoolPermission() public view {
-        bool hasPermission = jbPermissions()
-            .hasPermission({
-                operator: multisig(),
-                account: address(REV_DEPLOYER),
-                projectId: TEST_REVNET_ID,
-                permissionId: JBPermissionIds.ADD_SWAP_TERMINAL_POOL,
-                includeRoot: false,
-                includeWildcardProjectId: false
-            });
-        assertTrue(hasPermission, "Split operator should have ADD_SWAP_TERMINAL_POOL permission");
+    /// @notice Verify the split operator has SET_BUYBACK_HOOK and SET_SWAP_TERMINAL permissions.
+    function test_splitOperator_hasRegistryPermissions() public view {
+        bool hasBuybackHook = jbPermissions().hasPermission({
+            operator: multisig(),
+            account: address(REV_DEPLOYER),
+            projectId: TEST_REVNET_ID,
+            permissionId: JBPermissionIds.SET_BUYBACK_HOOK,
+            includeRoot: false,
+            includeWildcardProjectId: false
+        });
+        assertTrue(hasBuybackHook, "Split operator should have SET_BUYBACK_HOOK permission");
+
+        bool hasSwapTerminal = jbPermissions().hasPermission({
+            operator: multisig(),
+            account: address(REV_DEPLOYER),
+            projectId: TEST_REVNET_ID,
+            permissionId: JBPermissionIds.SET_SWAP_TERMINAL,
+            includeRoot: false,
+            includeWildcardProjectId: false
+        });
+        assertTrue(hasSwapTerminal, "Split operator should have SET_SWAP_TERMINAL permission");
     }
 
-    /// @notice Verify all 7 default permissions are present for the split operator.
+    /// @notice Verify all 9 default permissions are present for the split operator.
     function test_allDefaultPermissionsPresent() public view {
-        // All 7 default permissions that should be granted
-        uint256[7] memory expectedPermissions = [
-            uint256(JBPermissionIds.SET_SPLIT_GROUPS), // 17
-            uint256(JBPermissionIds.SET_BUYBACK_POOL), // 25
-            uint256(JBPermissionIds.SET_BUYBACK_TWAP), // 24
-            uint256(JBPermissionIds.SET_PROJECT_URI), // 6
-            uint256(JBPermissionIds.ADD_PRICE_FEED), // 18
-            uint256(JBPermissionIds.SUCKER_SAFETY), // 30
-            uint256(JBPermissionIds.ADD_SWAP_TERMINAL_POOL) // 26
+        // All 9 default permissions that should be granted
+        uint256[9] memory expectedPermissions = [
+            uint256(JBPermissionIds.SET_SPLIT_GROUPS),
+            uint256(JBPermissionIds.SET_BUYBACK_POOL),
+            uint256(JBPermissionIds.SET_BUYBACK_TWAP),
+            uint256(JBPermissionIds.SET_PROJECT_URI),
+            uint256(JBPermissionIds.ADD_PRICE_FEED),
+            uint256(JBPermissionIds.SUCKER_SAFETY),
+            uint256(JBPermissionIds.ADD_SWAP_TERMINAL_POOL),
+            uint256(JBPermissionIds.SET_BUYBACK_HOOK),
+            uint256(JBPermissionIds.SET_SWAP_TERMINAL)
         ];
 
         for (uint256 i = 0; i < expectedPermissions.length; i++) {
