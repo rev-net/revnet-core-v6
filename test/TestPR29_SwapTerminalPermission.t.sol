@@ -147,24 +147,26 @@ contract TestPR29_SwapTerminalPermission is TestBaseWorkflow, JBTest {
 
     /// @notice Verify the split operator has SET_BUYBACK_HOOK and SET_SWAP_TERMINAL permissions.
     function test_splitOperator_hasRegistryPermissions() public view {
-        bool hasBuybackHook = jbPermissions().hasPermission({
-            operator: multisig(),
-            account: address(REV_DEPLOYER),
-            projectId: TEST_REVNET_ID,
-            permissionId: JBPermissionIds.SET_BUYBACK_HOOK,
-            includeRoot: false,
-            includeWildcardProjectId: false
-        });
+        bool hasBuybackHook = jbPermissions()
+            .hasPermission({
+                operator: multisig(),
+                account: address(REV_DEPLOYER),
+                projectId: TEST_REVNET_ID,
+                permissionId: JBPermissionIds.SET_BUYBACK_HOOK,
+                includeRoot: false,
+                includeWildcardProjectId: false
+            });
         assertTrue(hasBuybackHook, "Split operator should have SET_BUYBACK_HOOK permission");
 
-        bool hasSwapTerminal = jbPermissions().hasPermission({
-            operator: multisig(),
-            account: address(REV_DEPLOYER),
-            projectId: TEST_REVNET_ID,
-            permissionId: JBPermissionIds.SET_SWAP_TERMINAL,
-            includeRoot: false,
-            includeWildcardProjectId: false
-        });
+        bool hasSwapTerminal = jbPermissions()
+            .hasPermission({
+                operator: multisig(),
+                account: address(REV_DEPLOYER),
+                projectId: TEST_REVNET_ID,
+                permissionId: JBPermissionIds.SET_SWAP_TERMINAL,
+                includeRoot: false,
+                includeWildcardProjectId: false
+            });
         assertTrue(hasSwapTerminal, "Split operator should have SET_SWAP_TERMINAL permission");
     }
 

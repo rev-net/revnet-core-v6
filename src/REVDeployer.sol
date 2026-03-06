@@ -208,6 +208,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         HOOK_DEPLOYER = hookDeployer;
         PUBLISHER = publisher;
         BUYBACK_HOOK = buybackHook;
+        // slither-disable-next-line missing-zero-check
         LOANS = loans;
 
         // Give the sucker registry permission to map tokens for all revnets.
@@ -453,7 +454,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
                 });
 
                 // Configure a buyback pool for this terminal token with default fee and TWAP window.
-                // slither-disable-next-line unused-return
+                // slither-disable-next-line unused-return,calls-loop
                 IJBBuybackHook(address(BUYBACK_HOOK))
                     .setPoolFor({
                         projectId: revnetId,
@@ -612,6 +613,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @param beneficiary The address to auto-mint tokens to.
     function autoIssueFor(uint256 revnetId, uint256 stageId, address beneficiary) external override {
         // Get a reference to the ruleset for the stage.
+        // slither-disable-next-line unused-return
         (JBRuleset memory ruleset,) = CONTROLLER.getRulesetOf({projectId: revnetId, rulesetId: stageId});
 
         // Make sure the stage has started.
@@ -778,6 +780,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         uint256 balance = CONTROLLER.TOKENS().totalBalanceOf({holder: address(this), projectId: revnetId});
         if (balance == 0) revert REVDeployer_NothingToBurn();
         CONTROLLER.burnTokensOf({holder: address(this), projectId: revnetId, tokenCount: balance, memo: ""});
+        // slither-disable-next-line reentrancy-events
         emit BurnHeldTokens(revnetId, balance, _msgSender());
     }
 
@@ -1159,6 +1162,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
                 // If the issuance config is for another chain, skip it.
                 if (autoIssuance.chainId != block.chainid) continue;
 
+                // slither-disable-next-line reentrancy-events
                 emit StoreAutoIssuanceAmount({
                     revnetId: revnetId,
                     stageId: block.timestamp + i,
@@ -1170,7 +1174,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
                 // Store the amount of tokens that can be auto-minted on this chain during this stage.
                 // The first stage ID is stored at this block's timestamp,
                 // and further stage IDs have incrementally increasing IDs
-                // slither-disable-next-line reentrancy-events
+                // slither-disable-next-line reentrancy-benign
                 amountToAutoIssue[revnetId][block.timestamp + i][autoIssuance.beneficiary] += autoIssuance.count;
             }
         }

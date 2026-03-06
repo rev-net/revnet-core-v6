@@ -472,6 +472,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
             REVLoanSource memory source = sources[i];
 
             // Get a reference to the accounting context for the source.
+            // slither-disable-next-line calls-loop
             JBAccountingContext memory accountingContext =
                 source.terminal.accountingContextForTokenOf({projectId: revnetId, token: source.token});
 
@@ -496,6 +497,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
                 borrowedAmount += normalizedTokens;
             } else {
                 // Otherwise, convert via the price feed.
+                // slither-disable-next-line calls-loop
                 uint256 pricePerUnit = PRICES.pricePerUnitOf({
                     projectId: revnetId,
                     pricingCurrency: accountingContext.currency,
@@ -1269,6 +1271,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         });
 
         // Add the loaned amount back to the revnet.
+        // slither-disable-next-line arbitrary-send-eth
         loan.source.terminal.addToBalanceOf{value: payValue}({
             projectId: revnetId,
             token: loan.source.token,
