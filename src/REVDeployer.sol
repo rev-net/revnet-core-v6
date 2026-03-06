@@ -295,8 +295,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         }
 
         // Get the terminal that will receive the cash out fee.
-        IJBTerminal feeTerminal =
-            DIRECTORY.primaryTerminalOf({projectId: FEE_REVNET_ID, token: context.surplus.token});
+        IJBTerminal feeTerminal = DIRECTORY.primaryTerminalOf({projectId: FEE_REVNET_ID, token: context.surplus.token});
 
         // If there's no cash out tax (100% cash out tax rate), or if there's no fee terminal, do not charge a fee.
         if (context.cashOutTaxRate == 0 || address(feeTerminal) == address(0)) {

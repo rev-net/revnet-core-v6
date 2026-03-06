@@ -2,9 +2,9 @@
 pragma solidity 0.8.23;
 
 import "forge-std/Test.sol";
-import /* {*} from */ "@bananapus/core-v5/test/helpers/TestBaseWorkflow.sol";
-import {JBConstants} from "@bananapus/core-v5/src/libraries/JBConstants.sol";
-import {JBAccountingContext} from "@bananapus/core-v5/src/structs/JBAccountingContext.sol";
+import /* {*} from */ "@bananapus/core-v6/test/helpers/TestBaseWorkflow.sol";
+import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
+import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
 import {mulDiv} from "@prb/math/src/Common.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -109,7 +109,7 @@ contract REVInvincibilityHandler is JBTest {
         // Mock permission
         mockExpect(
             address(PERMS),
-            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS), USER, REVNET_ID, 10, true, true)),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS), USER, REVNET_ID, 11, true, true)),
             abi.encode(true)
         );
 
@@ -136,7 +136,7 @@ contract REVInvincibilityHandler is JBTest {
         uint256 id = (REVNET_ID * 1_000_000_000_000) + callCount_payAndBorrow;
 
         try IERC721(address(LOANS)).ownerOf(id) {}
-            catch {
+        catch {
             return;
         }
 
@@ -198,7 +198,7 @@ contract REVInvincibilityHandler is JBTest {
         uint256 id = (REVNET_ID * 1_000_000_000_000) + callCount_payAndBorrow;
 
         try IERC721(address(LOANS)).ownerOf(id) {}
-            catch {
+        catch {
             return;
         }
 
@@ -219,7 +219,7 @@ contract REVInvincibilityHandler is JBTest {
         // Mock permission
         mockExpect(
             address(PERMS),
-            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS), USER, REVNET_ID, 10, true, true)),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS), USER, REVNET_ID, 11, true, true)),
             abi.encode(true)
         );
 
