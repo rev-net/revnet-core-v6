@@ -28,9 +28,8 @@ import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStor
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 
-/// @notice Tests for PR #29: fix/l27-swap-terminal-permission
-/// Verifies that ADD_SWAP_TERMINAL_POOL (permission ID 26) is included in the default
-/// split operator permissions. The fix adds this as the 7th default permission.
+/// @notice Tests for default operator permissions including SET_ROUTER_TERMINAL.
+/// Verifies that all default split operator permissions are granted correctly.
 contract TestPR29_SwapTerminalPermission is TestBaseWorkflow, JBTest {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
 
@@ -145,7 +144,7 @@ contract TestPR29_SwapTerminalPermission is TestBaseWorkflow, JBTest {
         });
     }
 
-    /// @notice Verify the split operator has SET_BUYBACK_HOOK and SET_SWAP_TERMINAL permissions.
+    /// @notice Verify the split operator has SET_BUYBACK_HOOK and SET_ROUTER_TERMINAL permissions.
     function test_splitOperator_hasRegistryPermissions() public view {
         bool hasBuybackHook = jbPermissions()
             .hasPermission({
@@ -158,31 +157,30 @@ contract TestPR29_SwapTerminalPermission is TestBaseWorkflow, JBTest {
             });
         assertTrue(hasBuybackHook, "Split operator should have SET_BUYBACK_HOOK permission");
 
-        bool hasSwapTerminal = jbPermissions()
+        bool hasRouterTerminal = jbPermissions()
             .hasPermission({
                 operator: multisig(),
                 account: address(REV_DEPLOYER),
                 projectId: TEST_REVNET_ID,
-                permissionId: JBPermissionIds.SET_SWAP_TERMINAL,
+                permissionId: JBPermissionIds.SET_ROUTER_TERMINAL,
                 includeRoot: false,
                 includeWildcardProjectId: false
             });
-        assertTrue(hasSwapTerminal, "Split operator should have SET_SWAP_TERMINAL permission");
+        assertTrue(hasRouterTerminal, "Split operator should have SET_ROUTER_TERMINAL permission");
     }
 
-    /// @notice Verify all 9 default permissions are present for the split operator.
+    /// @notice Verify all 8 default permissions are present for the split operator.
     function test_allDefaultPermissionsPresent() public view {
-        // All 9 default permissions that should be granted
-        uint256[9] memory expectedPermissions = [
+        // All 8 default permissions that should be granted
+        uint256[8] memory expectedPermissions = [
             uint256(JBPermissionIds.SET_SPLIT_GROUPS),
             uint256(JBPermissionIds.SET_BUYBACK_POOL),
             uint256(JBPermissionIds.SET_BUYBACK_TWAP),
             uint256(JBPermissionIds.SET_PROJECT_URI),
             uint256(JBPermissionIds.ADD_PRICE_FEED),
             uint256(JBPermissionIds.SUCKER_SAFETY),
-            uint256(JBPermissionIds.ADD_SWAP_TERMINAL_POOL),
             uint256(JBPermissionIds.SET_BUYBACK_HOOK),
-            uint256(JBPermissionIds.SET_SWAP_TERMINAL)
+            uint256(JBPermissionIds.SET_ROUTER_TERMINAL)
         ];
 
         for (uint256 i = 0; i < expectedPermissions.length; i++) {
