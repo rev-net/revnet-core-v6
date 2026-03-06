@@ -63,16 +63,16 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     //*********************************************************************//
 
     error REVDeployer_AutoIssuanceBeneficiaryZeroAddress();
-    error REVDeployer_CashOutDelayNotFinished();
-    error REVDeployer_CashOutsCantBeTurnedOffCompletely();
+    error REVDeployer_CashOutDelayNotFinished(uint256 cashOutDelay, uint256 blockTimestamp);
+    error REVDeployer_CashOutsCantBeTurnedOffCompletely(uint256 cashOutTaxRate, uint256 maxCashOutTaxRate);
     error REVDeployer_MustHaveSplits();
     error REVDeployer_NothingToAutoIssue();
     error REVDeployer_RulesetDoesNotAllowDeployingSuckers();
-    error REVDeployer_StageNotStarted();
+    error REVDeployer_StageNotStarted(uint256 stageId);
     error REVDeployer_StagesRequired();
     error REVDeployer_StageTimesMustIncrease();
     error REVDeployer_NothingToBurn();
-    error REVDeployer_Unauthorized();
+    error REVDeployer_Unauthorized(uint256 revnetId, address caller);
 
     //*********************************************************************//
     // ------------------------- public constants ------------------------ //
@@ -291,7 +291,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
 
         // Enforce the cash out delay.
         if (cashOutDelay > block.timestamp) {
-            revert REVDeployer_CashOutDelayNotFinished();
+            revert REVDeployer_CashOutDelayNotFinished(cashOutDelay, block.timestamp);
         }
 
         // Get the terminal that will receive the cash out fee.
@@ -399,7 +399,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @param operator The address being checked.
     function _checkIfIsSplitOperatorOf(uint256 revnetId, address operator) internal view {
         if (!isSplitOperatorOf({revnetId: revnetId, addr: operator})) {
-            revert REVDeployer_Unauthorized();
+            revert REVDeployer_Unauthorized(revnetId, operator);
         }
     }
 
@@ -615,7 +615,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
 
         // Make sure the stage has started.
         if (ruleset.start > block.timestamp) {
-            revert REVDeployer_StageNotStarted();
+            revert REVDeployer_StageNotStarted(stageId);
         }
 
         // Get a reference to the number of tokens to auto-issue.
@@ -965,7 +965,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             address owner = PROJECTS.ownerOf(revnetId);
 
             // Make sure the caller is the owner of the Juicebox project.
-            if (_msgSender() != owner) revert REVDeployer_Unauthorized();
+            if (_msgSender() != owner) revert REVDeployer_Unauthorized(revnetId, _msgSender());
 
             // Initialize the existing Juicebox project as a revnet by
             // transferring the `JBProjects` NFT to this deployer. This is irreversible.
@@ -1112,7 +1112,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
 
             // Make sure the revnet doesn't prevent cashouts all together.
             if (stageConfiguration.cashOutTaxRate >= JBConstants.MAX_CASH_OUT_TAX_RATE) {
-                revert REVDeployer_CashOutsCantBeTurnedOffCompletely();
+                revert REVDeployer_CashOutsCantBeTurnedOffCompletely(
+                    stageConfiguration.cashOutTaxRate, JBConstants.MAX_CASH_OUT_TAX_RATE
+                );
             }
 
             // Set up the ruleset.
