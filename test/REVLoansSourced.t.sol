@@ -2,41 +2,39 @@
 pragma solidity 0.8.23;
 
 import "forge-std/Test.sol";
-import /* {*} from */ "@bananapus/core-v5/test/helpers/TestBaseWorkflow.sol";
-import /* {*} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
-    import /* {*} from */ "./../src/REVDeployer.sol";
-import "@croptop/core-v5/src/CTPublisher.sol";
+import /* {*} from */ "@bananapus/core-v6/test/helpers/TestBaseWorkflow.sol";
+import /* {*} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
+import /* {*} from */ "./../src/REVDeployer.sol";
+import "@croptop/core-v6/src/CTPublisher.sol";
+import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
 
-import "@bananapus/core-v5/script/helpers/CoreDeploymentLib.sol";
-import "@bananapus/721-hook-v5/script/helpers/Hook721DeploymentLib.sol";
-import "@bananapus/suckers-v5/script/helpers/SuckerDeploymentLib.sol";
-import "@croptop/core-v5/script/helpers/CroptopDeploymentLib.sol";
-import "@bananapus/swap-terminal-v5/script/helpers/SwapTerminalDeploymentLib.sol";
-import "@bananapus/buyback-hook-v5/script/helpers/BuybackDeploymentLib.sol";
+import "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
+import "@bananapus/721-hook-v6/script/helpers/Hook721DeploymentLib.sol";
+import "@bananapus/suckers-v6/script/helpers/SuckerDeploymentLib.sol";
+import "@croptop/core-v6/script/helpers/CroptopDeploymentLib.sol";
+import "@bananapus/swap-terminal-v6/script/helpers/SwapTerminalDeploymentLib.sol";
 
-import {JBConstants} from "@bananapus/core-v5/src/libraries/JBConstants.sol";
-import {JBAccountingContext} from "@bananapus/core-v5/src/structs/JBAccountingContext.sol";
-import {MockPriceFeed} from "@bananapus/core-v5/test/mock/MockPriceFeed.sol";
-import {MockERC20} from "@bananapus/core-v5/test/mock/MockERC20.sol";
+import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
+import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
+import {MockPriceFeed} from "@bananapus/core-v6/test/mock/MockPriceFeed.sol";
+import {MockERC20} from "@bananapus/core-v6/test/mock/MockERC20.sol";
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVLoan} from "../src/structs/REVLoan.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
 import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
-import {REVBuybackPoolConfig} from "../src/structs/REVBuybackPoolConfig.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
-import {JBSuckerDeployerConfig} from "@bananapus/suckers-v5/src/structs/JBSuckerDeployerConfig.sol";
-import {JBSuckerRegistry} from "@bananapus/suckers-v5/src/JBSuckerRegistry.sol";
-import {JB721TiersHookDeployer} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
-import {JB721TiersHook} from "@bananapus/721-hook-v5/src/JB721TiersHook.sol";
-import {JB721TiersHookStore} from "@bananapus/721-hook-v5/src/JB721TiersHookStore.sol";
-import {JBAddressRegistry} from "@bananapus/address-registry-v5/src/JBAddressRegistry.sol";
-import {IJBAddressRegistry} from "@bananapus/address-registry-v5/src/interfaces/IJBAddressRegistry.sol";
+import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
+import {JBSuckerRegistry} from "@bananapus/suckers-v6/src/JBSuckerRegistry.sol";
+import {JB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
+import {JB721TiersHook} from "@bananapus/721-hook-v6/src/JB721TiersHook.sol";
+import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStore.sol";
+import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
+import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 
 struct FeeProjectConfig {
     REVConfig configuration;
     JBTerminalConfig[] terminalConfigurations;
-    REVBuybackHookConfig buybackHookConfiguration;
     REVSuckerDeploymentConfig suckerDeploymentConfiguration;
 }
 
@@ -61,6 +59,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
     IJBSuckerRegistry SUCKER_REGISTRY;
 
     CTPublisher PUBLISHER;
+    MockBuybackDataHook MOCK_BUYBACK;
 
     uint256 FEE_PROJECT_ID;
     uint256 REVNET_ID;
@@ -83,9 +82,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
 
         // Accept the chain's native currency through the multi terminal.
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
         // For the tests we need to allow these payments, otherwise other revnets can't pay a fee.
@@ -108,9 +105,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
         {
             REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
             issuanceConfs[0] = REVAutoIssuance({
-                chainId: uint32(block.chainid),
-                count: uint104(70_000 * decimalMultiplier),
-                beneficiary: multisig()
+                chainId: uint32(block.chainid), count: uint104(70_000 * decimalMultiplier), beneficiary: multisig()
             });
 
             stageConfigurations[0] = REVStageConfig({
@@ -150,35 +145,19 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
             extraMetadata: 0
         });
 
-        REVLoanSource[] memory _loanSources = new REVLoanSource[](0);
-
         // The project's revnet configuration
         REVConfig memory revnetConfiguration = REVConfig({
             description: REVDescription(name, symbol, projectUri, ERC20_SALT),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
-            stageConfigurations: stageConfigurations,
-            loanSources: _loanSources,
-            loans: address(0)
-        });
-
-        // The project's buyback hook configuration.
-        REVBuybackPoolConfig[] memory buybackPoolConfigurations = new REVBuybackPoolConfig[](1);
-        buybackPoolConfigurations[0] =
-            REVBuybackPoolConfig({token: JBConstants.NATIVE_TOKEN, fee: 10_000, twapWindow: 2 days});
-        REVBuybackHookConfig memory buybackHookConfiguration = REVBuybackHookConfig({
-            dataHook: IJBRulesetDataHook(address(0)),
-            hookToConfigure: IJBBuybackHook(address(0)),
-            poolConfigurations: buybackPoolConfigurations
+            stageConfigurations: stageConfigurations
         });
 
         return FeeProjectConfig({
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
-            buybackHookConfiguration: buybackHookConfiguration,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256(abi.encodePacked("REV"))
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("REV"))
             })
         });
     }
@@ -196,9 +175,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
 
         // Accept the chain's native currency through the multi terminal.
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
         accountingContextsToAccept[1] =
@@ -219,9 +196,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
         {
             REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
             issuanceConfs[0] = REVAutoIssuance({
-                chainId: uint32(block.chainid),
-                count: uint104(70_000 * decimalMultiplier),
-                beneficiary: multisig()
+                chainId: uint32(block.chainid), count: uint104(70_000 * decimalMultiplier), beneficiary: multisig()
             });
 
             stageConfigurations[0] = REVStageConfig({
@@ -261,37 +236,19 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
             extraMetadata: 0
         });
 
-        REVLoanSource[] memory _loanSources = new REVLoanSource[](2);
-        _loanSources[0] = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
-        _loanSources[1] = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
-
         // The project's revnet configuration
         REVConfig memory revnetConfiguration = REVConfig({
             description: REVDescription(name, symbol, projectUri, "NANA_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
-            stageConfigurations: stageConfigurations,
-            loanSources: _loanSources,
-            loans: address(LOANS_CONTRACT)
-        });
-
-        // The project's buyback hook configuration.
-        REVBuybackPoolConfig[] memory buybackPoolConfigurations = new REVBuybackPoolConfig[](1);
-        buybackPoolConfigurations[0] =
-            REVBuybackPoolConfig({token: JBConstants.NATIVE_TOKEN, fee: 10_000, twapWindow: 2 days});
-        REVBuybackHookConfig memory buybackHookConfiguration = REVBuybackHookConfig({
-            dataHook: IJBRulesetDataHook(address(0)),
-            hookToConfigure: IJBBuybackHook(address(0)),
-            poolConfigurations: buybackPoolConfigurations
+            stageConfigurations: stageConfigurations
         });
 
         return FeeProjectConfig({
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
-            buybackHookConfiguration: buybackHookConfiguration,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256(abi.encodePacked("NANA"))
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("NANA"))
             })
         });
     }
@@ -312,6 +269,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
 
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
+        MOCK_BUYBACK = new MockBuybackDataHook();
 
         TOKEN = new MockERC20("1/2 ETH", "1/2");
 
@@ -322,21 +280,28 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
 
         // Configure the price feed for the pair.
         vm.prank(multisig());
-        jbPrices().addPriceFeedFor(
-            0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed
-        );
-
-        REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, TRUSTED_FORWARDER
-        );
+        jbPrices()
+            .addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
 
         LOANS_CONTRACT = new REVLoans({
-            revnets: REV_DEPLOYER,
+            controller: jbController(),
+            projects: jbProjects(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
             trustedForwarder: TRUSTED_FORWARDER
         });
+
+        REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
+            jbController(),
+            SUCKER_REGISTRY,
+            FEE_PROJECT_ID,
+            HOOK_DEPLOYER,
+            PUBLISHER,
+            IJBRulesetDataHook(address(MOCK_BUYBACK)),
+            address(LOANS_CONTRACT),
+            TRUSTED_FORWARDER
+        );
 
         // Approve the basic deployer to configure the project.
         vm.prank(address(multisig()));
@@ -351,7 +316,6 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
             revnetId: FEE_PROJECT_ID, // Zero to deploy a new revnet
             configuration: feeProjectConfig.configuration,
             terminalConfigurations: feeProjectConfig.terminalConfigurations,
-            buybackHookConfiguration: feeProjectConfig.buybackHookConfiguration,
             suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration
         });
 
@@ -363,7 +327,6 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
             revnetId: 0, // Zero to deploy a new revnet
             configuration: fee2Config.configuration,
             terminalConfigurations: fee2Config.terminalConfigurations,
-            buybackHookConfiguration: fee2Config.buybackHookConfiguration,
             suckerDeploymentConfiguration: fee2Config.suckerDeploymentConfiguration
         });
 
@@ -400,7 +363,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
         // User must give the loans contract permission, similar to an "approve" call, we're just spoofing to save time.
         mockExpect(
             address(jbPermissions()),
-            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 10, true, true)),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 11, true, true)),
             abi.encode(true)
         );
 
@@ -452,7 +415,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
         // User must give the loans contract permission, similar to an "approve" call, we're just spoofing to save time.
         mockExpect(
             address(jbPermissions()),
-            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 10, true, true)),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 11, true, true)),
             abi.encode(true)
         );
 
@@ -508,7 +471,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
         // User must give the loans contract permission, similar to an "approve" call, we're just spoofing to save time.
         mockExpect(
             address(jbPermissions()),
-            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 10, true, true)),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 11, true, true)),
             abi.encode(true)
         );
 
@@ -531,7 +494,8 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
         }
 
         // Forward time to right before the loan reaches liquidation.
-        vm.warp(block.timestamp + 3650 days);
+        // Use 3650 days - 1 because liquidation triggers at >= LOAN_LIQUIDATION_DURATION.
+        vm.warp(block.timestamp + 3650 days - 1);
 
         // Repay the loan.
         uint256 balanceBefore = TOKEN.balanceOf(USER);
@@ -554,7 +518,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
     }
 
     function test_Pay_ERC20_Borrow_With_Loan_Source(uint256 payableAmount, uint32 prepaidFee) public {
-        vm.assume(payableAmount > 0 && payableAmount <= type(uint112).max);
+        payableAmount = bound(payableAmount, 1e6, type(uint112).max);
         vm.assume(
             LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT() <= prepaidFee
                 && prepaidFee <= LOANS_CONTRACT.MAX_PREPAID_FEE_PERCENT()
@@ -580,7 +544,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
         // User must give the loans contract permission, similar to an "approve" call, we're just spoofing to save time.
         mockExpect(
             address(jbPermissions()),
-            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 10, true, true)),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 11, true, true)),
             abi.encode(true)
         );
 
@@ -641,8 +605,9 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
             FeeProjectConfig memory projectConfig = getSecondProjectConfig();
             REVAutoIssuance[] memory issuanceConfs;
             issuanceConfs = new REVAutoIssuance[](1);
-            issuanceConfs[0] =
-                REVAutoIssuance({chainId: uint32(block.chainid), count: uint104(autoIssuance), beneficiary: multisig()});
+            issuanceConfs[0] = REVAutoIssuance({
+                chainId: uint32(block.chainid), count: uint104(autoIssuance), beneficiary: multisig()
+            });
 
             JBSplit[] memory splits = new JBSplit[](1);
             splits[0].beneficiary = payable(multisig());
@@ -669,7 +634,6 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
                 revnetId: 0, // Zero to deploy a new revnet
                 configuration: projectConfig.configuration,
                 terminalConfigurations: projectConfig.terminalConfigurations,
-                buybackHookConfiguration: projectConfig.buybackHookConfiguration,
                 suckerDeploymentConfiguration: projectConfig.suckerDeploymentConfiguration
             });
         }
@@ -699,39 +663,42 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
             revnetProjectId, tokensToCashout, useNative ? 18 : 6, uint32(uint160(token))
         );
 
-        uint256 fullReclaimableSurplus = jbMultiTerminal().STORE().currentReclaimableSurplusOf({
-            projectId: revnetProjectId,
-            tokenCount: tokensToCashout,
-            totalSupply: totalSupplyExcludingAutoMint,
-            surplus: nativeSurplus
-        });
+        uint256 fullReclaimableSurplus = jbMultiTerminal().STORE()
+            .currentReclaimableSurplusOf({
+                projectId: revnetProjectId,
+                cashOutCount: tokensToCashout,
+                totalSupply: totalSupplyExcludingAutoMint,
+                surplus: nativeSurplus
+            });
 
         assertGe(fullReclaimableSurplus, loanable);
 
         uint256 feeTokenCount =
             cashOutTaxRate == 0 ? 0 : mulDiv(tokensToCashout, jbMultiTerminal().FEE(), JBConstants.MAX_FEE);
 
-        uint256 reclaimableSurplus = jbMultiTerminal().STORE().currentReclaimableSurplusOf({
-            projectId: revnetProjectId,
-            tokenCount: tokensToCashout - feeTokenCount,
-            totalSupply: totalSupplyExcludingAutoMint,
-            surplus: nativeSurplus
-        });
+        uint256 reclaimableSurplus = jbMultiTerminal().STORE()
+            .currentReclaimableSurplusOf({
+                projectId: revnetProjectId,
+                cashOutCount: tokensToCashout - feeTokenCount,
+                totalSupply: totalSupplyExcludingAutoMint,
+                surplus: nativeSurplus
+            });
 
         // In the `revFee` calculation we decrease the `nativeSurplus` by the `reclaimableSurplus`
         // but due to a `stack too deep` we can't do that there, so we decrease it here.
         // This is not the correct value for this variable, however in `revFee` is the last time we use this variable.
         nativeSurplus -= reclaimableSurplus;
 
-        uint256 revFee = jbMultiTerminal().STORE().currentReclaimableSurplusOf({
-            projectId: revnetProjectId,
-            tokenCount: feeTokenCount,
-            totalSupply: totalSupplyExcludingAutoMint - (tokensToCashout - feeTokenCount),
-            surplus: nativeSurplus
-        });
+        uint256 revFee = jbMultiTerminal().STORE()
+            .currentReclaimableSurplusOf({
+                projectId: revnetProjectId,
+                cashOutCount: feeTokenCount,
+                totalSupply: totalSupplyExcludingAutoMint - (tokensToCashout - feeTokenCount),
+                surplus: nativeSurplus
+            });
 
         assertGe(fullReclaimableSurplus, mulDiv((reclaimableSurplus + revFee), 995, 1000)); // small marging for curve
-            // rounding.
+        // rounding.
 
         uint256 balanceBefore = _balanceOf(token, USER);
 
@@ -775,7 +742,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
         // User must give the loans contract permission, similar to an "approve" call, we're just spoofing to save time.
         mockExpect(
             address(jbPermissions()),
-            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 10, true, true)),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 11, true, true)),
             abi.encode(true)
         );
 
@@ -813,7 +780,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
         ///
         percentOfCollateralToRemove = bound(percentOfCollateralToRemove, 0, 10_000);
         prepaidFeePercent = bound(prepaidFeePercent, 25, 500);
-        daysToWarp = bound(daysToWarp, 0, 3650);
+        daysToWarp = bound(daysToWarp, 0, 3649);
 
         daysToWarp = daysToWarp * 1 days;
 
@@ -828,7 +795,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
         // User must give the loans contract permission, similar to an "approve" call, we're just spoofing to save time.
         mockExpect(
             address(jbPermissions()),
-            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 10, true, true)),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 11, true, true)),
             abi.encode(true)
         );
 
@@ -858,10 +825,15 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
         uint256 collateralReturned = mulDiv(loan.collateral, percentOfCollateralToRemove, 10_000);
 
         uint256 newCollateral = loan.collateral - collateralReturned;
-        uint256 borrowableFromNewCollateral =
-            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, newCollateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        uint256 borrowableFromNewCollateral = LOANS_CONTRACT.borrowableAmountFrom(
+            REVNET_ID, newCollateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
+        );
 
         uint256 amountDiff = borrowableFromNewCollateral > loan.amount ? 0 : loan.amount - borrowableFromNewCollateral;
+
+        // Skip fuzz runs where both repay amount and collateral return are zero (M-27 fix rejects these).
+        vm.assume(amountDiff > 0 || collateralReturned > 0);
+
         uint256 maxAmountPaidDown = loan.amount;
 
         // Calculate the fee.
@@ -934,7 +906,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
 
         mockExpect(
             address(jbPermissions()),
-            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 10, true, true)),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 11, true, true)),
             abi.encode(true)
         );
 
@@ -1016,7 +988,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
 
         mockExpect(
             address(jbPermissions()),
-            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 10, true, true)),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 11, true, true)),
             abi.encode(true)
         );
 
@@ -1079,7 +1051,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
 
         mockExpect(
             address(jbPermissions()),
-            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 10, true, true)),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 11, true, true)),
             abi.encode(true)
         );
 
@@ -1170,7 +1142,6 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
                 revnetId: 0, // Zero to deploy a new revnet
                 configuration: projectConfig.configuration,
                 terminalConfigurations: projectConfig.terminalConfigurations,
-                buybackHookConfiguration: projectConfig.buybackHookConfiguration,
                 suckerDeploymentConfiguration: projectConfig.suckerDeploymentConfiguration
             });
         }
@@ -1191,9 +1162,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
             permissionIds[0] = JBPermissionIds.BURN_TOKENS;
 
             JBPermissionsData memory permissionsData = JBPermissionsData({
-                operator: address(LOANS_CONTRACT),
-                projectId: uint56(revnetProjectId),
-                permissionIds: permissionIds
+                operator: address(LOANS_CONTRACT), projectId: uint56(revnetProjectId), permissionIds: permissionIds
             });
 
             // Give the loans contract permission to our tokens.
@@ -1269,7 +1238,6 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
             revnetId: 0, // Zero to deploy a new revnet
             configuration: projectConfig.configuration,
             terminalConfigurations: projectConfig.terminalConfigurations,
-            buybackHookConfiguration: projectConfig.buybackHookConfiguration,
             suckerDeploymentConfiguration: projectConfig.suckerDeploymentConfiguration
         });
 
@@ -1288,7 +1256,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
         mockExpect(
             address(jbPermissions()),
             abi.encodeCall(
-                IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, revnetProjectId, 10, true, true)
+                IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, revnetProjectId, 11, true, true)
             ),
             abi.encode(true)
         );
@@ -1348,7 +1316,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
 
         mockExpect(
             address(jbPermissions()),
-            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 10, true, true)),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 11, true, true)),
             abi.encode(true)
         );
 
@@ -1433,7 +1401,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
         // mock call spoofing permissions of REVLoans otherwise called by user before borrow.
         mockExpect(
             address(jbPermissions()),
-            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 10, true, true)),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 11, true, true)),
             abi.encode(true)
         );
 
@@ -1502,7 +1470,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
         // User must give the loans contract permission, similar to an "approve" call, we're just spoofing to save time.
         mockExpect(
             address(jbPermissions()),
-            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 10, true, true)),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 11, true, true)),
             abi.encode(true)
         );
 
@@ -1570,7 +1538,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
         // User must give the loans contract permission, similar to an "approve" call, we're just spoofing to save time.
         mockExpect(
             address(jbPermissions()),
-            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 10, true, true)),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 11, true, true)),
             abi.encode(true)
         );
 
@@ -1590,7 +1558,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
         // User must give the loans contract permission, similar to an "approve" call, we're just spoofing to save time.
         mockExpect(
             address(jbPermissions()),
-            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 10, true, true)),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 11, true, true)),
             abi.encode(true)
         );
 
@@ -1626,7 +1594,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
         // User must give the loans contract permission, similar to an "approve" call, we're just spoofing to save time.
         mockExpect(
             address(jbPermissions()),
-            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 10, true, true)),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 11, true, true)),
             abi.encode(true)
         );
 
@@ -1643,8 +1611,9 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
         uint256 collateralReturned = mulDiv(loan.collateral, 1000, 10_000);
 
         uint256 newCollateral = loan.collateral - collateralReturned;
-        uint256 borrowableFromNewCollateral =
-            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, newCollateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        uint256 borrowableFromNewCollateral = LOANS_CONTRACT.borrowableAmountFrom(
+            REVNET_ID, newCollateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
+        );
 
         // Needed for edge case seeds like 17721, 11407, 334
         if (borrowableFromNewCollateral > 0) borrowableFromNewCollateral -= 1;
@@ -1699,7 +1668,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
         // User must give the loans contract permission, similar to an "approve" call, we're just spoofing to save time.
         mockExpect(
             address(jbPermissions()),
-            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 10, true, true)),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 11, true, true)),
             abi.encode(true)
         );
 
@@ -1728,7 +1697,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
         // User must give the loans contract permission, similar to an "approve" call, we're just spoofing to save time.
         mockExpect(
             address(jbPermissions()),
-            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 10, true, true)),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 11, true, true)),
             abi.encode(true)
         );
 
@@ -1748,13 +1717,8 @@ contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
                 REVLoans.REVLoans_CollateralExceedsLoan.selector, loan.collateral + 1, loan.collateral
             )
         );
-        LOANS_CONTRACT.repayLoan{value: 0}(
-            // collateral exceeds with + 1
-            loanId,
-            0,
-            loan.collateral + 1,
-            payable(USER),
-            allowance
+        LOANS_CONTRACT.repayLoan{value: 0}( // collateral exceeds with + 1
+            loanId, 0, loan.collateral + 1, payable(USER), allowance
         );
     }
 

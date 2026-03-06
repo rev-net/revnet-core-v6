@@ -3,40 +3,38 @@ pragma solidity 0.8.23;
 
 import "forge-std/Test.sol";
 import {StdInvariant} from "forge-std/StdInvariant.sol";
-import /* {*} from */ "@bananapus/core-v5/test/helpers/TestBaseWorkflow.sol";
-import /* {*} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
-    import /* {*} from */ "./../src/REVDeployer.sol";
+import /* {*} from */ "@bananapus/core-v6/test/helpers/TestBaseWorkflow.sol";
+import /* {*} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
+import /* {*} from */ "./../src/REVDeployer.sol";
 import /* {*} from */ "./../src/REVLoans.sol";
-import "@croptop/core-v5/src/CTPublisher.sol";
+import "@croptop/core-v6/src/CTPublisher.sol";
+import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
 
-import "@bananapus/core-v5/script/helpers/CoreDeploymentLib.sol";
-import "@bananapus/721-hook-v5/script/helpers/Hook721DeploymentLib.sol";
-import "@bananapus/suckers-v5/script/helpers/SuckerDeploymentLib.sol";
-import "@croptop/core-v5/script/helpers/CroptopDeploymentLib.sol";
-import "@bananapus/swap-terminal-v5/script/helpers/SwapTerminalDeploymentLib.sol";
-import "@bananapus/buyback-hook-v5/script/helpers/BuybackDeploymentLib.sol";
+import "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
+import "@bananapus/721-hook-v6/script/helpers/Hook721DeploymentLib.sol";
+import "@bananapus/suckers-v6/script/helpers/SuckerDeploymentLib.sol";
+import "@croptop/core-v6/script/helpers/CroptopDeploymentLib.sol";
+import "@bananapus/swap-terminal-v6/script/helpers/SwapTerminalDeploymentLib.sol";
 
-import {JBCashOuts} from "@bananapus/core-v5/src/libraries/JBCashOuts.sol";
-import {JBConstants} from "@bananapus/core-v5/src/libraries/JBConstants.sol";
-import {JBAccountingContext} from "@bananapus/core-v5/src/structs/JBAccountingContext.sol";
+import {JBCashOuts} from "@bananapus/core-v6/src/libraries/JBCashOuts.sol";
+import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
+import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
 import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
-import {REVBuybackPoolConfig} from "../src/structs/REVBuybackPoolConfig.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
-import {JBSuckerDeployerConfig} from "@bananapus/suckers-v5/src/structs/JBSuckerDeployerConfig.sol";
-import {JBSuckerRegistry} from "@bananapus/suckers-v5/src/JBSuckerRegistry.sol";
-import {JB721TiersHookDeployer} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
-import {JB721TiersHook} from "@bananapus/721-hook-v5/src/JB721TiersHook.sol";
-import {JB721TiersHookStore} from "@bananapus/721-hook-v5/src/JB721TiersHookStore.sol";
-import {JBAddressRegistry} from "@bananapus/address-registry-v5/src/JBAddressRegistry.sol";
-import {IJBAddressRegistry} from "@bananapus/address-registry-v5/src/interfaces/IJBAddressRegistry.sol";
+import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
+import {JBSuckerRegistry} from "@bananapus/suckers-v6/src/JBSuckerRegistry.sol";
+import {JB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
+import {JB721TiersHook} from "@bananapus/721-hook-v6/src/JB721TiersHook.sol";
+import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStore.sol";
+import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
+import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 
 struct FeeProjectConfig {
     REVConfig configuration;
     JBTerminalConfig[] terminalConfigurations;
-    REVBuybackHookConfig buybackHookConfiguration;
     REVSuckerDeploymentConfig suckerDeploymentConfiguration;
 }
 
@@ -89,7 +87,7 @@ contract REVLoansCallHandler is JBTest {
         // User must give the loans contract permission, similar to an "approve" call, we're just spoofing to save time.
         mockExpect(
             address(PERMS),
-            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS), USER, 2, 10, true, true)),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS), USER, 2, 11, true, true)),
             abi.encode(true)
         );
 
@@ -175,6 +173,21 @@ contract REVLoansCallHandler is JBTest {
         COLLATERAL_RETURNED += collateralReturned;
         COLLATERAL_SUM -= collateralReturned;
         if (BORROWED_SUM >= amountDiff) BORROWED_SUM -= (latestLoan.amount - adjustedOrNewLoan.amount);
+    }
+
+    /// @notice Advance time by a random amount to test time-dependent behavior.
+    function advanceTime(uint8 daysToAdvance) public {
+        uint256 daysToWarp = bound(uint256(daysToAdvance), 1, 365);
+        vm.warp(block.timestamp + daysToWarp * 1 days);
+    }
+
+    /// @notice Attempt to liquidate expired loans.
+    function liquidateLoans(uint8 count) public {
+        uint256 loanCount = bound(uint256(count), 1, 10);
+        if (RUNS == 0) return;
+
+        uint256 startingLoanId = (REVNET_ID * 1_000_000_000_000) + 1;
+        try LOANS.liquidateExpiredLoansFrom(REVNET_ID, startingLoanId, loanCount) {} catch {}
     }
 
     function reallocateCollateralFromLoan(
@@ -264,6 +277,7 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow, JBTest {
     IJBSuckerRegistry SUCKER_REGISTRY;
 
     CTPublisher PUBLISHER;
+    MockBuybackDataHook MOCK_BUYBACK;
 
     // When the second project is deployed, track the block.timestamp.
     uint256 INITIAL_TIMESTAMP;
@@ -289,9 +303,7 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow, JBTest {
 
         // Accept the chain's native currency through the multi terminal.
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
         // The terminals that the project will accept funds through.
@@ -309,9 +321,7 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow, JBTest {
         {
             REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
             issuanceConfs[0] = REVAutoIssuance({
-                chainId: uint32(block.chainid),
-                count: uint104(70_000 * decimalMultiplier),
-                beneficiary: multisig()
+                chainId: uint32(block.chainid), count: uint104(70_000 * decimalMultiplier), beneficiary: multisig()
             });
 
             stageConfigurations[0] = REVStageConfig({
@@ -351,35 +361,19 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow, JBTest {
             extraMetadata: 0
         });
 
-        REVLoanSource[] memory _loanSources = new REVLoanSource[](0);
-
         // The project's revnet configuration
         REVConfig memory revnetConfiguration = REVConfig({
             description: REVDescription(name, symbol, projectUri, ERC20_SALT),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
-            stageConfigurations: stageConfigurations,
-            loanSources: _loanSources,
-            loans: address(0)
-        });
-
-        // The project's buyback hook configuration.
-        REVBuybackPoolConfig[] memory buybackPoolConfigurations = new REVBuybackPoolConfig[](1);
-        buybackPoolConfigurations[0] =
-            REVBuybackPoolConfig({token: JBConstants.NATIVE_TOKEN, fee: 10_000, twapWindow: 2 days});
-        REVBuybackHookConfig memory buybackHookConfiguration = REVBuybackHookConfig({
-            dataHook: IJBRulesetDataHook(address(0)),
-            hookToConfigure: IJBBuybackHook(address(0)),
-            poolConfigurations: buybackPoolConfigurations
+            stageConfigurations: stageConfigurations
         });
 
         return FeeProjectConfig({
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
-            buybackHookConfiguration: buybackHookConfiguration,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256(abi.encodePacked("REV"))
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("REV"))
             })
         });
     }
@@ -397,9 +391,7 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow, JBTest {
 
         // Accept the chain's native currency through the multi terminal.
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
         // The terminals that the project will accept funds through.
@@ -417,9 +409,7 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow, JBTest {
         {
             REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
             issuanceConfs[0] = REVAutoIssuance({
-                chainId: uint32(block.chainid),
-                count: uint104(70_000 * decimalMultiplier),
-                beneficiary: multisig()
+                chainId: uint32(block.chainid), count: uint104(70_000 * decimalMultiplier), beneficiary: multisig()
             });
 
             stageConfigurations[0] = REVStageConfig({
@@ -459,36 +449,19 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow, JBTest {
             extraMetadata: 0
         });
 
-        REVLoanSource[] memory _loanSources = new REVLoanSource[](1);
-        _loanSources[0] = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
-
         // The project's revnet configuration
         REVConfig memory revnetConfiguration = REVConfig({
             description: REVDescription(name, symbol, projectUri, "NANA_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
-            stageConfigurations: stageConfigurations,
-            loanSources: _loanSources,
-            loans: address(LOANS_CONTRACT)
-        });
-
-        // The project's buyback hook configuration.
-        REVBuybackPoolConfig[] memory buybackPoolConfigurations = new REVBuybackPoolConfig[](1);
-        buybackPoolConfigurations[0] =
-            REVBuybackPoolConfig({token: JBConstants.NATIVE_TOKEN, fee: 10_000, twapWindow: 2 days});
-        REVBuybackHookConfig memory buybackHookConfiguration = REVBuybackHookConfig({
-            dataHook: IJBRulesetDataHook(address(0)),
-            hookToConfigure: IJBBuybackHook(address(0)),
-            poolConfigurations: buybackPoolConfigurations
+            stageConfigurations: stageConfigurations
         });
 
         return FeeProjectConfig({
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
-            buybackHookConfiguration: buybackHookConfiguration,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256(abi.encodePacked("NANA"))
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("NANA"))
             })
         });
     }
@@ -509,18 +482,27 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow, JBTest {
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
 
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
-
-        REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
-            jbController(), SUCKER_REGISTRY, FEE_PROJECT_ID, HOOK_DEPLOYER, PUBLISHER, TRUSTED_FORWARDER
-        );
+        MOCK_BUYBACK = new MockBuybackDataHook();
 
         LOANS_CONTRACT = new REVLoans({
-            revnets: REV_DEPLOYER,
+            controller: jbController(),
+            projects: jbProjects(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
             trustedForwarder: TRUSTED_FORWARDER
         });
+
+        REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
+            jbController(),
+            SUCKER_REGISTRY,
+            FEE_PROJECT_ID,
+            HOOK_DEPLOYER,
+            PUBLISHER,
+            IJBRulesetDataHook(address(MOCK_BUYBACK)),
+            address(LOANS_CONTRACT),
+            TRUSTED_FORWARDER
+        );
 
         // Approve the basic deployer to configure the project.
         vm.prank(address(multisig()));
@@ -535,7 +517,6 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow, JBTest {
             revnetId: FEE_PROJECT_ID, // Zero to deploy a new revnet
             configuration: feeProjectConfig.configuration,
             terminalConfigurations: feeProjectConfig.terminalConfigurations,
-            buybackHookConfiguration: feeProjectConfig.buybackHookConfiguration,
             suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration
         });
 
@@ -547,7 +528,6 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow, JBTest {
             revnetId: 0, // Zero to deploy a new revnet
             configuration: fee2Config.configuration,
             terminalConfigurations: fee2Config.terminalConfigurations,
-            buybackHookConfiguration: fee2Config.buybackHookConfiguration,
             suckerDeploymentConfiguration: fee2Config.suckerDeploymentConfiguration
         });
 
@@ -558,10 +538,12 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow, JBTest {
             new REVLoansCallHandler(jbMultiTerminal(), LOANS_CONTRACT, jbPermissions(), jbTokens(), REVNET_ID, USER);
 
         // Calls to perform via the handler
-        bytes4[] memory selectors = new bytes4[](3);
+        bytes4[] memory selectors = new bytes4[](5);
         selectors[0] = REVLoansCallHandler.payBorrow.selector;
         selectors[1] = REVLoansCallHandler.repayLoan.selector;
         selectors[2] = REVLoansCallHandler.reallocateCollateralFromLoan.selector;
+        selectors[3] = REVLoansCallHandler.advanceTime.selector;
+        selectors[4] = REVLoansCallHandler.liquidateLoans.selector;
 
         targetContract(address(PAY_HANDLER));
         targetSelector(FuzzSelector({addr: address(PAY_HANDLER), selectors: selectors}));
@@ -599,5 +581,62 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow, JBTest {
 
     function _getTotalBorrowedFromContract(uint256 _revnetId) internal view returns (uint256) {
         return LOANS_CONTRACT.totalBorrowedFrom(_revnetId, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
+    }
+
+    /// @notice INV-RL-3: loan.amount <= type(uint112).max for all active loans (C-1 regression).
+    /// @dev Verifies that no loan amount exceeds the uint112 storage boundary.
+    function invariant_C_LoanAmountFitsUint112() public view {
+        if (PAY_HANDLER.RUNS() == 0) return;
+
+        for (uint256 i = 1; i <= PAY_HANDLER.RUNS(); i++) {
+            uint256 loanId = (REVNET_ID * 1_000_000_000_000) + i;
+
+            // Skip if loan was liquidated/burned
+            try IERC721(address(LOANS_CONTRACT)).ownerOf(loanId) {}
+            catch {
+                continue;
+            }
+
+            REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
+            if (loan.amount == 0) continue;
+
+            assertLe(uint256(loan.amount), uint256(type(uint112).max), "INV-RL-3: loan.amount must fit in uint112");
+            assertLe(
+                uint256(loan.collateral), uint256(type(uint112).max), "INV-RL-3: loan.collateral must fit in uint112"
+            );
+        }
+    }
+
+    /// @notice INV-RL-4: Active loans always have non-zero collateral.
+    /// @dev Borrowable amounts can decrease as the revnet evolves (new payments change the
+    ///      cashout curve), so we only check that collateral > 0 for active loans.
+    function invariant_D_ActiveLoansHaveCollateral() public view {
+        if (PAY_HANDLER.RUNS() == 0) return;
+
+        for (uint256 i = 1; i <= PAY_HANDLER.RUNS(); i++) {
+            uint256 loanId = (REVNET_ID * 1_000_000_000_000) + i;
+
+            // Skip if loan was liquidated/burned
+            try IERC721(address(LOANS_CONTRACT)).ownerOf(loanId) {}
+            catch {
+                continue;
+            }
+
+            REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
+            if (loan.amount == 0) continue;
+
+            // Active loans must have non-zero collateral backing them.
+            assertGt(uint256(loan.collateral), 0, "INV-RL-4: Active loan must have non-zero collateral");
+        }
+    }
+
+    /// @notice INV-RL-5: Total collateral tracked by handler matches contract state.
+    /// @dev This is already checked by invariant_A, but we add an explicit named check.
+    function invariant_E_CollateralConsistency() public view {
+        assertEq(
+            PAY_HANDLER.COLLATERAL_SUM(),
+            LOANS_CONTRACT.totalCollateralOf(REVNET_ID),
+            "INV-RL-5: Handler collateral sum must match contract totalCollateralOf"
+        );
     }
 }

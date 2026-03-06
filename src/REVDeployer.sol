@@ -7,51 +7,48 @@ import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Recei
 import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {mulDiv} from "@prb/math/src/Common.sol";
-import {IJB721TiersHook} from "@bananapus/721-hook-v5/src/interfaces/IJB721TiersHook.sol";
-import {IJB721TiersHookDeployer} from "@bananapus/721-hook-v5/src/interfaces/IJB721TiersHookDeployer.sol";
-import {IJBBuybackHook} from "@bananapus/buyback-hook-v5/src/interfaces/IJBBuybackHook.sol";
-import {IJBCashOutHook} from "@bananapus/core-v5/src/interfaces/IJBCashOutHook.sol";
-import {IJBController} from "@bananapus/core-v5/src/interfaces/IJBController.sol";
-import {IJBDirectory} from "@bananapus/core-v5/src/interfaces/IJBDirectory.sol";
-import {IJBPayHook} from "@bananapus/core-v5/src/interfaces/IJBPayHook.sol";
-import {IJBPermissioned} from "@bananapus/core-v5/src/interfaces/IJBPermissioned.sol";
-import {IJBPermissions} from "@bananapus/core-v5/src/interfaces/IJBPermissions.sol";
-import {IJBProjects} from "@bananapus/core-v5/src/interfaces/IJBProjects.sol";
-import {IJBRulesetApprovalHook} from "@bananapus/core-v5/src/interfaces/IJBRulesetApprovalHook.sol";
-import {IJBRulesetDataHook} from "@bananapus/core-v5/src/interfaces/IJBRulesetDataHook.sol";
-import {IJBSplitHook} from "@bananapus/core-v5/src/interfaces/IJBSplitHook.sol";
-import {IJBTerminal} from "@bananapus/core-v5/src/interfaces/IJBTerminal.sol";
-import {JBCashOuts} from "@bananapus/core-v5/src/libraries/JBCashOuts.sol";
-import {JBConstants} from "@bananapus/core-v5/src/libraries/JBConstants.sol";
-import {JBSplitGroupIds} from "@bananapus/core-v5/src/libraries/JBSplitGroupIds.sol";
-import {JBAccountingContext} from "@bananapus/core-v5/src/structs/JBAccountingContext.sol";
-import {JBAfterCashOutRecordedContext} from "@bananapus/core-v5/src/structs/JBAfterCashOutRecordedContext.sol";
-import {JBBeforePayRecordedContext} from "@bananapus/core-v5/src/structs/JBBeforePayRecordedContext.sol";
-import {JBBeforeCashOutRecordedContext} from "@bananapus/core-v5/src/structs/JBBeforeCashOutRecordedContext.sol";
-import {JBCurrencyAmount} from "@bananapus/core-v5/src/structs/JBCurrencyAmount.sol";
-import {JBFundAccessLimitGroup} from "@bananapus/core-v5/src/structs/JBFundAccessLimitGroup.sol";
-import {JBPermissionsData} from "@bananapus/core-v5/src/structs/JBPermissionsData.sol";
-import {JBPayHookSpecification} from "@bananapus/core-v5/src/structs/JBPayHookSpecification.sol";
-import {JBRuleset} from "@bananapus/core-v5/src/structs/JBRuleset.sol";
-import {JBRulesetConfig} from "@bananapus/core-v5/src/structs/JBRulesetConfig.sol";
-import {JBRulesetMetadata} from "@bananapus/core-v5/src/structs/JBRulesetMetadata.sol";
-import {JBSplit} from "@bananapus/core-v5/src/structs/JBSplit.sol";
-import {JBSplitGroup} from "@bananapus/core-v5/src/structs/JBSplitGroup.sol";
-import {JBTerminalConfig} from "@bananapus/core-v5/src/structs/JBTerminalConfig.sol";
-import {JBCashOutHookSpecification} from "@bananapus/core-v5/src/structs/JBCashOutHookSpecification.sol";
-import {JBPermissionIds} from "@bananapus/permission-ids-v5/src/JBPermissionIds.sol";
-import {IJBSuckerRegistry} from "@bananapus/suckers-v5/src/interfaces/IJBSuckerRegistry.sol";
-import {CTPublisher} from "@croptop/core-v5/src/CTPublisher.sol";
-import {CTAllowedPost} from "@croptop/core-v5/src/structs/CTAllowedPost.sol";
+import {IJB721TiersHook} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHook.sol";
+import {IJB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHookDeployer.sol";
+import {IJBBuybackHook} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHook.sol";
+import {IJBCashOutHook} from "@bananapus/core-v6/src/interfaces/IJBCashOutHook.sol";
+import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
+import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
+import {IJBPayHook} from "@bananapus/core-v6/src/interfaces/IJBPayHook.sol";
+import {IJBPermissioned} from "@bananapus/core-v6/src/interfaces/IJBPermissioned.sol";
+import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
+import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
+import {IJBRulesetApprovalHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetApprovalHook.sol";
+import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDataHook.sol";
+import {IJBSplitHook} from "@bananapus/core-v6/src/interfaces/IJBSplitHook.sol";
+import {IJBTerminal} from "@bananapus/core-v6/src/interfaces/IJBTerminal.sol";
+import {JBCashOuts} from "@bananapus/core-v6/src/libraries/JBCashOuts.sol";
+import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
+import {JBSplitGroupIds} from "@bananapus/core-v6/src/libraries/JBSplitGroupIds.sol";
+import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
+import {JBAfterCashOutRecordedContext} from "@bananapus/core-v6/src/structs/JBAfterCashOutRecordedContext.sol";
+import {JBBeforePayRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforePayRecordedContext.sol";
+import {JBBeforeCashOutRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforeCashOutRecordedContext.sol";
+import {JBCurrencyAmount} from "@bananapus/core-v6/src/structs/JBCurrencyAmount.sol";
+import {JBFundAccessLimitGroup} from "@bananapus/core-v6/src/structs/JBFundAccessLimitGroup.sol";
+import {JBPermissionsData} from "@bananapus/core-v6/src/structs/JBPermissionsData.sol";
+import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
+import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
+import {JBRulesetConfig} from "@bananapus/core-v6/src/structs/JBRulesetConfig.sol";
+import {JBRulesetMetadata} from "@bananapus/core-v6/src/structs/JBRulesetMetadata.sol";
+import {JBSplit} from "@bananapus/core-v6/src/structs/JBSplit.sol";
+import {JBSplitGroup} from "@bananapus/core-v6/src/structs/JBSplitGroup.sol";
+import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.sol";
+import {JBCashOutHookSpecification} from "@bananapus/core-v6/src/structs/JBCashOutHookSpecification.sol";
+import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
+import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
+import {CTPublisher} from "@croptop/core-v6/src/CTPublisher.sol";
+import {CTAllowedPost} from "@croptop/core-v6/src/structs/CTAllowedPost.sol";
 
 import {IREVDeployer} from "./interfaces/IREVDeployer.sol";
 import {REVAutoIssuance} from "./structs/REVAutoIssuance.sol";
-import {REVBuybackHookConfig} from "./structs/REVBuybackHookConfig.sol";
-import {REVBuybackPoolConfig} from "./structs/REVBuybackPoolConfig.sol";
 import {REVConfig} from "./structs/REVConfig.sol";
 import {REVCroptopAllowedPost} from "./structs/REVCroptopAllowedPost.sol";
 import {REVDeploy721TiersHookConfig} from "./structs/REVDeploy721TiersHookConfig.sol";
-import {REVLoanSource} from "./structs/REVLoanSource.sol";
 import {REVStageConfig} from "./structs/REVStageConfig.sol";
 import {REVSuckerDeploymentConfig} from "./structs/REVSuckerDeploymentConfig.sol";
 
@@ -65,7 +62,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     // --------------------------- custom errors ------------------------- //
     //*********************************************************************//
 
-    error REVDeployer_LoanSourceDoesntMatchTerminalConfigurations(address token, address terminal);
     error REVDeployer_AutoIssuanceBeneficiaryZeroAddress();
     error REVDeployer_CashOutDelayNotFinished(uint256 cashOutDelay, uint256 blockTimestamp);
     error REVDeployer_CashOutsCantBeTurnedOffCompletely(uint256 cashOutTaxRate, uint256 maxCashOutTaxRate);
@@ -75,6 +71,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     error REVDeployer_StageNotStarted(uint256 stageId);
     error REVDeployer_StagesRequired();
     error REVDeployer_StageTimesMustIncrease();
+    error REVDeployer_NothingToBurn();
     error REVDeployer_Unauthorized(uint256 revnetId, address caller);
 
     //*********************************************************************//
@@ -94,9 +91,20 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @dev When suckers withdraw funds, they do not pay cash out fees.
     uint256 public constant override FEE = 25; // 2.5%
 
+    /// @notice The default Uniswap pool fee tier used when auto-configuring buyback pools.
+    /// @dev 10_000 = 1%. This is the standard fee tier for most project token pairs.
+    uint24 public constant DEFAULT_BUYBACK_POOL_FEE = 10_000;
+
+    /// @notice The default TWAP window used when auto-configuring buyback pools.
+    /// @dev 2 days provides robust manipulation resistance.
+    uint32 public constant DEFAULT_BUYBACK_TWAP_WINDOW = 2 days;
+
     //*********************************************************************//
     // --------------- public immutable stored properties ---------------- //
     //*********************************************************************//
+
+    /// @notice The buyback hook used as a data hook to route payments through buyback pools.
+    IJBRulesetDataHook public immutable override BUYBACK_HOOK;
 
     /// @notice The controller used to create and manage Juicebox projects for revnets.
     IJBController public immutable override CONTROLLER;
@@ -109,6 +117,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
 
     /// @notice Deploys tiered ERC-721 hooks for revnets.
     IJB721TiersHookDeployer public immutable override HOOK_DEPLOYER;
+
+    /// @notice The loan contract used by all revnets.
+    /// @dev Revnets can offer loans to their participants, collateralized by their tokens.
+    /// Participants can borrow up to the current cash out value of their tokens.
+    address public immutable override LOANS;
 
     /// @notice Stores Juicebox project (and revnet) access permissions.
     IJBPermissions public immutable override PERMISSIONS;
@@ -132,13 +145,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @custom:param revnetId The ID of the revnet to get the auto-mint amount for.
     /// @custom:param stageId The ID of the stage to get the auto-mint amount for.
     /// @custom:param beneficiary The beneficiary of the auto-mint.
-    mapping(uint256 revnetId => mapping(uint256 stageId => mapping(address beneficiary => uint256))) public override
-        amountToAutoIssue;
-
-    /// @notice Each revnet's buyback data hook. These return buyback hook data.
-    /// @dev Buyback hooks are a combined data hook/pay hook.
-    /// @custom:param revnetId The ID of the revnet to get the buyback data hook for.
-    mapping(uint256 revnetId => IJBRulesetDataHook buybackHook) public override buybackHookOf;
+    mapping(uint256 revnetId => mapping(uint256 stageId => mapping(address beneficiary => uint256)))
+        public
+        override amountToAutoIssue;
 
     /// @notice The timestamp of when cashouts will become available to a specific revnet's participants.
     /// @dev Only applies to existing revnets which are deploying onto a new network.
@@ -150,12 +159,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// omnichain operations.
     /// @custom:param revnetId The ID of the revnet to get the hashed encoded configuration for.
     mapping(uint256 revnetId => bytes32 hashedEncodedConfiguration) public override hashedEncodedConfigurationOf;
-
-    /// @notice Each revnet's loan contract.
-    /// @dev Revnets can offer loans to their participants, collateralized by their tokens.
-    /// Participants can borrow up to the current cash out value of their tokens.
-    /// @custom:param revnetId The ID of the revnet to get the loan contract of.
-    mapping(uint256 revnetId => address) public override loansOf;
 
     /// @notice Each revnet's tiered ERC-721 hook.
     /// @custom:param revnetId The ID of the revnet to get the tiered ERC-721 hook for.
@@ -181,6 +184,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @param feeRevnetId The Juicebox project ID of the revnet that will receive fees.
     /// @param hookDeployer The deployer to use for revnet's tiered ERC-721 hooks.
     /// @param publisher The croptop publisher revnets can use to publish ERC-721 posts to their tiered ERC-721 hooks.
+    /// @param buybackHook The buyback hook used as a data hook to route payments through buyback pools.
+    /// @param loans The loan contract used by all revnets.
     /// @param trustedForwarder The trusted forwarder for the ERC2771Context.
     constructor(
         IJBController controller,
@@ -188,6 +193,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         uint256 feeRevnetId,
         IJB721TiersHookDeployer hookDeployer,
         CTPublisher publisher,
+        IJBRulesetDataHook buybackHook,
+        address loans,
         address trustedForwarder
     )
         ERC2771Context(trustedForwarder)
@@ -200,9 +207,17 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         FEE_REVNET_ID = feeRevnetId;
         HOOK_DEPLOYER = hookDeployer;
         PUBLISHER = publisher;
+        BUYBACK_HOOK = buybackHook;
+        // slither-disable-next-line missing-zero-check
+        LOANS = loans;
 
         // Give the sucker registry permission to map tokens for all revnets.
-        _setPermission({operator: address(SUCKER_REGISTRY), revnetId: 0, permissionId: JBPermissionIds.MAP_SUCKER_TOKEN});
+        _setPermission({
+            operator: address(SUCKER_REGISTRY), revnetId: 0, permissionId: JBPermissionIds.MAP_SUCKER_TOKEN
+        });
+
+        // Give the loan contract permission to use the surplus allowance of all revnets.
+        _setPermission({operator: LOANS, revnetId: 0, permissionId: JBPermissionIds.USE_ALLOWANCE});
     }
 
     //*********************************************************************//
@@ -222,22 +237,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         override
         returns (uint256 weight, JBPayHookSpecification[] memory hookSpecifications)
     {
-        // Keep a reference to the specifications provided by the buyback data hook.
+        // Keep a reference to the specifications provided by the buyback hook.
         JBPayHookSpecification[] memory buybackHookSpecifications;
 
-        // Keep a reference to the revnet's buyback data hook.
-        IJBRulesetDataHook buybackHook = buybackHookOf[context.projectId];
-
-        // Read the weight and specifications from the buyback data hook.
-        // If there's no buyback data hook, use the default weight.
-        if (buybackHook != IJBRulesetDataHook(address(0))) {
-            (weight, buybackHookSpecifications) = buybackHook.beforePayRecordedWith(context);
-        } else {
-            weight = context.weight;
-        }
-
-        // Is there a buyback hook specification?
-        bool usesBuybackHook = buybackHookSpecifications.length == 1;
+        // Read the weight and specifications from the buyback hook.
+        (weight, buybackHookSpecifications) = BUYBACK_HOOK.beforePayRecordedWith(context);
 
         // Keep a reference to the revnet's tiered ERC-721 hook.
         IJB721TiersHook tiered721Hook = tiered721HookOf[context.projectId];
@@ -245,8 +249,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         // Is there a tiered ERC-721 hook?
         bool usesTiered721Hook = address(tiered721Hook) != address(0);
 
-        // Initialize the returned specification array with enough room to include the specifications we're using.
-        hookSpecifications = new JBPayHookSpecification[]((usesTiered721Hook ? 1 : 0) + (usesBuybackHook ? 1 : 0));
+        // Initialize the returned specification array.
+        hookSpecifications = new JBPayHookSpecification[]((usesTiered721Hook ? 1 : 0) + 1);
 
         // If we have a tiered ERC-721 hook, add it to the array.
         if (usesTiered721Hook) {
@@ -254,8 +258,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
                 JBPayHookSpecification({hook: IJBPayHook(address(tiered721Hook)), amount: 0, metadata: bytes("")});
         }
 
-        // If we have a buyback hook specification, add it to the end of the array.
-        if (usesBuybackHook) hookSpecifications[1] = buybackHookSpecifications[0];
+        // Add the buyback hook specification.
+        hookSpecifications[usesTiered721Hook ? 1 : 0] = buybackHookSpecifications[0];
     }
 
     /// @notice Determine how a cash out from a revnet should be processed.
@@ -292,7 +296,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         }
 
         // Get the terminal that will receive the cash out fee.
-        IJBTerminal feeTerminal = DIRECTORY.primaryTerminalOf(FEE_REVNET_ID, context.surplus.token);
+        IJBTerminal feeTerminal = DIRECTORY.primaryTerminalOf({projectId: FEE_REVNET_ID, token: context.surplus.token});
 
         // If there's no cash out tax (100% cash out tax rate), or if there's no fee terminal, do not charge a fee.
         if (context.cashOutTaxRate == 0 || address(feeTerminal) == address(0)) {
@@ -322,9 +326,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         // Assemble a cash out hook specification to invoke `afterCashOutRecordedWith(…)` with, to process the fee.
         hookSpecifications = new JBCashOutHookSpecification[](1);
         hookSpecifications[0] = JBCashOutHookSpecification({
-            hook: IJBCashOutHook(address(this)),
-            amount: feeAmount,
-            metadata: abi.encode(feeTerminal)
+            hook: IJBCashOutHook(address(this)), amount: feeAmount, metadata: abi.encode(feeTerminal)
         });
 
         // Return the cash out rate and the number of revnet tokens to cash out, minus the tokens being used to pay the
@@ -348,10 +350,10 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         override
         returns (bool)
     {
-        IJBRulesetDataHook buybackHook = buybackHookOf[revnetId];
-        // The buyback hook, loans contract, and suckers are allowed to mint the revnet's tokens.
-        return addr == loansOf[revnetId] || addr == address(buybackHook)
-            || buybackHook.hasMintPermissionFor(revnetId, ruleset, addr) || _isSuckerOf({revnetId: revnetId, addr: addr});
+        // The loans contract, buyback hook (and its delegates), and suckers are allowed to mint the revnet's tokens.
+        return addr == LOANS || addr == address(BUYBACK_HOOK)
+            || BUYBACK_HOOK.hasMintPermissionFor({projectId: revnetId, ruleset: ruleset, addr: addr})
+            || _isSuckerOf({revnetId: revnetId, addr: addr});
     }
 
     /// @dev Make sure this contract can only receive project NFTs from `JBProjects`.
@@ -397,7 +399,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @param revnetId The ID of the revnet to check split operator status for.
     /// @param operator The address being checked.
     function _checkIfIsSplitOperatorOf(uint256 revnetId, address operator) internal view {
-        if (!isSplitOperatorOf(revnetId, operator)) revert REVDeployer_Unauthorized(revnetId, operator);
+        if (!isSplitOperatorOf({revnetId: revnetId, addr: operator})) {
+            revert REVDeployer_Unauthorized(revnetId, operator);
+        }
     }
 
     /// @notice A flag indicating whether an address is a revnet's sucker.
@@ -405,52 +409,60 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @param addr The address being checked.
     /// @return isSucker A flag indicating whether the address is one of the revnet's suckers.
     function _isSuckerOf(uint256 revnetId, address addr) internal view returns (bool) {
-        return SUCKER_REGISTRY.isSuckerOf(revnetId, addr);
+        return SUCKER_REGISTRY.isSuckerOf({projectId: revnetId, addr: addr});
     }
 
-    /// @notice Initialize a fund access limit group for the loan contract to use.
-    /// @dev Returns an unlimited surplus allowance for each token which can be loaned out.
-    /// @param configuration The revnet's configuration.
+    /// @notice Initialize fund access limits for the loan contract and configure buyback pools for each terminal token.
+    /// @dev Returns an unlimited surplus allowance for each terminal+token pair derived from the terminal
+    /// configurations. Also auto-configures a buyback pool for each token with sensible defaults (1% fee, 2-day TWAP).
+    /// @param revnetId The ID of the revnet to configure buyback pools for.
     /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
     /// @return fundAccessLimitGroups The fund access limit groups for the loans.
-    function _makeLoanFundAccessLimits(
-        REVConfig calldata configuration,
+    function _makeLoanFundAccessLimitsAndBuybackPools(
+        uint256 revnetId,
         JBTerminalConfig[] calldata terminalConfigurations
     )
         internal
-        pure
         returns (JBFundAccessLimitGroup[] memory fundAccessLimitGroups)
     {
+        // Count the total number of accounting contexts across all terminals.
+        uint256 count;
+        for (uint256 i; i < terminalConfigurations.length; i++) {
+            count += terminalConfigurations[i].accountingContextsToAccept.length;
+        }
+
         // Initialize the fund access limit groups.
-        fundAccessLimitGroups = new JBFundAccessLimitGroup[](configuration.loanSources.length);
+        fundAccessLimitGroups = new JBFundAccessLimitGroup[](count);
 
-        // Set up the fund access limits for the loans.
-        for (uint256 i; i < configuration.loanSources.length; i++) {
-            // Set the loan source being iterated on.
-            REVLoanSource calldata loanSource = configuration.loanSources[i];
+        // Set up the fund access limits and buyback pools.
+        uint256 index;
+        for (uint256 i; i < terminalConfigurations.length; i++) {
+            JBTerminalConfig calldata terminalConfiguration = terminalConfigurations[i];
+            for (uint256 j; j < terminalConfiguration.accountingContextsToAccept.length; j++) {
+                JBAccountingContext calldata accountingContext = terminalConfiguration.accountingContextsToAccept[j];
 
-            // Keep a reference to the currency of the loan source.
-            uint32 currency =
-                _matchingCurrencyOf({terminalConfigurations: terminalConfigurations, loanSource: loanSource});
+                // Set up an unlimited allowance for the loan contract to use.
+                JBCurrencyAmount[] memory loanAllowances = new JBCurrencyAmount[](1);
+                loanAllowances[0] = JBCurrencyAmount({currency: accountingContext.currency, amount: type(uint224).max});
 
-            // If the currency is 0 it means the loan source doesn't match the terminal configurations.
-            if (currency == 0) {
-                revert REVDeployer_LoanSourceDoesntMatchTerminalConfigurations(
-                    loanSource.token, address(loanSource.terminal)
-                );
+                // Set up the fund access limits for the loans.
+                fundAccessLimitGroups[index++] = JBFundAccessLimitGroup({
+                    terminal: address(terminalConfiguration.terminal),
+                    token: accountingContext.token,
+                    payoutLimits: new JBCurrencyAmount[](0),
+                    surplusAllowances: loanAllowances
+                });
+
+                // Configure a buyback pool for this terminal token with default fee and TWAP window.
+                // slither-disable-next-line unused-return,calls-loop
+                IJBBuybackHook(address(BUYBACK_HOOK))
+                    .setPoolFor({
+                        projectId: revnetId,
+                        fee: DEFAULT_BUYBACK_POOL_FEE,
+                        twapWindow: DEFAULT_BUYBACK_TWAP_WINDOW,
+                        terminalToken: accountingContext.token
+                    });
             }
-
-            // Set up an unlimited allowance for the loan contract to use.
-            JBCurrencyAmount[] memory loanAllowances = new JBCurrencyAmount[](1);
-            loanAllowances[0] = JBCurrencyAmount({currency: currency, amount: type(uint224).max});
-
-            // Set up the fund access limits for the loans.
-            fundAccessLimitGroups[i] = JBFundAccessLimitGroup({
-                terminal: address(loanSource.terminal),
-                token: loanSource.token,
-                payoutLimits: new JBCurrencyAmount[](0),
-                surplusAllowances: loanAllowances
-            });
         }
     }
 
@@ -477,7 +489,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         metadata.allowOwnerMinting = true; // Allow this contract to auto-mint tokens as the revnet's owner.
         metadata.useDataHookForPay = true; // Call this contract's `beforePayRecordedWith(…)` callback on payments.
         metadata.useDataHookForCashOut = true; // Call this contract's `beforeCashOutRecordedWith(…)` callback on cash
-            // outs.
+        // outs.
         metadata.dataHook = address(this); // This contract is the data hook.
         metadata.metadata = stageConfiguration.extraMetadata;
 
@@ -495,34 +507,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             splitGroups: splitGroups,
             fundAccessLimitGroups: fundAccessLimitGroups
         });
-    }
-
-    /// @notice Returns the currency of the loan source, if a matching terminal configuration is found.
-    /// @param terminalConfigurations The terminals to check.
-    /// @param loanSource The loan source to check.
-    /// @return currency The currency of the loan source.
-    function _matchingCurrencyOf(
-        JBTerminalConfig[] calldata terminalConfigurations,
-        REVLoanSource calldata loanSource
-    )
-        internal
-        pure
-        returns (uint32)
-    {
-        for (uint256 i; i < terminalConfigurations.length; i++) {
-            JBTerminalConfig calldata terminalConfiguration = terminalConfigurations[i];
-            if (terminalConfiguration.terminal == loanSource.terminal) {
-                for (uint256 j; j < terminalConfiguration.accountingContextsToAccept.length; j++) {
-                    JBAccountingContext calldata accountingContext = terminalConfiguration.accountingContextsToAccept[j];
-                    if (accountingContext.token == loanSource.token) {
-                        return accountingContext.currency;
-                    }
-                }
-            }
-        }
-
-        // No currency found for the terminal and token combination.
-        return 0;
     }
 
     /// @notice Returns the next project ID.
@@ -544,17 +528,20 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         uint256[] memory customSplitOperatorPermissionIndexes = _extraOperatorPermissions[revnetId];
 
         // Make the array that merges the default and custom operator permissions.
-        allOperatorPermissions = new uint256[](6 + customSplitOperatorPermissionIndexes.length);
+        allOperatorPermissions = new uint256[](9 + customSplitOperatorPermissionIndexes.length);
         allOperatorPermissions[0] = JBPermissionIds.SET_SPLIT_GROUPS;
         allOperatorPermissions[1] = JBPermissionIds.SET_BUYBACK_POOL;
         allOperatorPermissions[2] = JBPermissionIds.SET_BUYBACK_TWAP;
         allOperatorPermissions[3] = JBPermissionIds.SET_PROJECT_URI;
         allOperatorPermissions[4] = JBPermissionIds.ADD_PRICE_FEED;
         allOperatorPermissions[5] = JBPermissionIds.SUCKER_SAFETY;
+        allOperatorPermissions[6] = JBPermissionIds.ADD_SWAP_TERMINAL_POOL;
+        allOperatorPermissions[7] = JBPermissionIds.SET_BUYBACK_HOOK;
+        allOperatorPermissions[8] = JBPermissionIds.SET_SWAP_TERMINAL;
 
         // Copy the custom permissions into the array.
         for (uint256 i; i < customSplitOperatorPermissionIndexes.length; i++) {
-            allOperatorPermissions[6 + i] = customSplitOperatorPermissionIndexes[i];
+            allOperatorPermissions[9 + i] = customSplitOperatorPermissionIndexes[i];
         }
     }
 
@@ -565,13 +552,13 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @notice Processes the fee from a cash out.
     /// @param context Cash out context passed in by the terminal.
     function afterCashOutRecordedWith(JBAfterCashOutRecordedContext calldata context) external payable {
+        // No caller validation needed — this hook only pays fees to the fee project using funds forwarded by the
+        // caller. A non-terminal caller would just be donating their own funds as fees. There's nothing to exploit.
+
         // If there's sufficient approval, transfer normally.
         if (context.forwardedAmount.token != JBConstants.NATIVE_TOKEN) {
-            IERC20(context.forwardedAmount.token).safeTransferFrom({
-                from: msg.sender,
-                to: address(this),
-                value: context.forwardedAmount.value
-            });
+            IERC20(context.forwardedAmount.token)
+                .safeTransferFrom({from: msg.sender, to: address(this), value: context.forwardedAmount.value});
         }
 
         // Parse the metadata forwarded from the data hook to get the fee terminal.
@@ -580,9 +567,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
 
         // Determine how much to pay in `msg.value` (in the native currency).
         uint256 payValue = _beforeTransferTo({
-            to: address(feeTerminal),
-            token: context.forwardedAmount.token,
-            amount: context.forwardedAmount.value
+            to: address(feeTerminal), token: context.forwardedAmount.token, amount: context.forwardedAmount.value
         });
 
         // Pay the fee.
@@ -595,20 +580,19 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             minReturnedTokens: 0,
             memo: "",
             metadata: bytes(abi.encodePacked(context.projectId))
-        }) {} catch (bytes memory) {
+        }) {}
+        catch (bytes memory) {
             // Decrease the allowance for the fee terminal if the token is not the native token.
             if (context.forwardedAmount.token != JBConstants.NATIVE_TOKEN) {
-                IERC20(context.forwardedAmount.token).safeDecreaseAllowance({
-                    spender: address(feeTerminal),
-                    requestedDecrease: context.forwardedAmount.value
-                });
+                IERC20(context.forwardedAmount.token)
+                    .safeDecreaseAllowance({
+                        spender: address(feeTerminal), requestedDecrease: context.forwardedAmount.value
+                    });
             }
 
             // If the fee can't be processed, return the funds to the project.
             payValue = _beforeTransferTo({
-                to: msg.sender,
-                token: context.forwardedAmount.token,
-                amount: context.forwardedAmount.value
+                to: msg.sender, token: context.forwardedAmount.token, amount: context.forwardedAmount.value
             });
 
             // slither-disable-next-line arbitrary-send-eth
@@ -629,7 +613,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @param beneficiary The address to auto-mint tokens to.
     function autoIssueFor(uint256 revnetId, uint256 stageId, address beneficiary) external override {
         // Get a reference to the ruleset for the stage.
-        (JBRuleset memory ruleset,) = CONTROLLER.getRulesetOf(revnetId, stageId);
+        // slither-disable-next-line unused-return
+        (JBRuleset memory ruleset,) = CONTROLLER.getRulesetOf({projectId: revnetId, rulesetId: stageId});
 
         // Make sure the stage has started.
         if (ruleset.start > block.timestamp) {
@@ -646,30 +631,28 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         amountToAutoIssue[revnetId][stageId][beneficiary] = 0;
 
         emit AutoIssue({
-            revnetId: revnetId,
-            stageId: stageId,
-            beneficiary: beneficiary,
-            count: count,
-            caller: _msgSender()
+            revnetId: revnetId, stageId: stageId, beneficiary: beneficiary, count: count, caller: _msgSender()
         });
 
         // Mint the tokens.
         // slither-disable-next-line unused-return
         CONTROLLER.mintTokensOf({
-            projectId: revnetId,
-            tokenCount: count,
-            beneficiary: beneficiary,
-            memo: "",
-            useReservedPercent: false
+            projectId: revnetId, tokenCount: count, beneficiary: beneficiary, memo: "", useReservedPercent: false
         });
     }
 
-    /// @notice Launch a revnet, or convert an existing Juicebox project into a revnet.
-    /// @param revnetId The ID of the Juicebox project to turn into a revnet. Send 0 to deploy a new revnet.
+    /// @notice Launch a revnet, or initialize an existing Juicebox project as a revnet.
+    /// @dev When initializing an existing project (revnetId != 0):
+    /// - The project must not yet have a controller or rulesets. `JBController.launchRulesetsFor` enforces this —
+    ///   it reverts if rulesets have already been launched, and `JBDirectory.setControllerOf` only allows setting the
+    ///   first controller. This means conversion only works for blank projects (just an ID with no on-chain state).
+    /// - This is useful in deploy scripts where the project ID is needed before configuration (e.g. for cross-chain
+    ///   sucker peer mappings): create the project first, then initialize it as a revnet here.
+    /// - Initialization is a one-way operation: the project's ownership NFT is permanently transferred to this
+    ///   REVDeployer, and the project becomes subject to immutable revnet rules. This cannot be undone.
+    /// @param revnetId The ID of the Juicebox project to initialize as a revnet. Send 0 to deploy a new revnet.
     /// @param configuration Core revnet configuration. See `REVConfig`.
     /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
-    /// @param buybackHookConfiguration The buyback hook and pools to set up for the revnet.
-    /// The buyback hook buys tokens from a Uniswap pool if minting new tokens would be more expensive.
     /// @param suckerDeploymentConfiguration The suckers to set up for the revnet. Suckers facilitate cross-chain
     /// token transfers between peer revnets on different networks.
     /// @return revnetId The ID of the newly created revnet.
@@ -677,7 +660,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         uint256 revnetId,
         REVConfig calldata configuration,
         JBTerminalConfig[] calldata terminalConfigurations,
-        REVBuybackHookConfig calldata buybackHookConfiguration,
         REVSuckerDeploymentConfig calldata suckerDeploymentConfiguration
     )
         external
@@ -693,9 +675,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
 
         // Normalize and encode the configurations.
         (JBRulesetConfig[] memory rulesetConfigurations, bytes32 encodedConfigurationHash) = _makeRulesetConfigurations({
-            revnetId: revnetId,
-            configuration: configuration,
-            terminalConfigurations: terminalConfigurations
+            revnetId: revnetId, configuration: configuration, terminalConfigurations: terminalConfigurations
         });
 
         // Deploy the revnet.
@@ -704,7 +684,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             shouldDeployNewRevnet: shouldDeployNewRevnet,
             configuration: configuration,
             terminalConfigurations: terminalConfigurations,
-            buybackHookConfiguration: buybackHookConfiguration,
             suckerDeploymentConfiguration: suckerDeploymentConfiguration,
             rulesetConfigurations: rulesetConfigurations,
             encodedConfigurationHash: encodedConfigurationHash
@@ -750,11 +729,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     }
 
     /// @notice Launch a revnet which sells tiered ERC-721s and (optionally) allows croptop posts to its ERC-721 tiers.
-    /// @param revnetId The ID of the Juicebox project to turn into a revnet. Send 0 to deploy a new revnet.
+    /// @dev When initializing an existing project (revnetId != 0), the project must be blank (no controller or
+    /// rulesets). The initialization is irreversible. See `deployFor` documentation for full details.
+    /// @param revnetId The ID of the Juicebox project to initialize as a revnet. Send 0 to deploy a new revnet.
     /// @param configuration Core revnet configuration. See `REVConfig`.
     /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
-    /// @param buybackHookConfiguration The buyback hook and pools to set up for the revnet.
-    /// The buyback hook buys tokens from a Uniswap pool if minting new tokens would be more expensive.
     /// @param suckerDeploymentConfiguration The suckers to set up for the revnet. Suckers facilitate cross-chain
     /// token transfers between peer revnets on different networks.
     /// @param tiered721HookConfiguration How to set up the tiered ERC-721 hook for the revnet.
@@ -765,7 +744,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         uint256 revnetId,
         REVConfig calldata configuration,
         JBTerminalConfig[] calldata terminalConfigurations,
-        REVBuybackHookConfig calldata buybackHookConfiguration,
         REVSuckerDeploymentConfig calldata suckerDeploymentConfiguration,
         REVDeploy721TiersHookConfig calldata tiered721HookConfiguration,
         REVCroptopAllowedPost[] calldata allowedPosts
@@ -787,13 +765,23 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             shouldDeployNewRevnet: shouldDeployNewRevnet,
             configuration: configuration,
             terminalConfigurations: terminalConfigurations,
-            buybackHookConfiguration: buybackHookConfiguration,
             suckerDeploymentConfiguration: suckerDeploymentConfiguration,
             tiered721HookConfiguration: tiered721HookConfiguration,
             allowedPosts: allowedPosts
         });
 
         return (revnetId, hook);
+    }
+
+    /// @notice Burn any of a revnet's tokens held by this contract.
+    /// @dev Project tokens can end up here from reserved token distribution when splits don't sum to 100%.
+    /// @param revnetId The ID of the revnet whose tokens should be burned.
+    function burnHeldTokensOf(uint256 revnetId) external override {
+        uint256 balance = CONTROLLER.TOKENS().totalBalanceOf({holder: address(this), projectId: revnetId});
+        if (balance == 0) revert REVDeployer_NothingToBurn();
+        CONTROLLER.burnTokensOf({holder: address(this), projectId: revnetId, tokenCount: balance, memo: ""});
+        // slither-disable-next-line reentrancy-events
+        emit BurnHeldTokens(revnetId, balance, _msgSender());
     }
 
     /// @notice Change a revnet's split operator.
@@ -808,10 +796,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
 
         // Remove operator permissions from the old split operator.
         _setPermissionsFor({
-            account: address(this),
-            operator: _msgSender(),
-            revnetId: revnetId,
-            permissionIds: new uint8[](0)
+            account: address(this), operator: _msgSender(), revnetId: revnetId, permissionIds: new uint8[](0)
         });
 
         // Set the new split operator.
@@ -841,8 +826,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// revnet.
     /// @param configuration Core revnet configuration. See `REVConfig`.
     /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
-    /// @param buybackHookConfiguration The buyback hook and pools to set up for the revnet.
-    /// The buyback hook buys tokens from a Uniswap pool if minting new tokens would be more expensive.
     /// @param suckerDeploymentConfiguration The suckers to set up for the revnet. Suckers facilitate cross-chain
     /// token transfers between peer revnets on different networks.
     /// @param tiered721HookConfiguration How to set up the tiered ERC-721 hook for the revnet.
@@ -853,7 +836,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         bool shouldDeployNewRevnet,
         REVConfig calldata configuration,
         JBTerminalConfig[] calldata terminalConfigurations,
-        REVBuybackHookConfig calldata buybackHookConfiguration,
         REVSuckerDeploymentConfig calldata suckerDeploymentConfiguration,
         REVDeploy721TiersHookConfig calldata tiered721HookConfiguration,
         REVCroptopAllowedPost[] calldata allowedPosts
@@ -863,9 +845,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     {
         // Normalize and encode the configurations.
         (JBRulesetConfig[] memory rulesetConfigurations, bytes32 encodedConfigurationHash) = _makeRulesetConfigurations({
-            revnetId: revnetId,
-            configuration: configuration,
-            terminalConfigurations: terminalConfigurations
+            revnetId: revnetId, configuration: configuration, terminalConfigurations: terminalConfigurations
         });
 
         // Deploy the tiered ERC-721 hook contract.
@@ -917,6 +897,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
                     minimumPrice: post.minimumPrice,
                     minimumTotalSupply: post.minimumTotalSupply,
                     maximumTotalSupply: post.maximumTotalSupply,
+                    maximumSplitPercent: post.maximumSplitPercent,
                     allowedAddresses: post.allowedAddresses
                 });
             }
@@ -926,9 +907,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
 
             // Give the croptop publisher permission to post new ERC-721 tiers on this contract's behalf.
             _setPermission({
-                operator: address(PUBLISHER),
-                revnetId: revnetId,
-                permissionId: JBPermissionIds.ADJUST_721_TIERS
+                operator: address(PUBLISHER), revnetId: revnetId, permissionId: JBPermissionIds.ADJUST_721_TIERS
             });
         }
 
@@ -937,21 +916,24 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             shouldDeployNewRevnet: shouldDeployNewRevnet,
             configuration: configuration,
             terminalConfigurations: terminalConfigurations,
-            buybackHookConfiguration: buybackHookConfiguration,
             suckerDeploymentConfiguration: suckerDeploymentConfiguration,
             rulesetConfigurations: rulesetConfigurations,
             encodedConfigurationHash: encodedConfigurationHash
         });
     }
 
-    /// @notice Deploy a revnet, or convert an existing Juicebox project into a revnet.
-    /// @param revnetId The ID of the Juicebox project to turn into a revnet. Send 0 to deploy a new revnet.
+    /// @notice Deploy a revnet, or initialize an existing Juicebox project as a revnet.
+    /// @dev When initializing an existing project (`shouldDeployNewRevnet == false`):
+    /// - The project must be blank — no controller or rulesets. This is enforced by `JBController.launchRulesetsFor`,
+    ///   which reverts if rulesets exist, and by `JBDirectory.setControllerOf`, which only allows setting the first
+    ///   controller. Without a controller, no tokens or terminals can exist, so the project is guaranteed to be
+    ///   uninitialized.
+    /// - The project's JBProjects NFT is permanently transferred to this contract. This is irreversible.
+    /// @param revnetId The ID of the Juicebox project to initialize as a revnet. Send 0 to deploy a new revnet.
     /// @param shouldDeployNewRevnet Whether to deploy a new revnet or convert an existing Juicebox project into a
     /// revnet.
     /// @param configuration Core revnet configuration. See `REVConfig`.
     /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
-    /// @param buybackHookConfiguration The buyback hook and pools to set up for the revnet.
-    /// The buyback hook buys tokens from a Uniswap pool if minting new tokens would be more expensive.
     /// @param suckerDeploymentConfiguration The suckers to set up for the revnet. Suckers facilitate cross-chain
     /// token transfers between peer revnets on different networks.
     /// @param rulesetConfigurations The rulesets to set up for the revnet.
@@ -963,7 +945,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         bool shouldDeployNewRevnet,
         REVConfig calldata configuration,
         JBTerminalConfig[] calldata terminalConfigurations,
-        REVBuybackHookConfig calldata buybackHookConfiguration,
         REVSuckerDeploymentConfig calldata suckerDeploymentConfiguration,
         JBRulesetConfig[] memory rulesetConfigurations,
         bytes32 encodedConfigurationHash
@@ -990,8 +971,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             // Make sure the caller is the owner of the Juicebox project.
             if (_msgSender() != owner) revert REVDeployer_Unauthorized(revnetId, _msgSender());
 
-            // If we're converting an existing Juicebox project into a revnet,
-            // transfer the `JBProjects` NFT to this deployer.
+            // Initialize the existing Juicebox project as a revnet by
+            // transferring the `JBProjects` NFT to this deployer. This is irreversible.
             IERC721(PROJECTS).safeTransferFrom({from: owner, to: address(this), tokenId: revnetId});
 
             // Launch the revnet rulesets for the pre-existing project.
@@ -1021,38 +1002,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             salt: keccak256(abi.encode(configuration.description.salt, encodedConfigurationHash, _msgSender()))
         });
 
-        // If specified, set up the buyback hook.
-        if (buybackHookConfiguration.dataHook != IJBRulesetDataHook(address(0))) {
-            // Store the buyback hook.
-            buybackHookOf[revnetId] = buybackHookConfiguration.dataHook;
-
-            if (buybackHookConfiguration.hookToConfigure != IJBBuybackHook(address(0))) {
-                for (uint256 i; i < buybackHookConfiguration.poolConfigurations.length; i++) {
-                    // Set the pool being iterated on.
-                    REVBuybackPoolConfig calldata poolConfig = buybackHookConfiguration.poolConfigurations[i];
-
-                    // Register the pool within the buyback contract.
-                    // slither-disable-next-line unused-return
-                    buybackHookConfiguration.hookToConfigure.setPoolFor({
-                        projectId: revnetId,
-                        fee: poolConfig.fee,
-                        twapWindow: poolConfig.twapWindow,
-                        terminalToken: poolConfig.token
-                    });
-                }
-            }
-        }
-
-        // If specified, set up the loan contract.
-        if (configuration.loans != address(0)) {
-            _setPermission({
-                operator: address(configuration.loans),
-                revnetId: revnetId,
-                permissionId: JBPermissionIds.USE_ALLOWANCE
-            });
-            loansOf[revnetId] = configuration.loans;
-        }
-
         // Give the split operator their permissions.
         _setSplitOperatorOf({revnetId: revnetId, operator: configuration.splitOperator});
 
@@ -1072,7 +1021,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             revnetId: revnetId,
             configuration: configuration,
             terminalConfigurations: terminalConfigurations,
-            buybackHookConfiguration: buybackHookConfiguration,
             suckerDeploymentConfiguration: suckerDeploymentConfiguration,
             rulesetConfigurations: rulesetConfigurations,
             encodedConfigurationHash: encodedConfigurationHash,
@@ -1080,8 +1028,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         });
     }
 
-    /// @notice Deploy suckers for a revnet.
-    /// @param revnetId The ID of the revnet to deploy suckers for.
     /// @param encodedConfigurationHash A hash that represents the revnet's configuration.
     /// See `_makeRulesetConfigurations(…)` for encoding details. Clients can read the encoded configuration
     /// from the `DeployRevnet` event emitted by this contract.
@@ -1111,6 +1057,13 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     }
 
     /// @notice Convert a revnet's stages into a series of Juicebox project rulesets.
+    /// @dev Stage transitions affect outstanding loan health. When a new stage activates, parameters such as
+    /// `cashOutTaxRate` and `weight` change, which directly impact the borrowable amount calculated by
+    /// `REVLoans._borrowableAmountFrom`. Loans originated under a previous stage's parameters may become
+    /// under-collateralized if the new stage has a higher `cashOutTaxRate` (reducing the borrowable amount per unit
+    /// of collateral) or lower issuance weight (reducing the surplus-per-token ratio). Borrowers should monitor
+    /// upcoming stage transitions and adjust their positions accordingly, as loans that fall below their required
+    /// collateralization may become eligible for liquidation.
     /// @param revnetId The ID of the revnet to make rulesets for.
     /// @param configuration The configuration containing the revnet's stages.
     /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
@@ -1134,15 +1087,15 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         // Add the base configuration to the byte-encoded configuration.
         bytes memory encodedConfiguration = abi.encode(
             configuration.baseCurrency,
-            configuration.loans,
             configuration.description.name,
             configuration.description.ticker,
             configuration.description.salt
         );
 
-        // Initialize fund access limit groups for the loan contract to use.
-        JBFundAccessLimitGroup[] memory fundAccessLimitGroups =
-            _makeLoanFundAccessLimits({configuration: configuration, terminalConfigurations: terminalConfigurations});
+        // Initialize fund access limit groups for the loan contract and configure buyback pools.
+        JBFundAccessLimitGroup[] memory fundAccessLimitGroups = _makeLoanFundAccessLimitsAndBuybackPools({
+            revnetId: revnetId, terminalConfigurations: terminalConfigurations
+        });
 
         // Iterate through each stage to set up its ruleset.
         for (uint256 i; i < configuration.stageConfigurations.length; i++) {
@@ -1202,12 +1155,14 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
                 // If there's nothing to auto-mint, continue.
                 if (autoIssuance.count == 0) continue;
 
-                encodedConfiguration =
-                    abi.encode(encodedConfiguration, autoIssuance.chainId, autoIssuance.beneficiary, autoIssuance.count);
+                encodedConfiguration = abi.encode(
+                    encodedConfiguration, autoIssuance.chainId, autoIssuance.beneficiary, autoIssuance.count
+                );
 
                 // If the issuance config is for another chain, skip it.
                 if (autoIssuance.chainId != block.chainid) continue;
 
+                // slither-disable-next-line reentrancy-events
                 emit StoreAutoIssuanceAmount({
                     revnetId: revnetId,
                     stageId: block.timestamp + i,
@@ -1219,7 +1174,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
                 // Store the amount of tokens that can be auto-minted on this chain during this stage.
                 // The first stage ID is stored at this block's timestamp,
                 // and further stage IDs have incrementally increasing IDs
-                // slither-disable-next-line reentrancy-events
+                // slither-disable-next-line reentrancy-benign
                 amountToAutoIssue[revnetId][block.timestamp + i][autoIssuance.beneficiary] += autoIssuance.count;
             }
         }
@@ -1257,10 +1212,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
 
         // Give the operator the permission.
         _setPermissionsFor({
-            account: address(this),
-            operator: operator,
-            revnetId: revnetId,
-            permissionIds: permissionsIds
+            account: address(this), operator: operator, revnetId: revnetId, permissionIds: permissionsIds
         });
     }
 
@@ -1299,10 +1251,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         }
 
         _setPermissionsFor({
-            account: address(this),
-            operator: operator,
-            revnetId: revnetId,
-            permissionIds: permissionIds
+            account: address(this), operator: operator, revnetId: revnetId, permissionIds: permissionIds
         });
     }
 }
