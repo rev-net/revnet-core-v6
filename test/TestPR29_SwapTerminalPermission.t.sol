@@ -168,16 +168,17 @@ contract TestPR29_SwapTerminalPermission is TestBaseWorkflow, JBTest {
         assertTrue(hasSwapTerminal, "Split operator should have SET_SWAP_TERMINAL permission");
     }
 
-    /// @notice Verify all 8 default permissions are present for the split operator.
+    /// @notice Verify all 9 default permissions are present for the split operator.
     function test_allDefaultPermissionsPresent() public view {
-        // All 8 default permissions that should be granted
-        uint256[8] memory expectedPermissions = [
+        // All 9 default permissions that should be granted
+        uint256[9] memory expectedPermissions = [
             uint256(JBPermissionIds.SET_SPLIT_GROUPS),
             uint256(JBPermissionIds.SET_BUYBACK_POOL),
             uint256(JBPermissionIds.SET_BUYBACK_TWAP),
             uint256(JBPermissionIds.SET_PROJECT_URI),
             uint256(JBPermissionIds.ADD_PRICE_FEED),
             uint256(JBPermissionIds.SUCKER_SAFETY),
+            uint256(JBPermissionIds.ADD_SWAP_TERMINAL_POOL),
             uint256(JBPermissionIds.SET_BUYBACK_HOOK),
             uint256(JBPermissionIds.SET_SWAP_TERMINAL)
         ];
