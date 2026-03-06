@@ -241,7 +241,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
 
         // Stage 1 starts at block.timestamp + 180 days.
         // Try to claim it now (before it starts).
-        vm.expectRevert(abi.encodeWithSelector(REVDeployer.REVDeployer_StageNotStarted.selector, stageIds[1]));
+        vm.expectRevert(REVDeployer.REVDeployer_StageNotStarted.selector);
         REV_DEPLOYER.autoIssueFor(revnetId, stageIds[1], multisig());
     }
 
