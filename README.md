@@ -6,16 +6,7 @@ Deploy and operate Revnets: unowned Juicebox projects that run autonomously acco
 
 ## What is a Revnet?
 
-A Revnet is a Retailistic network -- a treasury-backed token that runs itself. No owners, no governors, no multisigs. Once deployed, a revnet follows its predefined stages forever, backed by the Juicebox and Uniswap protocols.
-
-For a Retailism TLDR, see [Retailism](https://jango.eth.sucks/9E01E72C-6028-48B7-AD04-F25393307132/).
-
-For more Retailism information, see:
-
-- [A Retailistic View on CAC and LTV](https://jango.eth.limo/572BD957-0331-4977-8B2D-35F84D693276/)
-- [Modeling Retailism](https://jango.eth.limo/B762F3CC-AEFE-4DE0-B08C-7C16400AF718/)
-- [Retailism for Devs, Investors, and Customers](https://jango.eth.limo/3EB05292-0376-4B7D-AFCF-042B70673C3D/)
-- [Observations: Network dynamics similar between atoms, cells, organisms, groups, dance parties](https://jango.eth.limo/CF40F5D2-7BFE-43A3-9C15-1C6547FBD15C/)
+A Revnet is a treasury-backed token that runs itself. No owners, no governors, no multisigs. Once deployed, a revnet follows its predefined stages forever, backed by the Juicebox and Uniswap protocols.
 
 ## Conceptual Overview
 
