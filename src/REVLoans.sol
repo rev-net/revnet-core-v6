@@ -344,7 +344,11 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         // Get a refeerence to the collateral being used to secure loans.
         uint256 totalCollateral = totalCollateralOf[revnetId];
 
-        // Proportional.
+        // Proportional — uses the CURRENT stage's cashOutTaxRate.
+        // NOTE: When a revnet transitions between stages with different cashOutTaxRate values, the borrowable amount
+        // for the same collateral changes. A lower cashOutTaxRate in a later stage means more borrowable value per
+        // collateral. This is by design: loan value tracks the current bonding curve parameters, just as cash-out
+        // value does. Borrowers benefit from decreasing tax rates and are constrained by increasing ones.
         return JBCashOuts.cashOutFrom({
             surplus: totalSurplus + totalBorrowed,
             cashOutCount: collateralCount,
