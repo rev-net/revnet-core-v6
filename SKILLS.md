@@ -1,4 +1,4 @@
-# revnet-core
+# Revnet Core
 
 ## Purpose
 
