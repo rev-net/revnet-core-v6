@@ -1,4 +1,4 @@
-# revnet-core
+# Revnet Core
 
 Deploy and operate Revnets: unowned Juicebox projects that run autonomously according to predefined stages, with built-in token-collateralized loans.
 
