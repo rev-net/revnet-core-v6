@@ -32,7 +32,7 @@ import {JBTokenAmount} from "@bananapus/core-v6/src/structs/JBTokenAmount.sol";
 import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
 
 /// @notice Tests for PR #22: fix/c2-hook-array-oob
-/// Verifies that the fix for the C-2 hook array out-of-bounds bug works correctly.
+/// Verifies that the fix for the hook array out-of-bounds bug works correctly.
 /// The bug: `hookSpecifications[1] = buybackHookSpecifications[0]` would revert with OOB
 /// when there is no tiered 721 hook (array size is 1, not 2).
 /// The fix: `hookSpecifications[usesTiered721Hook ? 1 : 0] = buybackHookSpecifications[0]`.

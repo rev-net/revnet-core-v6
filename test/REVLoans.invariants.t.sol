@@ -583,7 +583,7 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow, JBTest {
         return LOANS_CONTRACT.totalBorrowedFrom(_revnetId, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
     }
 
-    /// @notice INV-RL-3: loan.amount <= type(uint112).max for all active loans (C-1 regression).
+    /// @notice INV-RL-3: loan.amount <= type(uint112).max for all active loans.
     /// @dev Verifies that no loan amount exceeds the uint112 storage boundary.
     function invariant_C_LoanAmountFitsUint112() public view {
         if (PAY_HANDLER.RUNS() == 0) return;

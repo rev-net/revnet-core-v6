@@ -35,7 +35,7 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @notice A malicious terminal that re-enters REVLoans during fee payment in _adjust().
-/// @dev Used to prove C-3: reentrancy during pay() callback in _adjust.
+/// @dev Reentrancy during pay() callback in _adjust.
 contract ReentrantTerminal is ERC165, IJBPayoutTerminal {
     IREVLoans public loans;
     uint256 public revnetId;
@@ -174,7 +174,7 @@ struct AttackProjectConfig {
 }
 
 /// @title REVLoansAttacks
-/// @notice Attack tests for REVLoans covering C-1 uint112 truncation, C-3 reentrancy,
+/// @notice Attack tests for REVLoans covering uint112 truncation, reentrancy,
 ///         collateral race conditions, liquidation edge cases, and fuzz testing.
 contract REVLoansAttacks is TestBaseWorkflow, JBTest {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
@@ -412,10 +412,10 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
     }
 
     // =========================================================================
-    // C-1: uint112 truncation — loan amount silently wraps
+    // uint112 truncation — loan amount silently wraps
     // =========================================================================
     /// @notice Verify that borrowing an amount > uint112.max is properly handled.
-    /// @dev C-1: The _adjust function casts newBorrowAmount to uint112 without overflow checks.
+    /// @dev The _adjust function casts newBorrowAmount to uint112 without overflow checks.
     ///      If borrowAmount exceeds uint112.max, it silently truncates. This test verifies the behavior.
     function test_uint112Truncation_loanAmountSilentlyTruncates() public {
         // uint112.max = 5192296858534827628530496329220095
@@ -449,10 +449,10 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
     }
 
     // =========================================================================
-    // C-1 variant: collateral > uint112.max wraps
+    // collateral > uint112.max wraps
     // =========================================================================
     /// @notice Verify that collateral > uint112.max would be truncated in the loan struct.
-    /// @dev C-1 variant: loan.collateral = uint112(newCollateralCount) truncates silently.
+    /// @dev loan.collateral = uint112(newCollateralCount) truncates silently.
     function test_uint112Truncation_collateralTruncates() public {
         // Verify the truncation math
         uint256 maxCollateral = type(uint112).max;
@@ -476,10 +476,10 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
     }
 
     // =========================================================================
-    // C-3: reentrancy — _adjust calls terminal.pay() which could re-enter
+    // reentrancy — _adjust calls terminal.pay() which could re-enter
     // =========================================================================
     /// @notice Verify that reentrancy during _adjust's fee payment is handled.
-    /// @dev C-3: The _adjust function calls loan.source.terminal.pay() to pay fees.
+    /// @dev The _adjust function calls loan.source.terminal.pay() to pay fees.
     ///      A malicious terminal could use this callback to re-enter borrowFrom().
     ///      Since Solidity 0.8.23 doesn't have native reentrancy guards on REVLoans,
     ///      the state (loan.amount, loan.collateral) is written AFTER the external call.
@@ -508,14 +508,14 @@ contract REVLoansAttacks is TestBaseWorkflow, JBTest {
         // This is a checks-effects-interactions violation.
         // The loan amount and collateral are read from storage during _borrowAmountFrom,
         // so a re-entrant call would see stale values.
-        assertTrue(true, "C-3: reentrancy window confirmed between terminal.pay() and state writes");
+        assertTrue(true, "reentrancy window confirmed between terminal.pay() and state writes");
     }
 
     // =========================================================================
-    // C-3 variant: re-enter repayLoan during fee payment
+    // re-enter repayLoan during fee payment
     // =========================================================================
     /// @notice Verify that reentering repayLoan during _adjust's fee payment is handled.
-    /// @dev C-3 variant: malicious terminal calls repayLoan() during fee payment.
+    /// @dev Malicious terminal calls repayLoan() during fee payment.
     function test_reentrancy_adjustRepayReenter() public {
         // Similar to above, but the re-entrant call targets repayLoan instead of borrowFrom.
         // The concern is that during _adjust → terminal.pay(), a call to repayLoan
