@@ -12,7 +12,7 @@ import "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
 import "@bananapus/721-hook-v6/script/helpers/Hook721DeploymentLib.sol";
 import "@bananapus/suckers-v6/script/helpers/SuckerDeploymentLib.sol";
 import "@croptop/core-v6/script/helpers/CroptopDeploymentLib.sol";
-import "@bananapus/swap-terminal-v6/script/helpers/SwapTerminalDeploymentLib.sol";
+import "@bananapus/router-terminal-v6/script/helpers/RouterTerminalDeploymentLib.sol";
 
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBFees} from "@bananapus/core-v6/src/libraries/JBFees.sol";

@@ -5,7 +5,7 @@ import "@bananapus/721-hook-v6/script/helpers/Hook721DeploymentLib.sol";
 import "@bananapus/buyback-hook-v6/script/helpers/BuybackDeploymentLib.sol";
 import "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
 import "@bananapus/suckers-v6/script/helpers/SuckerDeploymentLib.sol";
-import "@bananapus/swap-terminal-v6/script/helpers/SwapTerminalDeploymentLib.sol";
+import "@bananapus/router-terminal-v6/script/helpers/RouterTerminalDeploymentLib.sol";
 import "@croptop/core-v6/script/helpers/CroptopDeploymentLib.sol";
 
 import {Sphinx} from "@sphinx-labs/contracts/SphinxPlugin.sol";
@@ -48,8 +48,8 @@ contract DeployScript is Script, Sphinx {
     Hook721Deployment hook;
     /// @notice tracks the deployment of the sucker contracts for the chain we are deploying to.
     SuckerDeployment suckers;
-    /// @notice tracks the deployment of the swap terminal.
-    SwapTerminalDeployment swapTerminal;
+    /// @notice tracks the deployment of the router terminal.
+    RouterTerminalDeployment routerTerminal;
 
     uint32 PREMINT_CHAIN_ID = 1;
     string NAME = "Revnet";
@@ -103,10 +103,11 @@ contract DeployScript is Script, Sphinx {
         hook = Hook721DeploymentLib.getDeployment(
             vm.envOr("NANA_721_DEPLOYMENT_PATH", string("node_modules/@bananapus/721-hook-v6/deployments/"))
         );
-        // Get the deployment addresses for the 721 hook contracts for this chain.
-        swapTerminal = SwapTerminalDeploymentLib.getDeployment(
+        // Get the deployment addresses for the router terminal contracts for this chain.
+        routerTerminal = RouterTerminalDeploymentLib.getDeployment(
             vm.envOr(
-                "NANA_SWAP_TERMINAL_DEPLOYMENT_PATH", string("node_modules/@bananapus/swap-terminal-v6/deployments/")
+                "NANA_ROUTER_TERMINAL_DEPLOYMENT_PATH",
+                string("node_modules/@bananapus/router-terminal-v6/deployments/")
             )
         );
         // Get the deployment addresses for the 721 hook contracts for this chain.
@@ -137,7 +138,7 @@ contract DeployScript is Script, Sphinx {
         terminalConfigurations[0] =
             JBTerminalConfig({terminal: core.terminal, accountingContextsToAccept: accountingContextsToAccept});
         terminalConfigurations[1] = JBTerminalConfig({
-            terminal: IJBTerminal(address(swapTerminal.native_registry)),
+            terminal: IJBTerminal(address(routerTerminal.registry)),
             accountingContextsToAccept: new JBAccountingContext[](0)
         });
 
