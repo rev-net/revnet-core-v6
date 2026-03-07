@@ -21,7 +21,7 @@
         "@bananapus/core-v6": "^0.0.4",
         "@bananapus/permission-ids-v6": "^0.0.2",
         "@bananapus/suckers-v6": "^0.0.1",
-        "@bananapus/router-terminal-v6": "github:Bananapus/nana-router-terminal-v6#chore/add-deploy-script",
+        "@bananapus/router-terminal-v6": "^0.0.2",
         "@croptop/core-v6": "^0.0.3",
         "@openzeppelin/contracts": "^5.2.0"
     },
