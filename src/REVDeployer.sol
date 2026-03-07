@@ -249,8 +249,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         // Is there a tiered ERC-721 hook?
         bool usesTiered721Hook = address(tiered721Hook) != address(0);
 
-        // Initialize the returned specification array.
-        hookSpecifications = new JBPayHookSpecification[]((usesTiered721Hook ? 1 : 0) + 1);
+        // Did the buyback hook return any specifications? (It won't when direct minting is cheaper than swapping.)
+        bool usesBuybackHook = buybackHookSpecifications.length > 0;
+
+        // Initialize the returned specification array with only the hooks that are present.
+        hookSpecifications = new JBPayHookSpecification[]((usesTiered721Hook ? 1 : 0) + (usesBuybackHook ? 1 : 0));
 
         // If we have a tiered ERC-721 hook, add it to the array.
         if (usesTiered721Hook) {
@@ -258,8 +261,10 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
                 JBPayHookSpecification({hook: IJBPayHook(address(tiered721Hook)), amount: 0, metadata: bytes("")});
         }
 
-        // Add the buyback hook specification.
-        hookSpecifications[usesTiered721Hook ? 1 : 0] = buybackHookSpecifications[0];
+        // Add the buyback hook specification if present.
+        if (usesBuybackHook) {
+            hookSpecifications[usesTiered721Hook ? 1 : 0] = buybackHookSpecifications[0];
+        }
     }
 
     /// @notice Determine how a cash out from a revnet should be processed.
