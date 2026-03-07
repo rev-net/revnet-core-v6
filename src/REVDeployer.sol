@@ -253,8 +253,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         bool usesBuybackHook = buybackHookSpecifications.length > 0;
 
         // Initialize the returned specification array with only the hooks that are present.
-        hookSpecifications =
-            new JBPayHookSpecification[]((usesTiered721Hook ? 1 : 0) + (usesBuybackHook ? 1 : 0));
+        hookSpecifications = new JBPayHookSpecification[]((usesTiered721Hook ? 1 : 0) + (usesBuybackHook ? 1 : 0));
 
         // If we have a tiered ERC-721 hook, add it to the array.
         if (usesTiered721Hook) {
