@@ -29,7 +29,7 @@ import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressReg
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 
 /// @notice Regression tests for REVDeployer.
-contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
+contract REVDeployerRegressions_Local is TestBaseWorkflow, JBTest {
     using JBRulesetMetadataResolver for JBRuleset;
 
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";

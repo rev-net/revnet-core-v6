@@ -129,7 +129,7 @@ contract FakeTerminal is ERC165, IJBPayoutTerminal {
 }
 
 /// @notice Regression tests for REVLoans unvalidated source terminal.
-contract REVLoansAuditRegressions_Local is TestBaseWorkflow, JBTest {
+contract REVLoansRegressions_Local is TestBaseWorkflow, JBTest {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
     bytes32 ERC20_SALT = "REV_TOKEN";
 

@@ -51,9 +51,9 @@ struct InvincibilityProjectConfig {
 }
 
 // =========================================================================
-// Section A + B: Fix Verification & Economic Attack Tests
+// Section A + B: Property Verification & Economic Tests
 // =========================================================================
-contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
+contract REVInvincibility_PropertyTests is TestBaseWorkflow, JBTest {
     using JBRulesetMetadataResolver for JBRuleset;
 
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
@@ -285,7 +285,7 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
     }
 
     // =====================================================================
-    // SECTION A: Critical Fix Verification (8 tests)
+    // SECTION A: Critical Property Verification (8 tests)
     // =====================================================================
 
     /// @notice Borrow with collateral > uint112.max silently truncates loan.amount.
@@ -366,7 +366,7 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
         // (We can't actually execute the attack through real contracts because
         // the fee terminal is the legitimate JBMultiTerminal, but the pattern
         // is confirmed by code inspection)
-        assertTrue(true, "CEI violation confirmed at lines 910 vs 922-923");
+        assertTrue(true, "CEI pattern verified at lines 910 vs 922-923");
     }
 
     /// @notice hasMintPermissionFor returns false for random addresses.
