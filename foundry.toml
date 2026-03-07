@@ -1,5 +1,5 @@
 [profile.default]
-solc = '0.8.23'
+solc = '0.8.26'
 evm_version = 'paris'
 optimizer_runs = 500
 libs = ["node_modules", "lib"]
@@ -16,6 +16,9 @@ runs = 4096
 runs = 1024
 depth = 100
 fail_on_revert = false
+
+[lint]
+lint_on_build = false
 
 [fmt]
 number_underscore = "thousands"

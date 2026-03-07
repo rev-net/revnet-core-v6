@@ -1,12 +1,13 @@
 {
     "name": "@rev-net/core-v6",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "license": "MIT",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/rev-net/revnet-core-v6"
     },
     "scripts": {
+        "postinstall": "find node_modules -name '*.sol' -type f | xargs grep -l 'pragma solidity 0.8.23;' 2>/dev/null | xargs sed -i '' 's/pragma solidity 0.8.23;/pragma solidity 0.8.26;/g' 2>/dev/null || true",
         "test": "forge test",
         "coverage:integration": "forge coverage --match-path \"./src/*.sol\" --report lcov --report summary",
         "deploy:mainnets": "source ./.env && export START_TIME=$(date +%s) && npx sphinx propose ./script/Deploy.s.sol --networks mainnets",
