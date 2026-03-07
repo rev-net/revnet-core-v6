@@ -30,7 +30,7 @@ import {JBBeforePayRecordedContext} from "@bananapus/core-v6/src/structs/JBBefor
 import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
 import {JBTokenAmount} from "@bananapus/core-v6/src/structs/JBTokenAmount.sol";
 
-/// @notice Regression tests for the empty buyback hook specifications fix (C-0).
+/// @notice Regression tests for the empty buyback hook specifications fix.
 /// When JBBuybackHook determines minting is cheaper than swapping, it returns an empty
 /// hookSpecifications array. Before the fix, REVDeployer.beforePayRecordedWith would
 /// Panic(0x32) (array out-of-bounds) when accessing buybackHookSpecifications[0].

@@ -60,7 +60,7 @@ contract ReentrantBorrower {
 }
 
 /// @title TestPR27_CEIPattern
-/// @notice Tests for PR #27 — C-3 CEI pattern fix in REVLoans._adjust()
+/// @notice Tests for CEI pattern fix in REVLoans._adjust()
 ///
 /// SOURCE VERIFICATION (confirmed by reading _addTo/_removeFrom/_addCollateralTo/_returnCollateralFrom):
 ///   - _addTo(REVLoan memory, ..., uint256 addedBorrowAmount, ...) — memory copy, uses delta param

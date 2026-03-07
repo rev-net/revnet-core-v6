@@ -28,7 +28,7 @@ import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStor
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 
-/// @notice Audit regression tests for REVDeployer findings C-2, C-4, and H-5.
+/// @notice Regression tests for REVDeployer.
 contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
     using JBRulesetMetadataResolver for JBRuleset;
 
@@ -87,13 +87,13 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
     }
 
     //*********************************************************************//
-    // --- [C-2] REVDeployer.beforePayRecordedWith Array OOB Regression - //
+    // --- REVDeployer.beforePayRecordedWith Array OOB Regression ------- //
     //*********************************************************************//
 
-    /// @notice Tests that the C-2 array OOB pattern manifests when only buybackHook is present.
+    /// @notice Tests that the array OOB pattern manifests when only buybackHook is present.
     /// @dev REVDeployer line 258: hookSpecifications[1] = buybackHookSpecifications[0]
     ///      always writes to index [1], even when the array has size 1 (no tiered721Hook).
-    function test_C2_arrayOOB_onlyBuybackHook() public pure {
+    function test_arrayOOB_onlyBuybackHook() public pure {
         // Simulate: usesTiered721Hook=false, usesBuybackHook=true
         bool usesTiered721Hook = false;
         bool usesBuybackHook = true;
@@ -107,18 +107,18 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
         // Index [1] WOULD be written by the bug, but that's OOB
         // Verify the pattern: writing to index 1 of a size-1 array should revert
         bool wouldRevert = (!usesTiered721Hook && usesBuybackHook);
-        assertTrue(wouldRevert, "C-2: this combination triggers the OOB bug");
+        assertTrue(wouldRevert, "this combination triggers the OOB bug");
 
         // Verify the safe index: the buyback hook should go at index 0 when no tiered hook
         uint256 correctIndex = usesTiered721Hook ? 1 : 0;
-        assertEq(correctIndex, 0, "C-2 FIX: buyback hook should use index 0 when no tiered hook");
+        assertEq(correctIndex, 0, "buyback hook should use index 0 when no tiered hook");
 
         // Write to the correct index (no revert)
         specs[correctIndex] = JBPayHookSpecification({hook: IJBPayHook(address(0xbeef)), amount: 1 ether, metadata: ""});
     }
 
     /// @notice Verify both hooks present works fine (no OOB).
-    function test_C2_noOOB_bothHooksPresent() public pure {
+    function test_noOOB_bothHooksPresent() public pure {
         bool usesTiered721Hook = true;
         bool usesBuybackHook = true;
 
@@ -131,13 +131,13 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
     }
 
     //*********************************************************************//
-    // --- [C-4] hasMintPermissionFor returns false for random addresses - //
+    // --- hasMintPermissionFor returns false for random addresses ------- //
     //*********************************************************************//
 
     /// @notice Tests that calling hasMintPermissionFor returns false for random addresses.
     /// @dev With the buyback hook removed, hasMintPermissionFor should return false
     ///      for addresses that are not the loans contract or a sucker.
-    function test_C4_hasMintPermissionFor_noBuybackHook() public {
+    function test_hasMintPermissionFor_noBuybackHook() public {
         // Deploy a revnet WITHOUT a buyback hook
         JBAccountingContext[] memory accountingContextsToAccept = new JBAccountingContext[](1);
         accountingContextsToAccept[0] = JBAccountingContext({
@@ -191,17 +191,17 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
         // With buyback hook removed, hasMintPermissionFor should return false
         // for addresses that are not the loans contract or a sucker.
         bool hasPerm = REV_DEPLOYER.hasMintPermissionFor(revnetId, currentRuleset, someRandomAddr);
-        assertFalse(hasPerm, "C-4: random address should not have mint permission");
+        assertFalse(hasPerm, "random address should not have mint permission");
     }
 
     //*********************************************************************//
-    // --- [H-5] Auto-Issuance Stage ID Mismatch ----------------------- //
+    // --- Auto-Issuance Stage ID Mismatch ------------------------------ //
     //*********************************************************************//
 
     /// @notice Tests that auto-issuance stage IDs are computed correctly for multi-stage revnets.
-    /// @dev H-5: The stage ID is computed as `block.timestamp + i` which only works if stages
+    /// @dev The stage ID is computed as `block.timestamp + i` which only works if stages
     ///      are deployed in a specific order at a specific time.
-    function test_H5_autoIssuanceStageIdMismatch() public {
+    function test_autoIssuanceStageIdMismatch() public {
         JBAccountingContext[] memory accountingContextsToAccept = new JBAccountingContext[](1);
         accountingContextsToAccept[0] = JBAccountingContext({
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
@@ -241,7 +241,7 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
             });
         }
 
-        // Stage 1: also has auto-issuance — this is where H-5 manifests
+        // Stage 1: also has auto-issuance — this is where the mismatch manifests
         {
             REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
             issuanceConfs[0] = REVAutoIssuance({
@@ -294,7 +294,7 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
         // Verify the revnet was deployed
         assertGt(revnetId, 0, "revnet should be deployed");
 
-        // The H-5 bug: auto-issuance for stage 1 is stored at key (block.timestamp + 1),
+        // The bug: auto-issuance for stage 1 is stored at key (block.timestamp + 1),
         // but the actual ruleset ID for stage 1 is the timestamp when that stage's ruleset
         // was queued. These may not match.
         // We verify the auto-issuance amounts are stored and can be queried.
@@ -303,12 +303,12 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
         // Stage 0 auto-issuance should be stored at block.timestamp
         assertEq(stage0Amount, 50_000 * decimalMultiplier, "Stage 0 auto-issuance should be stored at block.timestamp");
 
-        // Stage 1 auto-issuance is stored at (block.timestamp + 1) per H-5
+        // Stage 1 auto-issuance is stored at (block.timestamp + 1)
         uint256 stage1Amount = REV_DEPLOYER.amountToAutoIssue(revnetId, block.timestamp + 1, multisig());
         assertEq(
             stage1Amount,
             30_000 * decimalMultiplier,
-            "H-5: Stage 1 auto-issuance stored at block.timestamp + 1 (may not match ruleset ID)"
+            "Stage 1 auto-issuance stored at block.timestamp + 1 (may not match ruleset ID)"
         );
 
         // Now check the actual ruleset IDs to demonstrate the mismatch
@@ -316,12 +316,12 @@ contract REVDeployerAuditRegressions_Local is TestBaseWorkflow, JBTest {
         if (rulesets.length >= 2) {
             uint256 actualStage1RulesetId = rulesets[1].id;
 
-            // The H-5 mismatch: the storage key (block.timestamp + 1) likely != the actual ruleset ID
+            // The mismatch: the storage key (block.timestamp + 1) likely != the actual ruleset ID
             // If they don't match, auto-issuance tokens for stage 1 become unclaimable
             if (actualStage1RulesetId != block.timestamp + 1) {
                 // Verify the amount at the ACTUAL ruleset ID is 0 (the mismatch)
                 uint256 amountAtActualId = REV_DEPLOYER.amountToAutoIssue(revnetId, actualStage1RulesetId, multisig());
-                assertEq(amountAtActualId, 0, "H-5 CONFIRMED: auto-issuance at actual ruleset ID is 0 (mismatch)");
+                assertEq(amountAtActualId, 0, "auto-issuance at actual ruleset ID is 0 (mismatch)");
             }
         }
     }

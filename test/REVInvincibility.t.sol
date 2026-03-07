@@ -288,18 +288,18 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
     // SECTION A: Critical Fix Verification (8 tests)
     // =====================================================================
 
-    /// @notice C-1: Borrow with collateral > uint112.max silently truncates loan.amount.
+    /// @notice Borrow with collateral > uint112.max silently truncates loan.amount.
     /// @dev Verifies the truncation pattern: uint112(overflowValue) wraps.
-    function test_fixVerify_C1_uint112Truncation() public {
+    function test_fixVerify_uint112Truncation() public {
         // Prove the truncation math: uint112(max+1) wraps to 0
         uint256 overflowValue = uint256(type(uint112).max) + 1;
         uint112 truncated = uint112(overflowValue);
-        assertEq(truncated, 0, "C-1: uint112 truncation wraps max+1 to 0");
+        assertEq(truncated, 0, "uint112 truncation wraps max+1 to 0");
 
         // Prove a more realistic overflow: max + 1000 wraps to 999
         uint256 slightlyOver = uint256(type(uint112).max) + 1000;
         truncated = uint112(slightlyOver);
-        assertEq(truncated, 999, "C-1: uint112 truncation wraps to low bits");
+        assertEq(truncated, 999, "uint112 truncation wraps to low bits");
 
         // Verify normal operation stays within bounds
         uint256 payAmount = 100e18;
@@ -309,35 +309,35 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
 
         uint256 borrowable =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
-        assertLt(borrowable, type(uint112).max, "C-1: normal borrowable within uint112");
-        assertLt(tokens, type(uint112).max, "C-1: normal token count within uint112");
+        assertLt(borrowable, type(uint112).max, "normal borrowable within uint112");
+        assertLt(tokens, type(uint112).max, "normal token count within uint112");
     }
 
-    /// @notice C-2: Array OOB when only buyback hook present (no tiered721Hook).
+    /// @notice Array OOB when only buyback hook present (no tiered721Hook).
     /// @dev hookSpecifications[1] is written but array size is 1.
-    function test_fixVerify_C2_arrayOOB_noBuybackWithBuyback() public pure {
+    function test_fixVerify_arrayOOB_noBuybackWithBuyback() public pure {
         bool usesTiered721Hook = false;
         bool usesBuybackHook = true;
 
         uint256 arraySize = (usesTiered721Hook ? 1 : 0) + (usesBuybackHook ? 1 : 0);
-        assertEq(arraySize, 1, "C-2: array size is 1");
+        assertEq(arraySize, 1, "array size is 1");
 
         // The bug: code writes to hookSpecifications[1] (OOB for size-1 array)
         // The fix: should write to index 0 when no tiered721Hook
         bool wouldOOB = (!usesTiered721Hook && usesBuybackHook);
-        assertTrue(wouldOOB, "C-2: this config triggers the OOB write at index [1]");
+        assertTrue(wouldOOB, "this config triggers the OOB write at index [1]");
 
         uint256 correctIndex = usesTiered721Hook ? 1 : 0;
-        assertEq(correctIndex, 0, "C-2 FIX: buyback hook should use index 0");
+        assertEq(correctIndex, 0, "buyback hook should use index 0");
 
         // Verify safe write
         JBPayHookSpecification[] memory specs = new JBPayHookSpecification[](arraySize);
         specs[correctIndex] = JBPayHookSpecification({hook: IJBPayHook(address(0xbeef)), amount: 1 ether, metadata: ""});
     }
 
-    /// @notice C-3: Reentrancy — _adjust calls terminal.pay() BEFORE writing loan state.
+    /// @notice Reentrancy — _adjust calls terminal.pay() BEFORE writing loan state.
     /// @dev Lines 910 (external call) vs 922-923 (state writes). CEI violation.
-    function test_fixVerify_C3_reentrancyDoubleBorrow() public {
+    function test_fixVerify_reentrancyDoubleBorrow() public {
         // Create a legitimate loan to confirm the system works
         uint256 payAmount = 10e18;
         vm.prank(USER);
@@ -366,25 +366,25 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
         // (We can't actually execute the attack through real contracts because
         // the fee terminal is the legitimate JBMultiTerminal, but the pattern
         // is confirmed by code inspection)
-        assertTrue(true, "C-3: CEI violation confirmed at lines 910 vs 922-923");
+        assertTrue(true, "CEI violation confirmed at lines 910 vs 922-923");
     }
 
-    /// @notice C-4: hasMintPermissionFor returns false for random addresses.
+    /// @notice hasMintPermissionFor returns false for random addresses.
     /// @dev With the buyback hook removed, hasMintPermissionFor should return false
     ///      for addresses that are not the loans contract or a sucker.
-    function test_fixVerify_C4_hasMintPermission_noBuyback() public {
+    function test_fixVerify_hasMintPermission_noBuyback() public {
         // The fee project was deployed without buyback hook in our setup
         JBRuleset memory currentRuleset = jbRulesets().currentOf(FEE_PROJECT_ID);
 
         // hasMintPermissionFor should return false for random addresses
         address randomAddr = address(0x12345);
         bool hasPerm = REV_DEPLOYER.hasMintPermissionFor(FEE_PROJECT_ID, currentRuleset, randomAddr);
-        assertFalse(hasPerm, "C-4: random address should not have mint permission");
+        assertFalse(hasPerm, "random address should not have mint permission");
     }
 
-    /// @notice C-5: Zero-supply cash out no longer drains surplus (fixed in v6).
+    /// @notice Zero-supply cash out no longer drains surplus (fixed in v6).
     /// @dev JBCashOuts.cashOutFrom now returns 0 when cashOutCount == 0.
-    function test_fixVerify_C5_zeroSupplyCashOutDrain() public pure {
+    function test_fixVerify_zeroSupplyCashOutDrain() public pure {
         uint256 surplus = 100e18;
         uint256 cashOutCount = 0;
         uint256 totalSupply = 0;
@@ -393,17 +393,17 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
         uint256 reclaimable = JBCashOuts.cashOutFrom(surplus, cashOutCount, totalSupply, cashOutTaxRate);
 
         // Fixed in v6: cashing out 0 tokens always returns 0
-        assertEq(reclaimable, 0, "C-5 fixed: zero cash out returns nothing");
+        assertEq(reclaimable, 0, "zero cash out returns nothing");
 
         // Normal case: with supply, cashing out 0 still returns 0
         uint256 normalReclaimable = JBCashOuts.cashOutFrom(surplus, 0, 1000e18, cashOutTaxRate);
         assertEq(normalReclaimable, 0, "Normal: cashing out 0 of non-zero supply returns 0");
     }
 
-    /// @notice H-2: Broken fee terminal + broken addToBalanceOf fallback bricks cash-outs.
+    /// @notice Broken fee terminal + broken addToBalanceOf fallback bricks cash-outs.
     /// @dev afterCashOutRecordedWith: try feeTerminal.pay() catch { addToBalanceOf() }
     ///      If BOTH revert, the entire cash-out transaction reverts.
-    function test_fixVerify_H2_brokenFeeTerminalBricksCashOuts() public {
+    function test_fixVerify_brokenFeeTerminalBricksCashOuts() public {
         BrokenFeeTerminal brokenTerminal = new BrokenFeeTerminal();
 
         // The vulnerability pattern:
@@ -429,10 +429,10 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
         brokenTerminal.addToBalanceOf(0, address(0), 0, false, "", "");
     }
 
-    /// @notice H-5: Auto-issuance stored at block.timestamp+i, not actual ruleset IDs.
+    /// @notice Auto-issuance stored at block.timestamp+i, not actual ruleset IDs.
     /// @dev _makeRulesetConfigurations stores at block.timestamp+i but autoIssueFor
     ///      queries by actual ruleset ID. If they mismatch, tokens are unclaimable.
-    function test_fixVerify_H5_autoIssuanceStageIdMismatch() public {
+    function test_fixVerify_autoIssuanceStageIdMismatch() public {
         // Deploy a multi-stage revnet with auto-issuance on multiple stages
         JBAccountingContext[] memory ctx = new JBAccountingContext[](1);
         ctx[0] = JBAccountingContext({
@@ -495,13 +495,13 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
 
         // Stage 0 auto-issuance stored at block.timestamp
         uint256 stage0Amount = REV_DEPLOYER.amountToAutoIssue(h5RevnetId, block.timestamp, multisig());
-        assertEq(stage0Amount, 50_000e18, "H-5: Stage 0 auto-issuance stored at block.timestamp");
+        assertEq(stage0Amount, 50_000e18, "Stage 0 auto-issuance stored at block.timestamp");
 
-        // Stage 1 auto-issuance stored at block.timestamp + 1 (the H-5 bug)
+        // Stage 1 auto-issuance stored at block.timestamp + 1 (the stage ID mismatch bug)
         uint256 stage1Amount = REV_DEPLOYER.amountToAutoIssue(h5RevnetId, block.timestamp + 1, multisig());
-        assertEq(stage1Amount, 30_000e18, "H-5: Stage 1 auto-issuance stored at block.timestamp + 1");
+        assertEq(stage1Amount, 30_000e18, "Stage 1 auto-issuance stored at block.timestamp + 1");
 
-        // The H-5 bug: stages are stored at (block.timestamp + i), not at the actual ruleset IDs.
+        // The bug: stages are stored at (block.timestamp + i), not at the actual ruleset IDs.
         // In the test environment, stages queued in the same block happen to have sequential IDs
         // (block.timestamp, block.timestamp+1), so the storage keys coincidentally match.
         // However, if deployment happens at a different time than block.timestamp, or if stages
@@ -515,20 +515,20 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
         // Document the storage keys used vs what autoIssueFor expects
         // autoIssueFor calls with the CURRENT ruleset's ID (from currentOf).
         // If the ruleset ID != block.timestamp+i, the amount at that key is 0.
-        emit log_named_uint("H-5: Storage key for stage 1", block.timestamp + 1);
-        emit log_named_uint("H-5: Actual ruleset[0].id (most recent)", rulesets[0].id);
-        emit log_named_uint("H-5: Actual ruleset[1].id (first)", rulesets[1].id);
+        emit log_named_uint("Storage key for stage 1", block.timestamp + 1);
+        emit log_named_uint("Actual ruleset[0].id (most recent)", rulesets[0].id);
+        emit log_named_uint("Actual ruleset[1].id (first)", rulesets[1].id);
 
         // The fragility: stage 1 issuance is ONLY accessible at (block.timestamp + 1).
         // Any other key returns 0.
         uint256 wrongKey = block.timestamp + 100;
         uint256 amountAtWrongKey = REV_DEPLOYER.amountToAutoIssue(h5RevnetId, wrongKey, multisig());
-        assertEq(amountAtWrongKey, 0, "H-5: auto-issuance unreachable at wrong key");
+        assertEq(amountAtWrongKey, 0, "auto-issuance unreachable at wrong key");
     }
 
-    /// @notice H-6: Unvalidated source terminal — unbounded _loanSourcesOf array growth.
+    /// @notice Unvalidated source terminal — unbounded _loanSourcesOf array growth.
     /// @dev borrowFrom accepts any terminal in REVLoanSource without validation.
-    function test_fixVerify_H6_unvalidatedSourceTerminal() public {
+    function test_fixVerify_unvalidatedSourceTerminal() public {
         // The vulnerability: REVLoans._addTo (line 788-791) registers ANY terminal
         // as a loan source without validating it's an actual project terminal:
         //   if (!isLoanSourceOf[revnetId][loan.source.terminal][loan.source.token]) {
@@ -555,12 +555,12 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
         assertEq(sourcesAfter.length, 1, "One loan source registered after first borrow");
         assertEq(address(sourcesAfter[0].terminal), address(jbMultiTerminal()), "Source should be multi terminal");
 
-        // H-6: The vulnerability is that _addTo registers ANY terminal passed in REVLoanSource.
+        // The vulnerability is that _addTo registers ANY terminal passed in REVLoanSource.
         // There's no validation that the terminal is actually a terminal for the project.
         // This means an attacker could register fake terminals, growing the array unboundedly.
         assertTrue(
             LOANS_CONTRACT.isLoanSourceOf(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN),
-            "H-6: source registered without terminal validation"
+            "source registered without terminal validation"
         );
     }
 
@@ -674,7 +674,7 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
     }
 
     /// @notice Flash loan surplus inflation: addToBalance → borrow at inflated rate.
-    /// @dev M-11: surplus is read live, so an addToBalance before borrow inflates it.
+    /// @dev Surplus is read live, so an addToBalance before borrow inflates it.
     function test_econ_flashLoanSurplusInflation() public {
         // Step 1: Pay to get tokens
         uint256 payAmount = 5e18;
@@ -694,14 +694,14 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
         uint256 borrowableAfter =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
-        // M-11: The borrowable amount increases because surplus grew but totalSupply didn't
-        assertTrue(borrowableAfter > borrowableBefore, "M-11: surplus inflation increases borrowable amount");
+        // The borrowable amount increases because surplus grew but totalSupply didn't
+        assertTrue(borrowableAfter > borrowableBefore, "surplus inflation increases borrowable amount");
 
         // Quantify the inflation factor
         if (borrowableBefore > 0) {
             uint256 inflationFactor = mulDiv(borrowableAfter, 1e18, borrowableBefore);
-            assertTrue(inflationFactor > 1e18, "M-11: inflation factor > 1x");
-            emit log_named_uint("M-11 inflation factor (1e18=1x)", inflationFactor);
+            assertTrue(inflationFactor > 1e18, "inflation factor > 1x");
+            emit log_named_uint("inflation factor (1e18=1x)", inflationFactor);
         }
     }
 
@@ -858,11 +858,11 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
         }
     }
 
-    /// @notice H-1: Double fee — REVDeployer not registered as feeless.
+    /// @notice Double fee — REVDeployer not registered as feeless.
     /// @dev Cash-out fee goes to REVDeployer (afterCashOutRecordedWith) which pays fee terminal.
     ///      But the JBMultiTerminal's useAllowanceOf already took a protocol fee,
     ///      so the fee payment to the fee terminal is a second fee on the same funds.
-    function test_econ_doubleFeeH1() public {
+    function test_econ_doubleFee() public {
         // Pay into revnet
         vm.prank(USER);
         uint256 tokens =
@@ -896,7 +896,7 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
             }) returns (
             uint256 reclaimAmount
         ) {
-            // The H-1 double fee means the fee project gets more than expected
+            // The double fee means the fee project gets more than expected
             // because both the terminal fee AND the revnet fee route to it
             uint256 feeBalanceAfter;
             {
@@ -914,7 +914,7 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
             emit log_named_uint("Reclaim amount", reclaimAmount);
         } catch {
             // Cash out may fail (e.g., if fee terminal isn't set up) — document the failure
-            emit log("H-1: Cash-out reverted (may be due to fee terminal setup)");
+            emit log("Cash-out reverted (may be due to fee terminal setup)");
         }
     }
 }

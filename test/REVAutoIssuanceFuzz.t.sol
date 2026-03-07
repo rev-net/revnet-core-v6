@@ -29,7 +29,7 @@ import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/
 
 /// @notice Fuzz tests for REVDeployer multi-stage auto-issuance.
 /// Tests stage ID computation consistency and multi-stage claiming behavior.
-/// Related to H-5: stage IDs use block.timestamp + i which may mismatch actual ruleset IDs.
+/// Stage IDs use block.timestamp + i which may mismatch actual ruleset IDs.
 contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
 
@@ -245,13 +245,13 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
         REV_DEPLOYER.autoIssueFor(revnetId, stageIds[1], multisig());
     }
 
-    // ───────────────── H-5: Stage ID vs Ruleset ID comparison
+    // ───────────────── Stage ID vs Ruleset ID comparison
     // ─────────────────────
 
-    /// @notice H-5 EXPLORATION: Compare stored stageIds with actual ruleset IDs.
+    /// @notice Compare stored stageIds with actual ruleset IDs.
     /// Stage IDs use block.timestamp + i during deployment.
     /// If actual ruleset IDs differ (e.g., on cross-chain deployment), auto-issuance breaks.
-    function test_H5_stageId_vs_rulesetId_comparison() external {
+    function test_stageId_vs_rulesetId_comparison() external {
         (uint256 revnetId, uint256[] memory stageIds) = _deployMultiStageRevnet(3);
 
         // Get the actual rulesets from the controller.
@@ -263,7 +263,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
         // For stage 1, the stored key is block.timestamp + 1.
         // The actual ruleset ID depends on when JBRulesets creates it.
         // If the ruleset hasn't started yet, getRulesetOf will use the queued ruleset.
-        // This is where H-5 manifests: the actual ID may differ from block.timestamp + 1.
+        // The actual ID may differ from block.timestamp + 1.
         uint256 stage1StoredKey = stageIds[1]; // block.timestamp + 1
         uint256 storedAmount = REV_DEPLOYER.amountToAutoIssue(revnetId, stage1StoredKey, multisig());
         assertGt(storedAmount, 0, "Auto-issuance stored at block.timestamp + 1");

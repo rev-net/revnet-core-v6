@@ -11,7 +11,7 @@ import {IREVLoans} from "../../src/interfaces/IREVLoans.sol";
 import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
 
 /// @notice A terminal that reverts on both pay() and addToBalanceOf().
-/// @dev Used to prove H-2: if the fee terminal breaks, cash-outs brick because
+/// @dev If the fee terminal breaks, cash-outs brick because
 ///      afterCashOutRecordedWith's fallback addToBalanceOf also reverts.
 contract BrokenFeeTerminal is ERC165, IJBPayoutTerminal {
     bool public payReverts = true;
@@ -119,7 +119,7 @@ contract BrokenFeeTerminal is ERC165, IJBPayoutTerminal {
 }
 
 /// @notice A terminal that attempts to addToBalance + borrow in a single tx.
-/// @dev Used to prove M-11: flash loan surplus inflation via live surplus read.
+/// @dev Flash loan surplus inflation via live surplus read.
 contract SurplusInflator is ERC165, IJBPayoutTerminal {
     IREVLoans public loans;
     uint256 public revnetId;

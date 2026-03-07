@@ -32,7 +32,7 @@ import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressReg
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 
 /// @title TestPR21_Uint112Overflow
-/// @notice Tests for PR #21 — C-1 uint112 truncation fix in REVLoans._adjust()
+/// @notice Tests for uint112 truncation fix in REVLoans._adjust()
 contract TestPR21_Uint112Overflow is TestBaseWorkflow, JBTest {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
     bytes32 ERC20_SALT = "REV_TOKEN";
