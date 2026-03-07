@@ -30,7 +30,7 @@ import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStor
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 
-/// @notice Tests proving that flash loan surplus manipulation is economically unprofitable (PR #12).
+/// @notice Tests showing that flash loan surplus manipulation is economically unprofitable.
 contract TestPR12_FlashLoanSurplus is TestBaseWorkflow, JBTest {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
     bytes32 ERC20_SALT = "REV_TOKEN";

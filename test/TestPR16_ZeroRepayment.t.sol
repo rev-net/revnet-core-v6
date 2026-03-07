@@ -227,7 +227,7 @@ contract TestPR16_ZeroRepayment is TestBaseWorkflow, JBTest {
 
         // Try to repay with collateralCountToReturn = 0 and some maxRepayBorrowAmount.
         // Since surplus was inflated, newBorrowAmount > loan.amount, which reverts with
-        // REVLoans_NewBorrowAmountGreaterThanLoanAmount. This proves zero-repayment is blocked.
+        // REVLoans_NewBorrowAmountGreaterThanLoanAmount. This shows zero-repayment is blocked.
         vm.prank(USER);
         vm.expectRevert(); // Will revert with either NothingToRepay or NewBorrowAmountGreaterThanLoanAmount
         LOANS_CONTRACT.repayLoan{value: 0}(

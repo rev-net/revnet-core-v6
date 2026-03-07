@@ -244,7 +244,7 @@ contract REVLoansAuditRegressions_Local is TestBaseWorkflow, JBTest {
 
     /// @notice Demonstrates that borrowFrom accepts any terminal without validating
     ///         it is registered in the JBDirectory for the project.
-    /// @dev The fake terminal's useAllowanceOf is called, proving no directory check occurs.
+    /// @dev The fake terminal's useAllowanceOf is called, showing no directory check occurs.
     ///      In production, a malicious terminal could return fake amounts or misroute funds.
     function test_unvalidatedSourceTerminal() public {
         // Step 1: User pays into the revnet to get tokens (collateral)
@@ -275,7 +275,7 @@ contract REVLoansAuditRegressions_Local is TestBaseWorkflow, JBTest {
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(borrowable, 0, "should have borrowable amount");
 
-        // PROOF: Use vm.expectCall to prove the fake terminal's useAllowanceOf
+        // Use vm.expectCall to verify the fake terminal's useAllowanceOf
         // is called. This works even if the outer call reverts, because expectCall
         // records the call was made regardless.
         // The code calls accountingContextForTokenOf first, then useAllowanceOf.
@@ -287,7 +287,7 @@ contract REVLoansAuditRegressions_Local is TestBaseWorkflow, JBTest {
         );
         vm.expectCall(address(fakeTerminal), abi.encodeWithSelector(IJBPayoutTerminal.useAllowanceOf.selector));
 
-        // The borrow will reach the fake terminal (proving no validation),
+        // The borrow will reach the fake terminal (showing no validation),
         // but will revert downstream when trying to transfer 0 - fees (underflow).
         vm.prank(USER);
         vm.expectRevert();
@@ -296,7 +296,7 @@ contract REVLoansAuditRegressions_Local is TestBaseWorkflow, JBTest {
         // If we reach here, both vm.expectCall checks passed:
         // 1. accountingContextForTokenOf was called on the fake terminal
         // 2. useAllowanceOf was called on the fake terminal
-        // This proves no directory validation before calling the source terminal
+        // This shows no directory validation before calling the source terminal
     }
 
     /// @notice Verify that the configured loan source (real terminal) is properly registered.
