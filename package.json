@@ -6,10 +6,13 @@
         "type": "git",
         "url": "git+https://github.com/rev-net/revnet-core-v6"
     },
+    "engines": {
+        "node": ">=20.0.0"
+    },
     "scripts": {
         "postinstall": "find node_modules -name '*.sol' -type f | xargs grep -l 'pragma solidity 0.8.23;' 2>/dev/null | xargs sed -i '' 's/pragma solidity 0.8.23;/pragma solidity 0.8.26;/g' 2>/dev/null || true",
         "test": "forge test",
-        "coverage:integration": "forge coverage --match-path \"./src/*.sol\" --report lcov --report summary",
+        "coverage": "forge coverage --match-path \"./src/*.sol\" --report lcov --report summary",
         "deploy:mainnets": "source ./.env && export START_TIME=$(date +%s) && npx sphinx propose ./script/Deploy.s.sol --networks mainnets",
         "deploy:mainnets:1_1": "source ./.env && npx sphinx propose ./script/Deploy1_1.s.sol --networks mainnets",
         "deploy:testnets": "source ./.env && export START_TIME=$(date +%s) && npx sphinx propose ./script/Deploy.s.sol --networks testnets",
@@ -27,6 +30,6 @@
         "@openzeppelin/contracts": "^5.2.0"
     },
     "devDependencies": {
-        "@sphinx-labs/plugins": "^0.33.1"
+        "@sphinx-labs/plugins": "^0.33.2"
     }
 }

@@ -57,14 +57,14 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
 
     error REVLoans_CollateralExceedsLoan(uint256 collateralToReturn, uint256 loanCollateral);
     error REVLoans_InvalidPrepaidFeePercent(uint256 prepaidFeePercent, uint256 min, uint256 max);
-    error REVLoans_NotEnoughCollateral();
-    error REVLoans_OverflowAlert(uint256 value, uint256 limit);
-    error REVLoans_OverMaxRepayBorrowAmount(uint256 maxRepayBorrowAmount, uint256 repayBorrowAmount);
-    error REVLoans_PermitAllowanceNotEnough(uint256 allowanceAmount, uint256 requiredAmount);
+    error REVLoans_LoanExpired(uint256 timeSinceLoanCreated, uint256 loanLiquidationDuration);
     error REVLoans_NewBorrowAmountGreaterThanLoanAmount(uint256 newBorrowAmount, uint256 loanAmount);
     error REVLoans_NoMsgValueAllowed();
+    error REVLoans_NotEnoughCollateral();
     error REVLoans_NothingToRepay();
-    error REVLoans_LoanExpired(uint256 timeSinceLoanCreated, uint256 loanLiquidationDuration);
+    error REVLoans_OverMaxRepayBorrowAmount(uint256 maxRepayBorrowAmount, uint256 repayBorrowAmount);
+    error REVLoans_OverflowAlert(uint256 value, uint256 limit);
+    error REVLoans_PermitAllowanceNotEnough(uint256 allowanceAmount, uint256 requiredAmount);
     error REVLoans_ReallocatingMoreCollateralThanBorrowedAmountAllows(uint256 newBorrowAmount, uint256 loanAmount);
     error REVLoans_SourceMismatch();
     error REVLoans_Unauthorized(address caller, address owner);
@@ -257,6 +257,13 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         return _determineSourceFeeAmount(loan, amount);
     }
 
+    /// @notice The revnet ID for the loan with the provided loan ID.
+    /// @param loanId The loan ID of the loan to get the revnet ID of.
+    /// @return The ID of the revnet.
+    function revnetIdOfLoanWith(uint256 loanId) public pure override returns (uint256) {
+        return loanId / _ONE_TRILLION;
+    }
+
     /// @notice Returns the URI where the ERC-721 standard JSON of a loan is hosted.
     /// @param loanId The ID of the loan to get a URI of.
     /// @return The token URI to use for the provided `loanId`.
@@ -269,13 +276,6 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
 
         // Return the resolved URI.
         return resolver.getUri(loanId);
-    }
-
-    /// @notice The revnet ID for the loan with the provided loan ID.
-    /// @param loanId The loan ID of the loan to get the revnet ID of.
-    /// @return The ID of the revnet.
-    function revnetIdOfLoanWith(uint256 loanId) public pure override returns (uint256) {
-        return loanId / _ONE_TRILLION;
     }
 
     //*********************************************************************//
@@ -839,6 +839,56 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     // --------------------- internal transactions ----------------------- //
     //*********************************************************************//
 
+    /// @notice Accepts an incoming token.
+    /// @param token The token being accepted.
+    /// @param amount The number of tokens being accepted.
+    /// @param allowance The permit2 context.
+    /// @return amount The number of tokens which have been accepted.
+    function _acceptFundsFor(
+        address token,
+        uint256 amount,
+        JBSingleAllowance memory allowance
+    )
+        internal
+        returns (uint256)
+    {
+        // If the token is the native token, override `amount` with `msg.value`.
+        if (token == JBConstants.NATIVE_TOKEN) return msg.value;
+
+        // If the token is not native, revert if there is a non-zero `msg.value`.
+        if (msg.value != 0) revert REVLoans_NoMsgValueAllowed();
+
+        // Check if the metadata contains permit data.
+        if (allowance.amount != 0) {
+            // Make sure the permit allowance is enough for this payment. If not we revert early.
+            if (allowance.amount < amount) {
+                revert REVLoans_PermitAllowanceNotEnough(allowance.amount, amount);
+            }
+
+            // Keep a reference to the permit rules.
+            IAllowanceTransfer.PermitSingle memory permitSingle = IAllowanceTransfer.PermitSingle({
+                details: IAllowanceTransfer.PermitDetails({
+                    token: token, amount: allowance.amount, expiration: allowance.expiration, nonce: allowance.nonce
+                }),
+                spender: address(this),
+                sigDeadline: allowance.sigDeadline
+            });
+
+            // Set the allowance to `spend` tokens for the user.
+            try PERMIT2.permit({owner: _msgSender(), permitSingle: permitSingle, signature: allowance.signature}) {}
+                catch (bytes memory) {}
+        }
+
+        // Get a reference to the balance before receiving tokens.
+        uint256 balanceBefore = _balanceOf(token);
+
+        // Transfer tokens to this terminal from the msg sender.
+        _transferFrom({from: _msgSender(), to: payable(address(this)), token: token, amount: amount});
+
+        // The amount should reflect the change in balance.
+        return _balanceOf(token) - balanceBefore;
+    }
+
     /// @notice Adds collateral to a loan by burning the collateral tokens permanently.
     /// @dev The collateral tokens are burned via the controller, not held in escrow. They are only re-minted if the
     /// loan is repaid. If the loan expires and is liquidated, the burned collateral is permanently lost.
@@ -1028,56 +1078,6 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         }
     }
 
-    /// @notice Accepts an incoming token.
-    /// @param token The token being accepted.
-    /// @param amount The number of tokens being accepted.
-    /// @param allowance The permit2 context.
-    /// @return amount The number of tokens which have been accepted.
-    function _acceptFundsFor(
-        address token,
-        uint256 amount,
-        JBSingleAllowance memory allowance
-    )
-        internal
-        returns (uint256)
-    {
-        // If the token is the native token, override `amount` with `msg.value`.
-        if (token == JBConstants.NATIVE_TOKEN) return msg.value;
-
-        // If the token is not native, revert if there is a non-zero `msg.value`.
-        if (msg.value != 0) revert REVLoans_NoMsgValueAllowed();
-
-        // Check if the metadata contains permit data.
-        if (allowance.amount != 0) {
-            // Make sure the permit allowance is enough for this payment. If not we revert early.
-            if (allowance.amount < amount) {
-                revert REVLoans_PermitAllowanceNotEnough(allowance.amount, amount);
-            }
-
-            // Keep a reference to the permit rules.
-            IAllowanceTransfer.PermitSingle memory permitSingle = IAllowanceTransfer.PermitSingle({
-                details: IAllowanceTransfer.PermitDetails({
-                    token: token, amount: allowance.amount, expiration: allowance.expiration, nonce: allowance.nonce
-                }),
-                spender: address(this),
-                sigDeadline: allowance.sigDeadline
-            });
-
-            // Set the allowance to `spend` tokens for the user.
-            try PERMIT2.permit({owner: _msgSender(), permitSingle: permitSingle, signature: allowance.signature}) {}
-                catch (bytes memory) {}
-        }
-
-        // Get a reference to the balance before receiving tokens.
-        uint256 balanceBefore = _balanceOf(token);
-
-        // Transfer tokens to this terminal from the msg sender.
-        _transferFrom({from: _msgSender(), to: payable(address(this)), token: token, amount: amount});
-
-        // The amount should reflect the change in balance.
-        return _balanceOf(token) - balanceBefore;
-    }
-
     /// @notice Logic to be triggered before transferring tokens from this contract.
     /// @param to The address the transfer is going to.
     /// @param token The token being transferred.
@@ -1089,6 +1089,107 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         if (token == JBConstants.NATIVE_TOKEN) return amount;
         IERC20(token).safeIncreaseAllowance(to, amount);
         return 0;
+    }
+
+    /// @notice Reallocates collateral from a loan by making a new loan based on the original, with reduced collateral.
+    /// @param loanId The ID of the loan to reallocate collateral from.
+    /// @param revnetId The ID of the revnet the loan is from.
+    /// @param collateralCountToRemove The amount of collateral to remove from the loan.
+    /// @return reallocatedLoanId The ID of the loan.
+    /// @return reallocatedLoan The reallocated loan.
+    function _reallocateCollateralFromLoan(
+        uint256 loanId,
+        uint256 revnetId,
+        uint256 collateralCountToRemove
+    )
+        internal
+        returns (uint256 reallocatedLoanId, REVLoan storage reallocatedLoan)
+    {
+        // Burn the original loan.
+        _burn(loanId);
+
+        // Keep a reference to loan having its collateral reduced.
+        REVLoan storage loan = _loanOf[loanId];
+
+        // Make sure there is enough collateral to transfer.
+        if (collateralCountToRemove > loan.collateral) revert REVLoans_NotEnoughCollateral();
+
+        // Keep a reference to the new collateral amount.
+        uint256 newCollateralCount = loan.collateral - collateralCountToRemove;
+
+        // Keep a reference to the new borrow amount.
+        uint256 borrowAmount = _borrowAmountFrom({loan: loan, revnetId: revnetId, collateralCount: newCollateralCount});
+
+        // Make sure the borrow amount is not less than the original loan's amount.
+        if (borrowAmount < loan.amount) {
+            revert REVLoans_ReallocatingMoreCollateralThanBorrowedAmountAllows(borrowAmount, loan.amount);
+        }
+
+        // Get a reference to the replacement loan ID.
+        reallocatedLoanId = _generateLoanId({revnetId: revnetId, loanNumber: ++totalLoansBorrowedFor[revnetId]});
+
+        // Get a reference to the loan being created.
+        reallocatedLoan = _loanOf[reallocatedLoanId];
+
+        // Set the reallocated loan's values the same as the original loan.
+        reallocatedLoan.amount = loan.amount;
+        reallocatedLoan.collateral = loan.collateral;
+        reallocatedLoan.createdAt = loan.createdAt;
+        reallocatedLoan.prepaidFeePercent = loan.prepaidFeePercent;
+        reallocatedLoan.prepaidDuration = loan.prepaidDuration;
+        reallocatedLoan.source = loan.source;
+
+        // Reduce the collateral of the reallocated loan.
+        _adjust({
+            loan: reallocatedLoan,
+            revnetId: revnetId,
+            newBorrowAmount: reallocatedLoan.amount, // Don't change the borrow amount.
+            newCollateralCount: newCollateralCount,
+            sourceFeeAmount: 0,
+            beneficiary: payable(_msgSender()) // use the msgSender as the beneficiary, who will have the returned
+            // collateral tokens debited from their balance for the new loan.
+        });
+
+        // Mint the replacement loan.
+        _mint({to: _msgSender(), tokenId: reallocatedLoanId});
+
+        // Clear stale loan data for gas refund.
+        delete _loanOf[loanId];
+
+        emit ReallocateCollateral({
+            loanId: loanId,
+            revnetId: revnetId,
+            reallocatedLoanId: reallocatedLoanId,
+            reallocatedLoan: reallocatedLoan,
+            removedCollateralCount: collateralCountToRemove,
+            caller: _msgSender()
+        });
+    }
+
+    /// @notice Pays off a loan.
+    /// @param loan The loan being paid off.
+    /// @param revnetId The ID of the revnet the loan is being paid off in.
+    /// @param repaidBorrowAmount The amount being paid off, denominated in the token of the source's accounting
+    /// context.
+    function _removeFrom(REVLoan memory loan, uint256 revnetId, uint256 repaidBorrowAmount) internal {
+        // Decrement the total amount of a token being loaned out by the revnet from its terminal.
+        totalBorrowedFrom[revnetId][loan.source.terminal][loan.source.token] -= repaidBorrowAmount;
+
+        // Increase the allowance for the beneficiary.
+        uint256 payValue = _beforeTransferTo({
+            to: address(loan.source.terminal), token: loan.source.token, amount: repaidBorrowAmount
+        });
+
+        // Add the loaned amount back to the revnet.
+        // slither-disable-next-line arbitrary-send-eth
+        loan.source.terminal.addToBalanceOf{value: payValue}({
+            projectId: revnetId,
+            token: loan.source.token,
+            amount: repaidBorrowAmount,
+            shouldReturnHeldFees: false,
+            memo: "Paying off loan",
+            metadata: bytes(abi.encodePacked(REV_ID))
+        });
     }
 
     /// @notice Pays down a loan.
@@ -1194,107 +1295,6 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
 
             return (paidOffLoanId, paidOffLoan);
         }
-    }
-
-    /// @notice Reallocates collateral from a loan by making a new loan based on the original, with reduced collateral.
-    /// @param loanId The ID of the loan to reallocate collateral from.
-    /// @param revnetId The ID of the revnet the loan is from.
-    /// @param collateralCountToRemove The amount of collateral to remove from the loan.
-    /// @return reallocatedLoanId The ID of the loan.
-    /// @return reallocatedLoan The reallocated loan.
-    function _reallocateCollateralFromLoan(
-        uint256 loanId,
-        uint256 revnetId,
-        uint256 collateralCountToRemove
-    )
-        internal
-        returns (uint256 reallocatedLoanId, REVLoan storage reallocatedLoan)
-    {
-        // Burn the original loan.
-        _burn(loanId);
-
-        // Keep a reference to loan having its collateral reduced.
-        REVLoan storage loan = _loanOf[loanId];
-
-        // Make sure there is enough collateral to transfer.
-        if (collateralCountToRemove > loan.collateral) revert REVLoans_NotEnoughCollateral();
-
-        // Keep a reference to the new collateral amount.
-        uint256 newCollateralCount = loan.collateral - collateralCountToRemove;
-
-        // Keep a reference to the new borrow amount.
-        uint256 borrowAmount = _borrowAmountFrom({loan: loan, revnetId: revnetId, collateralCount: newCollateralCount});
-
-        // Make sure the borrow amount is not less than the original loan's amount.
-        if (borrowAmount < loan.amount) {
-            revert REVLoans_ReallocatingMoreCollateralThanBorrowedAmountAllows(borrowAmount, loan.amount);
-        }
-
-        // Get a reference to the replacement loan ID.
-        reallocatedLoanId = _generateLoanId({revnetId: revnetId, loanNumber: ++totalLoansBorrowedFor[revnetId]});
-
-        // Get a reference to the loan being created.
-        reallocatedLoan = _loanOf[reallocatedLoanId];
-
-        // Set the reallocated loan's values the same as the original loan.
-        reallocatedLoan.amount = loan.amount;
-        reallocatedLoan.collateral = loan.collateral;
-        reallocatedLoan.createdAt = loan.createdAt;
-        reallocatedLoan.prepaidFeePercent = loan.prepaidFeePercent;
-        reallocatedLoan.prepaidDuration = loan.prepaidDuration;
-        reallocatedLoan.source = loan.source;
-
-        // Reduce the collateral of the reallocated loan.
-        _adjust({
-            loan: reallocatedLoan,
-            revnetId: revnetId,
-            newBorrowAmount: reallocatedLoan.amount, // Don't change the borrow amount.
-            newCollateralCount: newCollateralCount,
-            sourceFeeAmount: 0,
-            beneficiary: payable(_msgSender()) // use the msgSender as the beneficiary, who will have the returned
-            // collateral tokens debited from their balance for the new loan.
-        });
-
-        // Mint the replacement loan.
-        _mint({to: _msgSender(), tokenId: reallocatedLoanId});
-
-        // Clear stale loan data for gas refund.
-        delete _loanOf[loanId];
-
-        emit ReallocateCollateral({
-            loanId: loanId,
-            revnetId: revnetId,
-            reallocatedLoanId: reallocatedLoanId,
-            reallocatedLoan: reallocatedLoan,
-            removedCollateralCount: collateralCountToRemove,
-            caller: _msgSender()
-        });
-    }
-
-    /// @notice Pays off a loan.
-    /// @param loan The loan being paid off.
-    /// @param revnetId The ID of the revnet the loan is being paid off in.
-    /// @param repaidBorrowAmount The amount being paid off, denominated in the token of the source's accounting
-    /// context.
-    function _removeFrom(REVLoan memory loan, uint256 revnetId, uint256 repaidBorrowAmount) internal {
-        // Decrement the total amount of a token being loaned out by the revnet from its terminal.
-        totalBorrowedFrom[revnetId][loan.source.terminal][loan.source.token] -= repaidBorrowAmount;
-
-        // Increase the allowance for the beneficiary.
-        uint256 payValue = _beforeTransferTo({
-            to: address(loan.source.terminal), token: loan.source.token, amount: repaidBorrowAmount
-        });
-
-        // Add the loaned amount back to the revnet.
-        // slither-disable-next-line arbitrary-send-eth
-        loan.source.terminal.addToBalanceOf{value: payValue}({
-            projectId: revnetId,
-            token: loan.source.token,
-            amount: repaidBorrowAmount,
-            shouldReturnHeldFees: false,
-            memo: "Paying off loan",
-            metadata: bytes(abi.encodePacked(REV_ID))
-        });
     }
 
     /// @notice Returns collateral from a loan.
