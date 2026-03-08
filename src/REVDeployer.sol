@@ -489,18 +489,20 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             : (Currency.wrap(projectToken), Currency.wrap(normalizedTerminalToken));
 
         // Try to set the pool — if the pool isn't initialized in the PoolManager yet, this will revert and be caught.
-        try IJBBuybackHook(address(BUYBACK_HOOK)).setPoolFor({
-            projectId: revnetId,
-            poolKey: PoolKey({
-                currency0: currency0,
-                currency1: currency1,
-                fee: DEFAULT_BUYBACK_POOL_FEE,
-                tickSpacing: DEFAULT_BUYBACK_TICK_SPACING,
-                hooks: IHooks(address(0))
-            }),
-            twapWindow: DEFAULT_BUYBACK_TWAP_WINDOW,
-            terminalToken: terminalToken
-        }) {} catch {} // Pool may not be initialized yet — that's OK.
+        try IJBBuybackHook(address(BUYBACK_HOOK))
+            .setPoolFor({
+                projectId: revnetId,
+                poolKey: PoolKey({
+                    currency0: currency0,
+                    currency1: currency1,
+                    fee: DEFAULT_BUYBACK_POOL_FEE,
+                    tickSpacing: DEFAULT_BUYBACK_TICK_SPACING,
+                    hooks: IHooks(address(0))
+                }),
+                twapWindow: DEFAULT_BUYBACK_TWAP_WINDOW,
+                terminalToken: terminalToken
+            }) {}
+            catch {} // Pool may not be initialized yet — that's OK.
     }
 
     /// @notice Make a ruleset configuration for a revnet's stage.
