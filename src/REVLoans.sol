@@ -158,6 +158,10 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     //*********************************************************************//
 
     /// @notice The sources of each revnet's loan.
+    /// @dev This array grows monotonically -- entries are appended when a new (terminal, token) pair is first used for
+    /// borrowing, but are never removed. The `isLoanSourceOf` mapping tracks whether a source has been registered.
+    /// Since the number of distinct (terminal, token) pairs per revnet is practically bounded (typically < 10),
+    /// the gas cost of iterating this array in `loanSourcesOf` remains manageable.
     /// @custom:member revnetId The ID of the revnet issuing the loan.
     mapping(uint256 revnetId => REVLoanSource[]) internal _loanSourcesOf;
 
@@ -231,6 +235,8 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     }
 
     /// @notice The sources of each revnet's loan.
+    /// @dev This array only grows -- sources are never removed. The number of distinct sources is practically bounded
+    /// by the number of unique (terminal, token) pairs used for borrowing, which is typically small.
     /// @custom:member revnetId The ID of the revnet issuing the loan.
     function loanSourcesOf(uint256 revnetId) external view override returns (REVLoanSource[] memory) {
         return _loanSourcesOf[revnetId];
@@ -862,6 +868,8 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         internal
     {
         // Register the source if this is the first time its being used for this revnet.
+        // Note: Sources are only appended, never removed. This is acceptable because the number of distinct
+        // (terminal, token) pairs per revnet is practically bounded.
         if (!isLoanSourceOf[revnetId][loan.source.terminal][loan.source.token]) {
             isLoanSourceOf[revnetId][loan.source.terminal][loan.source.token] = true;
             _loanSourcesOf[revnetId].push(REVLoanSource({token: loan.source.token, terminal: loan.source.terminal}));

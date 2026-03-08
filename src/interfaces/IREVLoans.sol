@@ -129,6 +129,9 @@ interface IREVLoans {
     function loanOf(uint256 loanId) external view returns (REVLoan memory);
 
     /// @notice The sources of each revnet's loans.
+    /// @dev This array only grows -- sources are appended when a new (terminal, token) pair is first used for
+    /// borrowing, but are never removed. Gas cost scales linearly with the number of distinct sources, though this is
+    /// practically bounded to a small number of unique (terminal, token) pairs.
     /// @param revnetId The ID of the revnet to get the loan sources for.
     /// @return The array of loan sources.
     function loanSourcesOf(uint256 revnetId) external view returns (REVLoanSource[] memory);
