@@ -149,12 +149,12 @@ mapping(uint256 revnetId => mapping(IJBPayoutTerminal terminal => mapping(addres
 ```
 
 
-### numberOfLoansFor
+### totalLoansBorrowedFor
 The amount of loans that have been created.
 
 
 ```solidity
-mapping(uint256 revnetId => uint256) public override numberOfLoansFor;
+mapping(uint256 revnetId => uint256) public override totalLoansBorrowedFor;
 ```
 
 

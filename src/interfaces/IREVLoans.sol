@@ -139,7 +139,7 @@ interface IREVLoans {
     /// how many loans are currently outstanding.
     /// @param revnetId The ID of the revnet to get the cumulative loan count for.
     /// @return The cumulative number of loans ever created.
-    function numberOfLoansFor(uint256 revnetId) external view returns (uint256);
+    function totalLoansBorrowedFor(uint256 revnetId) external view returns (uint256);
 
     /// @notice The revnet ID for the loan with the provided loan ID.
     /// @param loanId The loan ID to get the revnet ID of.

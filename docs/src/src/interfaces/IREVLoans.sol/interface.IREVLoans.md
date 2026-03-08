@@ -129,11 +129,11 @@ function loanOf(uint256 loanId) external view returns (REVLoan memory);
 function loanSourcesOf(uint256 revnetId) external view returns (REVLoanSource[] memory);
 ```
 
-### numberOfLoansFor
+### totalLoansBorrowedFor
 
 
 ```solidity
-function numberOfLoansFor(uint256 revnetId) external view returns (uint256);
+function totalLoansBorrowedFor(uint256 revnetId) external view returns (uint256);
 ```
 
 ### revnetIdOfLoanWith
