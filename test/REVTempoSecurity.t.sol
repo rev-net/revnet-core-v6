@@ -4,7 +4,7 @@ pragma solidity 0.8.23;
 import "forge-std/Test.sol";
 import /* {*} from */ "@bananapus/core-v5/test/helpers/TestBaseWorkflow.sol";
 import /* {*} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
-    import /* {*} from */ "./../src/REVDeployer.sol";
+import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v5/src/CTPublisher.sol";
 
 import "@bananapus/core-v5/script/helpers/CoreDeploymentLib.sol";
@@ -66,9 +66,7 @@ contract REVTempoSecurity_Local is TestBaseWorkflow, JBTest {
     function _getRevnetConfig() internal returns (REVConfig memory, JBTerminalConfig[] memory) {
         JBAccountingContext[] memory accountingContextsToAccept = new JBAccountingContext[](1);
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
         JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
@@ -79,9 +77,7 @@ contract REVTempoSecurity_Local is TestBaseWorkflow, JBTest {
 
         REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
         issuanceConfs[0] = REVAutoIssuance({
-            chainId: uint32(block.chainid),
-            count: uint104(10_000 * decimalMultiplier),
-            beneficiary: multisig()
+            chainId: uint32(block.chainid), count: uint104(10_000 * decimalMultiplier), beneficiary: multisig()
         });
 
         JBSplit[] memory splits = new JBSplit[](1);
@@ -168,8 +164,7 @@ contract REVTempoSecurity_Local is TestBaseWorkflow, JBTest {
                 poolConfigurations: new REVBuybackPoolConfig[](0)
             }),
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256(abi.encodePacked("REV"))
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("REV"))
             })
         });
     }
@@ -188,10 +183,7 @@ contract REVTempoSecurity_Local is TestBaseWorkflow, JBTest {
         JBTokenMapping[] memory tokenMapping = new JBTokenMapping[](1);
         address token = makeAddr("someToken");
         tokenMapping[0] = JBTokenMapping({
-            localToken: token,
-            minGas: 200_000,
-            remoteToken: makeAddr("someRemoteToken"),
-            minBridgeAmount: 0.01 ether
+            localToken: token, minGas: 200_000, remoteToken: makeAddr("someRemoteToken"), minBridgeAmount: 0.01 ether
         });
 
         suckerDeployerConfig[0] = JBSuckerDeployerConfig({deployer: SUCKER_DEPLOYER, mappings: tokenMapping});
@@ -217,12 +209,12 @@ contract REVTempoSecurity_Local is TestBaseWorkflow, JBTest {
         REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](2);
         issuanceConfs[0] = REVAutoIssuance({
             chainId: uint32(block.chainid), // local chain
-            count: uint104(5_000 * decimalMultiplier),
+            count: uint104(5000 * decimalMultiplier),
             beneficiary: multisig()
         });
         issuanceConfs[1] = REVAutoIssuance({
             chainId: uint32(TEMPO_CHAIN_ID), // Tempo chain
-            count: uint104(3_000 * decimalMultiplier),
+            count: uint104(3000 * decimalMultiplier),
             beneficiary: multisig()
         });
 
@@ -245,9 +237,7 @@ contract REVTempoSecurity_Local is TestBaseWorkflow, JBTest {
 
         JBAccountingContext[] memory accountingContextsToAccept = new JBAccountingContext[](1);
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
         JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
@@ -278,8 +268,7 @@ contract REVTempoSecurity_Local is TestBaseWorkflow, JBTest {
                 poolConfigurations: new REVBuybackPoolConfig[](0)
             }),
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256(abi.encodePacked("TEMPO"))
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("TEMPO"))
             })
         });
 
@@ -287,13 +276,13 @@ contract REVTempoSecurity_Local is TestBaseWorkflow, JBTest {
 
         // The local chain auto-issuance should be realizable.
         uint256 localAmount = REV_DEPLOYER.amountToAutoIssue(tempoRevnetId, block.timestamp, multisig());
-        assertEq(localAmount, 5_000 * decimalMultiplier, "Local auto-issuance should be 5000 tokens");
+        assertEq(localAmount, 5000 * decimalMultiplier, "Local auto-issuance should be 5000 tokens");
 
         // Issue the local chain tokens.
         REV_DEPLOYER.autoIssueFor(tempoRevnetId, block.timestamp, multisig());
         assertEq(
             IJBToken(jbTokens().tokenOf(tempoRevnetId)).balanceOf(multisig()),
-            5_000 * decimalMultiplier,
+            5000 * decimalMultiplier,
             "Multisig should have 5000 tokens after local auto-issue"
         );
 
@@ -342,9 +331,7 @@ contract REVTempoSecurity_Local is TestBaseWorkflow, JBTest {
         // Deploy a revnet WITHOUT the "allow adding suckers" flag.
         REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
         issuanceConfs[0] = REVAutoIssuance({
-            chainId: uint32(block.chainid),
-            count: uint104(1000 * decimalMultiplier),
-            beneficiary: multisig()
+            chainId: uint32(block.chainid), count: uint104(1000 * decimalMultiplier), beneficiary: multisig()
         });
 
         JBSplit[] memory splits = new JBSplit[](1);
@@ -366,9 +353,7 @@ contract REVTempoSecurity_Local is TestBaseWorkflow, JBTest {
 
         JBAccountingContext[] memory accountingContextsToAccept = new JBAccountingContext[](1);
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
         JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
@@ -399,8 +384,7 @@ contract REVTempoSecurity_Local is TestBaseWorkflow, JBTest {
                 poolConfigurations: new REVBuybackPoolConfig[](0)
             }),
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256(abi.encodePacked("NOSUCK"))
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("NOSUCK"))
             })
         });
 

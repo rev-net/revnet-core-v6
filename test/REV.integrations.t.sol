@@ -4,7 +4,7 @@ pragma solidity 0.8.23;
 import "forge-std/Test.sol";
 import /* {*} from */ "@bananapus/core-v5/test/helpers/TestBaseWorkflow.sol";
 import /* {*} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
-    import /* {*} from */ "./../src/REVDeployer.sol";
+import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v5/src/CTPublisher.sol";
 
 import "@bananapus/core-v5/script/helpers/CoreDeploymentLib.sol";
@@ -86,9 +86,7 @@ contract REVnet_Integrations is TestBaseWorkflow, JBTest {
 
         // Accept the chain's native currency through the multi terminal.
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
         // The terminals that the project will accept funds through.
@@ -101,9 +99,7 @@ contract REVnet_Integrations is TestBaseWorkflow, JBTest {
 
         REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
         issuanceConfs[0] = REVAutoIssuance({
-            chainId: uint32(block.chainid),
-            count: uint104(70_000 * decimalMultiplier),
-            beneficiary: multisig()
+            chainId: uint32(block.chainid), count: uint104(70_000 * decimalMultiplier), beneficiary: multisig()
         });
 
         JBSplit[] memory splits = new JBSplit[](1);
@@ -185,8 +181,7 @@ contract REVnet_Integrations is TestBaseWorkflow, JBTest {
             terminalConfigurations: terminalConfigurations,
             buybackHookConfiguration: buybackHookConfiguration,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256(abi.encodePacked("REV"))
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("REV"))
             })
         });
     }
@@ -379,16 +374,16 @@ contract REVnet_Integrations is TestBaseWorkflow, JBTest {
         });
 
         {
-            JBSplit[] memory configuredSplits = jbSplits().splitsOf(
-                revnetProjectId, jbRulesets().currentOf(revnetProjectId).id, JBSplitGroupIds.RESERVED_TOKENS
-            );
+            JBSplit[] memory configuredSplits = jbSplits()
+                .splitsOf(revnetProjectId, jbRulesets().currentOf(revnetProjectId).id, JBSplitGroupIds.RESERVED_TOKENS);
             assertEq(keccak256(abi.encode(configuredSplits)), keccak256(abi.encode(splitsA)));
         }
 
         {
-            JBSplit[] memory configuredSplits = jbSplits().splitsOf(
-                revnetProjectId, jbRulesets().latestRulesetIdOf(revnetProjectId), JBSplitGroupIds.RESERVED_TOKENS
-            );
+            JBSplit[] memory configuredSplits = jbSplits()
+                .splitsOf(
+                    revnetProjectId, jbRulesets().latestRulesetIdOf(revnetProjectId), JBSplitGroupIds.RESERVED_TOKENS
+                );
             assertEq(keccak256(abi.encode(configuredSplits)), keccak256(abi.encode(splitsB)));
         }
     }

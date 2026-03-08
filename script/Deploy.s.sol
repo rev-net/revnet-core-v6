@@ -182,9 +182,7 @@ contract DeployScript is Script, Sphinx {
         {
             REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
             issuanceConfs[0] = REVAutoIssuance({
-                chainId: PREMINT_CHAIN_ID,
-                count: uint104(1_550_000 * DECIMAL_MULTIPLIER),
-                beneficiary: OPERATOR
+                chainId: PREMINT_CHAIN_ID, count: uint104(1_550_000 * DECIMAL_MULTIPLIER), beneficiary: OPERATOR
             });
 
             stageConfigurations[1] = REVStageConfig({
@@ -256,8 +254,7 @@ contract DeployScript is Script, Sphinx {
             if (block.chainid == 1 || block.chainid == 11_155_111) {
                 // On L1: deploy suckers to OP, Base, Arbitrum (+ Tempo on testnet if deployer is available).
                 bool _hasTempoDeployer = address(suckers.tempoDeployer) != address(0);
-                suckerDeployerConfigurations =
-                    new JBSuckerDeployerConfig[](_hasTempoDeployer ? 4 : 3);
+                suckerDeployerConfigurations = new JBSuckerDeployerConfig[](_hasTempoDeployer ? 4 : 3);
                 // OP
                 suckerDeployerConfigurations[0] =
                     JBSuckerDeployerConfig({deployer: suckers.optimismDeployer, mappings: tokenMappings});
