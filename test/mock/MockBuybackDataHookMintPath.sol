@@ -3,13 +3,14 @@ pragma solidity 0.8.26;
 
 import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDataHook.sol";
 import {IJBPayHook} from "@bananapus/core-v6/src/interfaces/IJBPayHook.sol";
+import {IWETH9} from "@bananapus/buyback-hook-v6/src/interfaces/external/IWETH9.sol";
 import {JBBeforePayRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforePayRecordedContext.sol";
 import {JBBeforeCashOutRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforeCashOutRecordedContext.sol";
 import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
 import {JBCashOutHookSpecification} from "@bananapus/core-v6/src/structs/JBCashOutHookSpecification.sol";
 import {JBAfterPayRecordedContext} from "@bananapus/core-v6/src/structs/JBAfterPayRecordedContext.sol";
 import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
-import {IUniswapV3Pool} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 /// @notice Mock buyback hook that simulates the "mint path" — returns EMPTY hookSpecifications.
@@ -50,9 +51,12 @@ contract MockBuybackDataHookMintPath is IJBRulesetDataHook, IJBPayHook {
 
     function afterPayRecordedWith(JBAfterPayRecordedContext calldata) external payable override {}
 
-    function setPoolFor(uint256, uint24, uint256, address) external pure returns (IUniswapV3Pool) {
-        return IUniswapV3Pool(address(0));
+    /// @notice Returns a dummy WETH address for tests.
+    function WETH() external pure returns (IWETH9) {
+        return IWETH9(address(1));
     }
+
+    function setPoolFor(uint256, PoolKey calldata, uint256, address) external pure {}
 
     function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
         return interfaceId == type(IJBRulesetDataHook).interfaceId || interfaceId == type(IJBPayHook).interfaceId

@@ -10,6 +10,9 @@ import {mulDiv} from "@prb/math/src/Common.sol";
 import {IJB721TiersHook} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHook.sol";
 import {IJB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHookDeployer.sol";
 import {IJBBuybackHook} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHook.sol";
+import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
+import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
+import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {IJBCashOutHook} from "@bananapus/core-v6/src/interfaces/IJBCashOutHook.sol";
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
@@ -94,6 +97,10 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @notice The default Uniswap pool fee tier used when auto-configuring buyback pools.
     /// @dev 10_000 = 1%. This is the standard fee tier for most project token pairs.
     uint24 public constant DEFAULT_BUYBACK_POOL_FEE = 10_000;
+
+    /// @notice The default tick spacing used when auto-configuring buyback pools.
+    /// @dev 60 is the standard tick spacing for the 1% fee tier.
+    int24 public constant DEFAULT_BUYBACK_TICK_SPACING = 60;
 
     /// @notice The default TWAP window used when auto-configuring buyback pools.
     /// @dev 2 days provides robust manipulation resistance.
@@ -459,16 +466,41 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
                 });
 
                 // Configure a buyback pool for this terminal token with default fee and TWAP window.
-                // slither-disable-next-line unused-return,calls-loop
-                IJBBuybackHook(address(BUYBACK_HOOK))
-                    .setPoolFor({
-                        projectId: revnetId,
-                        fee: DEFAULT_BUYBACK_POOL_FEE,
-                        twapWindow: DEFAULT_BUYBACK_TWAP_WINDOW,
-                        terminalToken: accountingContext.token
-                    });
+                // slither-disable-next-line calls-loop
+                _trySetBuybackPoolFor(revnetId, accountingContext.token);
             }
         }
+    }
+
+    /// @notice Try to configure a buyback pool for a terminal token. Silently catches failures (e.g., if the Uniswap V4
+    /// pool isn't initialized yet).
+    /// @param revnetId The ID of the revnet.
+    /// @param terminalToken The terminal token to configure a buyback pool for.
+    function _trySetBuybackPoolFor(uint256 revnetId, address terminalToken) internal {
+        // Normalize the terminal token (use WETH for native) and get the project token.
+        address normalizedTerminalToken = terminalToken == JBConstants.NATIVE_TOKEN
+            ? address(IJBBuybackHook(address(BUYBACK_HOOK)).WETH())
+            : terminalToken;
+        address projectToken = address(CONTROLLER.TOKENS().tokenOf(revnetId));
+
+        // Sort currencies numerically for the pool key (lower address = currency0).
+        (Currency currency0, Currency currency1) = normalizedTerminalToken < projectToken
+            ? (Currency.wrap(normalizedTerminalToken), Currency.wrap(projectToken))
+            : (Currency.wrap(projectToken), Currency.wrap(normalizedTerminalToken));
+
+        // Try to set the pool — if the pool isn't initialized in the PoolManager yet, this will revert and be caught.
+        try IJBBuybackHook(address(BUYBACK_HOOK)).setPoolFor({
+            projectId: revnetId,
+            poolKey: PoolKey({
+                currency0: currency0,
+                currency1: currency1,
+                fee: DEFAULT_BUYBACK_POOL_FEE,
+                tickSpacing: DEFAULT_BUYBACK_TICK_SPACING,
+                hooks: IHooks(address(0))
+            }),
+            twapWindow: DEFAULT_BUYBACK_TWAP_WINDOW,
+            terminalToken: terminalToken
+        }) {} catch {} // Pool may not be initialized yet — that's OK.
     }
 
     /// @notice Make a ruleset configuration for a revnet's stage.
