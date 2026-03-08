@@ -1,5 +1,5 @@
 # REVDeploy721TiersHookConfig
-[Git Source](https://github.com/rev-net/revnet-core-v5/blob/364afaae78a8f60af2b98252dc96af1c2e4760d3/src/structs/REVDeploy721TiersHookConfig.sol)
+[Git Source](https://github.com/rev-net/revnet-core-v6/blob/94c003a3a16de2bd012d63cccedd6bd38d21f6e7/src/structs/REVDeploy721TiersHookConfig.sol)
 
 **Notes:**
 - member: baseline721HookConfiguration The baseline config.
@@ -23,12 +23,12 @@ discount of a tier.
 
 ```solidity
 struct REVDeploy721TiersHookConfig {
-    JBDeploy721TiersHookConfig baseline721HookConfiguration;
-    bytes32 salt;
-    bool splitOperatorCanAdjustTiers;
-    bool splitOperatorCanUpdateMetadata;
-    bool splitOperatorCanMint;
-    bool splitOperatorCanIncreaseDiscountPercent;
+JBDeploy721TiersHookConfig baseline721HookConfiguration;
+bytes32 salt;
+bool splitOperatorCanAdjustTiers;
+bool splitOperatorCanUpdateMetadata;
+bool splitOperatorCanMint;
+bool splitOperatorCanIncreaseDiscountPercent;
 }
 ```
 

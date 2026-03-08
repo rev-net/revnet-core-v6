@@ -1,5 +1,5 @@
 # REVAutoIssuance
-[Git Source](https://github.com/rev-net/revnet-core-v5/blob/364afaae78a8f60af2b98252dc96af1c2e4760d3/src/structs/REVAutoIssuance.sol)
+[Git Source](https://github.com/rev-net/revnet-core-v6/blob/94c003a3a16de2bd012d63cccedd6bd38d21f6e7/src/structs/REVAutoIssuance.sol)
 
 **Notes:**
 - member: chainId The ID of the chain on which the mint should be honored.
@@ -11,9 +11,9 @@
 
 ```solidity
 struct REVAutoIssuance {
-    uint32 chainId;
-    uint104 count;
-    address beneficiary;
+uint32 chainId;
+uint104 count;
+address beneficiary;
 }
 ```
 

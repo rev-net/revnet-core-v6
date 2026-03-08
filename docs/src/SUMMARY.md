@@ -6,8 +6,6 @@
     - [IREVLoans](src/interfaces/IREVLoans.sol/interface.IREVLoans.md)
   - [❱ structs](src/structs/README.md)
     - [REVAutoIssuance](src/structs/REVAutoIssuance.sol/struct.REVAutoIssuance.md)
-    - [REVBuybackHookConfig](src/structs/REVBuybackHookConfig.sol/struct.REVBuybackHookConfig.md)
-    - [REVBuybackPoolConfig](src/structs/REVBuybackPoolConfig.sol/struct.REVBuybackPoolConfig.md)
     - [REVConfig](src/structs/REVConfig.sol/struct.REVConfig.md)
     - [REVCroptopAllowedPost](src/structs/REVCroptopAllowedPost.sol/struct.REVCroptopAllowedPost.md)
     - [REVDeploy721TiersHookConfig](src/structs/REVDeploy721TiersHookConfig.sol/struct.REVDeploy721TiersHookConfig.md)
