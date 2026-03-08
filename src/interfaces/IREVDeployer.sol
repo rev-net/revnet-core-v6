@@ -47,8 +47,6 @@ interface IREVDeployer {
         uint256 indexed revnetId, uint256 indexed stageId, address indexed beneficiary, uint256 count, address caller
     );
 
-    event SetAdditionalOperator(uint256 revnetId, address additionalOperator, uint256[] permissionIds, address caller);
-
     event BurnHeldTokens(uint256 indexed revnetId, uint256 count, address caller);
 
     /// @notice The number of seconds until a revnet's participants can cash out after deploying to a new network.
