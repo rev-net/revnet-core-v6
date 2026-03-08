@@ -134,9 +134,12 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         public
         override isLoanSourceOf;
 
-    /// @notice The amount of loans that have been created.
-    /// @custom:param revnetId The ID of the revnet to get the number of loans from.
-    mapping(uint256 revnetId => uint256) public override numberOfLoansFor;
+    /// @notice The cumulative number of loans ever created for a revnet, used as a loan ID sequence counter.
+    /// @dev This counter only increments (on borrow, repay-with-new-loan, and reallocation) and never decrements.
+    /// It does NOT represent the number of currently active loans. Repaid and liquidated loans leave permanent gaps
+    /// in the ID sequence. Integrators should not use this to count active loans.
+    /// @custom:param revnetId The ID of the revnet to get the cumulative loan count from.
+    mapping(uint256 revnetId => uint256) public override totalLoansBorrowedFor;
 
     /// @notice The contract resolving each project ID to its ERC721 URI.
     IJBTokenUriResolver public override tokenUriResolver;
@@ -563,7 +566,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         }
 
         // Get a reference to the loan ID.
-        loanId = _generateLoanId({revnetId: revnetId, loanNumber: ++numberOfLoansFor[revnetId]});
+        loanId = _generateLoanId({revnetId: revnetId, loanNumber: ++totalLoansBorrowedFor[revnetId]});
 
         // Get a reference to the loan being created.
         REVLoan storage loan = _loanOf[loanId];
@@ -781,7 +784,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
 
         // Revert if this repayment would do nothing — no borrow amount repaid and no collateral returned.
         // Without this check, a zero-amount repayment would burn the old loan NFT and mint a new one,
-        // incrementing numberOfLoansFor without limit.
+        // incrementing totalLoansBorrowedFor without limit.
         if (repayBorrowAmount == 0 && collateralCountToReturn == 0) revert REVLoans_NothingToRepay();
 
         // Keep a reference to the fee that'll be taken.
@@ -1147,7 +1150,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         } else {
             // Make a new loan with the remaining amount and collateral.
             // Get a reference to the replacement loan ID.
-            uint256 paidOffLoanId = _generateLoanId({revnetId: revnetId, loanNumber: ++numberOfLoansFor[revnetId]});
+            uint256 paidOffLoanId = _generateLoanId({revnetId: revnetId, loanNumber: ++totalLoansBorrowedFor[revnetId]});
 
             // Get a reference to the loan being paid off.
             REVLoan storage paidOffLoan = _loanOf[paidOffLoanId];
@@ -1228,7 +1231,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         }
 
         // Get a reference to the replacement loan ID.
-        reallocatedLoanId = _generateLoanId({revnetId: revnetId, loanNumber: ++numberOfLoansFor[revnetId]});
+        reallocatedLoanId = _generateLoanId({revnetId: revnetId, loanNumber: ++totalLoansBorrowedFor[revnetId]});
 
         // Get a reference to the loan being created.
         reallocatedLoan = _loanOf[reallocatedLoanId];

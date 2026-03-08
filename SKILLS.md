@@ -128,7 +128,7 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 | Mapping | Type | Purpose |
 |---------|------|---------|
 | `isLoanSourceOf` | `revnetId => terminal => token => bool` | Is this (terminal, token) pair used for loans? |
-| `numberOfLoansFor` | `revnetId => uint256` | Counter for loan numbering |
+| `totalLoansBorrowedFor` | `revnetId => uint256` | Counter for loan numbering |
 | `totalBorrowedFrom` | `revnetId => terminal => token => uint256` | Tracks debt per loan source |
 | `totalCollateralOf` | `revnetId => uint256` | Sum of all burned collateral |
 | `_loanOf` | `loanId => REVLoan` | Per-loan state |

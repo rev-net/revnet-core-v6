@@ -516,7 +516,7 @@ contract TestPR32_MixedFixes is TestBaseWorkflow, JBTest {
         assertTrue(tokenBorrowed > 0, "TOKEN borrow should be tracked");
 
         // The total number of loans should be 2.
-        assertEq(LOANS_CONTRACT.numberOfLoansFor(MIXED_REVNET_ID), 2, "Should have 2 loans");
+        assertEq(LOANS_CONTRACT.totalLoansBorrowedFor(MIXED_REVNET_ID), 2, "Should have 2 loans");
 
         // Query borrowable in 18-decimal ETH context. This exercises _totalBorrowedFrom's
         // cross-decimal normalization: TOKEN borrows (6 dec) must be normalized to 18 dec before

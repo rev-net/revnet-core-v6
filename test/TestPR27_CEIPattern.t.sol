@@ -335,8 +335,8 @@ contract TestPR27_CEIPattern is TestBaseWorkflow, JBTest {
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 
         // Pre-compute the loanId so the attacker can read it during reentrancy.
-        // loanId = revnetId * 1_000_000_000_000 + (numberOfLoansFor + 1)
-        uint256 expectedLoanId = REVNET_ID * 1_000_000_000_000 + (LOANS_CONTRACT.numberOfLoansFor(REVNET_ID) + 1);
+        // loanId = revnetId * 1_000_000_000_000 + (totalLoansBorrowedFor + 1)
+        uint256 expectedLoanId = REVNET_ID * 1_000_000_000_000 + (LOANS_CONTRACT.totalLoansBorrowedFor(REVNET_ID) + 1);
         attacker.setTarget(expectedLoanId);
 
         // Borrow with attacker as beneficiary — attacker's receive() will fire when ETH arrives.
