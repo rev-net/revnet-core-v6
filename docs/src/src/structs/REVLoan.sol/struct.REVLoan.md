@@ -1,5 +1,5 @@
 # REVLoan
-[Git Source](https://github.com/rev-net/revnet-core-v5/blob/364afaae78a8f60af2b98252dc96af1c2e4760d3/src/structs/REVLoan.sol)
+[Git Source](https://github.com/rev-net/revnet-core-v6/blob/94c003a3a16de2bd012d63cccedd6bd38d21f6e7/src/structs/REVLoan.sol)
 
 **Notes:**
 - member: borrowedAmount The amount that is being borrowed.
@@ -17,12 +17,12 @@
 
 ```solidity
 struct REVLoan {
-    uint112 amount;
-    uint112 collateral;
-    uint48 createdAt;
-    uint16 prepaidFeePercent;
-    uint32 prepaidDuration;
-    REVLoanSource source;
+uint112 amount;
+uint112 collateral;
+uint48 createdAt;
+uint16 prepaidFeePercent;
+uint32 prepaidDuration;
+REVLoanSource source;
 }
 ```
 

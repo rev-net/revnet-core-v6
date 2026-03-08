@@ -1,77 +1,77 @@
 # REVLoans
-[Git Source](https://github.com/rev-net/revnet-core-v5/blob/364afaae78a8f60af2b98252dc96af1c2e4760d3/src/REVLoans.sol)
+[Git Source](https://github.com/rev-net/revnet-core-v6/blob/94c003a3a16de2bd012d63cccedd6bd38d21f6e7/src/REVLoans.sol)
 
 **Inherits:**
 ERC721, ERC2771Context, Ownable, [IREVLoans](/src/interfaces/IREVLoans.sol/interface.IREVLoans.md)
 
 A contract for borrowing from revnets.
 
-*Tokens used as collateral are burned, and reminted when the loan is paid off. This keeps the revnet's token
-structure orderly.*
+Tokens used as collateral are burned, and reminted when the loan is paid off. This keeps the revnet's token
+structure orderly.
 
-*The borrowable amount is the same as the cash out amount.*
+The borrowable amount is the same as the cash out amount.
 
-*An upfront fee is taken when a loan is created. 2.5% is charged by the underlying protocol, 2.5% is charged
+An upfront fee is taken when a loan is created. 2.5% is charged by the underlying protocol, 2.5% is charged
 by the
 revnet issuing the loan, and a variable amount charged by the revnet that receives the fees. This variable amount is
 chosen by the borrower, the more paid upfront, the longer the prepaid duration. The loan can be repaid anytime
 within the prepaid duration without additional fees.
 After the prepaid duration, the loan will increasingly cost more to pay off. After 10 years, the loan collateral
 cannot be
-recouped.*
+recouped.
 
-*The loaned amounts include the fees taken, meaning the amount paid back is the amount borrowed plus the fees.*
+The loaned amounts include the fees taken, meaning the amount paid back is the amount borrowed plus the fees.
 
 
 ## State Variables
 ### LOAN_LIQUIDATION_DURATION
-*After the prepaid duration, the loan will cost more to pay off. After 10 years, the loan
+After the prepaid duration, the loan will cost more to pay off. After 10 years, the loan
 collateral cannot be recouped. This means paying 50% of the loan amount upfront will pay for having access to
 the remaining 50% for 10 years,
 whereas paying 0% of the loan upfront will cost 100% of the loan amount to be paid off after 10 years. After 10
-years with repayment, both loans cost 100% and are liquidated.*
+years with repayment, both loans cost 100% and are liquidated.
 
 
 ```solidity
-uint256 public constant override LOAN_LIQUIDATION_DURATION = 3650 days;
+uint256 public constant override LOAN_LIQUIDATION_DURATION = 3650 days
 ```
 
 
 ### MAX_PREPAID_FEE_PERCENT
-*The maximum amount of a loan that can be prepaid at the time of borrowing, in terms of JBConstants.MAX_FEE.*
+The maximum amount of a loan that can be prepaid at the time of borrowing, in terms of JBConstants.MAX_FEE.
 
 
 ```solidity
-uint256 public constant override MAX_PREPAID_FEE_PERCENT = 500;
+uint256 public constant override MAX_PREPAID_FEE_PERCENT = 500
 ```
 
 
 ### REV_PREPAID_FEE_PERCENT
-*A fee of 1% is charged by the $REV revnet.*
+A fee of 1% is charged by the $REV revnet.
 
 
 ```solidity
-uint256 public constant override REV_PREPAID_FEE_PERCENT = 10;
+uint256 public constant override REV_PREPAID_FEE_PERCENT = 10
 ```
 
 
 ### MIN_PREPAID_FEE_PERCENT
-*A fee of 2.5% is charged by the loan's source upfront.*
+A fee of 2.5% is charged by the loan's source upfront.
 
 
 ```solidity
-uint256 public constant override MIN_PREPAID_FEE_PERCENT = 25;
+uint256 public constant override MIN_PREPAID_FEE_PERCENT = 25
 ```
 
 
 ### _ONE_TRILLION
 Just a kind reminder to our readers.
 
-*Used in loan token ID generation.*
+Used in loan token ID generation.
 
 
 ```solidity
-uint256 private constant _ONE_TRILLION = 1_000_000_000_000;
+uint256 private constant _ONE_TRILLION = 1_000_000_000_000
 ```
 
 
@@ -80,7 +80,7 @@ The permit2 utility.
 
 
 ```solidity
-IPermit2 public immutable override PERMIT2;
+IPermit2 public immutable override PERMIT2
 ```
 
 
@@ -89,16 +89,7 @@ The controller of revnets that use this loans contract.
 
 
 ```solidity
-IJBController public immutable override CONTROLLER;
-```
-
-
-### REVNETS
-Mints ERC-721s that represent project ownership and transfers.
-
-
-```solidity
-IREVDeployer public immutable override REVNETS;
+IJBController public immutable override CONTROLLER
 ```
 
 
@@ -107,7 +98,7 @@ The directory of terminals and controllers for revnets.
 
 
 ```solidity
-IJBDirectory public immutable override DIRECTORY;
+IJBDirectory public immutable override DIRECTORY
 ```
 
 
@@ -116,7 +107,7 @@ A contract that stores prices for each revnet.
 
 
 ```solidity
-IJBPrices public immutable override PRICES;
+IJBPrices public immutable override PRICES
 ```
 
 
@@ -125,7 +116,7 @@ Mints ERC-721s that represent revnet ownership and transfers.
 
 
 ```solidity
-IJBProjects public immutable override PROJECTS;
+IJBProjects public immutable override PROJECTS
 ```
 
 
@@ -134,7 +125,7 @@ The ID of the REV revnet that will receive the fees.
 
 
 ```solidity
-uint256 public immutable override REV_ID;
+uint256 public immutable override REV_ID
 ```
 
 
@@ -144,17 +135,22 @@ token.
 
 
 ```solidity
-mapping(uint256 revnetId => mapping(IJBPayoutTerminal terminal => mapping(address token => bool))) public override
-    isLoanSourceOf;
+mapping(uint256 revnetId => mapping(IJBPayoutTerminal terminal => mapping(address token => bool)))
+    public
+    override isLoanSourceOf
 ```
 
 
 ### totalLoansBorrowedFor
-The amount of loans that have been created.
+The cumulative number of loans ever created for a revnet, used as a loan ID sequence counter.
+
+This counter only increments (on borrow, repay-with-new-loan, and reallocation) and never decrements.
+It does NOT represent the number of currently active loans. Repaid and liquidated loans leave permanent gaps
+in the ID sequence. Integrators should not use this to count active loans.
 
 
 ```solidity
-mapping(uint256 revnetId => uint256) public override totalLoansBorrowedFor;
+mapping(uint256 revnetId => uint256) public override totalLoansBorrowedFor
 ```
 
 
@@ -163,7 +159,7 @@ The contract resolving each project ID to its ERC721 URI.
 
 
 ```solidity
-IJBTokenUriResolver public override tokenUriResolver;
+IJBTokenUriResolver public override tokenUriResolver
 ```
 
 
@@ -172,8 +168,9 @@ The total amount loaned out by a revnet from a specified terminal in a specified
 
 
 ```solidity
-mapping(uint256 revnetId => mapping(IJBPayoutTerminal terminal => mapping(address token => uint256))) public override
-    totalBorrowedFrom;
+mapping(uint256 revnetId => mapping(IJBPayoutTerminal terminal => mapping(address token => uint256)))
+    public
+    override totalBorrowedFrom
 ```
 
 
@@ -182,19 +179,24 @@ The total amount of collateral supporting a revnet's loans.
 
 
 ```solidity
-mapping(uint256 revnetId => uint256) public override totalCollateralOf;
+mapping(uint256 revnetId => uint256) public override totalCollateralOf
 ```
 
 
 ### _loanSourcesOf
 The sources of each revnet's loan.
 
+This array grows monotonically -- entries are appended when a new (terminal, token) pair is first used for
+borrowing, but are never removed. The `isLoanSourceOf` mapping tracks whether a source has been registered.
+Since the number of distinct (terminal, token) pairs per revnet is practically bounded (typically < 10),
+the gas cost of iterating this array in `loanSourcesOf` remains manageable.
+
 **Note:**
 member: revnetId The ID of the revnet issuing the loan.
 
 
 ```solidity
-mapping(uint256 revnetId => REVLoanSource[]) internal _loanSourcesOf;
+mapping(uint256 revnetId => REVLoanSource[]) internal _loanSourcesOf
 ```
 
 
@@ -206,7 +208,7 @@ member: The ID of the loan.
 
 
 ```solidity
-mapping(uint256 loanId => REVLoan) internal _loanOf;
+mapping(uint256 loanId => REVLoan) internal _loanOf
 ```
 
 
@@ -216,7 +218,8 @@ mapping(uint256 loanId => REVLoan) internal _loanOf;
 
 ```solidity
 constructor(
-    IREVDeployer revnets,
+    IJBController controller,
+    IJBProjects projects,
     uint256 revId,
     address owner,
     IPermit2 permit2,
@@ -230,7 +233,8 @@ constructor(
 
 |Name|Type|Description|
 |----|----|-----------|
-|`revnets`|`IREVDeployer`|A contract from which revnets using this loans contract are deployed.|
+|`controller`|`IJBController`|The controller that manages revnets using this loans contract.|
+|`projects`|`IJBProjects`|The contract that mints ERC-721s representing project ownership.|
 |`revId`|`uint256`|The ID of the REV revnet that will receive the fees.|
 |`owner`|`address`|The owner of the contract that can set the URI resolver.|
 |`permit2`|`IPermit2`|A permit2 utility.|
@@ -284,6 +288,9 @@ function loanOf(uint256 loanId) external view override returns (REVLoan memory);
 ### loanSourcesOf
 
 The sources of each revnet's loan.
+
+This array only grows -- sources are never removed. The number of distinct sources is practically bounded
+by the number of unique (terminal, token) pairs used for borrowing, which is typically small.
 
 **Note:**
 member: revnetId The ID of the revnet issuing the loan.
@@ -348,7 +355,7 @@ function revnetIdOfLoanWith(uint256 loanId) public pure override returns (uint25
 
 |Name|Type|Description|
 |----|----|-----------|
-|`loanId`|`uint256`|The loan ID of the loan to get the revent ID of.|
+|`loanId`|`uint256`|The loan ID of the loan to get the revnet ID of.|
 
 **Returns**
 
@@ -380,7 +387,29 @@ function _balanceOf(address token) internal view returns (uint256);
 
 ### _borrowableAmountFrom
 
-*The amount that can be borrowed from a revnet given a certain amount of collateral.*
+This function reads live surplus from the revnet's terminals. A potential concern is flash loan
+manipulation: an attacker could temporarily inflate surplus via `addToBalanceOf` or `pay`, borrow at the
+inflated rate, then repay the flash loan. However, this attack is economically irrational:
+- `addToBalanceOf` permanently donates funds to the project (no recovery mechanism). The attacker's extra
+borrowable amount equals `donation * (collateralCount / totalSupply)`, which is always less than the
+donation since `collateralCount < totalSupply`. The attacker loses more than they gain.
+- `pay` increases both surplus AND totalSupply (via newly minted tokens), so the net effect on the
+borrowable-amount-per-token ratio is neutral — the increased surplus is offset by supply dilution.
+- With non-zero `cashOutTaxRate`, the bonding curve is concave, making the attack even less profitable.
+- Refinancing during inflated surplus (`reallocateCollateralFromLoan`) does not help either: the freed
+collateral can only borrow a fraction of the donated amount, keeping the attack net-negative.
+In summary, any attempt to inflate surplus to increase borrowing power costs the attacker more than it yields,
+because the bonding curve ensures no individual can extract more than their proportional share of surplus.
+
+The amount that can be borrowed from a revnet given a certain amount of collateral.
+
+The system intentionally allows up to 100% LTV (loan-to-value) by design. The borrowable amount equals
+what the collateral tokens would receive if cashed out, computed via the bonding curve formula in
+`JBCashOuts.cashOutFrom`. The `cashOutTaxRate` configured for the current stage serves as an implicit margin
+buffer: a non-zero tax rate reduces the cash-out value below the pro-rata share of surplus, creating an
+effective collateralization margin. For example, a 20% `cashOutTaxRate` means borrowers can only extract ~80%
+of their pro-rata surplus, providing a ~20% buffer against collateral depreciation before liquidation.
+A `cashOutTaxRate` of 0 means the full pro-rata amount is borrowable (true 100% LTV with no margin).
 
 
 ```solidity
@@ -444,7 +473,7 @@ function _borrowAmountFrom(
 
 ### _contextSuffixLength
 
-*`ERC-2771` specifies the context as being a single address (20 bytes).*
+`ERC-2771` specifies the context as being a single address (20 bytes).
 
 
 ```solidity
@@ -527,7 +556,15 @@ function _msgSender() internal view override(ERC2771Context, Context) returns (a
 
 ### _totalBorrowedFrom
 
-The total borrowed amount from a revnet.
+The total borrowed amount from a revnet, aggregated across all loan sources.
+
+Each source's `totalBorrowedFrom` is stored in the source token's native decimals (e.g. 6 for USDC,
+18 for ETH). Before aggregation, each amount is normalized to the target `decimals` to prevent mixed-decimal
+arithmetic errors. For cross-currency sources, the normalized amount is then converted via the price feed.
+
+Callers should ensure the price feed has sufficient precision for the target `decimals`. Inverse price
+feeds may truncate to zero at low decimal counts (e.g. a feed returning 1e21 at 6 decimals inverts to
+mulDiv(1e6, 1e6, 1e21) = 0), which would cause a division-by-zero in the price conversion.
 
 
 ```solidity
@@ -558,6 +595,10 @@ function _totalBorrowedFrom(
 ### borrowFrom
 
 Open a loan by borrowing from a revnet.
+
+Collateral tokens are permanently burned when the loan is created. They are re-minted to the borrower
+only upon repayment. If the loan expires (after LOAN_LIQUIDATION_DURATION), the collateral is permanently
+lost and cannot be recovered.
 
 
 ```solidity
@@ -594,10 +635,19 @@ function borrowFrom(
 
 ### liquidateExpiredLoansFrom
 
-Cleans up any liquiditated loans.
+Liquidates loans that have exceeded the 10-year liquidation duration.
 
-*Since some loans may be reallocated or paid off, loans within startingLoanId and startingLoanId + count may
-be skipped, so choose these parameters carefully to avoid extra gas usage.*
+Liquidation permanently destroys the collateral backing expired loans. Since collateral tokens were burned
+at deposit time (not held in escrow), there is nothing to return upon liquidation -- the collateral count is
+simply removed from tracking. The borrower retains whatever funds they received from the loan, but the
+collateral tokens that were burned to secure the loan are permanently lost.
+
+This is an intentional design choice to keep the protocol simple and to incentivize timely repayment or
+refinancing. Borrowers have the full LOAN_LIQUIDATION_DURATION (10 years) to repay their loan and recover
+their collateral via re-minting.
+
+Since some loans may be reallocated or paid off, loans within startingLoanId and startingLoanId + count
+may be skipped, so choose these parameters carefully to avoid extra gas usage.
 
 
 ```solidity
@@ -616,9 +666,12 @@ function liquidateExpiredLoansFrom(uint256 revnetId, uint256 startingLoanId, uin
 
 Refinances a loan by transferring extra collateral from an existing loan to a new loan.
 
-*Useful if a loan's collateral has gone up in value since the loan was created.*
+Useful if a loan's collateral has gone up in value since the loan was created.
 
-*Refinancing a loan will burn the original and create two new loans.*
+Refinancing a loan will burn the original and create two new loans.
+
+This function is intentionally not payable — it only moves existing collateral between loans and does
+not accept new funds. Any ETH sent with the call will be rejected by the EVM.
 
 
 ```solidity
@@ -632,7 +685,6 @@ function reallocateCollateralFromLoan(
     uint256 prepaidFeePercent
 )
     external
-    payable
     override
     returns (uint256 reallocatedLoanId, uint256 newLoanId, REVLoan memory reallocatedLoan, REVLoan memory newLoan);
 ```
@@ -712,7 +764,10 @@ function setTokenUriResolver(IJBTokenUriResolver resolver) external override onl
 
 ### _addCollateralTo
 
-Adds collateral to a loan.
+Adds collateral to a loan by burning the collateral tokens permanently.
+
+The collateral tokens are burned via the controller, not held in escrow. They are only re-minted if the
+loan is repaid. If the loan expires and is liquidated, the burned collateral is permanently lost.
 
 
 ```solidity
@@ -1009,6 +1064,12 @@ error REVLoans_NewBorrowAmountGreaterThanLoanAmount(uint256 newBorrowAmount, uin
 error REVLoans_NoMsgValueAllowed();
 ```
 
+### REVLoans_NothingToRepay
+
+```solidity
+error REVLoans_NothingToRepay();
+```
+
 ### REVLoans_LoanExpired
 
 ```solidity
@@ -1021,10 +1082,10 @@ error REVLoans_LoanExpired(uint256 timeSinceLoanCreated, uint256 loanLiquidation
 error REVLoans_ReallocatingMoreCollateralThanBorrowedAmountAllows(uint256 newBorrowAmount, uint256 loanAmount);
 ```
 
-### REVLoans_RevnetsMismatch
+### REVLoans_SourceMismatch
 
 ```solidity
-error REVLoans_RevnetsMismatch(address revnetOwner, address revnets);
+error REVLoans_SourceMismatch();
 ```
 
 ### REVLoans_Unauthorized

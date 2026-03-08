@@ -1,12 +1,12 @@
 # REVDeployer
-[Git Source](https://github.com/rev-net/revnet-core-v5/blob/364afaae78a8f60af2b98252dc96af1c2e4760d3/src/REVDeployer.sol)
+[Git Source](https://github.com/rev-net/revnet-core-v6/blob/94c003a3a16de2bd012d63cccedd6bd38d21f6e7/src/REVDeployer.sol)
 
 **Inherits:**
 ERC2771Context, [IREVDeployer](/src/interfaces/IREVDeployer.sol/interface.IREVDeployer.md), IJBRulesetDataHook, IJBCashOutHook, IERC721Receiver
 
 `REVDeployer` deploys, manages, and operates Revnets.
 
-*Revnets are unowned Juicebox projects which operate autonomously after deployment.*
+Revnets are unowned Juicebox projects which operate autonomously after deployment.
 
 
 ## State Variables
@@ -16,11 +16,11 @@ revnet is deployed to a new network.
 - Only applies to existing revnets which are deploying onto a new network.
 - To prevent liquidity/arbitrage issues which might arise when an existing revnet adds a brand-new treasury.
 
-*30 days, in seconds.*
+30 days, in seconds.
 
 
 ```solidity
-uint256 public constant override CASH_OUT_DELAY = 2_592_000;
+uint256 public constant override CASH_OUT_DELAY = 2_592_000
 ```
 
 
@@ -28,13 +28,44 @@ uint256 public constant override CASH_OUT_DELAY = 2_592_000;
 The cash out fee (as a fraction out of `JBConstants.MAX_FEE`).
 Cashout fees are paid to the revnet with the `FEE_REVNET_ID`.
 
-*Fees are charged on cashouts if the cash out tax rate is greater than 0%.*
+Fees are charged on cashouts if the cash out tax rate is greater than 0%.
 
-*When suckers withdraw funds, they do not pay cash out fees.*
+When suckers withdraw funds, they do not pay cash out fees.
 
 
 ```solidity
-uint256 public constant override FEE = 25;
+uint256 public constant override FEE = 25
+```
+
+
+### DEFAULT_BUYBACK_POOL_FEE
+The default Uniswap pool fee tier used when auto-configuring buyback pools.
+
+10_000 = 1%. This is the standard fee tier for most project token pairs.
+
+
+```solidity
+uint24 public constant DEFAULT_BUYBACK_POOL_FEE = 10_000
+```
+
+
+### DEFAULT_BUYBACK_TWAP_WINDOW
+The default TWAP window used when auto-configuring buyback pools.
+
+2 days provides robust manipulation resistance.
+
+
+```solidity
+uint32 public constant DEFAULT_BUYBACK_TWAP_WINDOW = 2 days
+```
+
+
+### BUYBACK_HOOK
+The buyback hook used as a data hook to route payments through buyback pools.
+
+
+```solidity
+IJBRulesetDataHook public immutable override BUYBACK_HOOK
 ```
 
 
@@ -43,7 +74,7 @@ The controller used to create and manage Juicebox projects for revnets.
 
 
 ```solidity
-IJBController public immutable override CONTROLLER;
+IJBController public immutable override CONTROLLER
 ```
 
 
@@ -52,7 +83,7 @@ The directory of terminals and controllers for Juicebox projects (and revnets).
 
 
 ```solidity
-IJBDirectory public immutable override DIRECTORY;
+IJBDirectory public immutable override DIRECTORY
 ```
 
 
@@ -61,7 +92,7 @@ The Juicebox project ID of the revnet that receives cash out fees.
 
 
 ```solidity
-uint256 public immutable override FEE_REVNET_ID;
+uint256 public immutable override FEE_REVNET_ID
 ```
 
 
@@ -70,7 +101,19 @@ Deploys tiered ERC-721 hooks for revnets.
 
 
 ```solidity
-IJB721TiersHookDeployer public immutable override HOOK_DEPLOYER;
+IJB721TiersHookDeployer public immutable override HOOK_DEPLOYER
+```
+
+
+### LOANS
+The loan contract used by all revnets.
+
+Revnets can offer loans to their participants, collateralized by their tokens.
+Participants can borrow up to the current cash out value of their tokens.
+
+
+```solidity
+address public immutable override LOANS
 ```
 
 
@@ -79,7 +122,7 @@ Stores Juicebox project (and revnet) access permissions.
 
 
 ```solidity
-IJBPermissions public immutable override PERMISSIONS;
+IJBPermissions public immutable override PERMISSIONS
 ```
 
 
@@ -88,7 +131,7 @@ Mints ERC-721s that represent Juicebox project (and revnet) ownership and transf
 
 
 ```solidity
-IJBProjects public immutable override PROJECTS;
+IJBProjects public immutable override PROJECTS
 ```
 
 
@@ -97,7 +140,7 @@ Manages the publishing of ERC-721 posts to revnet's tiered ERC-721 hooks.
 
 
 ```solidity
-CTPublisher public immutable override PUBLISHER;
+CTPublisher public immutable override PUBLISHER
 ```
 
 
@@ -106,7 +149,7 @@ Deploys and tracks suckers for revnets.
 
 
 ```solidity
-IJBSuckerRegistry public immutable override SUCKER_REGISTRY;
+IJBSuckerRegistry public immutable override SUCKER_REGISTRY
 ```
 
 
@@ -114,58 +157,36 @@ IJBSuckerRegistry public immutable override SUCKER_REGISTRY;
 The number of revnet tokens which can be "auto-minted" (minted without payments)
 for a specific beneficiary during a stage. Think of this as a per-stage premint.
 
-*These tokens can be minted with `autoIssueFor(…)`.*
+These tokens can be minted with `autoIssueFor(…)`.
 
 
 ```solidity
-mapping(uint256 revnetId => mapping(uint256 stageId => mapping(address beneficiary => uint256))) public override
-    amountToAutoIssue;
-```
-
-
-### buybackHookOf
-Each revnet's buyback data hook. These return buyback hook data.
-
-*Buyback hooks are a combined data hook/pay hook.*
-
-
-```solidity
-mapping(uint256 revnetId => IJBRulesetDataHook buybackHook) public override buybackHookOf;
+mapping(uint256 revnetId => mapping(uint256 stageId => mapping(address beneficiary => uint256)))
+    public
+    override amountToAutoIssue
 ```
 
 
 ### cashOutDelayOf
 The timestamp of when cashouts will become available to a specific revnet's participants.
 
-*Only applies to existing revnets which are deploying onto a new network.*
+Only applies to existing revnets which are deploying onto a new network.
 
 
 ```solidity
-mapping(uint256 revnetId => uint256 cashOutDelay) public override cashOutDelayOf;
+mapping(uint256 revnetId => uint256 cashOutDelay) public override cashOutDelayOf
 ```
 
 
 ### hashedEncodedConfigurationOf
 The hashed encoded configuration of each revnet.
 
-*This is used to ensure that the encoded configuration of a revnet is the same when deploying suckers for
-omnichain operations.*
+This is used to ensure that the encoded configuration of a revnet is the same when deploying suckers for
+omnichain operations.
 
 
 ```solidity
-mapping(uint256 revnetId => bytes32 hashedEncodedConfiguration) public override hashedEncodedConfigurationOf;
-```
-
-
-### loansOf
-Each revnet's loan contract.
-
-*Revnets can offer loans to their participants, collateralized by their tokens.
-Participants can borrow up to the current cash out value of their tokens.*
-
-
-```solidity
-mapping(uint256 revnetId => address) public override loansOf;
+mapping(uint256 revnetId => bytes32 hashedEncodedConfiguration) public override hashedEncodedConfigurationOf
 ```
 
 
@@ -174,18 +195,18 @@ Each revnet's tiered ERC-721 hook.
 
 
 ```solidity
-mapping(uint256 revnetId => IJB721TiersHook tiered721Hook) public override tiered721HookOf;
+mapping(uint256 revnetId => IJB721TiersHook tiered721Hook) public override tiered721HookOf
 ```
 
 
 ### _extraOperatorPermissions
 A list of `JBPermissonIds` indices to grant to the split operator of a specific revnet.
 
-*These should be set in the revnet's deployment process.*
+These should be set in the revnet's deployment process.
 
 
 ```solidity
-mapping(uint256 revnetId => uint256[]) internal _extraOperatorPermissions;
+mapping(uint256 revnetId => uint256[]) internal _extraOperatorPermissions
 ```
 
 
@@ -200,6 +221,8 @@ constructor(
     uint256 feeRevnetId,
     IJB721TiersHookDeployer hookDeployer,
     CTPublisher publisher,
+    IJBRulesetDataHook buybackHook,
+    address loans,
     address trustedForwarder
 )
     ERC2771Context(trustedForwarder);
@@ -213,6 +236,8 @@ constructor(
 |`feeRevnetId`|`uint256`|The Juicebox project ID of the revnet that will receive fees.|
 |`hookDeployer`|`IJB721TiersHookDeployer`|The deployer to use for revnet's tiered ERC-721 hooks.|
 |`publisher`|`CTPublisher`|The croptop publisher revnets can use to publish ERC-721 posts to their tiered ERC-721 hooks.|
+|`buybackHook`|`IJBRulesetDataHook`|The buyback hook used as a data hook to route payments through buyback pools.|
+|`loans`|`address`|The loan contract used by all revnets.|
 |`trustedForwarder`|`address`|The trusted forwarder for the ERC2771Context.|
 
 
@@ -220,7 +245,7 @@ constructor(
 
 Before a revnet processes an incoming payment, determine the weight and pay hooks to use.
 
-*This function is part of `IJBRulesetDataHook`, and gets called before the revnet processes a payment.*
+This function is part of `IJBRulesetDataHook`, and gets called before the revnet processes a payment.
 
 
 ```solidity
@@ -248,9 +273,9 @@ function beforePayRecordedWith(JBBeforePayRecordedContext calldata context)
 
 Determine how a cash out from a revnet should be processed.
 
-*This function is part of `IJBRulesetDataHook`, and gets called before the revnet processes a cash out.*
+This function is part of `IJBRulesetDataHook`, and gets called before the revnet processes a cash out.
 
-*If a sucker is cashing out, no taxes or fees are imposed.*
+If a sucker is cashing out, no taxes or fees are imposed.
 
 
 ```solidity
@@ -285,7 +310,7 @@ function beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext calldata conte
 
 A flag indicating whether an address has permission to mint a revnet's tokens on-demand.
 
-*Required by the `IJBRulesetDataHook` interface.*
+Required by the `IJBRulesetDataHook` interface.
 
 
 ```solidity
@@ -316,7 +341,7 @@ function hasMintPermissionFor(
 
 ### onERC721Received
 
-*Make sure this contract can only receive project NFTs from `JBProjects`.*
+Make sure this contract can only receive project NFTs from `JBProjects`.
 
 
 ```solidity
@@ -349,7 +374,7 @@ function isSplitOperatorOf(uint256 revnetId, address addr) public view override 
 
 Indicates if this contract adheres to the specified interface.
 
-*See `IERC165.supportsInterface`.*
+See `IERC165.supportsInterface`.
 
 
 ```solidity
@@ -400,27 +425,27 @@ function _isSuckerOf(uint256 revnetId, address addr) internal view returns (bool
 |`<none>`|`bool`|isSucker A flag indicating whether the address is one of the revnet's suckers.|
 
 
-### _makeLoanFundAccessLimits
+### _makeLoanFundAccessLimitsAndBuybackPools
 
-Initialize a fund access limit group for the loan contract to use.
+Initialize fund access limits for the loan contract and configure buyback pools for each terminal token.
 
-*Returns an unlimited surplus allowance for each token which can be loaned out.*
+Returns an unlimited surplus allowance for each terminal+token pair derived from the terminal
+configurations. Also auto-configures a buyback pool for each token with sensible defaults (1% fee, 2-day TWAP).
 
 
 ```solidity
-function _makeLoanFundAccessLimits(
-    REVConfig calldata configuration,
+function _makeLoanFundAccessLimitsAndBuybackPools(
+    uint256 revnetId,
     JBTerminalConfig[] calldata terminalConfigurations
 )
     internal
-    pure
     returns (JBFundAccessLimitGroup[] memory fundAccessLimitGroups);
 ```
 **Parameters**
 
 |Name|Type|Description|
 |----|----|-----------|
-|`configuration`|`REVConfig`|The revnet's configuration.|
+|`revnetId`|`uint256`|The ID of the revnet to configure buyback pools for.|
 |`terminalConfigurations`|`JBTerminalConfig[]`|The terminals to set up for the revnet. Used for payments and cash outs.|
 
 **Returns**
@@ -458,34 +483,6 @@ function _makeRulesetConfiguration(
 |Name|Type|Description|
 |----|----|-----------|
 |`<none>`|`JBRulesetConfig`|rulesetConfiguration The ruleset configuration.|
-
-
-### _matchingCurrencyOf
-
-Returns the currency of the loan source, if a matching terminal configuration is found.
-
-
-```solidity
-function _matchingCurrencyOf(
-    JBTerminalConfig[] calldata terminalConfigurations,
-    REVLoanSource calldata loanSource
-)
-    internal
-    pure
-    returns (uint32);
-```
-**Parameters**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`terminalConfigurations`|`JBTerminalConfig[]`|The terminals to check.|
-|`loanSource`|`REVLoanSource`|The loan source to check.|
-
-**Returns**
-
-|Name|Type|Description|
-|----|----|-----------|
-|`<none>`|`uint32`|currency The currency of the loan source.|
 
 
 ### _nextProjectId
@@ -561,7 +558,16 @@ function autoIssueFor(uint256 revnetId, uint256 stageId, address beneficiary) ex
 
 ### deployFor
 
-Launch a revnet, or convert an existing Juicebox project into a revnet.
+Launch a revnet, or initialize an existing Juicebox project as a revnet.
+
+When initializing an existing project (revnetId != 0):
+- The project must not yet have a controller or rulesets. `JBController.launchRulesetsFor` enforces this —
+it reverts if rulesets have already been launched, and `JBDirectory.setControllerOf` only allows setting the
+first controller. This means conversion only works for blank projects (just an ID with no on-chain state).
+- This is useful in deploy scripts where the project ID is needed before configuration (e.g. for cross-chain
+sucker peer mappings): create the project first, then initialize it as a revnet here.
+- Initialization is a one-way operation: the project's ownership NFT is permanently transferred to this
+REVDeployer, and the project becomes subject to immutable revnet rules. This cannot be undone.
 
 
 ```solidity
@@ -569,7 +575,6 @@ function deployFor(
     uint256 revnetId,
     REVConfig calldata configuration,
     JBTerminalConfig[] calldata terminalConfigurations,
-    REVBuybackHookConfig calldata buybackHookConfiguration,
     REVSuckerDeploymentConfig calldata suckerDeploymentConfiguration
 )
     external
@@ -580,10 +585,9 @@ function deployFor(
 
 |Name|Type|Description|
 |----|----|-----------|
-|`revnetId`|`uint256`|The ID of the Juicebox project to turn into a revnet. Send 0 to deploy a new revnet.|
+|`revnetId`|`uint256`|The ID of the Juicebox project to initialize as a revnet. Send 0 to deploy a new revnet.|
 |`configuration`|`REVConfig`|Core revnet configuration. See `REVConfig`.|
 |`terminalConfigurations`|`JBTerminalConfig[]`|The terminals to set up for the revnet. Used for payments and cash outs.|
-|`buybackHookConfiguration`|`REVBuybackHookConfig`|The buyback hook and pools to set up for the revnet. The buyback hook buys tokens from a Uniswap pool if minting new tokens would be more expensive.|
 |`suckerDeploymentConfiguration`|`REVSuckerDeploymentConfig`|The suckers to set up for the revnet. Suckers facilitate cross-chain token transfers between peer revnets on different networks.|
 
 **Returns**
@@ -597,7 +601,7 @@ function deployFor(
 
 Deploy new suckers for an existing revnet.
 
-*Only the revnet's split operator can deploy new suckers.*
+Only the revnet's split operator can deploy new suckers.
 
 
 ```solidity
@@ -621,13 +625,15 @@ function deploySuckersFor(
 
 Launch a revnet which sells tiered ERC-721s and (optionally) allows croptop posts to its ERC-721 tiers.
 
+When initializing an existing project (revnetId != 0), the project must be blank (no controller or
+rulesets). The initialization is irreversible. See `deployFor` documentation for full details.
+
 
 ```solidity
 function deployWith721sFor(
     uint256 revnetId,
     REVConfig calldata configuration,
     JBTerminalConfig[] calldata terminalConfigurations,
-    REVBuybackHookConfig calldata buybackHookConfiguration,
     REVSuckerDeploymentConfig calldata suckerDeploymentConfiguration,
     REVDeploy721TiersHookConfig calldata tiered721HookConfiguration,
     REVCroptopAllowedPost[] calldata allowedPosts
@@ -640,10 +646,9 @@ function deployWith721sFor(
 
 |Name|Type|Description|
 |----|----|-----------|
-|`revnetId`|`uint256`|The ID of the Juicebox project to turn into a revnet. Send 0 to deploy a new revnet.|
+|`revnetId`|`uint256`|The ID of the Juicebox project to initialize as a revnet. Send 0 to deploy a new revnet.|
 |`configuration`|`REVConfig`|Core revnet configuration. See `REVConfig`.|
 |`terminalConfigurations`|`JBTerminalConfig[]`|The terminals to set up for the revnet. Used for payments and cash outs.|
-|`buybackHookConfiguration`|`REVBuybackHookConfig`|The buyback hook and pools to set up for the revnet. The buyback hook buys tokens from a Uniswap pool if minting new tokens would be more expensive.|
 |`suckerDeploymentConfiguration`|`REVSuckerDeploymentConfig`|The suckers to set up for the revnet. Suckers facilitate cross-chain token transfers between peer revnets on different networks.|
 |`tiered721HookConfiguration`|`REVDeploy721TiersHookConfig`|How to set up the tiered ERC-721 hook for the revnet.|
 |`allowedPosts`|`REVCroptopAllowedPost[]`|Restrictions on which croptop posts are allowed on the revnet's ERC-721 tiers.|
@@ -656,11 +661,28 @@ function deployWith721sFor(
 |`hook`|`IJB721TiersHook`|The address of the tiered ERC-721 hook that was deployed for the revnet.|
 
 
+### burnHeldTokensOf
+
+Burn any of a revnet's tokens held by this contract.
+
+Project tokens can end up here from reserved token distribution when splits don't sum to 100%.
+
+
+```solidity
+function burnHeldTokensOf(uint256 revnetId) external override;
+```
+**Parameters**
+
+|Name|Type|Description|
+|----|----|-----------|
+|`revnetId`|`uint256`|The ID of the revnet whose tokens should be burned.|
+
+
 ### setSplitOperatorOf
 
 Change a revnet's split operator.
 
-*Only a revnet's current split operator can set a new split operator.*
+Only a revnet's current split operator can set a new split operator.
 
 
 ```solidity
@@ -708,7 +730,6 @@ function _deploy721RevnetFor(
     bool shouldDeployNewRevnet,
     REVConfig calldata configuration,
     JBTerminalConfig[] calldata terminalConfigurations,
-    REVBuybackHookConfig calldata buybackHookConfiguration,
     REVSuckerDeploymentConfig calldata suckerDeploymentConfiguration,
     REVDeploy721TiersHookConfig calldata tiered721HookConfiguration,
     REVCroptopAllowedPost[] calldata allowedPosts
@@ -724,7 +745,6 @@ function _deploy721RevnetFor(
 |`shouldDeployNewRevnet`|`bool`|Whether to deploy a new revnet or convert an existing Juicebox project into a revnet.|
 |`configuration`|`REVConfig`|Core revnet configuration. See `REVConfig`.|
 |`terminalConfigurations`|`JBTerminalConfig[]`|The terminals to set up for the revnet. Used for payments and cash outs.|
-|`buybackHookConfiguration`|`REVBuybackHookConfig`|The buyback hook and pools to set up for the revnet. The buyback hook buys tokens from a Uniswap pool if minting new tokens would be more expensive.|
 |`suckerDeploymentConfiguration`|`REVSuckerDeploymentConfig`|The suckers to set up for the revnet. Suckers facilitate cross-chain token transfers between peer revnets on different networks.|
 |`tiered721HookConfiguration`|`REVDeploy721TiersHookConfig`|How to set up the tiered ERC-721 hook for the revnet.|
 |`allowedPosts`|`REVCroptopAllowedPost[]`|Restrictions on which croptop posts are allowed on the revnet's ERC-721 tiers.|
@@ -738,7 +758,14 @@ function _deploy721RevnetFor(
 
 ### _deployRevnetFor
 
-Deploy a revnet, or convert an existing Juicebox project into a revnet.
+Deploy a revnet, or initialize an existing Juicebox project as a revnet.
+
+When initializing an existing project (`shouldDeployNewRevnet == false`):
+- The project must be blank — no controller or rulesets. This is enforced by `JBController.launchRulesetsFor`,
+which reverts if rulesets exist, and by `JBDirectory.setControllerOf`, which only allows setting the first
+controller. Without a controller, no tokens or terminals can exist, so the project is guaranteed to be
+uninitialized.
+- The project's JBProjects NFT is permanently transferred to this contract. This is irreversible.
 
 
 ```solidity
@@ -747,7 +774,6 @@ function _deployRevnetFor(
     bool shouldDeployNewRevnet,
     REVConfig calldata configuration,
     JBTerminalConfig[] calldata terminalConfigurations,
-    REVBuybackHookConfig calldata buybackHookConfiguration,
     REVSuckerDeploymentConfig calldata suckerDeploymentConfiguration,
     JBRulesetConfig[] memory rulesetConfigurations,
     bytes32 encodedConfigurationHash
@@ -758,19 +784,16 @@ function _deployRevnetFor(
 
 |Name|Type|Description|
 |----|----|-----------|
-|`revnetId`|`uint256`|The ID of the Juicebox project to turn into a revnet. Send 0 to deploy a new revnet.|
+|`revnetId`|`uint256`|The ID of the Juicebox project to initialize as a revnet. Send 0 to deploy a new revnet.|
 |`shouldDeployNewRevnet`|`bool`|Whether to deploy a new revnet or convert an existing Juicebox project into a revnet.|
 |`configuration`|`REVConfig`|Core revnet configuration. See `REVConfig`.|
 |`terminalConfigurations`|`JBTerminalConfig[]`|The terminals to set up for the revnet. Used for payments and cash outs.|
-|`buybackHookConfiguration`|`REVBuybackHookConfig`|The buyback hook and pools to set up for the revnet. The buyback hook buys tokens from a Uniswap pool if minting new tokens would be more expensive.|
 |`suckerDeploymentConfiguration`|`REVSuckerDeploymentConfig`|The suckers to set up for the revnet. Suckers facilitate cross-chain token transfers between peer revnets on different networks.|
 |`rulesetConfigurations`|`JBRulesetConfig[]`|The rulesets to set up for the revnet.|
 |`encodedConfigurationHash`|`bytes32`|A hash that represents the revnet's configuration. See `_makeRulesetConfigurations(…)` for encoding details. Clients can read the encoded configuration from the `DeployRevnet` event emitted by this contract.|
 
 
 ### _deploySuckersFor
-
-Deploy suckers for a revnet.
 
 
 ```solidity
@@ -786,7 +809,7 @@ function _deploySuckersFor(
 
 |Name|Type|Description|
 |----|----|-----------|
-|`revnetId`|`uint256`|The ID of the revnet to deploy suckers for.|
+|`revnetId`|`uint256`||
 |`encodedConfigurationHash`|`bytes32`|A hash that represents the revnet's configuration. See `_makeRulesetConfigurations(…)` for encoding details. Clients can read the encoded configuration from the `DeployRevnet` event emitted by this contract.|
 |`suckerDeploymentConfiguration`|`REVSuckerDeploymentConfig`|The suckers to set up for the revnet.|
 
@@ -794,6 +817,14 @@ function _deploySuckersFor(
 ### _makeRulesetConfigurations
 
 Convert a revnet's stages into a series of Juicebox project rulesets.
+
+Stage transitions affect outstanding loan health. When a new stage activates, parameters such as
+`cashOutTaxRate` and `weight` change, which directly impact the borrowable amount calculated by
+`REVLoans._borrowableAmountFrom`. Loans originated under a previous stage's parameters may become
+under-collateralized if the new stage has a higher `cashOutTaxRate` (reducing the borrowable amount per unit
+of collateral) or lower issuance weight (reducing the surplus-per-token ratio). Borrowers should monitor
+upcoming stage transitions and adjust their positions accordingly, as loans that fall below their required
+collateralization may become eligible for liquidation.
 
 
 ```solidity
@@ -825,8 +856,8 @@ function _makeRulesetConfigurations(
 
 Sets the cash out delay if the revnet's stages are already in progress.
 
-*This prevents cash out liquidity/arbitrage issues for existing revnets which
-are deploying to a new chain.*
+This prevents cash out liquidity/arbitrage issues for existing revnets which
+are deploying to a new chain.
 
 
 ```solidity
@@ -885,7 +916,7 @@ function _setPermissionsFor(
 
 Give a split operator their permissions.
 
-*Only a revnet's current split operator can set a new split operator, by calling `setSplitOperatorOf(…)`.*
+Only a revnet's current split operator can set a new split operator, by calling `setSplitOperatorOf(…)`.
 
 
 ```solidity
@@ -900,12 +931,6 @@ function _setSplitOperatorOf(uint256 revnetId, address operator) internal;
 
 
 ## Errors
-### REVDeployer_LoanSourceDoesntMatchTerminalConfigurations
-
-```solidity
-error REVDeployer_LoanSourceDoesntMatchTerminalConfigurations(address token, address terminal);
-```
-
 ### REVDeployer_AutoIssuanceBeneficiaryZeroAddress
 
 ```solidity
@@ -958,6 +983,12 @@ error REVDeployer_StagesRequired();
 
 ```solidity
 error REVDeployer_StageTimesMustIncrease();
+```
+
+### REVDeployer_NothingToBurn
+
+```solidity
+error REVDeployer_NothingToBurn();
 ```
 
 ### REVDeployer_Unauthorized
