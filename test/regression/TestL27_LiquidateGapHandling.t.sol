@@ -104,9 +104,7 @@ contract TestL27_LiquidateGapHandling is TestBaseWorkflow, JBTest {
     function _deployFeeProject() internal {
         JBAccountingContext[] memory acc = new JBAccountingContext[](2);
         acc[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         acc[1] = JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
         JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
@@ -140,8 +138,7 @@ contract TestL27_LiquidateGapHandling is TestBaseWorkflow, JBTest {
             configuration: cfg,
             terminalConfigurations: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256("FEE")
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")
             })
         });
     }
@@ -149,9 +146,7 @@ contract TestL27_LiquidateGapHandling is TestBaseWorkflow, JBTest {
     function _deployRevnet() internal {
         JBAccountingContext[] memory acc = new JBAccountingContext[](2);
         acc[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         acc[1] = JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
         JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
@@ -184,19 +179,12 @@ contract TestL27_LiquidateGapHandling is TestBaseWorkflow, JBTest {
             configuration: cfg,
             terminalConfigurations: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256("NANA")
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NANA")
             })
         });
     }
 
-    function _setupLoan(
-        address user,
-        uint256 ethAmount
-    )
-        internal
-        returns (uint256 loanId, uint256 tokenCount)
-    {
+    function _setupLoan(address user, uint256 ethAmount) internal returns (uint256 loanId, uint256 tokenCount) {
         vm.prank(user);
         tokenCount =
             jbMultiTerminal().pay{value: ethAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, ethAmount, user, 0, "", "");
