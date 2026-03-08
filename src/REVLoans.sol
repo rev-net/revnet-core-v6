@@ -627,9 +627,9 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
             // Get a reference to the loan being iterated on.
             REVLoan memory loan = _loanOf[loanId];
 
-            // If the loan doesn't exist, there's nothing left to liquidate.
+            // If the loan doesn't exist (repaid or already liquidated), skip past this gap and continue.
             // slither-disable-next-line incorrect-equality
-            if (loan.createdAt == 0) break;
+            if (loan.createdAt == 0) continue;
 
             // Keep a reference to the loan's owner.
             address owner = _ownerOf(loanId);
