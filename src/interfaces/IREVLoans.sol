@@ -133,9 +133,12 @@ interface IREVLoans {
     /// @return The array of loan sources.
     function loanSourcesOf(uint256 revnetId) external view returns (REVLoanSource[] memory);
 
-    /// @notice The number of loans that have been created for a revnet.
-    /// @param revnetId The ID of the revnet to get the loan count for.
-    /// @return The number of loans.
+    /// @notice The cumulative number of loans ever created for a revnet, used as a loan ID sequence counter.
+    /// @dev This counter only increments and never decrements. It does NOT represent the count of currently active
+    /// loans -- repaid and liquidated loans leave permanent gaps in the sequence. Do not use this value to determine
+    /// how many loans are currently outstanding.
+    /// @param revnetId The ID of the revnet to get the cumulative loan count for.
+    /// @return The cumulative number of loans ever created.
     function numberOfLoansFor(uint256 revnetId) external view returns (uint256);
 
     /// @notice The revnet ID for the loan with the provided loan ID.

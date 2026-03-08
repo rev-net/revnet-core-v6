@@ -134,8 +134,11 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         public
         override isLoanSourceOf;
 
-    /// @notice The amount of loans that have been created.
-    /// @custom:param revnetId The ID of the revnet to get the number of loans from.
+    /// @notice The cumulative number of loans ever created for a revnet, used as a loan ID sequence counter.
+    /// @dev This counter only increments (on borrow, repay-with-new-loan, and reallocation) and never decrements.
+    /// It does NOT represent the number of currently active loans. Repaid and liquidated loans leave permanent gaps
+    /// in the ID sequence. Integrators should not use this to count active loans.
+    /// @custom:param revnetId The ID of the revnet to get the cumulative loan count from.
     mapping(uint256 revnetId => uint256) public override numberOfLoansFor;
 
     /// @notice The contract resolving each project ID to its ERC721 URI.
