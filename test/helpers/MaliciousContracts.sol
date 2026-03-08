@@ -25,7 +25,15 @@ contract BrokenFeeTerminal is ERC165, IJBPayoutTerminal {
         addToBalanceReverts = _reverts;
     }
 
-    function pay(uint256, address, uint256, address, uint256, string calldata, bytes calldata)
+    function pay(
+        uint256,
+        address,
+        uint256,
+        address,
+        uint256,
+        string calldata,
+        bytes calldata
+    )
         external
         payable
         override
@@ -35,7 +43,14 @@ contract BrokenFeeTerminal is ERC165, IJBPayoutTerminal {
         return 0;
     }
 
-    function addToBalanceOf(uint256, address, uint256, bool, string calldata, bytes calldata)
+    function addToBalanceOf(
+        uint256,
+        address,
+        uint256,
+        bool,
+        string calldata,
+        bytes calldata
+    )
         external
         payable
         override
@@ -44,7 +59,9 @@ contract BrokenFeeTerminal is ERC165, IJBPayoutTerminal {
     }
 
     function accountingContextForTokenOf(uint256, address) external pure override returns (JBAccountingContext memory) {
-        return JBAccountingContext({token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))});
+        return JBAccountingContext({
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+        });
     }
 
     function accountingContextsOf(uint256) external pure override returns (JBAccountingContext[] memory) {
@@ -53,7 +70,17 @@ contract BrokenFeeTerminal is ERC165, IJBPayoutTerminal {
 
     function addAccountingContextsFor(uint256, JBAccountingContext[] calldata) external override {}
 
-    function currentSurplusOf(uint256, JBAccountingContext[] memory, uint256, uint256) external pure override returns (uint256) {
+    function currentSurplusOf(
+        uint256,
+        JBAccountingContext[] memory,
+        uint256,
+        uint256
+    )
+        external
+        pure
+        override
+        returns (uint256)
+    {
         return 0;
     }
 
@@ -65,7 +92,16 @@ contract BrokenFeeTerminal is ERC165, IJBPayoutTerminal {
         return 0;
     }
 
-    function useAllowanceOf(uint256, address, uint256, uint256, uint256, address payable, address payable, string calldata)
+    function useAllowanceOf(
+        uint256,
+        address,
+        uint256,
+        uint256,
+        uint256,
+        address payable,
+        address payable,
+        string calldata
+    )
         external
         pure
         override
@@ -100,7 +136,15 @@ contract SurplusInflator is ERC165, IJBPayoutTerminal {
         shouldInflate = _should;
     }
 
-    function pay(uint256, address, uint256, address, uint256, string calldata, bytes calldata)
+    function pay(
+        uint256,
+        address,
+        uint256,
+        address,
+        uint256,
+        string calldata,
+        bytes calldata
+    )
         external
         payable
         override
@@ -115,14 +159,23 @@ contract SurplusInflator is ERC165, IJBPayoutTerminal {
         return 0;
     }
 
-    function addToBalanceOf(uint256, address, uint256, bool, string calldata, bytes calldata)
+    function addToBalanceOf(
+        uint256,
+        address,
+        uint256,
+        bool,
+        string calldata,
+        bytes calldata
+    )
         external
         payable
         override
     {}
 
     function accountingContextForTokenOf(uint256, address) external pure override returns (JBAccountingContext memory) {
-        return JBAccountingContext({token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))});
+        return JBAccountingContext({
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+        });
     }
 
     function accountingContextsOf(uint256) external pure override returns (JBAccountingContext[] memory) {
@@ -131,7 +184,17 @@ contract SurplusInflator is ERC165, IJBPayoutTerminal {
 
     function addAccountingContextsFor(uint256, JBAccountingContext[] calldata) external override {}
 
-    function currentSurplusOf(uint256, JBAccountingContext[] memory, uint256, uint256) external pure override returns (uint256) {
+    function currentSurplusOf(
+        uint256,
+        JBAccountingContext[] memory,
+        uint256,
+        uint256
+    )
+        external
+        pure
+        override
+        returns (uint256)
+    {
         return 0;
     }
 
@@ -143,7 +206,16 @@ contract SurplusInflator is ERC165, IJBPayoutTerminal {
         return 0;
     }
 
-    function useAllowanceOf(uint256, address, uint256, uint256, uint256, address payable, address payable, string calldata)
+    function useAllowanceOf(
+        uint256,
+        address,
+        uint256,
+        uint256,
+        uint256,
+        address payable,
+        address payable,
+        string calldata
+    )
         external
         pure
         override

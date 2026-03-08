@@ -4,7 +4,7 @@ pragma solidity 0.8.23;
 import "forge-std/Test.sol";
 import /* {*} from */ "@bananapus/core-v5/test/helpers/TestBaseWorkflow.sol";
 import /* {*} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
-    import /* {*} from */ "./../src/REVDeployer.sol";
+import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v5/src/CTPublisher.sol";
 
 import "@bananapus/core-v5/script/helpers/CoreDeploymentLib.sol";
@@ -60,9 +60,7 @@ contract FakeTerminal is ERC165, IJBPayoutTerminal {
 
     function accountingContextForTokenOf(uint256, address) external pure override returns (JBAccountingContext memory) {
         return JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
     }
 
@@ -73,9 +71,30 @@ contract FakeTerminal is ERC165, IJBPayoutTerminal {
 
     function addAccountingContextsFor(uint256, JBAccountingContext[] calldata) external override {}
 
-    function addToBalanceOf(uint256, address, uint256, bool, string calldata, bytes calldata) external payable override {}
+    function addToBalanceOf(
+        uint256,
+        address,
+        uint256,
+        bool,
+        string calldata,
+        bytes calldata
+    )
+        external
+        payable
+        override
+    {}
 
-    function currentSurplusOf(uint256, JBAccountingContext[] memory, uint256, uint256) external pure override returns (uint256) {
+    function currentSurplusOf(
+        uint256,
+        JBAccountingContext[] memory,
+        uint256,
+        uint256
+    )
+        external
+        pure
+        override
+        returns (uint256)
+    {
         return 0;
     }
 
@@ -83,7 +102,20 @@ contract FakeTerminal is ERC165, IJBPayoutTerminal {
         return 0;
     }
 
-    function pay(uint256, address, uint256, address, uint256, string calldata, bytes calldata) external payable override returns (uint256) {
+    function pay(
+        uint256,
+        address,
+        uint256,
+        address,
+        uint256,
+        string calldata,
+        bytes calldata
+    )
+        external
+        payable
+        override
+        returns (uint256)
+    {
         return 0;
     }
 
@@ -92,8 +124,7 @@ contract FakeTerminal is ERC165, IJBPayoutTerminal {
     }
 
     function supportsInterface(bytes4 interfaceId) public view override(ERC165, IERC165) returns (bool) {
-        return interfaceId == type(IJBTerminal).interfaceId
-            || interfaceId == type(IJBPayoutTerminal).interfaceId
+        return interfaceId == type(IJBTerminal).interfaceId || interfaceId == type(IJBPayoutTerminal).interfaceId
             || super.supportsInterface(interfaceId);
     }
 }
@@ -156,9 +187,7 @@ contract REVLoansAuditRegressions_Local is TestBaseWorkflow, JBTest {
     function _deployRevnet() internal {
         JBAccountingContext[] memory accountingContextsToAccept = new JBAccountingContext[](1);
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
         JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
@@ -184,7 +213,8 @@ contract REVLoansAuditRegressions_Local is TestBaseWorkflow, JBTest {
 
         // Configure loan sources to include the real terminal
         REVLoanSource[] memory loanSources = new REVLoanSource[](1);
-        loanSources[0] = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: IJBPayoutTerminal(address(jbMultiTerminal()))});
+        loanSources[0] =
+            REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: IJBPayoutTerminal(address(jbMultiTerminal()))});
 
         REVConfig memory revnetConfiguration = REVConfig({
             description: REVDescription("H6Test", "H6T", "ipfs://h6test", "H6_TOKEN"),
@@ -208,8 +238,7 @@ contract REVLoansAuditRegressions_Local is TestBaseWorkflow, JBTest {
             terminalConfigurations: terminalConfigurations,
             buybackHookConfiguration: buybackHookConfiguration,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256("H6_TEST")
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("H6_TEST")
             })
         });
     }
@@ -244,14 +273,11 @@ contract REVLoansAuditRegressions_Local is TestBaseWorkflow, JBTest {
         // Step 3: Try to borrow using the fake terminal as the source
         // H-6 vulnerability: REVLoans.borrowFrom does NOT check if the terminal
         // is registered in the directory before calling useAllowanceOf on it.
-        REVLoanSource memory fakeSource = REVLoanSource({
-            token: JBConstants.NATIVE_TOKEN,
-            terminal: IJBPayoutTerminal(address(fakeTerminal))
-        });
+        REVLoanSource memory fakeSource =
+            REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: IJBPayoutTerminal(address(fakeTerminal))});
 
-        uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(
-            REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        uint256 borrowable =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(borrowable, 0, "should have borrowable amount");
 
         // H-6 PROOF: Use vm.expectCall to prove the fake terminal's useAllowanceOf
@@ -260,12 +286,11 @@ contract REVLoansAuditRegressions_Local is TestBaseWorkflow, JBTest {
         // The code calls accountingContextForTokenOf first, then useAllowanceOf.
         vm.expectCall(
             address(fakeTerminal),
-            abi.encodeWithSelector(IJBTerminal.accountingContextForTokenOf.selector, REVNET_ID, JBConstants.NATIVE_TOKEN)
+            abi.encodeWithSelector(
+                IJBTerminal.accountingContextForTokenOf.selector, REVNET_ID, JBConstants.NATIVE_TOKEN
+            )
         );
-        vm.expectCall(
-            address(fakeTerminal),
-            abi.encodeWithSelector(IJBPayoutTerminal.useAllowanceOf.selector)
-        );
+        vm.expectCall(address(fakeTerminal), abi.encodeWithSelector(IJBPayoutTerminal.useAllowanceOf.selector));
 
         // The borrow will reach the fake terminal (proving no validation),
         // but will revert downstream when trying to transfer 0 - fees (underflow).

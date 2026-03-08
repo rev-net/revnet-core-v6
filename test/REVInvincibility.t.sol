@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import {StdInvariant} from "forge-std/StdInvariant.sol";
 import /* {*} from */ "@bananapus/core-v5/test/helpers/TestBaseWorkflow.sol";
 import /* {*} from "@bananapus/721-hook-v5/src/JB721TiersHookDeployer.sol";
-    import /* {*} from */ "./../src/REVDeployer.sol";
+import /* {*} from */ "./../src/REVDeployer.sol";
 import /* {*} from */ "./../src/REVLoans.sol";
 import "@croptop/core-v5/src/CTPublisher.sol";
 
@@ -83,9 +83,7 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
     function _getFeeProjectConfig() internal view returns (InvincibilityProjectConfig memory) {
         JBAccountingContext[] memory accountingContextsToAccept = new JBAccountingContext[](1);
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
         JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
@@ -97,11 +95,8 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
         splits[0].percent = 10_000;
 
         REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
-        issuanceConfs[0] = REVAutoIssuance({
-            chainId: uint32(block.chainid),
-            count: uint104(70_000e18),
-            beneficiary: multisig()
-        });
+        issuanceConfs[0] =
+            REVAutoIssuance({chainId: uint32(block.chainid), count: uint104(70_000e18), beneficiary: multisig()});
 
         REVStageConfig[] memory stageConfigurations = new REVStageConfig[](1);
         stageConfigurations[0] = REVStageConfig({
@@ -118,7 +113,9 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
 
         return InvincibilityProjectConfig({
             configuration: REVConfig({
-                description: REVDescription("Revnet", "$REV", "ipfs://QmNRHT91HcDgMcenebYX7rJigt77cgNcosvuhX21wkF3tx", "REV_TOKEN"),
+                description: REVDescription(
+                    "Revnet", "$REV", "ipfs://QmNRHT91HcDgMcenebYX7rJigt77cgNcosvuhX21wkF3tx", "REV_TOKEN"
+                ),
                 baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                 splitOperator: multisig(),
                 stageConfigurations: stageConfigurations,
@@ -132,8 +129,7 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
                 poolConfigurations: new REVBuybackPoolConfig[](0)
             }),
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256(abi.encodePacked("REV"))
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("REV"))
             })
         });
     }
@@ -141,9 +137,7 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
     function _getRevnetConfig() internal view returns (InvincibilityProjectConfig memory) {
         JBAccountingContext[] memory accountingContextsToAccept = new JBAccountingContext[](1);
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
         JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
@@ -155,11 +149,8 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
         splits[0].percent = 10_000;
 
         REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
-        issuanceConfs[0] = REVAutoIssuance({
-            chainId: uint32(block.chainid),
-            count: uint104(70_000e18),
-            beneficiary: multisig()
-        });
+        issuanceConfs[0] =
+            REVAutoIssuance({chainId: uint32(block.chainid), count: uint104(70_000e18), beneficiary: multisig()});
 
         REVStageConfig[] memory stageConfigurations = new REVStageConfig[](3);
         stageConfigurations[0] = REVStageConfig({
@@ -217,8 +208,7 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
                 poolConfigurations: new REVBuybackPoolConfig[](0)
             }),
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256(abi.encodePacked("NANA"))
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("NANA"))
             })
         });
     }
@@ -276,7 +266,11 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
         vm.deal(ATTACKER, 10_000e18);
     }
 
-    function _setupLoan(address user, uint256 ethAmount, uint256 prepaidFee)
+    function _setupLoan(
+        address user,
+        uint256 ethAmount,
+        uint256 prepaidFee
+    )
         internal
         returns (uint256 loanId, uint256 tokenCount, uint256 borrowAmount)
     {
@@ -284,9 +278,8 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
         tokenCount =
             jbMultiTerminal().pay{value: ethAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, ethAmount, user, 0, "", "");
 
-        borrowAmount = LOANS_CONTRACT.borrowableAmountFrom(
-            REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        borrowAmount =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         if (borrowAmount == 0) return (0, tokenCount, 0);
 
@@ -325,9 +318,8 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
         uint256 tokens =
             jbMultiTerminal().pay{value: payAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, payAmount, USER, 0, "", "");
 
-        uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(
-            REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        uint256 borrowable =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertLt(borrowable, type(uint112).max, "C-1: normal borrowable within uint112");
         assertLt(tokens, type(uint112).max, "C-1: normal token count within uint112");
     }
@@ -351,8 +343,7 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
 
         // Verify safe write
         JBPayHookSpecification[] memory specs = new JBPayHookSpecification[](arraySize);
-        specs[correctIndex] =
-            JBPayHookSpecification({hook: IJBPayHook(address(0xbeef)), amount: 1 ether, metadata: ""});
+        specs[correctIndex] = JBPayHookSpecification({hook: IJBPayHook(address(0xbeef)), amount: 1 ether, metadata: ""});
     }
 
     /// @notice C-3: Reentrancy — _adjust calls terminal.pay() BEFORE writing loan state.
@@ -364,9 +355,8 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
         uint256 tokens =
             jbMultiTerminal().pay{value: payAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, payAmount, USER, 0, "", "");
 
-        uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(
-            REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        uint256 borrowable =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertTrue(borrowable > 0, "Should have borrowable amount");
 
         // The vulnerability: In _adjust (line 862-924):
@@ -462,9 +452,7 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
         // Deploy a multi-stage revnet with auto-issuance on multiple stages
         JBAccountingContext[] memory ctx = new JBAccountingContext[](1);
         ctx[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
         JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
@@ -524,8 +512,7 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
                 poolConfigurations: new REVBuybackPoolConfig[](0)
             }),
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256("H5_INVINCIBILITY")
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("H5_INVINCIBILITY")
             })
         });
 
@@ -614,9 +601,7 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
 
         // Step 2: Add borrowed amount back to balance (inflating surplus)
         vm.deal(address(this), borrow1);
-        jbMultiTerminal().addToBalanceOf{value: borrow1}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, borrow1, false, "", ""
-        );
+        jbMultiTerminal().addToBalanceOf{value: borrow1}(REVNET_ID, JBConstants.NATIVE_TOKEN, borrow1, false, "", "");
 
         // Step 3: Pay again to get new tokens
         vm.deal(USER, payAmount);
@@ -625,15 +610,13 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
             jbMultiTerminal().pay{value: payAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, payAmount, USER, 0, "", "");
 
         // Step 4: Try to borrow again
-        uint256 borrowable2 = LOANS_CONTRACT.borrowableAmountFrom(
-            REVNET_ID, tokens2, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        uint256 borrowable2 =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens2, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // The totalBorrowed from loan1 is added to surplus in borrowableAmountFrom,
         // so the second borrow should not amplify beyond what the real surplus supports.
         // The sum of all borrows should not exceed the actual terminal balance.
-        uint256 totalBorrowed =
-            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
+        uint256 totalBorrowed = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
         assertTrue(totalBorrowed > 0, "Should have outstanding borrows");
     }
 
@@ -665,15 +648,18 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
         vm.warp(block.timestamp + 31 days);
 
         vm.prank(USER);
-        try jbMultiTerminal().cashOutTokensOf({
-            holder: USER,
-            projectId: REVNET_ID,
-            cashOutCount: tokens,
-            tokenToReclaim: JBConstants.NATIVE_TOKEN,
-            minTokensReclaimed: 0,
-            beneficiary: payable(USER),
-            metadata: ""
-        }) returns (uint256 reclaimAmount) {
+        try jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: USER,
+                projectId: REVNET_ID,
+                cashOutCount: tokens,
+                tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                minTokensReclaimed: 0,
+                beneficiary: payable(USER),
+                metadata: ""
+            }) returns (
+            uint256 reclaimAmount
+        ) {
             // The reclaim amount should be bounded by the bonding curve
             // at the CURRENT tax rate (lower), giving more back
             assertTrue(reclaimAmount > 0, "Should reclaim some ETH");
@@ -689,9 +675,8 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
     function test_econ_reservedTokenDilution() public {
         // Pay to create surplus + mint tokens (some go to reserved)
         vm.prank(USER);
-        uint256 userTokens = jbMultiTerminal().pay{value: 10e18}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", ""
-        );
+        uint256 userTokens =
+            jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
 
         // Send reserved tokens to splits
         try jbController().sendReservedTokensToSplitsOf(REVNET_ID) {} catch {}
@@ -721,20 +706,16 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
             jbMultiTerminal().pay{value: payAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, payAmount, USER, 0, "", "");
 
         // Record borrowable BEFORE inflation
-        uint256 borrowableBefore = LOANS_CONTRACT.borrowableAmountFrom(
-            REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        uint256 borrowableBefore =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // Step 2: Add 100 ETH to balance (inflates surplus without minting tokens)
         vm.deal(address(this), 100e18);
-        jbMultiTerminal().addToBalanceOf{value: 100e18}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, 100e18, false, "", ""
-        );
+        jbMultiTerminal().addToBalanceOf{value: 100e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 100e18, false, "", "");
 
         // Record borrowable AFTER inflation
-        uint256 borrowableAfter = LOANS_CONTRACT.borrowableAmountFrom(
-            REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        uint256 borrowableAfter =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // M-11: The borrowable amount increases because surplus grew but totalSupply didn't
         assertTrue(borrowableAfter > borrowableBefore, "M-11: surplus inflation increases borrowable amount");
@@ -758,28 +739,23 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
         vm.deal(userB, 100e18);
 
         vm.prank(userA);
-        uint256 tokensA = jbMultiTerminal().pay{value: 10e18}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, userA, 0, "", ""
-        );
+        uint256 tokensA =
+            jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, userA, 0, "", "");
 
         vm.prank(userB);
-        uint256 tokensB = jbMultiTerminal().pay{value: 10e18}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, userB, 0, "", ""
-        );
+        uint256 tokensB =
+            jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, userB, 0, "", "");
 
         // UserA borrows (tokens locked as collateral)
         mockExpect(
             address(jbPermissions()),
-            abi.encodeCall(
-                IJBPermissions.hasPermission, (address(LOANS_CONTRACT), userA, REVNET_ID, 10, true, true)
-            ),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), userA, REVNET_ID, 10, true, true)),
             abi.encode(true)
         );
 
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
-        uint256 borrowableA = LOANS_CONTRACT.borrowableAmountFrom(
-            REVNET_ID, tokensA, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        uint256 borrowableA =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokensA, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         if (borrowableA > 0) {
             vm.prank(userA);
@@ -790,8 +766,7 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
         // The totalCollateral is added to the denominator (totalSupply + totalCollateral)
         // and totalBorrowed is added to the numerator (surplus + totalBorrowed)
         uint256 totalCollateral = LOANS_CONTRACT.totalCollateralOf(REVNET_ID);
-        uint256 totalBorrowed =
-            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
+        uint256 totalBorrowed = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
 
         // Verify accounting consistency
         if (borrowableA > 0) {
@@ -841,9 +816,8 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
         address newUser = makeAddr("newUser");
         vm.deal(newUser, 5e18);
         vm.prank(newUser);
-        uint256 newTokens = jbMultiTerminal().pay{value: 5e18}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, 5e18, newUser, 0, "", ""
-        );
+        uint256 newTokens =
+            jbMultiTerminal().pay{value: 5e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 5e18, newUser, 0, "", "");
         assertTrue(newTokens > 0, "New payments should still work");
     }
 
@@ -882,9 +856,8 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
     function test_econ_splitOperatorRug() public {
         // Pay to build up surplus and reserved tokens
         vm.prank(USER);
-        uint256 userTokens = jbMultiTerminal().pay{value: 50e18}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, 50e18, USER, 0, "", ""
-        );
+        uint256 userTokens =
+            jbMultiTerminal().pay{value: 50e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 50e18, USER, 0, "", "");
 
         // Send reserved tokens to splits (multisig = split beneficiary)
         try jbController().sendReservedTokensToSplitsOf(REVNET_ID) {} catch {}
@@ -915,9 +888,8 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
     function test_econ_doubleFeeH1() public {
         // Pay into revnet
         vm.prank(USER);
-        uint256 tokens = jbMultiTerminal().pay{value: 10e18}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", ""
-        );
+        uint256 tokens =
+            jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
 
         // Advance past cash-out delay
         vm.warp(block.timestamp + 31 days);
@@ -927,35 +899,36 @@ contract REVInvincibility_FixVerify is TestBaseWorkflow, JBTest {
         {
             JBAccountingContext[] memory feeCtx = new JBAccountingContext[](1);
             feeCtx[0] = JBAccountingContext({
-                token: JBConstants.NATIVE_TOKEN,
-                decimals: 18,
-                currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+                token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
             });
-            feeBalanceBefore = jbMultiTerminal().currentSurplusOf(FEE_PROJECT_ID, feeCtx, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+            feeBalanceBefore = jbMultiTerminal()
+                .currentSurplusOf(FEE_PROJECT_ID, feeCtx, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         }
 
         // Cash out
         vm.prank(USER);
-        try jbMultiTerminal().cashOutTokensOf({
-            holder: USER,
-            projectId: REVNET_ID,
-            cashOutCount: tokens / 2,
-            tokenToReclaim: JBConstants.NATIVE_TOKEN,
-            minTokensReclaimed: 0,
-            beneficiary: payable(USER),
-            metadata: ""
-        }) returns (uint256 reclaimAmount) {
+        try jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: USER,
+                projectId: REVNET_ID,
+                cashOutCount: tokens / 2,
+                tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                minTokensReclaimed: 0,
+                beneficiary: payable(USER),
+                metadata: ""
+            }) returns (
+            uint256 reclaimAmount
+        ) {
             // The H-1 double fee means the fee project gets more than expected
             // because both the terminal fee AND the revnet fee route to it
             uint256 feeBalanceAfter;
             {
                 JBAccountingContext[] memory feeCtx = new JBAccountingContext[](1);
                 feeCtx[0] = JBAccountingContext({
-                    token: JBConstants.NATIVE_TOKEN,
-                    decimals: 18,
-                    currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+                    token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
                 });
-                feeBalanceAfter = jbMultiTerminal().currentSurplusOf(FEE_PROJECT_ID, feeCtx, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+                feeBalanceAfter = jbMultiTerminal()
+                    .currentSurplusOf(FEE_PROJECT_ID, feeCtx, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
             }
 
             // Fee project should have received fees from the cash-out
@@ -1026,9 +999,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow, JBTest {
         {
             JBAccountingContext[] memory ctx = new JBAccountingContext[](1);
             ctx[0] = JBAccountingContext({
-                token: JBConstants.NATIVE_TOKEN,
-                decimals: 18,
-                currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+                token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
             });
 
             JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
@@ -1076,8 +1047,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow, JBTest {
                     poolConfigurations: new REVBuybackPoolConfig[](0)
                 }),
                 suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                    deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                    salt: keccak256("REV_INV")
+                    deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("REV_INV")
                 })
             });
         }
@@ -1088,9 +1058,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow, JBTest {
         {
             JBAccountingContext[] memory ctx = new JBAccountingContext[](1);
             ctx[0] = JBAccountingContext({
-                token: JBConstants.NATIVE_TOKEN,
-                decimals: 18,
-                currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+                token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
             });
 
             JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
@@ -1161,8 +1129,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow, JBTest {
                     poolConfigurations: new REVBuybackPoolConfig[](0)
                 }),
                 suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                    deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                    salt: keccak256("NANA_INV")
+                    deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NANA_INV")
                 })
             });
         }
@@ -1205,14 +1172,11 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow, JBTest {
     // =====================================================================
     /// @notice The terminal balance must always cover net outstanding borrowed amounts.
     function invariant_REV_1_surplusCoversLoans() public {
-        uint256 totalBorrowed =
-            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
+        uint256 totalBorrowed = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
 
         JBAccountingContext[] memory ctxArray = new JBAccountingContext[](1);
         ctxArray[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
         uint256 storeBalance =
@@ -1249,9 +1213,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow, JBTest {
             LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
 
         assertEq(
-            actualTotalBorrowed,
-            HANDLER.BORROWED_SUM(),
-            "INV-REV-3: handler BORROWED_SUM must match totalBorrowedFrom"
+            actualTotalBorrowed, HANDLER.BORROWED_SUM(), "INV-REV-3: handler BORROWED_SUM must match totalBorrowedFrom"
         );
     }
 
@@ -1268,7 +1230,10 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow, JBTest {
         for (uint256 i = 1; i <= HANDLER.callCount_payAndBorrow(); i++) {
             uint256 loanId = (REVNET_ID * 1_000_000_000_000) + i;
 
-            try IERC721(address(LOANS_CONTRACT)).ownerOf(loanId) {} catch { continue; }
+            try IERC721(address(LOANS_CONTRACT)).ownerOf(loanId) {}
+                catch {
+                continue;
+            }
 
             REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
             if (loan.amount == 0) continue;

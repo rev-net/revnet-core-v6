@@ -80,7 +80,8 @@ contract DeployScript is Script, Sphinx {
         // TODO: Update to contain revnet devs.
         sphinxConfig.projectName = "revnet-core-v5";
         sphinxConfig.mainnets = ["ethereum", "optimism", "base", "arbitrum", "celo"];
-        sphinxConfig.testnets = ["ethereum_sepolia", "optimism_sepolia", "base_sepolia", "arbitrum_sepolia", "celo_sepolia"];
+        sphinxConfig.testnets =
+            ["ethereum_sepolia", "optimism_sepolia", "base_sepolia", "arbitrum_sepolia", "celo_sepolia"];
     }
 
     function run() public {
@@ -181,9 +182,7 @@ contract DeployScript is Script, Sphinx {
         {
             REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
             issuanceConfs[0] = REVAutoIssuance({
-                chainId: PREMINT_CHAIN_ID,
-                count: uint104(1_550_000 * DECIMAL_MULTIPLIER),
-                beneficiary: OPERATOR
+                chainId: PREMINT_CHAIN_ID, count: uint104(1_550_000 * DECIMAL_MULTIPLIER), beneficiary: OPERATOR
             });
 
             stageConfigurations[1] = REVStageConfig({

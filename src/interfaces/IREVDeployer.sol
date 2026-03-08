@@ -62,14 +62,7 @@ interface IREVDeployer {
     function PUBLISHER() external view returns (CTPublisher);
     function HOOK_DEPLOYER() external view returns (IJB721TiersHookDeployer);
 
-    function amountToAutoIssue(
-        uint256 revnetId,
-        uint256 stageId,
-        address beneficiary
-    )
-        external
-        view
-        returns (uint256);
+    function amountToAutoIssue(uint256 revnetId, uint256 stageId, address beneficiary) external view returns (uint256);
     function buybackHookOf(uint256 revnetId) external view returns (IJBRulesetDataHook);
     function cashOutDelayOf(uint256 revnetId) external view returns (uint256);
     function deploySuckersFor(
