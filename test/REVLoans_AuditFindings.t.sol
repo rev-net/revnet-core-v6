@@ -69,13 +69,25 @@ contract GarbageTerminal is ERC165, IJBPayoutTerminal {
 
     function addAccountingContextsFor(uint256, JBAccountingContext[] calldata) external override {}
 
-    function addToBalanceOf(uint256, address, uint256, bool, string calldata, bytes calldata)
+    function addToBalanceOf(
+        uint256,
+        address,
+        uint256,
+        bool,
+        string calldata,
+        bytes calldata
+    )
         external
         payable
         override
     {}
 
-    function currentSurplusOf(uint256, JBAccountingContext[] memory, uint256, uint256)
+    function currentSurplusOf(
+        uint256,
+        JBAccountingContext[] memory,
+        uint256,
+        uint256
+    )
         external
         pure
         override
@@ -88,7 +100,15 @@ contract GarbageTerminal is ERC165, IJBPayoutTerminal {
         return 0;
     }
 
-    function pay(uint256, address, uint256, address, uint256, string calldata, bytes calldata)
+    function pay(
+        uint256,
+        address,
+        uint256,
+        address,
+        uint256,
+        string calldata,
+        bytes calldata
+    )
         external
         payable
         override
@@ -184,9 +204,7 @@ contract REVLoans_AuditFindings is TestBaseWorkflow, JBTest {
     function _deployFeeRevnet() internal {
         JBAccountingContext[] memory accountingContextsToAccept = new JBAccountingContext[](1);
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
         JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
@@ -227,8 +245,7 @@ contract REVLoans_AuditFindings is TestBaseWorkflow, JBTest {
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256(abi.encodePacked("REV"))
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("REV"))
             })
         });
     }
@@ -236,9 +253,7 @@ contract REVLoans_AuditFindings is TestBaseWorkflow, JBTest {
     function _deployBorrowableRevnet() internal {
         JBAccountingContext[] memory accountingContextsToAccept = new JBAccountingContext[](1);
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
         JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
@@ -274,8 +289,7 @@ contract REVLoans_AuditFindings is TestBaseWorkflow, JBTest {
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256(abi.encodePacked("BRW"))
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("BRW"))
             })
         });
     }
@@ -296,12 +310,8 @@ contract REVLoans_AuditFindings is TestBaseWorkflow, JBTest {
     }
 
     /// @notice Helper: borrow against tokens.
-    function _borrow(uint256 tokens)
-        internal
-        returns (uint256 loanId, REVLoan memory loan, uint256 loanable)
-    {
-        loanable =
-            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+    function _borrow(uint256 tokens) internal returns (uint256 loanId, REVLoan memory loan, uint256 loanable) {
+        loanable = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         _mockBurnPermission();
 
@@ -430,16 +440,12 @@ contract REVLoans_AuditFindings is TestBaseWorkflow, JBTest {
                 // Decode the non-indexed data.
                 // The data contains: loan, paidOffLoan, repayBorrowAmount, sourceFeeAmount,
                 // collateralCountToReturn, beneficiary, caller
-                (REVLoan memory emittedLoan,,,,,,) = abi.decode(
-                    entries[i].data,
-                    (REVLoan, REVLoan, uint256, uint256, uint256, address, address)
-                );
+                (REVLoan memory emittedLoan,,,,,,) =
+                    abi.decode(entries[i].data, (REVLoan, REVLoan, uint256, uint256, uint256, address, address));
 
                 // The emitted loan should have the ORIGINAL non-zero values.
                 assertEq(emittedLoan.amount, originalAmount, "emitted loan.amount should match original");
-                assertEq(
-                    emittedLoan.collateral, originalCollateral, "emitted loan.collateral should match original"
-                );
+                assertEq(emittedLoan.collateral, originalCollateral, "emitted loan.collateral should match original");
                 assertGt(emittedLoan.amount, 0, "emitted loan.amount must be non-zero");
                 assertGt(emittedLoan.collateral, 0, "emitted loan.collateral must be non-zero");
                 break;
@@ -460,9 +466,7 @@ contract REVLoans_AuditFindings is TestBaseWorkflow, JBTest {
         //         and has auto-issuance.
         JBAccountingContext[] memory accountingContextsToAccept = new JBAccountingContext[](1);
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
         JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
@@ -489,11 +493,8 @@ contract REVLoans_AuditFindings is TestBaseWorkflow, JBTest {
 
         // Stage 2: starts 365 days in the future, HAS auto-issuance.
         REVAutoIssuance[] memory stage2AutoIssuances = new REVAutoIssuance[](1);
-        stage2AutoIssuances[0] = REVAutoIssuance({
-            chainId: uint32(block.chainid),
-            count: uint104(50_000e18),
-            beneficiary: multisig()
-        });
+        stage2AutoIssuances[0] =
+            REVAutoIssuance({chainId: uint32(block.chainid), count: uint104(50_000e18), beneficiary: multisig()});
 
         stages[1] = REVStageConfig({
             startsAtOrAfter: uint40(block.timestamp + 365 days),
@@ -522,8 +523,7 @@ contract REVLoans_AuditFindings is TestBaseWorkflow, JBTest {
             configuration: config,
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256("FP1")
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FP1")
             })
         });
 
@@ -581,9 +581,7 @@ contract REVLoans_AuditFindings is TestBaseWorkflow, JBTest {
             address whale = makeAddr("whale");
             vm.deal(whale, 50e18);
             vm.prank(whale);
-            jbMultiTerminal().addToBalanceOf{value: 50e18}(
-                REVNET_ID, JBConstants.NATIVE_TOKEN, 50e18, false, "", ""
-            );
+            jbMultiTerminal().addToBalanceOf{value: 50e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 50e18, false, "", "");
         }
 
         // Step 3: Verify the collateral value has increased.
