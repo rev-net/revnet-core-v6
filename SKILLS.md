@@ -154,6 +154,8 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 16. **Cross-chain config matching.** `hashedEncodedConfigurationOf` covers economic parameters (baseCurrency, stages, auto-issuances) but NOT terminal configurations, accounting contexts, or sucker token mappings. Two deployments with identical hashes can have different terminal setups.
 17. **Loan fee model.** Three layers: (1) REV protocol fee (1%) taken when funds pulled, (2) terminal fee (2.5%) charged by `useAllowanceOf`, (3) prepaid source fee (2.5%-50%, borrower-chosen) that buys an interest-free window. After the prepaid window, time-proportional source fee accrues linearly over the remaining 10-year loan duration.
 18. **Permit2 fallback.** `REVLoans` uses permit2 for ERC-20 transfers as a fallback when standard allowance is insufficient. Wrapped in try-catch.
+19. **39.16% cash-out tax crossover.** Below ~39% cash-out tax, cashing out is more capital-efficient than borrowing. Above ~39%, loans become more efficient because they preserve upside while providing liquidity. Based on CryptoEconLab academic research. Design implication: revnets intended for active token trading should consider this threshold when setting `cashOutTaxRate`.
+20. **REVDeployer always deploys a 721 hook** via `HOOK_DEPLOYER.deployHookFor` — even if `baseline721HookConfiguration` has empty tiers. This is correct by design: it lets the split operator add and sell NFTs later without migration. Non-revnet projects should follow the same pattern by using `JB721TiersHookProjectDeployer.launchProjectFor` (or `JBOmnichainDeployer.launch721ProjectFor`) instead of bare `launchProjectFor`.
 
 ### NATIVE_TOKEN Accounting on Non-ETH Chains
 
