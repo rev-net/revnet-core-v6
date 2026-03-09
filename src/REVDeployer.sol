@@ -358,10 +358,14 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             (weight, buybackHookSpecifications) = BUYBACK_HOOK.beforePayRecordedWith(context);
         }
 
-        // Adjust weight for the split ratio.
-        if (totalSplitAmount != 0 && context.amount.value > totalSplitAmount) {
+        // Adjust weight so the terminal mints tokens only for the amount that actually enters the project.
+        if (totalSplitAmount == 0) {
+            // No splits — weight is unchanged.
+        } else if (context.amount.value > totalSplitAmount) {
+            // Partial splits — scale weight by the fraction that enters the project.
             weight = mulDiv(weight, context.amount.value - totalSplitAmount, context.amount.value);
-        } else if (totalSplitAmount != 0) {
+        } else {
+            // Splits consume the entire payment — no tokens should be minted.
             weight = 0;
         }
 
