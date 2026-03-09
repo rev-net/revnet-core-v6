@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {mulDiv} from "@prb/math/src/Common.sol";
 import {IJB721TiersHook} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHook.sol";
 import {IJB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHookDeployer.sol";
 import {IJBBuybackHook} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHook.sol";
+import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
+import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
+import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {IJBCashOutHook} from "@bananapus/core-v6/src/interfaces/IJBCashOutHook.sol";
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
@@ -26,19 +29,19 @@ import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBSplitGroupIds} from "@bananapus/core-v6/src/libraries/JBSplitGroupIds.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
 import {JBAfterCashOutRecordedContext} from "@bananapus/core-v6/src/structs/JBAfterCashOutRecordedContext.sol";
-import {JBBeforePayRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforePayRecordedContext.sol";
 import {JBBeforeCashOutRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforeCashOutRecordedContext.sol";
+import {JBBeforePayRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforePayRecordedContext.sol";
+import {JBCashOutHookSpecification} from "@bananapus/core-v6/src/structs/JBCashOutHookSpecification.sol";
 import {JBCurrencyAmount} from "@bananapus/core-v6/src/structs/JBCurrencyAmount.sol";
 import {JBFundAccessLimitGroup} from "@bananapus/core-v6/src/structs/JBFundAccessLimitGroup.sol";
-import {JBPermissionsData} from "@bananapus/core-v6/src/structs/JBPermissionsData.sol";
 import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
+import {JBPermissionsData} from "@bananapus/core-v6/src/structs/JBPermissionsData.sol";
 import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
 import {JBRulesetConfig} from "@bananapus/core-v6/src/structs/JBRulesetConfig.sol";
 import {JBRulesetMetadata} from "@bananapus/core-v6/src/structs/JBRulesetMetadata.sol";
 import {JBSplit} from "@bananapus/core-v6/src/structs/JBSplit.sol";
 import {JBSplitGroup} from "@bananapus/core-v6/src/structs/JBSplitGroup.sol";
 import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.sol";
-import {JBCashOutHookSpecification} from "@bananapus/core-v6/src/structs/JBCashOutHookSpecification.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
 import {CTPublisher} from "@croptop/core-v6/src/CTPublisher.sol";
@@ -67,11 +70,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     error REVDeployer_CashOutsCantBeTurnedOffCompletely(uint256 cashOutTaxRate, uint256 maxCashOutTaxRate);
     error REVDeployer_MustHaveSplits();
     error REVDeployer_NothingToAutoIssue();
+    error REVDeployer_NothingToBurn();
     error REVDeployer_RulesetDoesNotAllowDeployingSuckers();
     error REVDeployer_StageNotStarted(uint256 stageId);
     error REVDeployer_StagesRequired();
     error REVDeployer_StageTimesMustIncrease();
-    error REVDeployer_NothingToBurn();
     error REVDeployer_Unauthorized(uint256 revnetId, address caller);
 
     //*********************************************************************//
@@ -94,6 +97,10 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @notice The default Uniswap pool fee tier used when auto-configuring buyback pools.
     /// @dev 10_000 = 1%. This is the standard fee tier for most project token pairs.
     uint24 public constant DEFAULT_BUYBACK_POOL_FEE = 10_000;
+
+    /// @notice The default tick spacing used when auto-configuring buyback pools.
+    /// @dev 60 is the standard tick spacing for the 1% fee tier.
+    int24 public constant DEFAULT_BUYBACK_TICK_SPACING = 60;
 
     /// @notice The default TWAP window used when auto-configuring buyback pools.
     /// @dev 2 days provides robust manipulation resistance.
@@ -224,49 +231,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     // ------------------------- external views -------------------------- //
     //*********************************************************************//
 
-    /// @notice Before a revnet processes an incoming payment, determine the weight and pay hooks to use.
-    /// @dev This function is part of `IJBRulesetDataHook`, and gets called before the revnet processes a payment.
-    /// @param context Standard Juicebox payment context. See `JBBeforePayRecordedContext`.
-    /// @return weight The weight which revnet tokens are minted relative to. This can be used to customize how many
-    /// tokens get minted by a payment.
-    /// @return hookSpecifications Amounts (out of what's being paid in) to be sent to pay hooks instead of being paid
-    /// into the revnet. Useful for automatically routing funds from a treasury as payments come in.
-    function beforePayRecordedWith(JBBeforePayRecordedContext calldata context)
-        external
-        view
-        override
-        returns (uint256 weight, JBPayHookSpecification[] memory hookSpecifications)
-    {
-        // Keep a reference to the specifications provided by the buyback hook.
-        JBPayHookSpecification[] memory buybackHookSpecifications;
-
-        // Read the weight and specifications from the buyback hook.
-        (weight, buybackHookSpecifications) = BUYBACK_HOOK.beforePayRecordedWith(context);
-
-        // Keep a reference to the revnet's tiered ERC-721 hook.
-        IJB721TiersHook tiered721Hook = tiered721HookOf[context.projectId];
-
-        // Is there a tiered ERC-721 hook?
-        bool usesTiered721Hook = address(tiered721Hook) != address(0);
-
-        // Did the buyback hook return any specifications? (It won't when direct minting is cheaper than swapping.)
-        bool usesBuybackHook = buybackHookSpecifications.length > 0;
-
-        // Initialize the returned specification array with only the hooks that are present.
-        hookSpecifications = new JBPayHookSpecification[]((usesTiered721Hook ? 1 : 0) + (usesBuybackHook ? 1 : 0));
-
-        // If we have a tiered ERC-721 hook, add it to the array.
-        if (usesTiered721Hook) {
-            hookSpecifications[0] =
-                JBPayHookSpecification({hook: IJBPayHook(address(tiered721Hook)), amount: 0, metadata: bytes("")});
-        }
-
-        // Add the buyback hook specification if present.
-        if (usesBuybackHook) {
-            hookSpecifications[usesTiered721Hook ? 1 : 0] = buybackHookSpecifications[0];
-        }
-    }
-
     /// @notice Determine how a cash out from a revnet should be processed.
     /// @dev This function is part of `IJBRulesetDataHook`, and gets called before the revnet processes a cash out.
     /// @dev If a sucker is cashing out, no taxes or fees are imposed.
@@ -337,6 +301,49 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         // Return the cash out rate and the number of revnet tokens to cash out, minus the tokens being used to pay the
         // fee.
         return (context.cashOutTaxRate, nonFeeCashOutCount, context.totalSupply, hookSpecifications);
+    }
+
+    /// @notice Before a revnet processes an incoming payment, determine the weight and pay hooks to use.
+    /// @dev This function is part of `IJBRulesetDataHook`, and gets called before the revnet processes a payment.
+    /// @param context Standard Juicebox payment context. See `JBBeforePayRecordedContext`.
+    /// @return weight The weight which revnet tokens are minted relative to. This can be used to customize how many
+    /// tokens get minted by a payment.
+    /// @return hookSpecifications Amounts (out of what's being paid in) to be sent to pay hooks instead of being paid
+    /// into the revnet. Useful for automatically routing funds from a treasury as payments come in.
+    function beforePayRecordedWith(JBBeforePayRecordedContext calldata context)
+        external
+        view
+        override
+        returns (uint256 weight, JBPayHookSpecification[] memory hookSpecifications)
+    {
+        // Keep a reference to the specifications provided by the buyback hook.
+        JBPayHookSpecification[] memory buybackHookSpecifications;
+
+        // Read the weight and specifications from the buyback hook.
+        (weight, buybackHookSpecifications) = BUYBACK_HOOK.beforePayRecordedWith(context);
+
+        // Keep a reference to the revnet's tiered ERC-721 hook.
+        IJB721TiersHook tiered721Hook = tiered721HookOf[context.projectId];
+
+        // Is there a tiered ERC-721 hook?
+        bool usesTiered721Hook = address(tiered721Hook) != address(0);
+
+        // Did the buyback hook return any specifications? (It won't when direct minting is cheaper than swapping.)
+        bool usesBuybackHook = buybackHookSpecifications.length > 0;
+
+        // Initialize the returned specification array with only the hooks that are present.
+        hookSpecifications = new JBPayHookSpecification[]((usesTiered721Hook ? 1 : 0) + (usesBuybackHook ? 1 : 0));
+
+        // If we have a tiered ERC-721 hook, add it to the array.
+        if (usesTiered721Hook) {
+            hookSpecifications[0] =
+                JBPayHookSpecification({hook: IJBPayHook(address(tiered721Hook)), amount: 0, metadata: bytes("")});
+        }
+
+        // Add the buyback hook specification if present.
+        if (usesBuybackHook) {
+            hookSpecifications[usesTiered721Hook ? 1 : 0] = buybackHookSpecifications[0];
+        }
     }
 
     /// @notice A flag indicating whether an address has permission to mint a revnet's tokens on-demand.
@@ -459,16 +466,43 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
                 });
 
                 // Configure a buyback pool for this terminal token with default fee and TWAP window.
-                // slither-disable-next-line unused-return,calls-loop
-                IJBBuybackHook(address(BUYBACK_HOOK))
-                    .setPoolFor({
-                        projectId: revnetId,
-                        fee: DEFAULT_BUYBACK_POOL_FEE,
-                        twapWindow: DEFAULT_BUYBACK_TWAP_WINDOW,
-                        terminalToken: accountingContext.token
-                    });
+                // slither-disable-next-line calls-loop
+                _trySetBuybackPoolFor(revnetId, accountingContext.token);
             }
         }
+    }
+
+    /// @notice Try to configure a buyback pool for a terminal token. Silently catches failures (e.g., if the Uniswap V4
+    /// pool isn't initialized yet).
+    /// @param revnetId The ID of the revnet.
+    /// @param terminalToken The terminal token to configure a buyback pool for.
+    function _trySetBuybackPoolFor(uint256 revnetId, address terminalToken) internal {
+        // Normalize the terminal token (use WETH for native) and get the project token.
+        address normalizedTerminalToken = terminalToken == JBConstants.NATIVE_TOKEN
+            ? address(IJBBuybackHook(address(BUYBACK_HOOK)).WETH())
+            : terminalToken;
+        address projectToken = address(CONTROLLER.TOKENS().tokenOf(revnetId));
+
+        // Sort currencies numerically for the pool key (lower address = currency0).
+        (Currency currency0, Currency currency1) = normalizedTerminalToken < projectToken
+            ? (Currency.wrap(normalizedTerminalToken), Currency.wrap(projectToken))
+            : (Currency.wrap(projectToken), Currency.wrap(normalizedTerminalToken));
+
+        // Try to set the pool — if the pool isn't initialized in the PoolManager yet, this will revert and be caught.
+        try IJBBuybackHook(address(BUYBACK_HOOK))
+            .setPoolFor({
+                projectId: revnetId,
+                poolKey: PoolKey({
+                    currency0: currency0,
+                    currency1: currency1,
+                    fee: DEFAULT_BUYBACK_POOL_FEE,
+                    tickSpacing: DEFAULT_BUYBACK_TICK_SPACING,
+                    hooks: IHooks(address(0))
+                }),
+                twapWindow: DEFAULT_BUYBACK_TWAP_WINDOW,
+                terminalToken: terminalToken
+            }) {}
+            catch {} // Pool may not be initialized yet — that's OK.
     }
 
     /// @notice Make a ruleset configuration for a revnet's stage.
@@ -696,6 +730,17 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         return revnetId;
     }
 
+    /// @notice Burn any of a revnet's tokens held by this contract.
+    /// @dev Project tokens can end up here from reserved token distribution when splits don't sum to 100%.
+    /// @param revnetId The ID of the revnet whose tokens should be burned.
+    function burnHeldTokensOf(uint256 revnetId) external override {
+        uint256 balance = CONTROLLER.TOKENS().totalBalanceOf({holder: address(this), projectId: revnetId});
+        if (balance == 0) revert REVDeployer_NothingToBurn();
+        CONTROLLER.burnTokensOf({holder: address(this), projectId: revnetId, tokenCount: balance, memo: ""});
+        // slither-disable-next-line reentrancy-events
+        emit BurnHeldTokens(revnetId, balance, _msgSender());
+    }
+
     /// @notice Deploy new suckers for an existing revnet.
     /// @dev Only the revnet's split operator can deploy new suckers.
     /// @param revnetId The ID of the revnet to deploy suckers for.
@@ -775,17 +820,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         });
 
         return (revnetId, hook);
-    }
-
-    /// @notice Burn any of a revnet's tokens held by this contract.
-    /// @dev Project tokens can end up here from reserved token distribution when splits don't sum to 100%.
-    /// @param revnetId The ID of the revnet whose tokens should be burned.
-    function burnHeldTokensOf(uint256 revnetId) external override {
-        uint256 balance = CONTROLLER.TOKENS().totalBalanceOf({holder: address(this), projectId: revnetId});
-        if (balance == 0) revert REVDeployer_NothingToBurn();
-        CONTROLLER.burnTokensOf({holder: address(this), projectId: revnetId, tokenCount: balance, memo: ""});
-        // slither-disable-next-line reentrancy-events
-        emit BurnHeldTokens(revnetId, balance, _msgSender());
     }
 
     /// @notice Change a revnet's split operator.
