@@ -57,6 +57,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
 
     error REVLoans_CollateralExceedsLoan(uint256 collateralToReturn, uint256 loanCollateral);
     error REVLoans_InvalidPrepaidFeePercent(uint256 prepaidFeePercent, uint256 min, uint256 max);
+    error REVLoans_InvalidTerminal(address terminal, uint256 revnetId);
     error REVLoans_LoanExpired(uint256 timeSinceLoanCreated, uint256 loanLiquidationDuration);
     error REVLoans_NewBorrowAmountGreaterThanLoanAmount(uint256 newBorrowAmount, uint256 loanAmount);
     error REVLoans_NoMsgValueAllowed();
@@ -555,6 +556,11 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     {
         // A loan needs to have collateral.
         if (collateralCount == 0) revert REVLoans_ZeroCollateralLoanIsInvalid();
+
+        // Make sure the source terminal is registered in the directory for this revnet.
+        if (!DIRECTORY.isTerminalOf(revnetId, IJBTerminal(address(source.terminal)))) {
+            revert REVLoans_InvalidTerminal(address(source.terminal), revnetId);
+        }
 
         // Make sure the prepaid fee percent is between `MIN_PREPAID_FEE_PERCENT` and `MAX_PREPAID_FEE_PERCENT`. Meaning
         // an 16 year loan can be paid upfront with a
@@ -1218,6 +1224,9 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         // If the loan will carry no more amount or collateral, store its changes directly.
         // slither-disable-next-line incorrect-equality
         if (collateralCountToReturn == loan.collateral) {
+            // Snapshot the loan to memory BEFORE _adjust zeroes the storage pointer.
+            REVLoan memory loanSnapshot = loan;
+
             // Borrow in.
             _adjust({
                 loan: loan,
@@ -1228,15 +1237,15 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
                 beneficiary: beneficiary
             });
 
-            // Snapshot the loan to memory before deleting storage.
-            REVLoan memory loanSnapshot = loan;
+            // Snapshot the zeroed loan for the return value (reflects post-repay state).
+            REVLoan memory paidOffSnapshot = loan;
 
             emit RepayLoan({
                 loanId: loanId,
                 revnetId: revnetId,
                 paidOffLoanId: loanId,
                 loan: loanSnapshot,
-                paidOffLoan: loanSnapshot,
+                paidOffLoan: paidOffSnapshot,
                 repayBorrowAmount: repayBorrowAmount,
                 sourceFeeAmount: sourceFeeAmount,
                 collateralCountToReturn: collateralCountToReturn,
@@ -1247,7 +1256,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
             // Clear stale loan data for gas refund.
             delete _loanOf[loanId];
 
-            return (loanId, loanSnapshot);
+            return (loanId, paidOffSnapshot);
         } else {
             // Make a new loan with the remaining amount and collateral.
             // Get a reference to the replacement loan ID.

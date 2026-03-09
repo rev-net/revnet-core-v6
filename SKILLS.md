@@ -244,6 +244,22 @@ loans.borrowFrom({
     prepaidFeePercent: 25                  // 2.5% prepaid fee (minimum)
 });
 
+// --- Reallocate collateral (refinance) ---
+// Remove 500 tokens of collateral from an existing loan,
+// use them (plus 200 new tokens) to open a fresh loan.
+// The original loan shrinks, and a new loan NFT is minted.
+(uint256 reallocatedLoanId, uint256 newLoanId, , ) = loans.reallocateCollateralFromLoan({
+    loanId: loanId,
+    collateralCountToTransfer: 500e18,     // Move 500 tokens out of existing loan
+    source: REVLoanSource({ token: JBConstants.NATIVE_TOKEN, terminal: terminal }),
+    minBorrowAmount: 0,
+    collateralCountToAdd: 200e18,          // Add 200 fresh tokens on top
+    beneficiary: payable(msg.sender),      // Receive new loan proceeds
+    prepaidFeePercent: 25                  // 2.5% prepaid fee on new loan
+});
+// Result: original loan now has 500 fewer collateral tokens (reallocatedLoanId),
+// new loan has 700 tokens of collateral (newLoanId).
+
 // --- Repay a loan ---
 
 loans.repayLoan({

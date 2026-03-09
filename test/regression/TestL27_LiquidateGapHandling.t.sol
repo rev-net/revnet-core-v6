@@ -32,7 +32,7 @@ import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressReg
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
-/// @notice Regression test for L-27: liquidateExpiredLoansFrom halts on deleted loan gaps.
+/// @notice liquidateExpiredLoansFrom halts on deleted loan gaps.
 /// @dev Before the fix, the function used `break` when encountering a deleted loan (createdAt == 0),
 /// which stopped the entire iteration. Expired loans after the gap were never liquidated.
 /// After the fix, `continue` is used instead, so the loop skips gaps and keeps processing.
@@ -201,7 +201,7 @@ contract TestL27_LiquidateGapHandling is TestBaseWorkflow, JBTest {
         (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), 25);
     }
 
-    /// @notice Regression test for L-27: liquidation should continue past deleted loan gaps.
+    /// @notice Liquidation should continue past deleted loan gaps.
     /// @dev Steps:
     ///   1. Create 3 loans (loan numbers 1, 2, 3)
     ///   2. Fully repay loan 2, which deletes it (createdAt == 0), creating a gap
@@ -268,7 +268,7 @@ contract TestL27_LiquidateGapHandling is TestBaseWorkflow, JBTest {
         REVLoan memory liquidatedLoan1 = LOANS_CONTRACT.loanOf(loanId1);
         assertEq(liquidatedLoan1.createdAt, 0, "Loan 1 should be liquidated (data deleted)");
 
-        // Loan 3 should ALSO be liquidated -- this is the critical assertion for L-27.
+        // Loan 3 should ALSO be liquidated -- this is the critical assertion.
         // Before the fix, this would fail because the `break` at loan 2's gap stopped iteration.
         REVLoan memory liquidatedLoan3 = LOANS_CONTRACT.loanOf(loanId3);
         assertEq(liquidatedLoan3.createdAt, 0, "Loan 3 should be liquidated despite gap at loan 2");
