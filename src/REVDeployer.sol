@@ -40,6 +40,7 @@ import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
 import {JBRulesetConfig} from "@bananapus/core-v6/src/structs/JBRulesetConfig.sol";
 import {JBRulesetMetadata} from "@bananapus/core-v6/src/structs/JBRulesetMetadata.sol";
 import {JBSplit} from "@bananapus/core-v6/src/structs/JBSplit.sol";
+import {JBTokenAmount} from "@bananapus/core-v6/src/structs/JBTokenAmount.sol";
 import {JBSplitGroup} from "@bananapus/core-v6/src/structs/JBSplitGroup.sol";
 import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
@@ -316,33 +317,73 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         override
         returns (uint256 weight, JBPayHookSpecification[] memory hookSpecifications)
     {
-        // Keep a reference to the specifications provided by the buyback hook.
-        JBPayHookSpecification[] memory buybackHookSpecifications;
-
-        // Read the weight and specifications from the buyback hook.
-        (weight, buybackHookSpecifications) = BUYBACK_HOOK.beforePayRecordedWith(context);
-
         // Keep a reference to the revnet's tiered ERC-721 hook.
         IJB721TiersHook tiered721Hook = tiered721HookOf[context.projectId];
 
         // Is there a tiered ERC-721 hook?
         bool usesTiered721Hook = address(tiered721Hook) != address(0);
 
+        // Call 721 hook first to get split specs and total split amount.
+        JBPayHookSpecification[] memory hookSpecs;
+        uint256 totalSplitAmount;
+        if (usesTiered721Hook) {
+            // The 721 hook returns an adjusted weight (which we ignore — we do our own adjustment).
+            (, hookSpecs) = IJBRulesetDataHook(address(tiered721Hook)).beforePayRecordedWith(context);
+            // The first spec's amount is the total split amount.
+            if (hookSpecs.length > 0) totalSplitAmount = hookSpecs[0].amount;
+        }
+
+        // Call the buyback hook with a reduced amount context if there are splits.
+        JBPayHookSpecification[] memory buybackHookSpecifications;
+        if (totalSplitAmount != 0) {
+            // Build a modified context with reduced amount for the buyback hook.
+            JBBeforePayRecordedContext memory reducedContext = JBBeforePayRecordedContext({
+                terminal: context.terminal,
+                payer: context.payer,
+                amount: JBTokenAmount({
+                    token: context.amount.token,
+                    value: context.amount.value > totalSplitAmount ? context.amount.value - totalSplitAmount : 0,
+                    decimals: context.amount.decimals,
+                    currency: context.amount.currency
+                }),
+                projectId: context.projectId,
+                rulesetId: context.rulesetId,
+                beneficiary: context.beneficiary,
+                weight: context.weight,
+                reservedPercent: context.reservedPercent,
+                metadata: context.metadata
+            });
+            (weight, buybackHookSpecifications) = BUYBACK_HOOK.beforePayRecordedWith(reducedContext);
+        } else {
+            (weight, buybackHookSpecifications) = BUYBACK_HOOK.beforePayRecordedWith(context);
+        }
+
+        // Adjust weight for the split ratio.
+        if (totalSplitAmount != 0 && context.amount.value > totalSplitAmount) {
+            weight = mulDiv(weight, context.amount.value - totalSplitAmount, context.amount.value);
+        } else if (totalSplitAmount != 0) {
+            weight = 0;
+        }
+
         // Did the buyback hook return any specifications? (It won't when direct minting is cheaper than swapping.)
         bool usesBuybackHook = buybackHookSpecifications.length > 0;
 
         // Initialize the returned specification array with only the hooks that are present.
-        hookSpecifications = new JBPayHookSpecification[]((usesTiered721Hook ? 1 : 0) + (usesBuybackHook ? 1 : 0));
+        uint256 hookSpecCount =
+            (usesTiered721Hook && hookSpecs.length > 0 ? hookSpecs.length : 0) + (usesBuybackHook ? 1 : 0);
+        hookSpecifications = new JBPayHookSpecification[](hookSpecCount);
 
-        // If we have a tiered ERC-721 hook, add it to the array.
-        if (usesTiered721Hook) {
-            hookSpecifications[0] =
-                JBPayHookSpecification({hook: IJBPayHook(address(tiered721Hook)), amount: 0, metadata: bytes("")});
+        // Add 721 hook specs first (includes split amounts and tier metadata).
+        uint256 specIndex;
+        if (usesTiered721Hook && hookSpecs.length > 0) {
+            for (uint256 i; i < hookSpecs.length; i++) {
+                hookSpecifications[specIndex++] = hookSpecs[i];
+            }
         }
 
         // Add the buyback hook specification if present.
         if (usesBuybackHook) {
-            hookSpecifications[usesTiered721Hook ? 1 : 0] = buybackHookSpecifications[0];
+            hookSpecifications[specIndex] = buybackHookSpecifications[0];
         }
     }
 
