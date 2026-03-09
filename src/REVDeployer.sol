@@ -345,7 +345,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         }
 
         // Scale the buyback hook's weight for splits so the terminal mints tokens only for the project's share.
-        // Preserves weight=0 from the buyback hook (buying back, not minting).
+        // The terminal uses the full context.amount.value for minting (tokenCount = amount * weight / weightRatio),
+        // but only projectAmount actually enters the project. Without scaling, payers get token credit for the split
+        // portion too. Preserves weight=0 from the buyback hook (buying back, not minting).
         if (projectAmount == 0) {
             weight = 0;
         } else if (projectAmount < context.amount.value) {
