@@ -9,6 +9,7 @@ import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Recei
 import {mulDiv} from "@prb/math/src/Common.sol";
 import {IJB721TiersHook} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHook.sol";
 import {IJB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHookDeployer.sol";
+import {JBDeploy721TiersHookConfig} from "@bananapus/721-hook-v6/src/structs/JBDeploy721TiersHookConfig.sol";
 import {IJBBuybackHook} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHook.sol";
 import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
 import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
@@ -317,78 +318,46 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         override
         returns (uint256 weight, JBPayHookSpecification[] memory hookSpecifications)
     {
-        // Keep a reference to the revnet's tiered ERC-721 hook.
+        // Get the 721 hook's spec and total split amount.
         IJB721TiersHook tiered721Hook = tiered721HookOf[context.projectId];
-
-        // Is there a tiered ERC-721 hook?
-        bool usesTiered721Hook = address(tiered721Hook) != address(0);
-
-        // Call 721 hook first to get split specs and total split amount.
-        JBPayHookSpecification[] memory hookSpecs;
+        JBPayHookSpecification memory tiered721HookSpec;
         uint256 totalSplitAmount;
+        bool usesTiered721Hook = address(tiered721Hook) != address(0);
         if (usesTiered721Hook) {
-            // The 721 hook returns an adjusted weight (which we ignore — we do our own adjustment).
-            (, hookSpecs) = IJBRulesetDataHook(address(tiered721Hook)).beforePayRecordedWith(context);
-            // The first spec's amount is the total split amount.
-            if (hookSpecs.length > 0) totalSplitAmount = hookSpecs[0].amount;
-        }
-
-        // Call the buyback hook with a reduced amount context if there are splits.
-        JBPayHookSpecification[] memory buybackHookSpecifications;
-        if (totalSplitAmount != 0) {
-            // Build a modified context with reduced amount for the buyback hook.
-            JBBeforePayRecordedContext memory reducedContext = JBBeforePayRecordedContext({
-                terminal: context.terminal,
-                payer: context.payer,
-                amount: JBTokenAmount({
-                    token: context.amount.token,
-                    value: context.amount.value > totalSplitAmount ? context.amount.value - totalSplitAmount : 0,
-                    decimals: context.amount.decimals,
-                    currency: context.amount.currency
-                }),
-                projectId: context.projectId,
-                rulesetId: context.rulesetId,
-                beneficiary: context.beneficiary,
-                weight: context.weight,
-                reservedPercent: context.reservedPercent,
-                metadata: context.metadata
-            });
-            (weight, buybackHookSpecifications) = BUYBACK_HOOK.beforePayRecordedWith(reducedContext);
-        } else {
-            (weight, buybackHookSpecifications) = BUYBACK_HOOK.beforePayRecordedWith(context);
-        }
-
-        // Adjust weight so the terminal mints tokens only for the amount that actually enters the project.
-        if (totalSplitAmount == 0) {
-            // No splits — weight is unchanged.
-        } else if (context.amount.value > totalSplitAmount) {
-            // Partial splits — scale weight by the fraction that enters the project.
-            weight = mulDiv(weight, context.amount.value - totalSplitAmount, context.amount.value);
-        } else {
-            // Splits consume the entire payment — no tokens should be minted.
-            weight = 0;
-        }
-
-        // Did the buyback hook return any specifications? (It won't when direct minting is cheaper than swapping.)
-        bool usesBuybackHook = buybackHookSpecifications.length > 0;
-
-        // Initialize the returned specification array with only the hooks that are present.
-        uint256 hookSpecCount =
-            (usesTiered721Hook && hookSpecs.length > 0 ? hookSpecs.length : 0) + (usesBuybackHook ? 1 : 0);
-        hookSpecifications = new JBPayHookSpecification[](hookSpecCount);
-
-        // Add 721 hook specs first (includes split amounts and tier metadata).
-        uint256 specIndex;
-        if (usesTiered721Hook && hookSpecs.length > 0) {
-            for (uint256 i; i < hookSpecs.length; i++) {
-                hookSpecifications[specIndex++] = hookSpecs[i];
+            JBPayHookSpecification[] memory specs;
+            (, specs) = IJBRulesetDataHook(address(tiered721Hook)).beforePayRecordedWith(context);
+            // The 721 hook returns a single spec (itself) whose amount is the total split amount.
+            if (specs.length > 0) {
+                tiered721HookSpec = specs[0];
+                totalSplitAmount = tiered721HookSpec.amount;
             }
         }
 
-        // Add the buyback hook specification if present.
-        if (usesBuybackHook) {
-            hookSpecifications[specIndex] = buybackHookSpecifications[0];
+        // The amount entering the project after tier splits.
+        uint256 projectAmount = totalSplitAmount >= context.amount.value ? 0 : context.amount.value - totalSplitAmount;
+
+        // Get the buyback hook's weight and specs. Reduce the amount so it only considers funds entering the project.
+        JBPayHookSpecification[] memory buybackHookSpecs;
+        {
+            JBBeforePayRecordedContext memory buybackHookContext = context;
+            buybackHookContext.amount.value = projectAmount;
+            (weight, buybackHookSpecs) = BUYBACK_HOOK.beforePayRecordedWith(buybackHookContext);
         }
+
+        // Scale the buyback hook's weight for splits so the terminal mints tokens only for the project's share.
+        // Preserves weight=0 from the buyback hook (buying back, not minting).
+        if (projectAmount == 0) {
+            weight = 0;
+        } else if (projectAmount < context.amount.value) {
+            weight = mulDiv(weight, projectAmount, context.amount.value);
+        }
+
+        // Merge hook specifications: 721 hook spec first, then buyback hook spec.
+        bool usesBuybackHook = buybackHookSpecs.length > 0;
+        hookSpecifications = new JBPayHookSpecification[]((usesTiered721Hook ? 1 : 0) + (usesBuybackHook ? 1 : 0));
+
+        if (usesTiered721Hook) hookSpecifications[0] = tiered721HookSpec;
+        if (usesBuybackHook) hookSpecifications[usesTiered721Hook ? 1 : 0] = buybackHookSpecs[0];
     }
 
     /// @notice A flag indicating whether an address has permission to mint a revnet's tokens on-demand.
@@ -931,11 +900,16 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             revnetId: revnetId, configuration: configuration, terminalConfigurations: terminalConfigurations
         });
 
+        // Copy the hook config to memory so we can force issueTokensForSplits off.
+        // Revnets do their own weight adjustment for splits — the 721 hook must not also adjust.
+        JBDeploy721TiersHookConfig memory hookConfig = tiered721HookConfiguration.baseline721HookConfiguration;
+        hookConfig.flags.issueTokensForSplits = false;
+
         // Deploy the tiered ERC-721 hook contract.
         // slither-disable-next-line reentrancy-benign
         hook = HOOK_DEPLOYER.deployHookFor({
             projectId: revnetId,
-            deployTiersHookConfig: tiered721HookConfiguration.baseline721HookConfiguration,
+            deployTiersHookConfig: hookConfig,
             salt: keccak256(abi.encode(tiered721HookConfiguration.salt, encodedConfigurationHash, _msgSender()))
         });
 
