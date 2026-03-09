@@ -36,7 +36,7 @@ import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressReg
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 
 /// @notice A fake terminal that returns garbage accounting contexts.
-/// Used to test H-1: unvalidated loan source terminal.
+/// Used to test unvalidated loan source terminal rejection.
 contract GarbageTerminal is ERC165, IJBPayoutTerminal {
     function useAllowanceOf(
         uint256,
@@ -130,10 +130,10 @@ contract GarbageTerminal is ERC165, IJBPayoutTerminal {
 }
 
 /// @notice Regression tests for nemesis audit findings.
-/// H-1: Unvalidated loan source terminal
-/// L-1: RepayLoan event emits zeroed values
-/// FP-1: Auto-issuance timing guard bypass (false positive)
-/// FP-3: repayLoan revert on excess collateral (false positive)
+/// Unvalidated loan source terminal
+/// RepayLoan event emits zeroed values
+/// Auto-issuance timing guard bypass (false positive)
+/// repayLoan revert on excess collateral (false positive)
 contract REVLoans_AuditFindings is TestBaseWorkflow, JBTest {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
     bytes32 ERC20_SALT = "REV_TOKEN";
@@ -322,10 +322,10 @@ contract REVLoans_AuditFindings is TestBaseWorkflow, JBTest {
     }
 
     //*********************************************************************//
-    // --------- H-1: Unvalidated Loan Source Terminal ------------------- //
+    // --------- Unvalidated Loan Source Terminal ------------------- //
     //*********************************************************************//
 
-    /// @notice H-1 regression: borrowFrom rejects a fake terminal not registered in the directory.
+    /// @notice borrowFrom rejects a fake terminal not registered in the directory.
     function test_H1_borrowFromRejectsUnregisteredTerminal() public {
         // Step 1: User pays into the revnet to get tokens.
         uint256 tokens = _payAndGetTokens(1e18);
@@ -361,10 +361,10 @@ contract REVLoans_AuditFindings is TestBaseWorkflow, JBTest {
     }
 
     //*********************************************************************//
-    // ------- L-1: RepayLoan Event Emits Zeroed Values ----------------- //
+    // ------- RepayLoan Event Emits Zeroed Values ----------------- //
     //*********************************************************************//
 
-    /// @notice L-1 regression: RepayLoan event emits non-zero loan amount and collateral
+    /// @notice RepayLoan event emits non-zero loan amount and collateral
     ///         when fully repaying a loan.
     function test_L1_repayLoanEventEmitsNonZeroValues() public {
         // Step 1: Pay in and borrow.
@@ -405,7 +405,7 @@ contract REVLoans_AuditFindings is TestBaseWorkflow, JBTest {
         LOANS_CONTRACT.repayLoan{value: totalRepay}(loanId, totalRepay, loan.collateral, payable(USER), allowance);
     }
 
-    /// @notice L-1 secondary check: verify the original loan data in the emitted event
+    /// @notice Secondary check: verify the original loan data in the emitted event
     ///         has the expected non-zero amount and collateral by recording logs.
     function test_L1_repayLoanEventLoanFieldIsNonZero() public {
         // Step 1: Pay in and borrow.
@@ -456,10 +456,10 @@ contract REVLoans_AuditFindings is TestBaseWorkflow, JBTest {
     }
 
     //*********************************************************************//
-    // --- FP-1: Auto-Issuance Timing Guard Works Correctly ------------- //
+    // --- Auto-Issuance Timing Guard Works Correctly ------------- //
     //*********************************************************************//
 
-    /// @notice FP-1: Proves that block.timestamp + i matches actual ruleset IDs,
+    /// @notice Proves that block.timestamp + i matches actual ruleset IDs,
     ///         and the timing guard in autoIssueFor correctly prevents premature issuance.
     function test_autoIssueTimingGuardWorksCorrectly() public {
         // Step 1: Deploy a revnet with 2 stages where stage 2 starts far in the future
@@ -556,10 +556,10 @@ contract REVLoans_AuditFindings is TestBaseWorkflow, JBTest {
     }
 
     //*********************************************************************//
-    // --- FP-3: repayLoan Correctly Reverts On Excess Collateral ------- //
+    // --- repayLoan Correctly Reverts On Excess Collateral ------- //
     //*********************************************************************//
 
-    /// @notice FP-3: When collateral value exceeds the loan amount (e.g. from price appreciation
+    /// @notice When collateral value exceeds the loan amount (e.g. from price appreciation
     ///         or surplus growth), partial repayment correctly reverts because the remaining
     ///         collateral supports more than the loan amount. reallocateCollateralFromLoan
     ///         is the correct alternative.
