@@ -246,7 +246,7 @@ contract REVLoansRegressions_Local is TestBaseWorkflow, JBTest {
     ///         it is registered in the JBDirectory for the project.
     /// @dev The fake terminal's useAllowanceOf is called, showing no directory check occurs.
     ///      In production, a malicious terminal could return fake amounts or misroute funds.
-    /// @notice Verifies that borrowFrom now rejects unregistered terminals (H-1 fix).
+    /// @notice Verifies that borrowFrom now rejects unregistered terminals.
     /// @dev Previously this test demonstrated the vulnerability. After the fix,
     ///      borrowFrom reverts with REVLoans_InvalidTerminal before reaching the fake terminal.
     function test_unvalidatedSourceTerminal() public {
@@ -269,7 +269,7 @@ contract REVLoansRegressions_Local is TestBaseWorkflow, JBTest {
         assertFalse(found, "fake terminal should NOT be in the directory");
 
         // Step 3: Try to borrow using the fake terminal as the source.
-        // After the H-1 fix, this now correctly reverts with REVLoans_InvalidTerminal.
+        // This now correctly reverts with REVLoans_InvalidTerminal.
         REVLoanSource memory fakeSource =
             REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: IJBPayoutTerminal(address(fakeTerminal))});
 

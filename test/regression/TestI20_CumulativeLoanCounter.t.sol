@@ -31,7 +31,7 @@ import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStor
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 
-/// @notice Regression test for I-20: totalLoansBorrowedFor is a cumulative counter, not an active loan count.
+/// @notice totalLoansBorrowedFor is a cumulative counter, not an active loan count.
 /// @dev The rename from numberOfLoansFor to totalLoansBorrowedFor clarifies that the counter only increments
 /// and never decrements. Repaying or liquidating a loan does NOT reduce the counter. This test verifies that
 /// the counter remains at its high-water mark after loans are fully repaid and after loans are liquidated.
@@ -200,7 +200,7 @@ contract TestI20_CumulativeLoanCounter is TestBaseWorkflow, JBTest {
 
     /// @notice Verifies totalLoansBorrowedFor never decrements after loan repayment.
     /// @dev Creates 3 loans, fully repays 2, then verifies the counter stays at 3 (not 1).
-    /// This confirms the I-20 rename correctly reflects cumulative semantics.
+    /// This confirms that the rename correctly reflects cumulative semantics.
     function test_I20_counterNeverDecrementsAfterRepayment() public {
         // Counter starts at 0
         assertEq(LOANS_CONTRACT.totalLoansBorrowedFor(REVNET_ID), 0, "Counter should start at 0");
