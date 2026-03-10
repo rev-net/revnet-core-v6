@@ -15,9 +15,6 @@ contract TestLoanBorrowFork is ForkTestBase {
     function setUp() public override {
         super.setUp();
 
-        string memory rpcUrl = vm.envOr("RPC_ETHEREUM_MAINNET", string(""));
-        if (bytes(rpcUrl).length == 0) return;
-
         // Deploy fee project + revnet with 50% cashOutTaxRate.
         _deployFeeProject(5000);
         revnetId = _deployRevnet(5000);
@@ -31,7 +28,7 @@ contract TestLoanBorrowFork is ForkTestBase {
     }
 
     /// @notice Basic borrow: collateralize all borrower tokens, verify loan state.
-    function test_fork_borrow_basic() public onlyFork {
+    function test_fork_borrow_basic() public {
         uint256 borrowerTokens = jbTokens().totalBalanceOf(BORROWER, revnetId);
 
         uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(
@@ -76,7 +73,7 @@ contract TestLoanBorrowFork is ForkTestBase {
     }
 
     /// @notice Verify fee distribution: source fee (2.5%) + REV fee (1%) deducted correctly.
-    function test_fork_borrow_feeDistribution() public onlyFork {
+    function test_fork_borrow_feeDistribution() public {
         uint256 borrowerTokens = jbTokens().totalBalanceOf(BORROWER, revnetId);
         uint256 prepaidFeePercent = LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT(); // 25 = 2.5%
 
@@ -122,7 +119,7 @@ contract TestLoanBorrowFork is ForkTestBase {
     }
 
     /// @notice Borrow after a payment with 30% tier splits.
-    function test_fork_borrow_afterTierSplits() public onlyFork {
+    function test_fork_borrow_afterTierSplits() public {
         // Deploy revnet with 721 hook.
         (uint256 splitRevnetId, IJB721TiersHook hook) = _deployRevnetWith721(5000);
         _setupPool(splitRevnetId, 10_000 ether);

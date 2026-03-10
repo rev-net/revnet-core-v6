@@ -14,9 +14,6 @@ contract TestLoanReallocateFork is ForkTestBase {
     function setUp() public override {
         super.setUp();
 
-        string memory rpcUrl = vm.envOr("RPC_ETHEREUM_MAINNET", string(""));
-        if (bytes(rpcUrl).length == 0) return;
-
         // Deploy fee project + revnet.
         _deployFeeProject(5000);
         revnetId = _deployRevnet(5000);
@@ -28,7 +25,7 @@ contract TestLoanReallocateFork is ForkTestBase {
     }
 
     /// @notice Reallocate half collateral to a new loan: original reduced, new loan created.
-    function test_fork_reallocate_basic() public onlyFork {
+    function test_fork_reallocate_basic() public {
         uint256 borrowerTokens = jbTokens().totalBalanceOf(BORROWER, revnetId);
         (uint256 loanId, REVLoan memory loan) =
             _createLoan(revnetId, BORROWER, borrowerTokens, LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT());
@@ -79,7 +76,7 @@ contract TestLoanReallocateFork is ForkTestBase {
     }
 
     /// @notice Reallocate with a different source terminal should revert.
-    function test_fork_reallocate_sourceMismatchReverts() public onlyFork {
+    function test_fork_reallocate_sourceMismatchReverts() public {
         uint256 borrowerTokens = jbTokens().totalBalanceOf(BORROWER, revnetId);
         (uint256 loanId, REVLoan memory loan) =
             _createLoan(revnetId, BORROWER, borrowerTokens, LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT());

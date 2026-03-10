@@ -186,12 +186,7 @@ abstract contract ForkTestBase is TestBaseWorkflow {
 
     function setUp() public virtual override {
         // Fork mainnet first — we need the real V4 PoolManager.
-        string memory rpcUrl = vm.envOr("RPC_ETHEREUM_MAINNET", string(""));
-        if (bytes(rpcUrl).length == 0) {
-            vm.skip(true);
-            return;
-        }
-        vm.createSelectFork(rpcUrl);
+        vm.createSelectFork("ethereum");
 
         // Verify V4 PoolManager is deployed.
         require(POOL_MANAGER_ADDR.code.length > 0, "PoolManager not deployed at expected address");
@@ -260,12 +255,6 @@ abstract contract ForkTestBase is TestBaseWorkflow {
         // Fund payer and borrower.
         vm.deal(PAYER, 100 ether);
         vm.deal(BORROWER, 100 ether);
-    }
-
-    modifier onlyFork() {
-        string memory rpcUrl = vm.envOr("RPC_ETHEREUM_MAINNET", string(""));
-        if (bytes(rpcUrl).length == 0) return;
-        _;
     }
 
     // ───────────────────────── Config Helpers

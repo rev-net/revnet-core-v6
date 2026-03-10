@@ -17,9 +17,6 @@ contract TestLoanRepayFork is ForkTestBase {
     function setUp() public override {
         super.setUp();
 
-        string memory rpcUrl = vm.envOr("RPC_ETHEREUM_MAINNET", string(""));
-        if (bytes(rpcUrl).length == 0) return;
-
         // Deploy fee project + revnet.
         _deployFeeProject(5000);
         revnetId = _deployRevnet(5000);
@@ -36,7 +33,7 @@ contract TestLoanRepayFork is ForkTestBase {
     }
 
     /// @notice Full repay: return all collateral, burn loan NFT.
-    function test_fork_repay_full() public onlyFork {
+    function test_fork_repay_full() public {
         uint256 totalCollateralBefore = LOANS_CONTRACT.totalCollateralOf(revnetId);
         uint256 totalBorrowedBefore =
             LOANS_CONTRACT.totalBorrowedFrom(revnetId, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
@@ -78,7 +75,7 @@ contract TestLoanRepayFork is ForkTestBase {
     }
 
     /// @notice Partial repay: return half the collateral, old loan burned, new loan minted.
-    function test_fork_repay_partial() public onlyFork {
+    function test_fork_repay_partial() public {
         uint256 halfCollateral = loan.collateral / 2;
 
         vm.deal(BORROWER, 100 ether);
@@ -112,7 +109,7 @@ contract TestLoanRepayFork is ForkTestBase {
     }
 
     /// @notice After prepaid duration, source fee is charged on repayment.
-    function test_fork_repay_withSourceFee() public onlyFork {
+    function test_fork_repay_withSourceFee() public {
         // Warp past the prepaid duration but before 10 years.
         vm.warp(block.timestamp + loan.prepaidDuration + 1 days);
 
@@ -139,7 +136,7 @@ contract TestLoanRepayFork is ForkTestBase {
     }
 
     /// @notice Repay immediately (within prepaid duration) -> no source fee.
-    function test_fork_repay_withinPrepaidNofee() public onlyFork {
+    function test_fork_repay_withinPrepaidNofee() public {
         // Don't warp — we're within prepaid duration.
         vm.deal(BORROWER, 100 ether);
 
@@ -163,7 +160,7 @@ contract TestLoanRepayFork is ForkTestBase {
     }
 
     /// @notice Repay after 10 years should revert (loan expired).
-    function test_fork_repay_expiredReverts() public onlyFork {
+    function test_fork_repay_expiredReverts() public {
         // Warp past the 10-year liquidation duration.
         vm.warp(block.timestamp + LOANS_CONTRACT.LOAN_LIQUIDATION_DURATION());
 

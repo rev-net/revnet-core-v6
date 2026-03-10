@@ -14,9 +14,6 @@ contract TestLoanLiquidationFork is ForkTestBase {
     function setUp() public override {
         super.setUp();
 
-        string memory rpcUrl = vm.envOr("RPC_ETHEREUM_MAINNET", string(""));
-        if (bytes(rpcUrl).length == 0) return;
-
         // Deploy fee project + revnet.
         _deployFeeProject(5000);
         revnetId = _deployRevnet(5000);
@@ -28,7 +25,7 @@ contract TestLoanLiquidationFork is ForkTestBase {
     }
 
     /// @notice Liquidate an expired loan: NFT burned, collateral permanently lost.
-    function test_fork_liquidate_expired() public onlyFork {
+    function test_fork_liquidate_expired() public {
         uint256 borrowerTokens = jbTokens().totalBalanceOf(BORROWER, revnetId);
         (uint256 loanId,) = _createLoan(revnetId, BORROWER, borrowerTokens, LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT());
 
@@ -65,7 +62,7 @@ contract TestLoanLiquidationFork is ForkTestBase {
     }
 
     /// @notice Non-expired loan is skipped during liquidation.
-    function test_fork_liquidate_notExpiredSkipped() public onlyFork {
+    function test_fork_liquidate_notExpiredSkipped() public {
         uint256 borrowerTokens = jbTokens().totalBalanceOf(BORROWER, revnetId);
         (uint256 loanId,) = _createLoan(revnetId, BORROWER, borrowerTokens, LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT());
 
@@ -77,7 +74,7 @@ contract TestLoanLiquidationFork is ForkTestBase {
     }
 
     /// @notice Multiple loans with gaps: create 3, repay #2, warp, liquidate range.
-    function test_fork_liquidate_withGaps() public onlyFork {
+    function test_fork_liquidate_withGaps() public {
         // Create 3 loans from different borrowers.
         address borrower2 = makeAddr("borrower2");
         address borrower3 = makeAddr("borrower3");

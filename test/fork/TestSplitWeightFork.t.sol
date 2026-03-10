@@ -16,7 +16,7 @@ contract TestSplitWeightFork is ForkTestBase {
     /// @notice SWAP PATH: Pool offers good rate -> buyback hook swaps on AMM instead of minting.
     /// With 30% tier split, the buyback should swap with 0.7 ETH worth.
     /// Terminal mints 0 tokens (weight=0), buyback hook mints via controller after swap.
-    function test_fork_swapPath_splitWithBuyback() public onlyFork {
+    function test_fork_swapPath_splitWithBuyback() public {
         _deployFeeProject(5000);
         (uint256 revnetId, IJB721TiersHook hook) = _deployRevnetWith721(5000);
 
@@ -94,7 +94,7 @@ contract TestSplitWeightFork is ForkTestBase {
     /// @notice MINT PATH: Pool offers bad rate -> buyback decides minting is better.
     /// With 30% tier split, REVDeployer scales weight from 1000e18 to 700e18.
     /// Terminal mints 700 tokens.
-    function test_fork_mintPath_splitWithBuyback() public onlyFork {
+    function test_fork_mintPath_splitWithBuyback() public {
         _deployFeeProject(5000);
         (uint256 revnetId, IJB721TiersHook hook) = _deployRevnetWith721(5000);
         _setupPool(revnetId, 10_000 ether);
@@ -118,7 +118,7 @@ contract TestSplitWeightFork is ForkTestBase {
     }
 
     /// @notice MINT PATH without splits: baseline confirming 1000 tokens for 1 ETH.
-    function test_fork_mintPath_noSplits_fullTokens() public onlyFork {
+    function test_fork_mintPath_noSplits_fullTokens() public {
         _deployFeeProject(5000);
         (uint256 revnetId,) = _deployRevnetWith721(5000);
         _setupPool(revnetId, 10_000 ether);
@@ -139,7 +139,7 @@ contract TestSplitWeightFork is ForkTestBase {
     }
 
     /// @notice Invariant: tokens / projectAmount rate is identical with and without splits.
-    function test_fork_invariant_tokenPerEthConsistent() public onlyFork {
+    function test_fork_invariant_tokenPerEthConsistent() public {
         _deployFeeProject(5000);
 
         // --- Revnet 1: with 721 splits (30%) ---
