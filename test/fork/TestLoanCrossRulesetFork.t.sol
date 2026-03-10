@@ -119,6 +119,9 @@ contract TestLoanCrossRulesetFork is ForkTestBase {
         assertGt(loanId, 0, "loan should be created");
         assertEq(loan.collateral, borrowerTokens, "collateral should match");
 
+        // Record fee tokens minted to borrower from source fee payment back to revnet.
+        uint256 feeTokensFromLoan = jbTokens().totalBalanceOf(BORROWER, revnetId);
+
         // Warp past stage 1 into stage 2.
         vm.warp(block.timestamp + STAGE_DURATION + 1);
 
@@ -141,9 +144,9 @@ contract TestLoanCrossRulesetFork is ForkTestBase {
             allowance: allowance
         });
 
-        // After repayment, borrower gets collateral back.
+        // After repayment, borrower gets collateral back (plus fee tokens from loan creation).
         uint256 borrowerTokensAfter = jbTokens().totalBalanceOf(BORROWER, revnetId);
-        assertEq(borrowerTokensAfter, borrowerTokens, "borrower should recover full collateral");
+        assertEq(borrowerTokensAfter, borrowerTokens + feeTokensFromLoan, "borrower should recover full collateral");
 
         // Loan NFT should be burned.
         vm.expectRevert();
@@ -200,6 +203,9 @@ contract TestLoanCrossRulesetFork is ForkTestBase {
         (uint256 loanId, REVLoan memory loan) =
             _createLoan(revnetId, BORROWER, borrowerTokens, LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT());
 
+        // Record fee tokens minted to borrower from source fee payment back to revnet.
+        uint256 feeTokensFromLoan = jbTokens().totalBalanceOf(BORROWER, revnetId);
+
         // Partial repay in stage 1: return half the collateral.
         uint256 halfCollateral = loan.collateral / 2;
 
@@ -236,9 +242,13 @@ contract TestLoanCrossRulesetFork is ForkTestBase {
             allowance: allowance
         });
 
-        // All collateral should be recovered.
+        // All collateral should be recovered (plus fee tokens from loan creation).
         uint256 borrowerTokensFinal = jbTokens().totalBalanceOf(BORROWER, revnetId);
-        assertEq(borrowerTokensFinal, borrowerTokens, "should recover full collateral after two repayments");
+        assertEq(
+            borrowerTokensFinal,
+            borrowerTokens + feeTokensFromLoan,
+            "should recover full collateral after two repayments"
+        );
     }
 
     /// @notice Reallocate a loan created in stage 1 while in stage 2.
@@ -252,22 +262,26 @@ contract TestLoanCrossRulesetFork is ForkTestBase {
         // Warp to stage 2.
         vm.warp(block.timestamp + STAGE_DURATION + 1);
 
-        // Reallocate half the collateral to a new loan.
+        // Reallocate a small fraction (5%) to a new loan. Using a small fraction ensures the remaining
+        // collateral still supports the existing borrow amount (bonding curve non-linearity).
         REVLoanSource memory source = _nativeLoanSource();
-        uint256 halfCollateral = loan.collateral / 2;
+        uint256 transferAmount = loan.collateral / 20;
 
         // Grant burn permission for the new loan.
         _grantBurnPermission(BORROWER, revnetId);
 
+        // Cache before prank to avoid consuming the prank with a static call.
+        uint256 minFeePercent = LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT();
+
         vm.prank(BORROWER);
         (uint256 reallocatedLoanId, uint256 newLoanId, REVLoan memory reallocatedLoan,) = LOANS_CONTRACT.reallocateCollateralFromLoan({
             loanId: loanId,
-            collateralCountToTransfer: halfCollateral,
+            collateralCountToTransfer: transferAmount,
             source: source,
             minBorrowAmount: 0,
             collateralCountToAdd: 0,
             beneficiary: payable(BORROWER),
-            prepaidFeePercent: LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT()
+            prepaidFeePercent: minFeePercent
         });
 
         // Original loan burned, reallocated loan created.
@@ -280,7 +294,7 @@ contract TestLoanCrossRulesetFork is ForkTestBase {
 
         // Reallocated loan should have reduced collateral.
         assertEq(
-            reallocatedLoan.collateral, loan.collateral - halfCollateral, "reallocated collateral should be halved"
+            reallocatedLoan.collateral, loan.collateral - transferAmount, "reallocated collateral should be reduced"
         );
     }
 }

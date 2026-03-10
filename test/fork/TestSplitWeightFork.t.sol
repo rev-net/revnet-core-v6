@@ -10,6 +10,9 @@ import "./ForkTestBase.sol";
 ///
 /// Run with: FOUNDRY_PROFILE=fork forge test --match-contract TestSplitWeightFork -vvv --skip "script/*"
 contract TestSplitWeightFork is ForkTestBase {
+    using StateLibrary for IPoolManager;
+    using PoolIdLibrary for PoolKey;
+
     // ───────────────────────── Tests
     // ─────────────────────────
 
@@ -19,6 +22,9 @@ contract TestSplitWeightFork is ForkTestBase {
     function test_fork_swapPath_splitWithBuyback() public {
         _deployFeeProject(5000);
         (uint256 revnetId, IJB721TiersHook hook) = _deployRevnetWith721(5000);
+
+        // Pool is initialized at tick 0 (1:1) by REVDeployer during deployment.
+        // We need to move the price so project tokens are cheap (swap path wins).
 
         address projectToken = address(jbTokens().tokenOf(revnetId));
         require(projectToken != address(0), "project token not deployed");
@@ -36,15 +42,6 @@ contract TestSplitWeightFork is ForkTestBase {
             hooks: IHooks(address(0))
         });
 
-        // Pool is already initialized and registered by REVDeployer.
-        // Mock the oracle to report a price where swap wins (~2000 tokens/WETH).
-        int24 initTick;
-        if (projectTokenIs0) {
-            initTick = -76_000; // Rounded to tickSpacing=200
-        } else {
-            initTick = 76_000;
-        }
-
         uint256 projectLiq = 10_000_000e18;
         uint256 wethLiq = 5000e18;
 
@@ -59,11 +56,25 @@ contract TestSplitWeightFork is ForkTestBase {
         IERC20(WETH_ADDR).approve(address(poolManager), type(uint256).max);
         vm.stopPrank();
 
+        // Add full-range liquidity at tick 0 (1:1 price).
         int256 liquidityDelta = int256(wethLiq / 4);
         vm.prank(address(liqHelper));
         liqHelper.addLiquidity(key, TICK_LOWER, TICK_UPPER, liquidityDelta);
 
-        _mockOracle(liquidityDelta, initTick, uint32(REV_DEPLOYER.DEFAULT_BUYBACK_TWAP_WINDOW()));
+        // Swap a large amount of project tokens for WETH to move the price.
+        uint256 swapAmount = 5_000_000e18;
+        vm.prank(address(jbController()));
+        jbTokens().mintFor(address(liqHelper), revnetId, swapAmount);
+
+        bool zeroForOne = projectTokenIs0;
+        uint160 sqrtPriceLimit = zeroForOne ? TickMath.getSqrtPriceAtTick(-76_000) : TickMath.getSqrtPriceAtTick(76_000);
+
+        vm.prank(address(liqHelper));
+        liqHelper.swap(key, zeroForOne, -int256(swapAmount), sqrtPriceLimit);
+
+        // Read the post-swap tick for the oracle mock.
+        (, int24 postSwapTick,,) = poolManager.getSlot0(key.toId());
+        _mockOracle(liquidityDelta, postSwapTick, uint32(REV_DEPLOYER.DEFAULT_BUYBACK_TWAP_WINDOW()));
 
         address metadataTarget = hook.METADATA_ID_TARGET();
         bytes memory metadata = _buildPayMetadataWithQuote({

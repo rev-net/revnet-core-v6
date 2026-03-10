@@ -50,8 +50,11 @@ contract TestLoanBorrowFork is ForkTestBase {
         assertEq(loan.collateral, borrowerTokens, "loan collateral should match");
         assertEq(loan.createdAt, block.timestamp, "loan createdAt should be now");
 
-        // Borrower tokens should be burned (collateral deposited).
-        assertEq(jbTokens().totalBalanceOf(BORROWER, revnetId), 0, "borrower tokens should be burned");
+        // Borrower's original tokens are burned as collateral, but the source fee payment back to the revnet mints
+        // some tokens to the borrower.
+        uint256 feeTokens = jbTokens().totalBalanceOf(BORROWER, revnetId);
+        assertGt(feeTokens, 0, "borrower should have tokens from source fee payment");
+        assertLt(feeTokens, borrowerTokens, "fee tokens should be less than original collateral");
 
         // Borrower received ETH (net of fees).
         assertGt(BORROWER.balance, borrowerEthBefore, "borrower should receive ETH");
@@ -137,8 +140,8 @@ contract TestLoanBorrowFork is ForkTestBase {
             metadata: metadata
         });
 
-        // With 30% split and 1000 tokens/ETH issuance, borrower gets 700 tokens/ETH * 5 = 3500 tokens.
-        assertEq(borrowerTokens, 3500e18, "should get 3500 tokens after 30% split");
+        // Tier 1 costs 1 ETH with 30% split → 0.3 ETH to splits, 4.7 ETH minted at 1000 tokens/ETH = 4700 tokens.
+        assertEq(borrowerTokens, 4700e18, "should get 4700 tokens after tier split");
 
         // Surplus should reflect actual terminal balance.
         uint256 surplus = _terminalBalance(splitRevnetId, JBConstants.NATIVE_TOKEN);

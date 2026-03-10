@@ -53,7 +53,7 @@ import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "@uniswap/v4-core/src/types/PoolId.sol";
 import {Currency, CurrencyLibrary} from "@uniswap/v4-core/src/types/Currency.sol";
 import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
-import {ModifyLiquidityParams} from "@uniswap/v4-core/src/types/PoolOperation.sol";
+import {ModifyLiquidityParams, SwapParams} from "@uniswap/v4-core/src/types/PoolOperation.sol";
 import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
 import {StateLibrary} from "@uniswap/v4-core/src/libraries/StateLibrary.sol";
 
@@ -63,11 +63,23 @@ import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 contract LiquidityHelper is IUnlockCallback {
     IPoolManager public immutable poolManager;
 
+    enum Action {
+        ADD_LIQUIDITY,
+        SWAP
+    }
+
     struct AddLiqParams {
         PoolKey key;
         int24 tickLower;
         int24 tickUpper;
         int256 liquidityDelta;
+    }
+
+    struct DoSwapParams {
+        PoolKey key;
+        bool zeroForOne;
+        int256 amountSpecified;
+        uint160 sqrtPriceLimitX96;
     }
 
     constructor(IPoolManager _poolManager) {
@@ -83,13 +95,38 @@ contract LiquidityHelper is IUnlockCallback {
         external
         payable
     {
-        bytes memory data = abi.encode(AddLiqParams(key, tickLower, tickUpper, liquidityDelta));
+        bytes memory data =
+            abi.encode(Action.ADD_LIQUIDITY, abi.encode(AddLiqParams(key, tickLower, tickUpper, liquidityDelta)));
+        poolManager.unlock(data);
+    }
+
+    function swap(
+        PoolKey calldata key,
+        bool zeroForOne,
+        int256 amountSpecified,
+        uint160 sqrtPriceLimitX96
+    )
+        external
+        payable
+    {
+        bytes memory data =
+            abi.encode(Action.SWAP, abi.encode(DoSwapParams(key, zeroForOne, amountSpecified, sqrtPriceLimitX96)));
         poolManager.unlock(data);
     }
 
     function unlockCallback(bytes calldata data) external override returns (bytes memory) {
         require(msg.sender == address(poolManager), "only PM");
 
+        (Action action, bytes memory inner) = abi.decode(data, (Action, bytes));
+
+        if (action == Action.ADD_LIQUIDITY) {
+            return _handleAddLiquidity(inner);
+        } else {
+            return _handleSwap(inner);
+        }
+    }
+
+    function _handleAddLiquidity(bytes memory data) internal returns (bytes memory) {
         AddLiqParams memory params = abi.decode(data, (AddLiqParams));
 
         (BalanceDelta callerDelta,) = poolManager.modifyLiquidity(
@@ -109,6 +146,27 @@ contract LiquidityHelper is IUnlockCallback {
         _takeIfPositive(params.key.currency1, callerDelta.amount1());
 
         return abi.encode(callerDelta);
+    }
+
+    function _handleSwap(bytes memory data) internal returns (bytes memory) {
+        DoSwapParams memory params = abi.decode(data, (DoSwapParams));
+
+        BalanceDelta delta = poolManager.swap(
+            params.key, SwapParams(params.zeroForOne, params.amountSpecified, params.sqrtPriceLimitX96), ""
+        );
+
+        if (delta.amount0() < 0) {
+            _settleIfNegative(params.key.currency0, delta.amount0());
+        } else {
+            _takeIfPositive(params.key.currency0, delta.amount0());
+        }
+        if (delta.amount1() < 0) {
+            _settleIfNegative(params.key.currency1, delta.amount1());
+        } else {
+            _takeIfPositive(params.key.currency1, delta.amount1());
+        }
+
+        return abi.encode(delta);
     }
 
     function _settleIfNegative(Currency currency, int128 delta) internal {
@@ -392,6 +450,8 @@ abstract contract ForkTestBase is TestBaseWorkflow {
     function _deployRevnetWith721(uint16 cashOutTaxRate) internal returns (uint256 revnetId, IJB721TiersHook hook) {
         (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
             _buildMinimalConfig(cashOutTaxRate);
+        // Use a different salt to avoid CREATE2 collision with _deployRevnet's ERC-20.
+        cfg.description.salt = "FORK_721_SALT";
         REVDeploy721TiersHookConfig memory hookConfig = _build721Config();
 
         (revnetId, hook) = REV_DEPLOYER.deployWith721sFor({

@@ -29,6 +29,10 @@ contract TestLoanLiquidationFork is ForkTestBase {
         uint256 borrowerTokens = jbTokens().totalBalanceOf(BORROWER, revnetId);
         (uint256 loanId,) = _createLoan(revnetId, BORROWER, borrowerTokens, LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT());
 
+        // Record balance after loan creation — borrower may have tokens from the source fee payment back to the
+        // revnet.
+        uint256 borrowerBalanceAfterLoan = jbTokens().totalBalanceOf(BORROWER, revnetId);
+
         uint256 totalCollateralBefore = LOANS_CONTRACT.totalCollateralOf(revnetId);
         uint256 totalBorrowedBefore =
             LOANS_CONTRACT.totalBorrowedFrom(revnetId, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
@@ -57,8 +61,12 @@ contract TestLoanLiquidationFork is ForkTestBase {
             "totalBorrowedFrom should decrease"
         );
 
-        // No tokens re-minted to borrower.
-        assertEq(jbTokens().totalBalanceOf(BORROWER, revnetId), 0, "no tokens should be re-minted");
+        // Liquidation doesn't re-mint tokens — balance unchanged from after loan creation.
+        assertEq(
+            jbTokens().totalBalanceOf(BORROWER, revnetId),
+            borrowerBalanceAfterLoan,
+            "liquidation should not change borrower token balance"
+        );
     }
 
     /// @notice Non-expired loan is skipped during liquidation.

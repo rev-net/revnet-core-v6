@@ -13,6 +13,7 @@ contract TestLoanRepayFork is ForkTestBase {
     uint256 loanId;
     REVLoan loan;
     uint256 borrowerTokens;
+    uint256 feeTokensFromLoan; // Tokens minted to borrower from source fee payment back to revnet.
 
     function setUp() public override {
         super.setUp();
@@ -30,6 +31,9 @@ contract TestLoanRepayFork is ForkTestBase {
 
         // Create a loan with min prepaid fee.
         (loanId, loan) = _createLoan(revnetId, BORROWER, borrowerTokens, LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT());
+
+        // Record fee tokens minted to borrower from source fee payment back to revnet.
+        feeTokensFromLoan = jbTokens().totalBalanceOf(BORROWER, revnetId);
     }
 
     /// @notice Full repay: return all collateral, burn loan NFT.
@@ -52,9 +56,11 @@ contract TestLoanRepayFork is ForkTestBase {
             allowance: allowance
         });
 
-        // Collateral re-minted to borrower.
+        // Collateral re-minted to borrower (plus fee tokens from loan creation).
         assertEq(
-            jbTokens().totalBalanceOf(BORROWER, revnetId), borrowerTokens, "collateral should be returned to borrower"
+            jbTokens().totalBalanceOf(BORROWER, revnetId),
+            borrowerTokens + feeTokensFromLoan,
+            "collateral should be returned to borrower"
         );
 
         // Loan NFT burned.
@@ -91,9 +97,9 @@ contract TestLoanRepayFork is ForkTestBase {
             allowance: allowance
         });
 
-        // Some collateral re-minted.
+        // Some collateral re-minted (plus fee tokens from loan creation).
         uint256 returnedTokens = jbTokens().totalBalanceOf(BORROWER, revnetId);
-        assertEq(returnedTokens, halfCollateral, "half collateral should be returned");
+        assertEq(returnedTokens, halfCollateral + feeTokensFromLoan, "half collateral should be returned");
 
         // Old loan burned.
         vm.expectRevert();
@@ -110,8 +116,8 @@ contract TestLoanRepayFork is ForkTestBase {
 
     /// @notice After prepaid duration, source fee is charged on repayment.
     function test_fork_repay_withSourceFee() public {
-        // Warp past the prepaid duration but before 10 years.
-        vm.warp(block.timestamp + loan.prepaidDuration + 1 days);
+        // Warp well past the prepaid duration to accrue a meaningful source fee.
+        vm.warp(block.timestamp + loan.prepaidDuration + 365 days);
 
         vm.deal(BORROWER, 100 ether);
 
