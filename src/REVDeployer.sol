@@ -11,10 +11,7 @@ import {IJB721TiersHook} from "@bananapus/721-hook-v6/src/interfaces/IJB721Tiers
 import {IJB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHookDeployer.sol";
 import {JB721TiersHookFlags} from "@bananapus/721-hook-v6/src/structs/JB721TiersHookFlags.sol";
 import {JBDeploy721TiersHookConfig} from "@bananapus/721-hook-v6/src/structs/JBDeploy721TiersHookConfig.sol";
-import {IJBBuybackHook} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHook.sol";
-import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
-import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
-import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
+import {IJBBuybackHookRegistry} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHookRegistry.sol";
 import {IJBCashOutHook} from "@bananapus/core-v6/src/interfaces/IJBCashOutHook.sol";
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
@@ -114,7 +111,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     //*********************************************************************//
 
     /// @notice The buyback hook used as a data hook to route payments through buyback pools.
-    IJBRulesetDataHook public immutable override BUYBACK_HOOK;
+    IJBBuybackHookRegistry public immutable override BUYBACK_HOOK;
 
     /// @notice The controller used to create and manage Juicebox projects for revnets.
     IJBController public immutable override CONTROLLER;
@@ -203,7 +200,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         uint256 feeRevnetId,
         IJB721TiersHookDeployer hookDeployer,
         CTPublisher publisher,
-        IJBRulesetDataHook buybackHook,
+        IJBBuybackHookRegistry buybackHook,
         address loans,
         address trustedForwarder
     )
@@ -228,6 +225,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
 
         // Give the loan contract permission to use the surplus allowance of all revnets.
         _setPermission({operator: LOANS, revnetId: 0, permissionId: JBPermissionIds.USE_ALLOWANCE});
+
+        // Give the buyback hook (registry) permission to configure pools on all revnets.
+        _setPermission({operator: address(BUYBACK_HOOK), revnetId: 0, permissionId: JBPermissionIds.SET_BUYBACK_POOL});
     }
 
     //*********************************************************************//
@@ -494,34 +494,16 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @param revnetId The ID of the revnet.
     /// @param terminalToken The terminal token to configure a buyback pool for.
     function _trySetBuybackPoolFor(uint256 revnetId, address terminalToken) internal {
-        // Normalize the terminal token (use WETH for native) and get the project token.
-        // slither-disable-next-line calls-loop
-        address normalizedTerminalToken = terminalToken == JBConstants.NATIVE_TOKEN
-            ? address(IJBBuybackHook(address(BUYBACK_HOOK)).WETH())
-            : terminalToken;
-        // slither-disable-next-line calls-loop
-        address projectToken = address(CONTROLLER.TOKENS().tokenOf(revnetId));
-
-        // Sort currencies numerically for the pool key (lower address = currency0).
-        (Currency currency0, Currency currency1) = normalizedTerminalToken < projectToken
-            ? (Currency.wrap(normalizedTerminalToken), Currency.wrap(projectToken))
-            : (Currency.wrap(projectToken), Currency.wrap(normalizedTerminalToken));
-
         // Try to set the pool — if the pool isn't initialized in the PoolManager yet, this will revert and be caught.
+        // The buyback hook constructs the PoolKey internally from the project token, terminal token, and pool params.
         // slither-disable-next-line calls-loop
-        try IJBBuybackHook(address(BUYBACK_HOOK))
-            .setPoolFor({
-                projectId: revnetId,
-                poolKey: PoolKey({
-                    currency0: currency0,
-                    currency1: currency1,
-                    fee: DEFAULT_BUYBACK_POOL_FEE,
-                    tickSpacing: DEFAULT_BUYBACK_TICK_SPACING,
-                    hooks: IHooks(address(0))
-                }),
-                twapWindow: DEFAULT_BUYBACK_TWAP_WINDOW,
-                terminalToken: terminalToken
-            }) {}
+        try BUYBACK_HOOK.setPoolFor({
+            projectId: revnetId,
+            fee: DEFAULT_BUYBACK_POOL_FEE,
+            tickSpacing: DEFAULT_BUYBACK_TICK_SPACING,
+            twapWindow: DEFAULT_BUYBACK_TWAP_WINDOW,
+            terminalToken: terminalToken
+        }) {}
             catch {} // Pool may not be initialized yet — that's OK.
     }
 

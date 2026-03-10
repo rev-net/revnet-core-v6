@@ -68,7 +68,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
             PUBLISHER,
-            IJBRulesetDataHook(address(MOCK_BUYBACK)),
+            IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
             makeAddr("loans"),
             TRUSTED_FORWARDER
         );

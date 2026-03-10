@@ -27,6 +27,7 @@ import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStor
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDataHook.sol";
+import {IJBBuybackHookRegistry} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHookRegistry.sol";
 import {IJBPayHook} from "@bananapus/core-v6/src/interfaces/IJBPayHook.sol";
 import {JBBeforePayRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforePayRecordedContext.sol";
 import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
@@ -76,7 +77,7 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
             PUBLISHER,
-            IJBRulesetDataHook(address(MOCK_BUYBACK)),
+            IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
             address(LOANS_CONTRACT),
             TRUSTED_FORWARDER
         );
@@ -280,7 +281,7 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
             PUBLISHER,
-            IJBRulesetDataHook(address(ammBuyback)),
+            IJBBuybackHookRegistry(address(ammBuyback)),
             address(LOANS_CONTRACT),
             TRUSTED_FORWARDER
         );

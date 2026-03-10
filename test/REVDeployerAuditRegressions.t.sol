@@ -78,7 +78,7 @@ contract REVDeployerRegressions_Local is TestBaseWorkflow {
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
             PUBLISHER,
-            IJBRulesetDataHook(address(MOCK_BUYBACK)),
+            IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
             address(LOANS_CONTRACT),
             TRUSTED_FORWARDER
         );

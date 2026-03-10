@@ -77,7 +77,7 @@ contract TestEmptyBuybackSpecs is TestBaseWorkflow {
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
             PUBLISHER,
-            IJBRulesetDataHook(address(MOCK_BUYBACK_MINT_PATH)),
+            IJBBuybackHookRegistry(address(MOCK_BUYBACK_MINT_PATH)),
             address(LOANS_CONTRACT),
             TRUSTED_FORWARDER
         );

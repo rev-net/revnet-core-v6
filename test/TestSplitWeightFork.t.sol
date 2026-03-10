@@ -27,6 +27,7 @@ import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStor
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDataHook.sol";
+import {IJBBuybackHookRegistry} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHookRegistry.sol";
 import {IJBPayHook} from "@bananapus/core-v6/src/interfaces/IJBPayHook.sol";
 import {REVBaseline721HookConfig} from "../src/structs/REVBaseline721HookConfig.sol";
 import {REV721TiersHookFlags} from "../src/structs/REV721TiersHookFlags.sol";
@@ -38,6 +39,7 @@ import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 
 // Buyback hook
 import {JBBuybackHook} from "@bananapus/buyback-hook-v6/src/JBBuybackHook.sol";
+import {JBBuybackHookRegistry} from "@bananapus/buyback-hook-v6/src/JBBuybackHookRegistry.sol";
 import {IJBBuybackHook} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHook.sol";
 import {IWETH9} from "@bananapus/buyback-hook-v6/src/interfaces/external/IWETH9.sol";
 import {IGeomeanOracle} from "@bananapus/buyback-hook-v6/src/interfaces/IGeomeanOracle.sol";
@@ -157,6 +159,7 @@ contract TestSplitWeightFork is TestBaseWorkflow {
 
     REVDeployer REV_DEPLOYER;
     JBBuybackHook BUYBACK_HOOK;
+    JBBuybackHookRegistry BUYBACK_REGISTRY;
     JB721TiersHook EXAMPLE_HOOK;
     IJB721TiersHookDeployer HOOK_DEPLOYER;
     IJB721TiersHookStore HOOK_STORE;
@@ -223,6 +226,15 @@ contract TestSplitWeightFork is TestBaseWorkflow {
             address(0) // trustedForwarder
         );
 
+        // Deploy the registry and set the buyback hook as the default.
+        BUYBACK_REGISTRY = new JBBuybackHookRegistry(
+            jbPermissions(),
+            jbProjects(),
+            address(this), // owner
+            address(0) // trustedForwarder
+        );
+        BUYBACK_REGISTRY.setDefaultHook(IJBRulesetDataHook(address(BUYBACK_HOOK)));
+
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
             projects: jbProjects(),
@@ -238,7 +250,7 @@ contract TestSplitWeightFork is TestBaseWorkflow {
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
             PUBLISHER,
-            IJBRulesetDataHook(address(BUYBACK_HOOK)),
+            IJBBuybackHookRegistry(address(BUYBACK_REGISTRY)),
             address(LOANS_CONTRACT),
             TRUSTED_FORWARDER
         );

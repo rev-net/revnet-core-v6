@@ -10,8 +10,8 @@ import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSp
 import {JBCashOutHookSpecification} from "@bananapus/core-v6/src/structs/JBCashOutHookSpecification.sol";
 import {JBAfterPayRecordedContext} from "@bananapus/core-v6/src/structs/JBAfterPayRecordedContext.sol";
 import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
-import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 
 /// @notice Mock buyback hook that simulates the "mint path" — returns EMPTY hookSpecifications.
 /// This is what the real JBBuybackHook does when direct minting is cheaper than swapping
@@ -51,12 +51,16 @@ contract MockBuybackDataHookMintPath is IJBRulesetDataHook, IJBPayHook {
 
     function afterPayRecordedWith(JBAfterPayRecordedContext calldata) external payable override {}
 
-    /// @notice Returns a dummy WETH address for tests.
-    function WETH() external pure returns (IWETH9) {
+    /// @notice Returns a dummy wrapped native token address for tests.
+    function WRAPPED_NATIVE_TOKEN() external pure returns (IWETH9) {
         return IWETH9(address(1));
     }
 
+    /// @notice No-op pool configuration for tests (PoolKey overload).
     function setPoolFor(uint256, PoolKey calldata, uint256, address) external pure {}
+
+    /// @notice No-op pool configuration for tests (simplified overload).
+    function setPoolFor(uint256, uint24, int24, uint256, address) external pure {}
 
     function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
         return interfaceId == type(IJBRulesetDataHook).interfaceId || interfaceId == type(IJBPayHook).interfaceId

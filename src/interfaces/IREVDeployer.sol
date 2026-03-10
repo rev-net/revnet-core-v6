@@ -7,6 +7,7 @@ import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
 import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
+import {IJBBuybackHookRegistry} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHookRegistry.sol";
 import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDataHook.sol";
 import {JBRulesetConfig} from "@bananapus/core-v6/src/structs/JBRulesetConfig.sol";
 import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.sol";
@@ -96,7 +97,7 @@ interface IREVDeployer {
 
     /// @notice The buyback hook used as a data hook to route payments through buyback pools.
     /// @return The buyback hook contract.
-    function BUYBACK_HOOK() external view returns (IJBRulesetDataHook);
+    function BUYBACK_HOOK() external view returns (IJBBuybackHookRegistry);
 
     /// @notice The number of seconds until a revnet's participants can cash out after deploying to a new network.
     /// @return The cash out delay in seconds.
