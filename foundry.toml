@@ -1,13 +1,10 @@
 [profile.default]
 solc = '0.8.26'
-evm_version = 'paris'
-optimizer_runs = 500
+evm_version = 'cancun'
+via_ir = true
+optimizer_runs = 100
 libs = ["node_modules", "lib"]
 fs_permissions = [{ access = "read-write", path = "./"}]
-
-[profile.ci_sizes]
-optimizer_runs = 500
-via_ir = true
 
 [fuzz]
 runs = 4096
@@ -16,6 +13,9 @@ runs = 4096
 runs = 1024
 depth = 100
 fail_on_revert = false
+
+[lint]
+lint_on_build = false
 
 [fmt]
 number_underscore = "thousands"

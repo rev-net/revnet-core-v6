@@ -30,7 +30,7 @@ import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/
 /// @notice Fuzz tests for REVDeployer multi-stage auto-issuance.
 /// Tests stage ID computation consistency and multi-stage claiming behavior.
 /// Stage IDs use block.timestamp + i which may mismatch actual ruleset IDs.
-contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
+contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
 
     REVDeployer REV_DEPLOYER;
@@ -55,7 +55,8 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
 
         SUCKER_REGISTRY = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
         HOOK_STORE = new JB721TiersHookStore();
-        EXAMPLE_HOOK = new JB721TiersHook(jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, multisig());
+        EXAMPLE_HOOK =
+            new JB721TiersHook(jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, jbSplits(), multisig());
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
@@ -67,7 +68,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
             PUBLISHER,
-            IJBRulesetDataHook(address(MOCK_BUYBACK)),
+            IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
             makeAddr("loans"),
             TRUSTED_FORWARDER
         );
@@ -165,9 +166,12 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
 
     /// @notice Deploy 3-stage revnet, advance time, claim auto-issuance from each stage.
     function test_multiStage_allStagesClaimable() external {
+        // Save the deploy timestamp for absolute warp targets.
+        uint256 deployTs = block.timestamp;
+
         (uint256 revnetId, uint256[] memory stageIds) = _deployMultiStageRevnet(3);
 
-        // Stage 0 starts at block.timestamp — immediately claimable.
+        // Stage 0 starts at deploy time — immediately claimable.
         REV_DEPLOYER.autoIssueFor(revnetId, stageIds[0], multisig());
 
         uint256 stage0Amount = (10_000) * decimalMultiplier;
@@ -175,8 +179,8 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
             IJBToken(jbTokens().tokenOf(revnetId)).balanceOf(multisig()), stage0Amount, "Stage 0 auto-issuance claimed"
         );
 
-        // Stage 1 starts at block.timestamp + 180 days.
-        vm.warp(block.timestamp + 180 days);
+        // Stage 1 starts at deployTs + 180 days.
+        vm.warp(deployTs + 180 days);
         REV_DEPLOYER.autoIssueFor(revnetId, stageIds[1], multisig());
 
         uint256 stage1Amount = (11_000) * decimalMultiplier;
@@ -186,8 +190,8 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow, JBTest {
             "Stage 1 auto-issuance claimed"
         );
 
-        // Stage 2 starts at block.timestamp + 360 days.
-        vm.warp(block.timestamp + 180 days);
+        // Stage 2 starts at deployTs + 360 days.
+        vm.warp(deployTs + 360 days);
         REV_DEPLOYER.autoIssueFor(revnetId, stageIds[2], multisig());
 
         uint256 stage2Amount = (12_000) * decimalMultiplier;

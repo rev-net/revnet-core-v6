@@ -29,7 +29,7 @@ import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressReg
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 
 /// @notice Regression tests for REVDeployer.
-contract REVDeployerRegressions_Local is TestBaseWorkflow, JBTest {
+contract REVDeployerRegressions_Local is TestBaseWorkflow {
     using JBRulesetMetadataResolver for JBRuleset;
 
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
@@ -56,7 +56,8 @@ contract REVDeployerRegressions_Local is TestBaseWorkflow, JBTest {
 
         SUCKER_REGISTRY = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
         HOOK_STORE = new JB721TiersHookStore();
-        EXAMPLE_HOOK = new JB721TiersHook(jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, multisig());
+        EXAMPLE_HOOK =
+            new JB721TiersHook(jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, jbSplits(), multisig());
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
@@ -77,7 +78,7 @@ contract REVDeployerRegressions_Local is TestBaseWorkflow, JBTest {
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
             PUBLISHER,
-            IJBRulesetDataHook(address(MOCK_BUYBACK)),
+            IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
             address(LOANS_CONTRACT),
             TRUSTED_FORWARDER
         );

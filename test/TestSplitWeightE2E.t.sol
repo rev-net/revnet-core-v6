@@ -29,19 +29,20 @@ import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStor
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDataHook.sol";
+import {IJBBuybackHookRegistry} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHookRegistry.sol";
 import {IJBPayHook} from "@bananapus/core-v6/src/interfaces/IJBPayHook.sol";
-import {JBDeploy721TiersHookConfig} from "@bananapus/721-hook-v6/src/structs/JBDeploy721TiersHookConfig.sol";
 import {JB721TierConfig} from "@bananapus/721-hook-v6/src/structs/JB721TierConfig.sol";
 import {JB721InitTiersConfig} from "@bananapus/721-hook-v6/src/structs/JB721InitTiersConfig.sol";
-import {JB721TiersHookFlags} from "@bananapus/721-hook-v6/src/structs/JB721TiersHookFlags.sol";
 import {IJB721TokenUriResolver} from "@bananapus/721-hook-v6/src/interfaces/IJB721TokenUriResolver.sol";
 import {REVDeploy721TiersHookConfig} from "../src/structs/REVDeploy721TiersHookConfig.sol";
+import {REVBaseline721HookConfig} from "../src/structs/REVBaseline721HookConfig.sol";
+import {REV721TiersHookFlags} from "../src/structs/REV721TiersHookFlags.sol";
 import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 
 /// @notice E2E tests verifying that the split weight adjustment in REVDeployer produces correct token counts
 /// when payments flow through the full terminal → store → dataHook → mint pipeline.
 /// Tests both mint path (buyback decides to mint) and AMM path (buyback decides to swap).
-contract TestSplitWeightE2E is TestBaseWorkflow, JBTest {
+contract TestSplitWeightE2E is TestBaseWorkflow {
     using JBMetadataResolver for bytes;
 
     bytes32 REV_DEPLOYER_SALT = "REVDeployer_E2E";
@@ -74,7 +75,8 @@ contract TestSplitWeightE2E is TestBaseWorkflow, JBTest {
 
         SUCKER_REGISTRY = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
         HOOK_STORE = new JB721TiersHookStore();
-        EXAMPLE_HOOK = new JB721TiersHook(jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, multisig());
+        EXAMPLE_HOOK =
+            new JB721TiersHook(jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, jbSplits(), multisig());
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
@@ -95,7 +97,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow, JBTest {
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
             PUBLISHER,
-            IJBRulesetDataHook(address(MOCK_BUYBACK_MINT)),
+            IJBBuybackHookRegistry(address(MOCK_BUYBACK_MINT)),
             address(LOANS_CONTRACT),
             TRUSTED_FORWARDER
         );
@@ -107,7 +109,8 @@ contract TestSplitWeightE2E is TestBaseWorkflow, JBTest {
         vm.deal(PAYER, 100 ether);
     }
 
-    // ───────────────────────── Helpers ─────────────────────────
+    // ───────────────────────── Helpers
+    // ─────────────────────────
 
     function _buildMinimalConfig()
         internal
@@ -116,9 +119,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow, JBTest {
     {
         JBAccountingContext[] memory acc = new JBAccountingContext[](1);
         acc[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         tc = new JBTerminalConfig[](1);
         tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
@@ -147,8 +148,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow, JBTest {
         });
 
         sdc = REVSuckerDeploymentConfig({
-            deployerConfigurations: new JBSuckerDeployerConfig[](0),
-            salt: keccak256(abi.encodePacked("E2E_TEST"))
+            deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("E2E_TEST"))
         });
     }
 
@@ -185,7 +185,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow, JBTest {
         });
 
         return REVDeploy721TiersHookConfig({
-            baseline721HookConfiguration: JBDeploy721TiersHookConfig({
+            baseline721HookConfiguration: REVBaseline721HookConfig({
                 name: "E2E NFT",
                 symbol: "E2ENFT",
                 baseUri: "ipfs://",
@@ -198,12 +198,11 @@ contract TestSplitWeightE2E is TestBaseWorkflow, JBTest {
                     prices: IJBPrices(address(0))
                 }),
                 reserveBeneficiary: address(0),
-                flags: JB721TiersHookFlags({
+                flags: REV721TiersHookFlags({
                     noNewTiersWithReserves: false,
                     noNewTiersWithVotes: false,
                     noNewTiersWithOwnerMinting: false,
-                    preventOverspending: false,
-                    issueTokensForSplits: false // REVDeployer will force this to false anyway
+                    preventOverspending: false
                 })
             }),
             salt: bytes32("E2E_721"),
@@ -276,7 +275,8 @@ contract TestSplitWeightE2E is TestBaseWorkflow, JBTest {
         return JBMetadataResolver.createMetadata(ids, datas);
     }
 
-    // ───────────────────────── Tests ─────────────────────────
+    // ───────────────────────── Tests
+    // ─────────────────────────
 
     /// @notice Mint path: pay 1 ETH for tier with 30% split.
     /// Verifies tokens minted == 700 (not 1000), confirming the weight scaling is correct.
@@ -387,7 +387,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow, JBTest {
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
             PUBLISHER,
-            IJBRulesetDataHook(address(ammBuyback)),
+            IJBBuybackHookRegistry(address(ammBuyback)),
             address(LOANS_CONTRACT),
             TRUSTED_FORWARDER
         );
@@ -466,8 +466,8 @@ contract TestSplitWeightE2E is TestBaseWorkflow, JBTest {
             metadata: metadata
         });
 
-        // Buyback returns weight=0 → REVDeployer preserves 0 (both branches: projectAmount==0 → 0, else mulDiv(0,...) → 0).
-        // Terminal: tokenCount = mulDiv(1e18, 0, 1e18) = 0.
+        // Buyback returns weight=0 → REVDeployer preserves 0 (both branches: projectAmount==0 → 0, else
+        // mulDiv(0,...) → 0). Terminal: tokenCount = mulDiv(1e18, 0, 1e18) = 0.
         // No tokens minted by terminal. In production, the buyback hook's afterPay would handle the swap.
         assertEq(tokensReceived, 0, "AMM path: terminal should mint 0 tokens (buyback handles swap)");
     }
@@ -500,10 +500,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow, JBTest {
         cfg2.description = REVDescription("NoSplit", "NS", "ipfs://nosplit", "NOSPLIT_SALT");
 
         uint256 revnetId2 = REV_DEPLOYER.deployFor({
-            revnetId: 0,
-            configuration: cfg2,
-            terminalConfigurations: tc2,
-            suckerDeploymentConfiguration: sdc2
+            revnetId: 0, configuration: cfg2, terminalConfigurations: tc2, suckerDeploymentConfiguration: sdc2
         });
 
         vm.prank(PAYER);

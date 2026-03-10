@@ -35,7 +35,7 @@ struct FeeProjectConfig {
     REVSuckerDeploymentConfig suckerDeploymentConfiguration;
 }
 
-contract REVLoansUnsourcedTests is TestBaseWorkflow, JBTest {
+contract REVLoansUnsourcedTests is TestBaseWorkflow {
     /// @notice the salts that are used to deploy the contracts.
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
     bytes32 ERC20_SALT = "REV_TOKEN";
@@ -249,7 +249,8 @@ contract REVLoansUnsourcedTests is TestBaseWorkflow, JBTest {
 
         HOOK_STORE = new JB721TiersHookStore();
 
-        EXAMPLE_HOOK = new JB721TiersHook(jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, multisig());
+        EXAMPLE_HOOK =
+            new JB721TiersHook(jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, jbSplits(), multisig());
 
         ADDRESS_REGISTRY = new JBAddressRegistry();
 
@@ -273,7 +274,7 @@ contract REVLoansUnsourcedTests is TestBaseWorkflow, JBTest {
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
             PUBLISHER,
-            IJBRulesetDataHook(address(MOCK_BUYBACK)),
+            IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
             address(LOANS_CONTRACT),
             TRUSTED_FORWARDER
         );

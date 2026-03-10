@@ -329,7 +329,7 @@ Standard config across all repos:
 ```toml
 [profile.default]
 solc = '0.8.26'
-evm_version = 'paris'
+evm_version = 'cancun'
 optimizer_runs = 200
 libs = ["node_modules", "lib"]
 fs_permissions = [{ access = "read-write", path = "./"}]
@@ -355,8 +355,9 @@ wrap_comments = true
 - `evm_version = 'cancun'` for repos using transient storage (buyback-hook, router-terminal, univ4-router)
 - `via_ir = true` for repos hitting stack-too-deep (buyback-hook, banny-retail, univ4-lp-split-hook, deploy-all)
 - `optimizer = false` only for deploy-all-v6 (stack-too-deep with optimization)
+- `lint_on_build = false` for repos that depend on packages with test helpers using bare `src/` imports (solar linter can't resolve cross-package). Run `forge lint src/` explicitly.
 
-> **This repo's deviations:** `optimizer_runs = 500` (default profile), `via_ir = true` in ci_sizes and fork profiles, `evm_version = 'cancun'` in fork profile. Package scope: `@rev-net/`.
+> **This repo's deviations:** `optimizer_runs = 100` (stack-too-deep at 200 due to deep struct nesting), `via_ir = true`, `lint_on_build = false` (nana-core test helpers use bare `src/` imports that solar can't resolve cross-package). Package scope: `@rev-net/`.
 
 ### CI Workflows
 
@@ -478,4 +479,4 @@ Fork tests require `RPC_ETHEREUM_MAINNET` — they fail if it's missing.
 
 ### Contract Size Checks
 
-CI runs `FOUNDRY_PROFILE=ci_sizes forge build --sizes` to catch contracts approaching the 24KB limit. The `ci_sizes` profile uses `optimizer_runs = 200` for realistic size measurement even when the default profile has different optimizer settings.
+CI runs `forge build --sizes` to catch contracts approaching the 24KB limit.

@@ -11,6 +11,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IREVLoans} from "../src/interfaces/IREVLoans.sol";
 import {REVLoan} from "../src/structs/REVLoan.sol";
 import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
+import {JBTest} from "@bananapus/core-v6/test/helpers/JBTest.sol";
 
 /// @title REVInvincibilityHandler
 /// @notice Stateful fuzzing handler for the revnet + loans interaction surface.

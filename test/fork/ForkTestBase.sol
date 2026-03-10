@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 import "forge-std/Test.sol";
 import /* {*} from */ "@bananapus/core-v6/test/helpers/TestBaseWorkflow.sol";
-import /* {*} from */ "./../src/REVDeployer.sol";
+import /* {*} from */ "../../src/REVDeployer.sol";
 import "@croptop/core-v6/src/CTPublisher.sol";
 import "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
 import "@bananapus/721-hook-v6/script/helpers/Hook721DeploymentLib.sol";
@@ -14,11 +14,12 @@ import "@bananapus/router-terminal-v6/script/helpers/RouterTerminalDeploymentLib
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBMetadataResolver} from "@bananapus/core-v6/src/libraries/JBMetadataResolver.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
-import {REVLoans} from "../src/REVLoans.sol";
-import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
-import {REVDescription} from "../src/structs/REVDescription.sol";
-import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
+import {REVLoans} from "../../src/REVLoans.sol";
+import {REVLoan} from "../../src/structs/REVLoan.sol";
+import {REVStageConfig, REVAutoIssuance} from "../../src/structs/REVStageConfig.sol";
+import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
+import {REVDescription} from "../../src/structs/REVDescription.sol";
+import {IREVLoans} from "../../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
 import {JBSuckerRegistry} from "@bananapus/suckers-v6/src/JBSuckerRegistry.sol";
 import {JB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
@@ -29,13 +30,13 @@ import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/
 import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDataHook.sol";
 import {IJBBuybackHookRegistry} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHookRegistry.sol";
 import {IJBPayHook} from "@bananapus/core-v6/src/interfaces/IJBPayHook.sol";
-import {REVBaseline721HookConfig} from "../src/structs/REVBaseline721HookConfig.sol";
-import {REV721TiersHookFlags} from "../src/structs/REV721TiersHookFlags.sol";
 import {JB721TierConfig} from "@bananapus/721-hook-v6/src/structs/JB721TierConfig.sol";
 import {JB721InitTiersConfig} from "@bananapus/721-hook-v6/src/structs/JB721InitTiersConfig.sol";
 import {IJB721TokenUriResolver} from "@bananapus/721-hook-v6/src/interfaces/IJB721TokenUriResolver.sol";
-import {REVDeploy721TiersHookConfig} from "../src/structs/REVDeploy721TiersHookConfig.sol";
-import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
+import {REVDeploy721TiersHookConfig} from "../../src/structs/REVDeploy721TiersHookConfig.sol";
+import {REVBaseline721HookConfig} from "../../src/structs/REVBaseline721HookConfig.sol";
+import {REV721TiersHookFlags} from "../../src/structs/REV721TiersHookFlags.sol";
+import {REVCroptopAllowedPost} from "../../src/structs/REVCroptopAllowedPost.sol";
 
 // Buyback hook
 import {JBBuybackHook} from "@bananapus/buyback-hook-v6/src/JBBuybackHook.sol";
@@ -132,13 +133,10 @@ contract LiquidityHelper is IUnlockCallback {
     receive() external payable {}
 }
 
-/// @notice Fork tests verifying that revnet 721 tier splits + real Uniswap V4 buyback hook produce correct token
-/// issuance in both the swap path (AMM buyback) and the mint path (direct minting).
+/// @notice Shared base for fork tests. Deploys full JB core + REVDeployer infrastructure on a mainnet fork.
 ///
 /// Requires: RPC_ETHEREUM_MAINNET env var for mainnet fork (real PoolManager).
-///
-/// Run with: FOUNDRY_PROFILE=fork forge test --match-contract TestSplitWeightFork -vvv --skip "script/*"
-contract TestSplitWeightFork is TestBaseWorkflow {
+abstract contract ForkTestBase is TestBaseWorkflow {
     using JBMetadataResolver for bytes;
     using PoolIdLibrary for PoolKey;
     using CurrencyLibrary for Currency;
@@ -175,6 +173,7 @@ contract TestSplitWeightFork is TestBaseWorkflow {
 
     address private constant TRUSTED_FORWARDER = 0xB2b5841DBeF766d4b521221732F9B618fCf34A87;
     address PAYER = makeAddr("payer");
+    address BORROWER = makeAddr("borrower");
     address SPLIT_BENEFICIARY = makeAddr("splitBeneficiary");
 
     // Tier configuration: 1 ETH tier with 30% split.
@@ -185,7 +184,7 @@ contract TestSplitWeightFork is TestBaseWorkflow {
     // ───────────────────────── Setup
     // ─────────────────────────
 
-    function setUp() public override {
+    function setUp() public virtual override {
         // Fork mainnet first — we need the real V4 PoolManager.
         string memory rpcUrl = vm.envOr("RPC_ETHEREUM_MAINNET", string(""));
         if (bytes(rpcUrl).length == 0) {
@@ -258,8 +257,9 @@ contract TestSplitWeightFork is TestBaseWorkflow {
         vm.prank(multisig());
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);
 
-        // Fund the payer.
+        // Fund payer and borrower.
         vm.deal(PAYER, 100 ether);
+        vm.deal(BORROWER, 100 ether);
     }
 
     modifier onlyFork() {
@@ -268,10 +268,10 @@ contract TestSplitWeightFork is TestBaseWorkflow {
         _;
     }
 
-    // ───────────────────────── Helpers
+    // ───────────────────────── Config Helpers
     // ─────────────────────────
 
-    function _buildMinimalConfig()
+    function _buildMinimalConfig(uint16 cashOutTaxRate)
         internal
         view
         returns (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc)
@@ -295,7 +295,7 @@ contract TestSplitWeightFork is TestBaseWorkflow {
             initialIssuance: INITIAL_ISSUANCE,
             issuanceCutFrequency: 0,
             issuanceCutPercent: 0,
-            cashOutTaxRate: 5000,
+            cashOutTaxRate: cashOutTaxRate,
             extraMetadata: 0
         });
 
@@ -371,11 +371,13 @@ contract TestSplitWeightFork is TestBaseWorkflow {
         });
     }
 
-    /// @notice Deploy the fee project, then deploy a revnet with 721 tiers.
-    function _deployRevnetWith721() internal returns (uint256 revnetId, IJB721TiersHook hook) {
-        // Deploy fee project first.
+    // ───────────────────────── Deployment Helpers
+    // ─────────────────────────
+
+    /// @notice Deploy the fee project using the given tax rate.
+    function _deployFeeProject(uint16 cashOutTaxRate) internal {
         (REVConfig memory feeCfg, JBTerminalConfig[] memory feeTc, REVSuckerDeploymentConfig memory feeSdc) =
-            _buildMinimalConfig();
+            _buildMinimalConfig(cashOutTaxRate);
         feeCfg.description = REVDescription("Fee", "FEE", "ipfs://fee", "FEE_SALT");
 
         vm.prank(multisig());
@@ -385,10 +387,22 @@ contract TestSplitWeightFork is TestBaseWorkflow {
             terminalConfigurations: feeTc,
             suckerDeploymentConfiguration: feeSdc
         });
+    }
 
-        // Deploy the revnet with 721 hook.
+    /// @notice Deploy a revnet (no 721 hook) with the given cash out tax rate.
+    function _deployRevnet(uint16 cashOutTaxRate) internal returns (uint256 revnetId) {
         (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
-            _buildMinimalConfig();
+            _buildMinimalConfig(cashOutTaxRate);
+
+        revnetId = REV_DEPLOYER.deployFor({
+            revnetId: 0, configuration: cfg, terminalConfigurations: tc, suckerDeploymentConfiguration: sdc
+        });
+    }
+
+    /// @notice Deploy a revnet with 721 tiers and the given cash out tax rate.
+    function _deployRevnetWith721(uint16 cashOutTaxRate) internal returns (uint256 revnetId, IJB721TiersHook hook) {
+        (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
+            _buildMinimalConfig(cashOutTaxRate);
         REVDeploy721TiersHookConfig memory hookConfig = _build721Config();
 
         (revnetId, hook) = REV_DEPLOYER.deployWith721sFor({
@@ -401,13 +415,14 @@ contract TestSplitWeightFork is TestBaseWorkflow {
         });
     }
 
-    /// @notice Set up a V4 pool for the revnet's project token / WETH pair and register it with the buyback hook.
+    // ───────────────────────── Pool Helpers
+    // ─────────────────────────
+
+    /// @notice Set up a V4 pool for the revnet's project token / WETH pair at 1:1 price.
     function _setupPool(uint256 revnetId, uint256 liquidityTokenAmount) internal returns (PoolKey memory key) {
-        // Get the project token.
         address projectToken = address(jbTokens().tokenOf(revnetId));
         require(projectToken != address(0), "project token not deployed");
 
-        // Build sorted pool key.
         address token0;
         address token1;
         if (projectToken < WETH_ADDR) {
@@ -426,39 +441,28 @@ contract TestSplitWeightFork is TestBaseWorkflow {
             hooks: IHooks(address(0))
         });
 
-        // Initialize pool at price = 1.0 (tick 0).
         uint160 sqrtPrice = TickMath.getSqrtPriceAtTick(0);
         poolManager.initialize(key, sqrtPrice);
 
         // Fund LiquidityHelper with project tokens via JBTokens.mintFor (not deal).
-        // deal() skips ERC20Votes checkpoints, causing underflow when tokens are burned.
         vm.prank(address(jbController()));
         jbTokens().mintFor(address(liqHelper), revnetId, liquidityTokenAmount);
         vm.deal(address(liqHelper), liquidityTokenAmount);
         vm.prank(address(liqHelper));
         IWETH9(WETH_ADDR).deposit{value: liquidityTokenAmount}();
 
-        // Approve PoolManager to spend tokens from LiquidityHelper.
         vm.startPrank(address(liqHelper));
         IERC20(projectToken).approve(address(poolManager), type(uint256).max);
         IERC20(WETH_ADDR).approve(address(poolManager), type(uint256).max);
         vm.stopPrank();
 
-        // Add full-range liquidity.
         int256 liquidityDelta = int256(liquidityTokenAmount / 2);
         vm.prank(address(liqHelper));
         liqHelper.addLiquidity(key, TICK_LOWER, TICK_UPPER, liquidityDelta);
 
-        // Mock the oracle at address(0) for hookless pools.
-        // The buyback hook calls IGeomeanOracle(address(key.hooks)).observe() for TWAP.
-        // Since hooks = address(0), we need code there + a mock response.
-        // tick=0 means 1:1 price → TWAP says pool rate is ~1 token/WETH → minting wins.
         _mockOracle(liquidityDelta, 0, uint32(REV_DEPLOYER.DEFAULT_BUYBACK_TWAP_WINDOW()));
 
-        // Cache immutables before prank (vm.prank only applies to the next call).
         uint256 twapWindow = REV_DEPLOYER.DEFAULT_BUYBACK_TWAP_WINDOW();
-
-        // Register pool with buyback hook via split operator (multisig has SET_BUYBACK_POOL permission).
         vm.prank(multisig());
         BUYBACK_HOOK.setPoolFor({
             projectId: revnetId, poolKey: key, twapWindow: twapWindow, terminalToken: JBConstants.NATIVE_TOKEN
@@ -466,16 +470,11 @@ contract TestSplitWeightFork is TestBaseWorkflow {
     }
 
     /// @notice Mock the IGeomeanOracle at address(0) for hookless pools.
-    /// @param liquidity The liquidity to use for secondsPerLiquidity computation.
-    /// @param tick The TWAP tick to report (e.g. 0 for 1:1 price).
-    /// @param twapWindow The TWAP window in seconds (must match the buyback hook's configured window).
     function _mockOracle(int256 liquidity, int24 tick, uint32 twapWindow) internal {
-        // Etch minimal bytecode at address(0) so it's treated as a contract.
         vm.etch(address(0), hex"00");
 
         int56[] memory tickCumulatives = new int56[](2);
         tickCumulatives[0] = 0;
-        // arithmeticMeanTick = (tickCumulatives[1] - tickCumulatives[0]) / twapWindow = tick
         tickCumulatives[1] = int56(tick) * int56(int32(twapWindow));
 
         uint160[] memory secondsPerLiquidityCumulativeX128s = new uint160[](2);
@@ -491,6 +490,34 @@ contract TestSplitWeightFork is TestBaseWorkflow {
         );
     }
 
+    // ───────────────────────── Balance Helpers
+    // ─────────────────────────
+
+    /// @notice Get a project's balance in the terminal store.
+    function _terminalBalance(uint256 projectId, address token) internal view returns (uint256) {
+        return jbTerminalStore().balanceOf(address(jbMultiTerminal()), projectId, token);
+    }
+
+    // ───────────────────────── Payment Helpers
+    // ─────────────────────────
+
+    /// @notice Pay the revnet with ETH.
+    function _payRevnet(uint256 revnetId, address payer, uint256 amount) internal returns (uint256 tokensReceived) {
+        vm.prank(payer);
+        tokensReceived = jbMultiTerminal().pay{value: amount}({
+            projectId: revnetId,
+            token: JBConstants.NATIVE_TOKEN,
+            amount: amount,
+            beneficiary: payer,
+            minReturnedTokens: 0,
+            memo: "",
+            metadata: ""
+        });
+    }
+
+    // ───────────────────────── Metadata Helpers
+    // ─────────────────────────
+
     /// @notice Build payment metadata with both 721 tier selection AND buyback quote.
     function _buildPayMetadataWithQuote(
         address hookMetadataTarget,
@@ -501,17 +528,14 @@ contract TestSplitWeightFork is TestBaseWorkflow {
         view
         returns (bytes memory)
     {
-        // 721 tier metadata: mint tier 1.
         uint16[] memory tierIds = new uint16[](1);
         tierIds[0] = 1;
-        bytes memory tierData = abi.encode(true, tierIds); // (allowOverspending, tierIdsToMint)
+        bytes memory tierData = abi.encode(true, tierIds);
         bytes4 tierMetadataId = JBMetadataResolver.getId("pay", hookMetadataTarget);
 
-        // Buyback quote metadata.
         bytes memory quoteData = abi.encode(amountToSwapWith, minimumSwapAmountOut);
         bytes4 quoteMetadataId = JBMetadataResolver.getId("quote");
 
-        // Combine both metadata entries.
         bytes4[] memory ids = new bytes4[](2);
         ids[0] = tierMetadataId;
         ids[1] = quoteMetadataId;
@@ -522,7 +546,7 @@ contract TestSplitWeightFork is TestBaseWorkflow {
         return JBMetadataResolver.createMetadata(ids, datas);
     }
 
-    /// @notice Build payment metadata with only 721 tier selection (no quote → TWAP/spot fallback).
+    /// @notice Build payment metadata with only 721 tier selection (no quote -> TWAP/spot fallback).
     function _buildPayMetadataNoQuote(address hookMetadataTarget) internal view returns (bytes memory) {
         uint16[] memory tierIds = new uint16[](1);
         tierIds[0] = 1;
@@ -537,285 +561,57 @@ contract TestSplitWeightFork is TestBaseWorkflow {
         return JBMetadataResolver.createMetadata(ids, datas);
     }
 
-    // ───────────────────────── Tests
+    // ───────────────────────── ERC721 Helpers
     // ─────────────────────────
 
-    /// @notice SWAP PATH: Pool offers good rate → buyback hook swaps on AMM instead of minting.
-    /// With 30% tier split, the buyback should swap with 0.7 ETH worth.
-    /// Terminal mints 0 tokens (weight=0), buyback hook mints via controller after swap.
-    function test_fork_swapPath_splitWithBuyback() public onlyFork {
-        (uint256 revnetId, IJB721TiersHook hook) = _deployRevnetWith721();
+    /// @notice Get the owner of a loan NFT. REVLoans is ERC721 but typed as IREVLoans.
+    function _loanOwnerOf(uint256 loanId) internal view returns (address) {
+        return REVLoans(payable(address(LOANS_CONTRACT))).ownerOf(loanId);
+    }
 
-        // Set up pool with deep liquidity at 1:1 price (pool offers ~1 token per WETH).
-        // The issuance rate is 1000 tokens/ETH, so the pool rate (~1 token/WETH) is much worse.
-        // Wait — at 1:1 pool price, 1 WETH gets ~1 token. Minting gets 1000 tokens.
-        // So minting is better → buyback will NOT swap.
-        // To make swap win, we need the pool to offer MORE tokens per WETH than minting.
-        // Minting rate = 1000 tokens/ETH (before split reduction, the buyback sees reduced weight).
-        //
-        // After REVDeployer scales weight: weight = 1000e18 * 0.7e18 / 1e18 = 700e18
-        // The buyback hook receives weight=700e18 and amount=0.7 ETH.
-        // tokenCountWithoutHook = mulDiv(0.7e18, 700e18, 1e18) = 490 tokens.
-        //
-        // Wait, that's wrong. Let me re-trace:
-        // REVDeployer.beforePayRecordedWith:
-        //   1. 721 hook returns splitAmount=0.3 ETH → projectAmount = 0.7 ETH
-        //   2. buybackHookContext.amount.value = 0.7 ETH, weight = context.weight = 1000e18
-        //   3. Buyback hook sees: amountToSwapWith = 0.7 ETH, weight = 1000e18
-        //      tokenCountWithoutHook = mulDiv(0.7e18, 1000e18, 1e18) = 700 tokens
-        //   4. If pool offers > 700 tokens for 0.7 WETH → swap wins
-        //   5. If pool offers < 700 tokens → mint wins
-        //
-        // At 1:1 pool price, 0.7 WETH gets ~0.7 tokens (after fees). That's way less than 700.
-        // We need a pool priced so projectToken is CHEAP — e.g., 1 WETH = 2000 tokens.
-        //
-        // Let's create a pool at a tick where projectToken is very cheap.
-        // tick = -69_000 gives approximately 1 WETH = 1000 tokens. We want more than 700 for 0.7 WETH.
-        // Actually, let's just seed the pool with lots of project tokens and little WETH.
-        // This naturally makes project tokens cheaper.
+    // ───────────────────────── Loan Helpers
+    // ─────────────────────────
 
-        // Instead of tick manipulation, let's just use a pool at tick 0 (1:1) but seed asymmetrically:
-        // Lots of project tokens, little WETH → effective price favors the buyer.
-        // Actually V4 pool price is set at initialization (sqrtPriceX96), seeding doesn't change the tick.
-        //
-        // Let's initialize at a tick where 1 WETH = many project tokens.
-        // For swap to win: pool must give > 700 tokens for 0.7 WETH.
-        // Rate needed: > 1000 tokens/WETH.
-        // Use tick = -69082 which gives ~1:1000 ratio (1 WETH ≈ 1000 tokens).
-        // With 0.3% fee and slippage, it might give ~997, which is still > 700. Swap wins.
+    /// @notice Build a native token loan source.
+    function _nativeLoanSource() internal view returns (REVLoanSource memory) {
+        return REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+    }
 
-        address projectToken = address(jbTokens().tokenOf(revnetId));
-        require(projectToken != address(0), "project token not deployed");
-
-        bool projectTokenIs0 = projectToken < WETH_ADDR;
-
-        // Build sorted pool key.
-        address token0 = projectTokenIs0 ? projectToken : WETH_ADDR;
-        address token1 = projectTokenIs0 ? WETH_ADDR : projectToken;
-
-        PoolKey memory key = PoolKey({
-            currency0: Currency.wrap(token0),
-            currency1: Currency.wrap(token1),
-            fee: REV_DEPLOYER.DEFAULT_BUYBACK_POOL_FEE(),
-            tickSpacing: REV_DEPLOYER.DEFAULT_BUYBACK_TICK_SPACING(),
-            hooks: IHooks(address(0))
-        });
-
-        // Set initial tick so that 1 WETH = ~2000 project tokens.
-        // If projectToken is token0: price = token1/token0 = WETH/projectToken.
-        //   We want projectToken cheap → WETH/projectToken high → tick positive.
-        //   tick ~= 76_000 → price ~= 2000.
-        // If WETH is token0: price = token1/token0 = projectToken/WETH.
-        //   We want projectToken/WETH high → tick positive.
-        //   tick ~= 76_000 → price ~= 2000.
-        // Either way: positive tick ≈ 2000 of token1 per token0.
-        //
-        // But we want "1 WETH = 2000 projectTokens".
-        // If projectToken is token0: price = WETH per projectToken = 1/2000 → negative tick.
-        //   tick ≈ -76_000.
-        // If WETH is token0: price = projectToken per WETH = 2000 → positive tick.
-        //   tick ≈ 76_000.
-        int24 initTick;
-        if (projectTokenIs0) {
-            // price = WETH/projectToken = 0.0005 → tick ≈ -76_000
-            initTick = -76_020; // Rounded to tickSpacing=60
-        } else {
-            // price = projectToken/WETH = 2000 → tick ≈ 76_000
-            initTick = 76_020;
-        }
-
-        uint160 sqrtPrice = TickMath.getSqrtPriceAtTick(initTick);
-        poolManager.initialize(key, sqrtPrice);
-
-        // Seed liquidity. We need both tokens.
-        // IMPORTANT: Use JBTokens.mintFor (not deal) so ERC20Votes checkpoints are updated.
-        // deal() only sets balanceOf/totalSupply but skips Votes checkpoints, causing burn underflow.
-        uint256 projectLiq = 10_000_000e18; // lots of project tokens
-        uint256 wethLiq = 5000e18; // some WETH
-
-        vm.prank(address(jbController()));
-        jbTokens().mintFor(address(liqHelper), revnetId, projectLiq);
-        vm.deal(address(liqHelper), wethLiq);
-        vm.prank(address(liqHelper));
-        IWETH9(WETH_ADDR).deposit{value: wethLiq}();
-
-        vm.startPrank(address(liqHelper));
-        IERC20(projectToken).approve(address(poolManager), type(uint256).max);
-        IERC20(WETH_ADDR).approve(address(poolManager), type(uint256).max);
-        vm.stopPrank();
-
-        // Add full-range liquidity.
-        int256 liquidityDelta = int256(wethLiq / 4); // Use fraction for liquidity units
-        vm.prank(address(liqHelper));
-        liqHelper.addLiquidity(key, TICK_LOWER, TICK_UPPER, liquidityDelta);
-
-        // Mock the oracle at address(0) to report the actual pool price (initTick).
-        // This makes the TWAP quote reflect ~2000 tokens/WETH, so the swap path wins.
-        _mockOracle(liquidityDelta, initTick, uint32(REV_DEPLOYER.DEFAULT_BUYBACK_TWAP_WINDOW()));
-
-        // Register pool with buyback hook.
-        uint256 twapWindow = REV_DEPLOYER.DEFAULT_BUYBACK_TWAP_WINDOW();
-        vm.prank(multisig());
-        BUYBACK_HOOK.setPoolFor({
-            projectId: revnetId, poolKey: key, twapWindow: twapWindow, terminalToken: JBConstants.NATIVE_TOKEN
-        });
-
-        // Build metadata: mint tier 1 + quote for swap.
-        // The quote tells buyback to swap with the full amount, expecting at least 1 token out.
-        address metadataTarget = hook.METADATA_ID_TARGET();
-        bytes memory metadata = _buildPayMetadataWithQuote({
-            hookMetadataTarget: metadataTarget,
-            amountToSwapWith: 0.7 ether, // projectAmount after 30% split
-            minimumSwapAmountOut: 1 // Accept any amount from swap
-        });
-
-        // Record payer balance before.
-        uint256 payerBalBefore = jbTokens().totalBalanceOf(PAYER, revnetId);
-
-        // Pay 1 ETH through the terminal.
-        vm.prank(PAYER);
-        uint256 terminalTokensReturned = jbMultiTerminal().pay{value: 1 ether}({
-            projectId: revnetId,
-            token: JBConstants.NATIVE_TOKEN,
-            amount: 1 ether,
-            beneficiary: PAYER,
-            minReturnedTokens: 0,
-            memo: "Fork: swap path with splits",
-            metadata: metadata
-        });
-
-        // pay() returns beneficiaryBalanceAfter - beneficiaryBalanceBefore, capturing ALL token sources.
-        // In the SWAP path:
-        //   - Terminal mints 0 tokens (weight=0 from buyback hook)
-        //   - Buyback hook's afterPay swaps 0.7 ETH on AMM and mints via controller
-        //   - Pool at ~2000:1 price → 0.7 ETH yields ~1400 tokens (minus pool fee)
-        //   - pay() returns the total (0 from terminal + ~1400 from buyback swap)
-        //   - More than the 700 tokens minting would produce → swap was the right call
-        assertGt(terminalTokensReturned, 700e18, "swap path: should get more tokens than minting (pool rate better)");
-
-        console.log(
-            "  Swap path: buyback swapped for %s tokens (minting would give 700)", terminalTokensReturned / 1e18
+    /// @notice Grant BURN_TOKENS permission to the loans contract for a given account.
+    function _grantBurnPermission(address account, uint256 revnetId) internal {
+        // Permission ID 11 = BURN_TOKENS in JBPermissionIds
+        mockExpect(
+            address(jbPermissions()),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), account, revnetId, 11, true, true)),
+            abi.encode(true)
         );
     }
 
-    /// @notice MINT PATH: Pool offers bad rate → buyback decides minting is better.
-    /// With 30% tier split, REVDeployer scales weight from 1000e18 to 700e18.
-    /// Terminal mints 700 tokens.
-    function test_fork_mintPath_splitWithBuyback() public onlyFork {
-        (uint256 revnetId, IJB721TiersHook hook) = _deployRevnetWith721();
+    /// @notice Create a loan for the given borrower. Returns the loan ID and loan struct.
+    function _createLoan(
+        uint256 revnetId,
+        address borrower,
+        uint256 collateral,
+        uint256 prepaidFeePercent
+    )
+        internal
+        returns (uint256 loanId, REVLoan memory loan)
+    {
+        REVLoanSource memory source = _nativeLoanSource();
+        uint256 borrowable =
+            LOANS_CONTRACT.borrowableAmountFrom(revnetId, collateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        require(borrowable > 0, "no borrowable amount");
 
-        // Set up pool with 1:1 price. At this price:
-        //   0.7 WETH → ~0.7 tokens from pool (after fees).
-        //   Direct minting: 700 tokens.
-        //   Minting wins by a huge margin → buyback returns context.weight unchanged.
-        _setupPool(revnetId, 10_000 ether);
+        _grantBurnPermission(borrower, revnetId);
 
-        // Build metadata: mint tier 1 + quote for "swap" with 0.7 ETH, but expect many tokens (forces mint path).
-        // When minimumSwapAmountOut > actual pool output, the buyback hook falls back to minting.
-        // Actually the buyback hook uses max(payerQuote, twapQuote). If we set minimumSwapAmountOut=0,
-        // it'll use the TWAP/spot quote. At 1:1 pool price, spot says ~0.7 tokens for 0.7 WETH.
-        // tokenCountWithoutHook = 700 tokens. 700 > ~0.7 → mint wins.
-        // We don't even need quote metadata — the spot fallback handles it.
-        address metadataTarget = hook.METADATA_ID_TARGET();
-        bytes memory metadata = _buildPayMetadataNoQuote(metadataTarget);
-
-        // Pay 1 ETH through the terminal.
-        vm.prank(PAYER);
-        uint256 tokensReceived = jbMultiTerminal().pay{value: 1 ether}({
-            projectId: revnetId,
-            token: JBConstants.NATIVE_TOKEN,
-            amount: 1 ether,
-            beneficiary: PAYER,
-            minReturnedTokens: 0,
-            memo: "Fork: mint path with splits",
-            metadata: metadata
+        vm.prank(borrower);
+        (loanId, loan) = LOANS_CONTRACT.borrowFrom({
+            revnetId: revnetId,
+            source: source,
+            minBorrowAmount: 0,
+            collateralCount: collateral,
+            beneficiary: payable(borrower),
+            prepaidFeePercent: prepaidFeePercent
         });
-
-        // Mint path: buyback returns context.weight unchanged.
-        // REVDeployer scales: weight = 1000e18 * 0.7e18 / 1e18 = 700e18.
-        // Terminal: tokenCount = mulDiv(1e18, 700e18, 1e18) = 700e18.
-        uint256 expectedTokens = 700e18;
-
-        assertEq(tokensReceived, expectedTokens, "mint path: should receive 700 tokens (weight scaled for 30% split)");
-
-        console.log("  Mint path: terminal minted %s tokens (expected 700)", tokensReceived / 1e18);
-    }
-
-    /// @notice MINT PATH without splits: baseline confirming 1000 tokens for 1 ETH.
-    function test_fork_mintPath_noSplits_fullTokens() public onlyFork {
-        (uint256 revnetId,) = _deployRevnetWith721();
-        _setupPool(revnetId, 10_000 ether);
-
-        // Pay 1 ETH with NO tier metadata (no NFT purchase, no splits).
-        vm.prank(PAYER);
-        uint256 tokensReceived = jbMultiTerminal().pay{value: 1 ether}({
-            projectId: revnetId,
-            token: JBConstants.NATIVE_TOKEN,
-            amount: 1 ether,
-            beneficiary: PAYER,
-            minReturnedTokens: 0,
-            memo: "Fork: no split baseline",
-            metadata: ""
-        });
-
-        // No splits → no weight reduction. Full 1000 tokens.
-        uint256 expectedTokens = 1000e18;
-        assertEq(tokensReceived, expectedTokens, "no splits: should receive 1000 tokens");
-    }
-
-    /// @notice Invariant: tokens / projectAmount rate is identical with and without splits.
-    function test_fork_invariant_tokenPerEthConsistent() public onlyFork {
-        // --- Revnet 1: with 721 splits (30%) ---
-        (uint256 revnetId1, IJB721TiersHook hook1) = _deployRevnetWith721();
-        _setupPool(revnetId1, 10_000 ether);
-
-        address metadataTarget1 = hook1.METADATA_ID_TARGET();
-        bytes memory metadata1 = _buildPayMetadataNoQuote(metadataTarget1);
-
-        vm.prank(PAYER);
-        uint256 tokens1 = jbMultiTerminal().pay{value: 1 ether}({
-            projectId: revnetId1,
-            token: JBConstants.NATIVE_TOKEN,
-            amount: 1 ether,
-            beneficiary: PAYER,
-            minReturnedTokens: 0,
-            memo: "invariant: with splits",
-            metadata: metadata1
-        });
-
-        // --- Revnet 2: no splits (plain payment, no tier metadata) ---
-        // Deploy a second revnet without 721 hook.
-        (REVConfig memory cfg2, JBTerminalConfig[] memory tc2, REVSuckerDeploymentConfig memory sdc2) =
-            _buildMinimalConfig();
-        cfg2.description = REVDescription("NoSplit Fork", "NSF", "ipfs://nosplit", "NSF_SALT");
-
-        uint256 revnetId2 = REV_DEPLOYER.deployFor({
-            revnetId: 0, configuration: cfg2, terminalConfigurations: tc2, suckerDeploymentConfiguration: sdc2
-        });
-
-        // Set up pool for revnet2 too (so buyback hook has a pool, but will choose mint at 1:1).
-        _setupPool(revnetId2, 10_000 ether);
-
-        vm.prank(PAYER);
-        uint256 tokens2 = jbMultiTerminal().pay{value: 1 ether}({
-            projectId: revnetId2,
-            token: JBConstants.NATIVE_TOKEN,
-            amount: 1 ether,
-            beneficiary: PAYER,
-            minReturnedTokens: 0,
-            memo: "invariant: no splits",
-            metadata: ""
-        });
-
-        // Rate check: tokens / projectAmount should be the same.
-        // Revnet 1: 700 tokens / 0.7 ETH = 1000 tokens/ETH
-        // Revnet 2: 1000 tokens / 1.0 ETH = 1000 tokens/ETH
-        uint256 projectAmount1 = 0.7 ether;
-        uint256 projectAmount2 = 1 ether;
-
-        uint256 rate1 = (tokens1 * 1e18) / projectAmount1;
-        uint256 rate2 = (tokens2 * 1e18) / projectAmount2;
-
-        assertEq(rate1, rate2, "token-per-ETH rate should be identical with and without splits");
     }
 }

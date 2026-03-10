@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {JBDeploy721TiersHookConfig} from "@bananapus/721-hook-v6/src/structs/JBDeploy721TiersHookConfig.sol";
+import {REVBaseline721HookConfig} from "./REVBaseline721HookConfig.sol";
 
 /// @custom:member baseline721HookConfiguration The baseline config.
 /// @custom:member salt The salt to base the collection's address on.
@@ -16,7 +16,7 @@ import {JBDeploy721TiersHookConfig} from "@bananapus/721-hook-v6/src/structs/JBD
 /// the
 /// discount of a tier.
 struct REVDeploy721TiersHookConfig {
-    JBDeploy721TiersHookConfig baseline721HookConfiguration;
+    REVBaseline721HookConfig baseline721HookConfiguration;
     bytes32 salt;
     bool splitOperatorCanAdjustTiers;
     bool splitOperatorCanUpdateMetadata;
