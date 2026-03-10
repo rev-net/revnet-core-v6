@@ -326,6 +326,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         bool usesTiered721Hook = address(tiered721Hook) != address(0);
         if (usesTiered721Hook) {
             JBPayHookSpecification[] memory specs;
+            // slither-disable-next-line unused-return
             (, specs) = IJBRulesetDataHook(address(tiered721Hook)).beforePayRecordedWith(context);
             // The 721 hook returns a single spec (itself) whose amount is the total split amount.
             if (specs.length > 0) {
