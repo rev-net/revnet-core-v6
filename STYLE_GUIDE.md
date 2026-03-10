@@ -356,7 +356,7 @@ wrap_comments = true
 - `via_ir = true` for repos hitting stack-too-deep (buyback-hook, banny-retail, univ4-lp-split-hook, deploy-all)
 - `optimizer = false` only for deploy-all-v6 (stack-too-deep with optimization)
 
-> **This repo's deviations:** `optimizer_runs = 500` (default profile), `via_ir = true` in ci_sizes and fork profiles, `evm_version = 'cancun'` in fork profile. Package scope: `@rev-net/`.
+> **This repo's deviations:** `optimizer_runs = 100` (stack-too-deep at 200 due to deep struct nesting), `via_ir = true`. Package scope: `@rev-net/`.
 
 ### CI Workflows
 
@@ -467,4 +467,4 @@ CI checks formatting via `forge fmt --check`.
 
 ### Contract Size Checks
 
-CI runs `FOUNDRY_PROFILE=ci_sizes forge build --sizes` to catch contracts approaching the 24KB limit. The `ci_sizes` profile uses `optimizer_runs = 200` for realistic size measurement even when the default profile has different optimizer settings.
+CI runs `forge build --sizes` to catch contracts approaching the 24KB limit.
