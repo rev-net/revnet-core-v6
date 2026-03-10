@@ -62,7 +62,7 @@ Revnets are autonomous Juicebox projects with predetermined economic stages. Eac
 
 | Contract | Description |
 |----------|-------------|
-| `REVDeployer` | Deploys revnets as Juicebox projects owned by the deployer contract itself (no human owner). Translates stage configurations into Juicebox rulesets, manages buyback hooks, tiered 721 hooks, suckers, split operators, auto-issuance, and cash-out fees. Acts as the ruleset data hook and cash-out hook for every revnet it deploys. |
+| `REVDeployer` | Deploys revnets as Juicebox projects owned by the deployer contract itself (no human owner). Translates stage configurations into Juicebox rulesets, manages buyback hooks, tiered 721 hooks, suckers, split operators, auto-issuance, and cash-out fees. Acts as the ruleset data hook and cash-out hook for every revnet it deploys. When 721 tier splits are active, adjusts the payment weight so the terminal only mints tokens proportional to the amount entering the project treasury (the split portion is forwarded separately). |
 | `REVLoans` | Lets participants borrow against their revnet tokens. Collateral tokens are burned on borrow and re-minted on repayment. Each loan is an ERC-721 NFT. Charges a prepaid fee (2.5% min, 50% max) that determines the interest-free duration; after that window, a time-proportional source fee accrues. Loans liquidate after 10 years. |
 
 ### How They Relate

@@ -42,6 +42,7 @@ import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
 import {JBRulesetConfig} from "@bananapus/core-v6/src/structs/JBRulesetConfig.sol";
 import {JBRulesetMetadata} from "@bananapus/core-v6/src/structs/JBRulesetMetadata.sol";
 import {JBSplit} from "@bananapus/core-v6/src/structs/JBSplit.sol";
+import {JBTokenAmount} from "@bananapus/core-v6/src/structs/JBTokenAmount.sol";
 import {JBSplitGroup} from "@bananapus/core-v6/src/structs/JBSplitGroup.sol";
 import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
@@ -318,34 +319,48 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         override
         returns (uint256 weight, JBPayHookSpecification[] memory hookSpecifications)
     {
-        // Keep a reference to the specifications provided by the buyback hook.
-        JBPayHookSpecification[] memory buybackHookSpecifications;
-
-        // Read the weight and specifications from the buyback hook.
-        (weight, buybackHookSpecifications) = BUYBACK_HOOK.beforePayRecordedWith(context);
-
-        // Keep a reference to the revnet's tiered ERC-721 hook.
+        // Get the 721 hook's spec and total split amount.
         IJB721TiersHook tiered721Hook = tiered721HookOf[context.projectId];
-
-        // Is there a tiered ERC-721 hook?
+        JBPayHookSpecification memory tiered721HookSpec;
+        uint256 totalSplitAmount;
         bool usesTiered721Hook = address(tiered721Hook) != address(0);
+        if (usesTiered721Hook) {
+            JBPayHookSpecification[] memory specs;
+            (, specs) = IJBRulesetDataHook(address(tiered721Hook)).beforePayRecordedWith(context);
+            // The 721 hook returns a single spec (itself) whose amount is the total split amount.
+            if (specs.length > 0) {
+                tiered721HookSpec = specs[0];
+                totalSplitAmount = tiered721HookSpec.amount;
+            }
+        }
 
-        // Did the buyback hook return any specifications? (It won't when direct minting is cheaper than swapping.)
-        bool usesBuybackHook = buybackHookSpecifications.length > 0;
+        // The amount entering the project after tier splits.
+        uint256 projectAmount = totalSplitAmount >= context.amount.value ? 0 : context.amount.value - totalSplitAmount;
 
-        // Initialize the returned specification array with only the hooks that are present.
+        // Get the buyback hook's weight and specs. Reduce the amount so it only considers funds entering the project.
+        JBPayHookSpecification[] memory buybackHookSpecs;
+        {
+            JBBeforePayRecordedContext memory buybackHookContext = context;
+            buybackHookContext.amount.value = projectAmount;
+            (weight, buybackHookSpecs) = BUYBACK_HOOK.beforePayRecordedWith(buybackHookContext);
+        }
+
+        // Scale the buyback hook's weight for splits so the terminal mints tokens only for the project's share.
+        // The terminal uses the full context.amount.value for minting (tokenCount = amount * weight / weightRatio),
+        // but only projectAmount actually enters the project. Without scaling, payers get token credit for the split
+        // portion too. Preserves weight=0 from the buyback hook (buying back, not minting).
+        if (projectAmount == 0) {
+            weight = 0;
+        } else if (projectAmount < context.amount.value) {
+            weight = mulDiv(weight, projectAmount, context.amount.value);
+        }
+
+        // Merge hook specifications: 721 hook spec first, then buyback hook spec.
+        bool usesBuybackHook = buybackHookSpecs.length > 0;
         hookSpecifications = new JBPayHookSpecification[]((usesTiered721Hook ? 1 : 0) + (usesBuybackHook ? 1 : 0));
 
-        // If we have a tiered ERC-721 hook, add it to the array.
-        if (usesTiered721Hook) {
-            hookSpecifications[0] =
-                JBPayHookSpecification({hook: IJBPayHook(address(tiered721Hook)), amount: 0, metadata: bytes("")});
-        }
-
-        // Add the buyback hook specification if present.
-        if (usesBuybackHook) {
-            hookSpecifications[usesTiered721Hook ? 1 : 0] = buybackHookSpecifications[0];
-        }
+        if (usesTiered721Hook) hookSpecifications[0] = tiered721HookSpec;
+        if (usesBuybackHook) hookSpecifications[usesTiered721Hook ? 1 : 0] = buybackHookSpecs[0];
     }
 
     /// @notice A flag indicating whether an address has permission to mint a revnet's tokens on-demand.

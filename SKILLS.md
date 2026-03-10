@@ -25,7 +25,7 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 
 | Function | What it does |
 |----------|-------------|
-| `REVDeployer.beforePayRecordedWith(context)` | Returns adjusted weight from buyback hook and assembles pay hook specs (721 hook if present + buyback hook). |
+| `REVDeployer.beforePayRecordedWith(context)` | Calls the 721 hook first for split specs, then calls the buyback hook with a reduced amount context (payment minus split amount). Adjusts the returned weight proportionally for splits (`weight = mulDiv(weight, amount - splitAmount, amount)`) so the terminal only mints tokens for the amount entering the project. Assembles pay hook specs (721 hook specs first, then buyback spec). |
 | `REVDeployer.beforeCashOutRecordedWith(context)` | If sucker: returns full amount with 0 tax (fee exempt). Otherwise: calculates 2.5% fee, enforces 30-day cash-out delay, returns modified count + fee hook spec. |
 | `REVDeployer.afterCashOutRecordedWith(context)` | Cash-out hook callback. Receives fee amount and pays it to the fee revnet's terminal. Falls back to returning funds if fee payment fails. |
 | `REVDeployer.hasMintPermissionFor(revnetId, ruleset, addr)` | Returns `true` for: loans contract, buyback hook, buyback hook delegates, or suckers. |
