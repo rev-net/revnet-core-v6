@@ -40,7 +40,6 @@ import {mulDiv} from "@prb/math/src/Common.sol";
 
 import {REVInvincibilityHandler} from "./REVInvincibilityHandler.sol";
 import {BrokenFeeTerminal} from "./helpers/MaliciousContracts.sol";
-import {JBTest} from "@bananapus/core-v6/test/helpers/JBTest.sol";
 
 // =========================================================================
 // Shared config struct
@@ -54,7 +53,7 @@ struct InvincibilityProjectConfig {
 // =========================================================================
 // Section A + B: Property Verification & Economic Tests
 // =========================================================================
-contract REVInvincibility_PropertyTests is TestBaseWorkflow, JBTest {
+contract REVInvincibility_PropertyTests is TestBaseWorkflow {
     using JBRulesetMetadataResolver for JBRuleset;
 
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
@@ -924,7 +923,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow, JBTest {
 // =========================================================================
 // Section C: Invariant Properties (6 invariants)
 // =========================================================================
-contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow, JBTest {
+contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
     using JBRulesetMetadataResolver for JBRuleset;
 
     bytes32 REV_DEPLOYER_SALT = "REVDeployer_INV";

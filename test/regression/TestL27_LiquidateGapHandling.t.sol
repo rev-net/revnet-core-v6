@@ -31,13 +31,12 @@ import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStor
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import {JBTest} from "@bananapus/core-v6/test/helpers/JBTest.sol";
 
 /// @notice liquidateExpiredLoansFrom halts on deleted loan gaps.
 /// @dev Before the fix, the function used `break` when encountering a deleted loan (createdAt == 0),
 /// which stopped the entire iteration. Expired loans after the gap were never liquidated.
 /// After the fix, `continue` is used instead, so the loop skips gaps and keeps processing.
-contract TestL27_LiquidateGapHandling is TestBaseWorkflow, JBTest {
+contract TestL27_LiquidateGapHandling is TestBaseWorkflow {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
 
     REVDeployer REV_DEPLOYER;

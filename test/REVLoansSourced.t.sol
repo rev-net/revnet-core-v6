@@ -31,7 +31,6 @@ import {JB721TiersHook} from "@bananapus/721-hook-v6/src/JB721TiersHook.sol";
 import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStore.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
-import {JBTest} from "@bananapus/core-v6/test/helpers/JBTest.sol";
 
 struct FeeProjectConfig {
     REVConfig configuration;
@@ -39,7 +38,7 @@ struct FeeProjectConfig {
     REVSuckerDeploymentConfig suckerDeploymentConfiguration;
 }
 
-contract REVLoansSourcedTests is TestBaseWorkflow, JBTest {
+contract REVLoansSourcedTests is TestBaseWorkflow {
     /// @notice the salts that are used to deploy the contracts.
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
     bytes32 ERC20_SALT = "REV_TOKEN";

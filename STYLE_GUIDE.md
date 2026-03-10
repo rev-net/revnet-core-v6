@@ -355,8 +355,9 @@ wrap_comments = true
 - `evm_version = 'cancun'` for repos using transient storage (buyback-hook, router-terminal, univ4-router)
 - `via_ir = true` for repos hitting stack-too-deep (buyback-hook, banny-retail, univ4-lp-split-hook, deploy-all)
 - `optimizer = false` only for deploy-all-v6 (stack-too-deep with optimization)
+- `lint_on_build = false` for repos that depend on packages with test helpers using bare `src/` imports (solar linter can't resolve cross-package). Run `forge lint src/` explicitly.
 
-> **This repo's deviations:** `optimizer_runs = 100` (stack-too-deep at 200 due to deep struct nesting), `via_ir = true`. Package scope: `@rev-net/`.
+> **This repo's deviations:** `optimizer_runs = 100` (stack-too-deep at 200 due to deep struct nesting), `via_ir = true`, `lint_on_build = false` (nana-core test helpers use bare `src/` imports that solar can't resolve cross-package). Package scope: `@rev-net/`.
 
 ### CI Workflows
 

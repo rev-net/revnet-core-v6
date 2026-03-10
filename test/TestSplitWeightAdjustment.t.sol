@@ -3,7 +3,6 @@ pragma solidity 0.8.26;
 
 import "forge-std/Test.sol";
 import /* {*} from */ "@bananapus/core-v6/test/helpers/TestBaseWorkflow.sol";
-import {JBTest} from "@bananapus/core-v6/test/helpers/JBTest.sol";
 import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v6/src/CTPublisher.sol";
 import {MockBuybackDataHookMintPath} from "./mock/MockBuybackDataHookMintPath.sol";
@@ -34,7 +33,7 @@ import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSp
 import {JBTokenAmount} from "@bananapus/core-v6/src/structs/JBTokenAmount.sol";
 
 /// @notice Tests for the split weight adjustment in REVDeployer.beforePayRecordedWith.
-contract TestSplitWeightAdjustment is TestBaseWorkflow, JBTest {
+contract TestSplitWeightAdjustment is TestBaseWorkflow {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer_SWA";
 
     REVDeployer REV_DEPLOYER;

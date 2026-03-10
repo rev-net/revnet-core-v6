@@ -33,7 +33,6 @@ import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressReg
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {JBTest} from "@bananapus/core-v6/test/helpers/JBTest.sol";
 
 /// @notice A malicious terminal that re-enters REVLoans during fee payment in _adjust().
 /// @dev Reentrancy during pay() callback in _adjust.
@@ -177,7 +176,7 @@ struct AttackProjectConfig {
 /// @title REVLoansAttacks
 /// @notice Attack tests for REVLoans covering uint112 truncation, reentrancy,
 ///         collateral race conditions, liquidation edge cases, and fuzz testing.
-contract REVLoansAttacks is TestBaseWorkflow, JBTest {
+contract REVLoansAttacks is TestBaseWorkflow {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
     bytes32 ERC20_SALT = "REV_TOKEN";
 

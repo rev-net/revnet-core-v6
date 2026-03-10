@@ -30,14 +30,13 @@ import {JBBeforePayRecordedContext} from "@bananapus/core-v6/src/structs/JBBefor
 import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
 import {JBTokenAmount} from "@bananapus/core-v6/src/structs/JBTokenAmount.sol";
 import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
-import {JBTest} from "@bananapus/core-v6/test/helpers/JBTest.sol";
 
 /// @notice Tests for PR #22: fix/c2-hook-array-oob
 /// Verifies that the fix for the hook array out-of-bounds bug works correctly.
 /// The bug: `hookSpecifications[1] = buybackHookSpecifications[0]` would revert with OOB
 /// when there is no tiered 721 hook (array size is 1, not 2).
 /// The fix: `hookSpecifications[usesTiered721Hook ? 1 : 0] = buybackHookSpecifications[0]`.
-contract TestPR22_HookArrayOOB is TestBaseWorkflow, JBTest {
+contract TestPR22_HookArrayOOB is TestBaseWorkflow {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
 
     REVDeployer REV_DEPLOYER;

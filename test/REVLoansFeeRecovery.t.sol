@@ -34,7 +34,6 @@ import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressReg
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {JBTest} from "@bananapus/core-v6/test/helpers/JBTest.sol";
 
 /// @notice A terminal mock that always reverts on pay(), used to simulate fee payment failure.
 contract RevertingFeeTerminal is ERC165, IJBPayoutTerminal {
@@ -137,7 +136,7 @@ struct FeeRecoveryProjectConfig {
 /// @notice Tests for the fee payment error recovery in REVLoans._addTo().
 /// @dev When feeTerminal.pay() reverts, the borrower should receive the fee amount back
 ///      instead of losing it. For ERC-20 tokens, the dangling allowance must also be cleaned up.
-contract REVLoansFeeRecovery is TestBaseWorkflow, JBTest {
+contract REVLoansFeeRecovery is TestBaseWorkflow {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
     bytes32 ERC20_SALT = "REV_TOKEN";
 

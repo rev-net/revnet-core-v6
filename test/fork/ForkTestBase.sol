@@ -3,7 +3,6 @@ pragma solidity 0.8.26;
 
 import "forge-std/Test.sol";
 import /* {*} from */ "@bananapus/core-v6/test/helpers/TestBaseWorkflow.sol";
-import {JBTest} from "@bananapus/core-v6/test/helpers/JBTest.sol";
 import /* {*} from */ "../../src/REVDeployer.sol";
 import "@croptop/core-v6/src/CTPublisher.sol";
 import "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
@@ -135,7 +134,7 @@ contract LiquidityHelper is IUnlockCallback {
 /// @notice Shared base for fork tests. Deploys full JB core + REVDeployer infrastructure on a mainnet fork.
 ///
 /// Requires: RPC_ETHEREUM_MAINNET env var for mainnet fork (real PoolManager).
-abstract contract ForkTestBase is TestBaseWorkflow, JBTest {
+abstract contract ForkTestBase is TestBaseWorkflow {
     using JBMetadataResolver for bytes;
     using PoolIdLibrary for PoolKey;
     using CurrencyLibrary for Currency;

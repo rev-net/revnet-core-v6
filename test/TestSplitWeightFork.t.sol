@@ -3,7 +3,6 @@ pragma solidity 0.8.26;
 
 import "forge-std/Test.sol";
 import /* {*} from */ "@bananapus/core-v6/test/helpers/TestBaseWorkflow.sol";
-import {JBTest} from "@bananapus/core-v6/test/helpers/JBTest.sol";
 import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v6/src/CTPublisher.sol";
 import "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
@@ -137,7 +136,7 @@ contract LiquidityHelper is IUnlockCallback {
 /// Requires: RPC_ETHEREUM_MAINNET env var for mainnet fork (real PoolManager).
 ///
 /// Run with: FOUNDRY_PROFILE=fork forge test --match-contract TestSplitWeightFork -vvv --skip "script/*"
-contract TestSplitWeightFork is TestBaseWorkflow, JBTest {
+contract TestSplitWeightFork is TestBaseWorkflow {
     using JBMetadataResolver for bytes;
     using PoolIdLibrary for PoolKey;
     using CurrencyLibrary for Currency;

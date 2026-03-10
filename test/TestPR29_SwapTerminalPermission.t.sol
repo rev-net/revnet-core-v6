@@ -27,11 +27,10 @@ import {JB721TiersHook} from "@bananapus/721-hook-v6/src/JB721TiersHook.sol";
 import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStore.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
-import {JBTest} from "@bananapus/core-v6/test/helpers/JBTest.sol";
 
 /// @notice Tests for default operator permissions including SET_ROUTER_TERMINAL.
 /// Verifies that all default split operator permissions are granted correctly.
-contract TestPR29_SwapTerminalPermission is TestBaseWorkflow, JBTest {
+contract TestPR29_SwapTerminalPermission is TestBaseWorkflow {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
 
     REVDeployer REV_DEPLOYER;

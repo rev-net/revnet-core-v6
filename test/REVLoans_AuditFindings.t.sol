@@ -34,7 +34,6 @@ import {JB721TiersHook} from "@bananapus/721-hook-v6/src/JB721TiersHook.sol";
 import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStore.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
-import {JBTest} from "@bananapus/core-v6/test/helpers/JBTest.sol";
 
 /// @notice A fake terminal that returns garbage accounting contexts.
 /// Used to test unvalidated loan source terminal rejection.
@@ -135,7 +134,7 @@ contract GarbageTerminal is ERC165, IJBPayoutTerminal {
 /// RepayLoan event emits zeroed values
 /// Auto-issuance timing guard bypass (false positive)
 /// repayLoan revert on excess collateral (false positive)
-contract REVLoans_AuditFindings is TestBaseWorkflow, JBTest {
+contract REVLoans_AuditFindings is TestBaseWorkflow {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
     bytes32 ERC20_SALT = "REV_TOKEN";
 

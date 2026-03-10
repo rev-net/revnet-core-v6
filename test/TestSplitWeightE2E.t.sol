@@ -3,7 +3,6 @@ pragma solidity 0.8.26;
 
 import "forge-std/Test.sol";
 import /* {*} from */ "@bananapus/core-v6/test/helpers/TestBaseWorkflow.sol";
-import {JBTest} from "@bananapus/core-v6/test/helpers/JBTest.sol";
 import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v6/src/CTPublisher.sol";
 import {MockBuybackDataHookMintPath} from "./mock/MockBuybackDataHookMintPath.sol";
@@ -42,7 +41,7 @@ import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 /// @notice E2E tests verifying that the split weight adjustment in REVDeployer produces correct token counts
 /// when payments flow through the full terminal → store → dataHook → mint pipeline.
 /// Tests both mint path (buyback decides to mint) and AMM path (buyback decides to swap).
-contract TestSplitWeightE2E is TestBaseWorkflow, JBTest {
+contract TestSplitWeightE2E is TestBaseWorkflow {
     using JBMetadataResolver for bytes;
 
     bytes32 REV_DEPLOYER_SALT = "REVDeployer_E2E";

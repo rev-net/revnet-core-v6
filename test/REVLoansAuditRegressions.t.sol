@@ -30,7 +30,6 @@ import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStor
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {JBTest} from "@bananapus/core-v6/test/helpers/JBTest.sol";
 
 /// @notice A fake terminal that tracks whether useAllowanceOf was called.
 /// @dev REVLoans.borrowFrom does not validate source terminal registration.
@@ -130,7 +129,7 @@ contract FakeTerminal is ERC165, IJBPayoutTerminal {
 }
 
 /// @notice Regression tests for REVLoans unvalidated source terminal.
-contract REVLoansRegressions_Local is TestBaseWorkflow, JBTest {
+contract REVLoansRegressions_Local is TestBaseWorkflow {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
     bytes32 ERC20_SALT = "REV_TOKEN";
 

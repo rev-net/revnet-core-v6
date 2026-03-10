@@ -25,12 +25,11 @@ import {JB721TiersHook} from "@bananapus/721-hook-v6/src/JB721TiersHook.sol";
 import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStore.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
-import {JBTest} from "@bananapus/core-v6/test/helpers/JBTest.sol";
 
 /// @notice Documents and verifies that stage transitions change the borrowable amount for the same collateral.
 /// This is by design: loan value tracks the current bonding curve parameters (cashOutTaxRate),
 /// just as cash-out value does.
-contract TestStageTransitionBorrowable is TestBaseWorkflow, JBTest {
+contract TestStageTransitionBorrowable is TestBaseWorkflow {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
 
     REVDeployer REV_DEPLOYER;

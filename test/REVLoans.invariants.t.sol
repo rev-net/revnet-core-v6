@@ -253,7 +253,7 @@ contract REVLoansCallHandler is JBTest {
     }
 }
 
-contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow, JBTest {
+contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow {
     // A library that parses the packed ruleset metadata into a friendlier format.
     using JBRulesetMetadataResolver for JBRuleset;
 

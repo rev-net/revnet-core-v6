@@ -30,7 +30,6 @@ import {JB721TiersHook} from "@bananapus/721-hook-v6/src/JB721TiersHook.sol";
 import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStore.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
-import {JBTest} from "@bananapus/core-v6/test/helpers/JBTest.sol";
 
 /// @notice Contract that reenters REVLoans when it receives ETH during a borrow payout.
 /// Records the loan state it observes during reentrancy to verify CEI correctness.
@@ -70,7 +69,7 @@ contract ReentrantBorrower {
 ///   - _returnCollateralFrom(uint256 revnetId, uint256 collateralCount, ...) — no loan reference
 ///   None of the four helpers read loan.amount or loan.collateral — they all use pre-computed deltas.
 ///   The CEI fix writes loan.amount and loan.collateral BEFORE calling any of these helpers.
-contract TestPR27_CEIPattern is TestBaseWorkflow, JBTest {
+contract TestPR27_CEIPattern is TestBaseWorkflow {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
 
     REVDeployer REV_DEPLOYER;

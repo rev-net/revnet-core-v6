@@ -30,13 +30,12 @@ import {JB721TiersHook} from "@bananapus/721-hook-v6/src/JB721TiersHook.sol";
 import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStore.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
-import {JBTest} from "@bananapus/core-v6/test/helpers/JBTest.sol";
 
 /// @notice totalLoansBorrowedFor is a cumulative counter, not an active loan count.
 /// @dev The rename from numberOfLoansFor to totalLoansBorrowedFor clarifies that the counter only increments
 /// and never decrements. Repaying or liquidating a loan does NOT reduce the counter. This test verifies that
 /// the counter remains at its high-water mark after loans are fully repaid and after loans are liquidated.
-contract TestI20_CumulativeLoanCounter is TestBaseWorkflow, JBTest {
+contract TestI20_CumulativeLoanCounter is TestBaseWorkflow {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
 
     REVDeployer REV_DEPLOYER;
