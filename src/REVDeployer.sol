@@ -495,9 +495,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @param terminalToken The terminal token to configure a buyback pool for.
     function _trySetBuybackPoolFor(uint256 revnetId, address terminalToken) internal {
         // Normalize the terminal token (use WETH for native) and get the project token.
+        // slither-disable-next-line calls-loop
         address normalizedTerminalToken = terminalToken == JBConstants.NATIVE_TOKEN
             ? address(IJBBuybackHook(address(BUYBACK_HOOK)).WETH())
             : terminalToken;
+        // slither-disable-next-line calls-loop
         address projectToken = address(CONTROLLER.TOKENS().tokenOf(revnetId));
 
         // Sort currencies numerically for the pool key (lower address = currency0).
@@ -506,6 +508,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             : (Currency.wrap(projectToken), Currency.wrap(normalizedTerminalToken));
 
         // Try to set the pool — if the pool isn't initialized in the PoolManager yet, this will revert and be caught.
+        // slither-disable-next-line calls-loop
         try IJBBuybackHook(address(BUYBACK_HOOK))
             .setPoolFor({
                 projectId: revnetId,
