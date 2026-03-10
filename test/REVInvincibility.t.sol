@@ -40,6 +40,7 @@ import {mulDiv} from "@prb/math/src/Common.sol";
 
 import {REVInvincibilityHandler} from "./REVInvincibilityHandler.sol";
 import {BrokenFeeTerminal} from "./helpers/MaliciousContracts.sol";
+import {JBTest} from "@bananapus/core-v6/test/helpers/JBTest.sol";
 
 // =========================================================================
 // Shared config struct
@@ -202,7 +203,8 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow, JBTest {
 
         SUCKER_REGISTRY = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
         HOOK_STORE = new JB721TiersHookStore();
-        EXAMPLE_HOOK = new JB721TiersHook(jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, multisig());
+        EXAMPLE_HOOK =
+            new JB721TiersHook(jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, jbSplits(), multisig());
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
@@ -956,7 +958,8 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow, JBTest {
 
         SUCKER_REGISTRY = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
         HOOK_STORE = new JB721TiersHookStore();
-        EXAMPLE_HOOK = new JB721TiersHook(jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, multisig());
+        EXAMPLE_HOOK =
+            new JB721TiersHook(jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, jbSplits(), multisig());
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());

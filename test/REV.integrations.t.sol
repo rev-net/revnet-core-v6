@@ -31,6 +31,7 @@ import {JB721TiersHook} from "@bananapus/721-hook-v6/src/JB721TiersHook.sol";
 import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStore.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
+import {JBTest} from "@bananapus/core-v6/test/helpers/JBTest.sol";
 
 struct FeeProjectConfig {
     REVConfig configuration;
@@ -177,7 +178,8 @@ contract REVnet_Integrations is TestBaseWorkflow, JBTest {
 
         HOOK_STORE = new JB721TiersHookStore();
 
-        EXAMPLE_HOOK = new JB721TiersHook(jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, multisig());
+        EXAMPLE_HOOK =
+            new JB721TiersHook(jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, jbSplits(), multisig());
 
         ADDRESS_REGISTRY = new JBAddressRegistry();
 

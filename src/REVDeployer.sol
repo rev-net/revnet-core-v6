@@ -9,6 +9,8 @@ import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Recei
 import {mulDiv} from "@prb/math/src/Common.sol";
 import {IJB721TiersHook} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHook.sol";
 import {IJB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHookDeployer.sol";
+import {JB721TiersHookFlags} from "@bananapus/721-hook-v6/src/structs/JB721TiersHookFlags.sol";
+import {JBDeploy721TiersHookConfig} from "@bananapus/721-hook-v6/src/structs/JBDeploy721TiersHookConfig.sol";
 import {IJBBuybackHook} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHook.sol";
 import {Currency} from "@uniswap/v4-core/src/types/Currency.sol";
 import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
@@ -886,11 +888,32 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             revnetId: revnetId, configuration: configuration, terminalConfigurations: terminalConfigurations
         });
 
+        // Convert the REVBaseline721HookConfig to JBDeploy721TiersHookConfig, forcing issueTokensForSplits to false.
+        // Revnets do their own weight adjustment for splits, so the 721 hook must not also adjust.
+        JBDeploy721TiersHookConfig memory hookConfig = JBDeploy721TiersHookConfig({
+            name: tiered721HookConfiguration.baseline721HookConfiguration.name,
+            symbol: tiered721HookConfiguration.baseline721HookConfiguration.symbol,
+            baseUri: tiered721HookConfiguration.baseline721HookConfiguration.baseUri,
+            tokenUriResolver: tiered721HookConfiguration.baseline721HookConfiguration.tokenUriResolver,
+            contractUri: tiered721HookConfiguration.baseline721HookConfiguration.contractUri,
+            tiersConfig: tiered721HookConfiguration.baseline721HookConfiguration.tiersConfig,
+            reserveBeneficiary: tiered721HookConfiguration.baseline721HookConfiguration.reserveBeneficiary,
+            flags: JB721TiersHookFlags({
+                noNewTiersWithReserves: tiered721HookConfiguration.baseline721HookConfiguration.flags
+                .noNewTiersWithReserves,
+                noNewTiersWithVotes: tiered721HookConfiguration.baseline721HookConfiguration.flags.noNewTiersWithVotes,
+                noNewTiersWithOwnerMinting: tiered721HookConfiguration.baseline721HookConfiguration.flags
+                .noNewTiersWithOwnerMinting,
+                preventOverspending: tiered721HookConfiguration.baseline721HookConfiguration.flags.preventOverspending,
+                issueTokensForSplits: false
+            })
+        });
+
         // Deploy the tiered ERC-721 hook contract.
         // slither-disable-next-line reentrancy-benign
         hook = HOOK_DEPLOYER.deployHookFor({
             projectId: revnetId,
-            deployTiersHookConfig: tiered721HookConfiguration.baseline721HookConfiguration,
+            deployTiersHookConfig: hookConfig,
             salt: keccak256(abi.encode(tiered721HookConfiguration.salt, encodedConfigurationHash, _msgSender()))
         });
 

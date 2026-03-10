@@ -114,7 +114,9 @@ src/
     REVAutoIssuance.sol                          # Per-stage cross-chain premint
     REVLoan.sol                                  # Loan state
     REVLoanSource.sol                            # Terminal + token pair for loans
-    REVDeploy721TiersHookConfig.sol              # 721 hook deployment config
+    REVBaseline721HookConfig.sol                 # 721 hook config (omits issueTokensForSplits)
+    REV721TiersHookFlags.sol                     # 721 hook flags for revnets (no issueTokensForSplits)
+    REVDeploy721TiersHookConfig.sol              # 721 hook deployment config wrapper
     REVCroptopAllowedPost.sol                    # Croptop posting criteria
     REVSuckerDeploymentConfig.sol                # Cross-chain sucker deployment
 test/
