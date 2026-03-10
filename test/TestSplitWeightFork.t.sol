@@ -186,8 +186,8 @@ contract TestSplitWeightFork is TestBaseWorkflow {
     // ─────────────────────────
 
     function setUp() public override {
-        // Fork mainnet first — we need the real V4 PoolManager.
-        vm.createSelectFork("ethereum");
+        // Fork mainnet at a stable block — deterministic and post-V4 deployment.
+        vm.createSelectFork("ethereum", 21_700_000);
 
         // Verify V4 PoolManager is deployed.
         require(POOL_MANAGER_ADDR.code.length > 0, "PoolManager not deployed at expected address");
