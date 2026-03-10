@@ -574,7 +574,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
     function test_econ_loanAmplificationSpiral() public {
         // Step 1: Pay to get tokens
         uint256 payAmount = 10e18;
-        (, , uint256 borrow1) = _setupLoan(USER, payAmount, 25);
+        (,, uint256 borrow1) = _setupLoan(USER, payAmount, 25);
         assertTrue(borrow1 > 0, "First loan should have borrow amount");
 
         // Step 2: Add borrowed amount back to balance (inflating surplus)

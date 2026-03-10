@@ -61,6 +61,9 @@ contract MockBuybackDataHook is IJBRulesetDataHook, IJBPayHook {
     /// @notice No-op pool configuration for tests (simplified overload).
     function setPoolFor(uint256, uint24, int24, uint256, address) external pure {}
 
+    /// @notice No-op pool initialization for tests.
+    function initializePoolFor(uint256, uint24, int24, uint256, address) external pure {}
+
     function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
         return interfaceId == type(IJBRulesetDataHook).interfaceId || interfaceId == type(IJBPayHook).interfaceId
             || interfaceId == type(IERC165).interfaceId;

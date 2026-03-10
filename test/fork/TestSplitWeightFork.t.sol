@@ -36,15 +36,14 @@ contract TestSplitWeightFork is ForkTestBase {
             hooks: IHooks(address(0))
         });
 
+        // Pool is already initialized and registered by REVDeployer.
+        // Mock the oracle to report a price where swap wins (~2000 tokens/WETH).
         int24 initTick;
         if (projectTokenIs0) {
-            initTick = -76_020;
+            initTick = -76_000; // Rounded to tickSpacing=200
         } else {
-            initTick = 76_020;
+            initTick = 76_000;
         }
-
-        uint160 sqrtPrice = TickMath.getSqrtPriceAtTick(initTick);
-        poolManager.initialize(key, sqrtPrice);
 
         uint256 projectLiq = 10_000_000e18;
         uint256 wethLiq = 5000e18;
@@ -65,12 +64,6 @@ contract TestSplitWeightFork is ForkTestBase {
         liqHelper.addLiquidity(key, TICK_LOWER, TICK_UPPER, liquidityDelta);
 
         _mockOracle(liquidityDelta, initTick, uint32(REV_DEPLOYER.DEFAULT_BUYBACK_TWAP_WINDOW()));
-
-        uint256 twapWindow = REV_DEPLOYER.DEFAULT_BUYBACK_TWAP_WINDOW();
-        vm.prank(multisig());
-        BUYBACK_HOOK.setPoolFor({
-            projectId: revnetId, poolKey: key, twapWindow: twapWindow, terminalToken: JBConstants.NATIVE_TOKEN
-        });
 
         address metadataTarget = hook.METADATA_ID_TARGET();
         bytes memory metadata = _buildPayMetadataWithQuote({

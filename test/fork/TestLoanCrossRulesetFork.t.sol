@@ -155,8 +155,7 @@ contract TestLoanCrossRulesetFork is ForkTestBase {
         uint256 borrowerTokens = jbTokens().totalBalanceOf(BORROWER, revnetId);
 
         // Create loan in stage 1.
-        (uint256 loanId,) =
-            _createLoan(revnetId, BORROWER, borrowerTokens, LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT());
+        (uint256 loanId,) = _createLoan(revnetId, BORROWER, borrowerTokens, LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT());
 
         // Warp to stage 2 (but NOT past 10-year expiry).
         vm.warp(block.timestamp + STAGE_DURATION + 1);
@@ -174,8 +173,7 @@ contract TestLoanCrossRulesetFork is ForkTestBase {
         uint256 borrowerTokens = jbTokens().totalBalanceOf(BORROWER, revnetId);
 
         // Create loan in stage 1.
-        (uint256 loanId,) =
-            _createLoan(revnetId, BORROWER, borrowerTokens, LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT());
+        (uint256 loanId,) = _createLoan(revnetId, BORROWER, borrowerTokens, LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT());
 
         uint256 totalCollateralBefore = LOANS_CONTRACT.totalCollateralOf(revnetId);
 
@@ -191,9 +189,7 @@ contract TestLoanCrossRulesetFork is ForkTestBase {
 
         // Collateral is permanently lost (burned during borrow, not returned on liquidation).
         uint256 totalCollateralAfter = LOANS_CONTRACT.totalCollateralOf(revnetId);
-        assertEq(
-            totalCollateralAfter, totalCollateralBefore - borrowerTokens, "total collateral should decrease"
-        );
+        assertEq(totalCollateralAfter, totalCollateralBefore - borrowerTokens, "total collateral should decrease");
     }
 
     /// @notice Partial repay in stage 1, complete repay in stage 2.
@@ -264,16 +260,15 @@ contract TestLoanCrossRulesetFork is ForkTestBase {
         _grantBurnPermission(BORROWER, revnetId);
 
         vm.prank(BORROWER);
-        (uint256 reallocatedLoanId, uint256 newLoanId, REVLoan memory reallocatedLoan,) =
-            LOANS_CONTRACT.reallocateCollateralFromLoan({
-                loanId: loanId,
-                collateralCountToTransfer: halfCollateral,
-                source: source,
-                minBorrowAmount: 0,
-                collateralCountToAdd: 0,
-                beneficiary: payable(BORROWER),
-                prepaidFeePercent: LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT()
-            });
+        (uint256 reallocatedLoanId, uint256 newLoanId, REVLoan memory reallocatedLoan,) = LOANS_CONTRACT.reallocateCollateralFromLoan({
+            loanId: loanId,
+            collateralCountToTransfer: halfCollateral,
+            source: source,
+            minBorrowAmount: 0,
+            collateralCountToAdd: 0,
+            beneficiary: payable(BORROWER),
+            prepaidFeePercent: LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT()
+        });
 
         // Original loan burned, reallocated loan created.
         vm.expectRevert();

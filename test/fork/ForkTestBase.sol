@@ -149,8 +149,8 @@ abstract contract ForkTestBase is TestBaseWorkflow {
     address constant WETH_ADDR = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
     /// @notice Full-range tick bounds for tickSpacing = 60.
-    int24 constant TICK_LOWER = -887_220;
-    int24 constant TICK_UPPER = 887_220;
+    int24 constant TICK_LOWER = -887_200;
+    int24 constant TICK_UPPER = 887_200;
 
     // ───────────────────────── State
     // ─────────────────────────
@@ -430,8 +430,8 @@ abstract contract ForkTestBase is TestBaseWorkflow {
             hooks: IHooks(address(0))
         });
 
-        uint160 sqrtPrice = TickMath.getSqrtPriceAtTick(0);
-        poolManager.initialize(key, sqrtPrice);
+        // Pool is already initialized and registered by REVDeployer during deployment.
+        // This helper only adds liquidity to the existing pool.
 
         // Fund LiquidityHelper with project tokens via JBTokens.mintFor (not deal).
         vm.prank(address(jbController()));
@@ -450,12 +450,6 @@ abstract contract ForkTestBase is TestBaseWorkflow {
         liqHelper.addLiquidity(key, TICK_LOWER, TICK_UPPER, liquidityDelta);
 
         _mockOracle(liquidityDelta, 0, uint32(REV_DEPLOYER.DEFAULT_BUYBACK_TWAP_WINDOW()));
-
-        uint256 twapWindow = REV_DEPLOYER.DEFAULT_BUYBACK_TWAP_WINDOW();
-        vm.prank(multisig());
-        BUYBACK_HOOK.setPoolFor({
-            projectId: revnetId, poolKey: key, twapWindow: twapWindow, terminalToken: JBConstants.NATIVE_TOKEN
-        });
     }
 
     /// @notice Mock the IGeomeanOracle at address(0) for hookless pools.
