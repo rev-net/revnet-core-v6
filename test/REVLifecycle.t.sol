@@ -252,7 +252,6 @@ contract REVLifecycle_Local is TestBaseWorkflow {
 
         // Cash out half in stage 0 (50% tax)
         uint256 halfTokens = tokens / 2;
-        uint256 user1BalBefore = USER1.balance;
         vm.prank(USER1);
         uint256 reclaimedStage0 = jbMultiTerminal()
             .cashOutTokensOf({

@@ -83,8 +83,6 @@ contract TestLoanBorrowFork is ForkTestBase {
 
         // Record balances before.
         uint256 borrowerEthBefore = BORROWER.balance;
-        uint256 revnetTerminalBefore = _terminalBalance(revnetId, JBConstants.NATIVE_TOKEN);
-
         _grantBurnPermission(BORROWER, revnetId);
 
         REVLoanSource memory source = _nativeLoanSource();

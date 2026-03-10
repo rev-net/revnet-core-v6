@@ -129,7 +129,7 @@ contract FakeTerminal is ERC165, IJBPayoutTerminal {
 }
 
 /// @notice Regression tests for REVLoans unvalidated source terminal.
-contract REVLoansRegressions_Local is TestBaseWorkflow {
+contract REVLoansRegressions is TestBaseWorkflow {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
     bytes32 ERC20_SALT = "REV_TOKEN";
 
@@ -289,7 +289,7 @@ contract REVLoansRegressions_Local is TestBaseWorkflow {
     }
 
     /// @notice Verify that the configured loan source (real terminal) is properly registered.
-    function test_configuredSourceIsRegistered() public {
+    function test_configuredSourceIsRegistered() public view {
         // The real terminal should be in the directory
         IJBTerminal[] memory terminals = jbDirectory().terminalsOf(REVNET_ID);
         bool found = false;

@@ -59,7 +59,7 @@ contract ReentrantBorrower {
     }
 }
 
-/// @title TestPR27_CEIPattern
+/// @title TestCEIPattern
 /// @notice Tests for CEI pattern fix in REVLoans._adjust()
 ///
 /// Source context (_addTo/_removeFrom/_addCollateralTo/_returnCollateralFrom):
@@ -69,7 +69,7 @@ contract ReentrantBorrower {
 ///   - _returnCollateralFrom(uint256 revnetId, uint256 collateralCount, ...) — no loan reference
 ///   None of the four helpers read loan.amount or loan.collateral — they all use pre-computed deltas.
 ///   The CEI fix writes loan.amount and loan.collateral BEFORE calling any of these helpers.
-contract TestPR27_CEIPattern is TestBaseWorkflow {
+contract TestCEIPattern is TestBaseWorkflow {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
 
     REVDeployer REV_DEPLOYER;
@@ -253,7 +253,7 @@ contract TestPR27_CEIPattern is TestBaseWorkflow {
 
     /// @notice Repay a loan and verify state is consistent afterwards.
     function test_repayLoan_stateConsistent() public {
-        (uint256 loanId, uint256 tokenCount, uint256 borrowAmount) = _setupLoan(USER, 10e18, 500);
+        (uint256 loanId,, uint256 borrowAmount) = _setupLoan(USER, 10e18, 500);
         assertTrue(borrowAmount > 0, "Should borrow nonzero");
 
         REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);

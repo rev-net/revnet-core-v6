@@ -125,13 +125,13 @@ test/
   REVAutoIssuanceFuzz.t.sol                      # Auto-issuance fuzz tests
   REVInvincibility.t.sol                         # Economic property fuzzing
   REVInvincibilityHandler.sol                    # Fuzz handler
-  REVDeployerAuditRegressions.t.sol              # Deployer audit regressions
+  REVDeployerRegressions.t.sol                   # Deployer regressions
   REVLoansSourced.t.sol                          # Multi-source loan tests
   REVLoansUnSourced.t.sol                        # Loan error cases
   REVLoansFeeRecovery.t.sol                      # Fee calculation tests
   REVLoansAttacks.t.sol                          # Flash loan, reentrancy scenarios
   REVLoans.invariants.t.sol                      # Loan fuzzing invariants
-  REVLoansAuditRegressions.t.sol                 # Loan audit regressions
+  REVLoansRegressions.t.sol                      # Loan regressions
   TestPR09-32_*.t.sol                            # Per-PR regression tests
   helpers/
     MaliciousContracts.sol                       # Attack contract mocks

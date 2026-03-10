@@ -29,7 +29,7 @@ contract MockBuybackDataHook is IJBRulesetDataHook, IJBPayHook {
 
     function beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext calldata context)
         external
-        view
+        pure
         override
         returns (
             uint256 cashOutTaxRate,

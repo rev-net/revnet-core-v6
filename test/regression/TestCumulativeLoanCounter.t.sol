@@ -4,9 +4,9 @@ pragma solidity 0.8.26;
 import "forge-std/Test.sol";
 import /* {*} from */ "@bananapus/core-v6/test/helpers/TestBaseWorkflow.sol";
 import /* {*} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
-import /* {*} from */ "./../src/REVDeployer.sol";
+import /* {*} from */ "./../../src/REVDeployer.sol";
 import "@croptop/core-v6/src/CTPublisher.sol";
-import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
+import {MockBuybackDataHook} from "./../mock/MockBuybackDataHook.sol";
 import "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
 import "@bananapus/721-hook-v6/script/helpers/Hook721DeploymentLib.sol";
 import "@bananapus/suckers-v6/script/helpers/SuckerDeploymentLib.sol";
@@ -14,14 +14,15 @@ import "@croptop/core-v6/script/helpers/CroptopDeploymentLib.sol";
 import "@bananapus/router-terminal-v6/script/helpers/RouterTerminalDeploymentLib.sol";
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
+import {JBSingleAllowance} from "@bananapus/core-v6/src/structs/JBSingleAllowance.sol";
 import {MockPriceFeed} from "@bananapus/core-v6/test/mock/MockPriceFeed.sol";
 import {MockERC20} from "@bananapus/core-v6/test/mock/MockERC20.sol";
-import {REVLoans} from "../src/REVLoans.sol";
-import {REVLoan} from "../src/structs/REVLoan.sol";
-import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
-import {REVDescription} from "../src/structs/REVDescription.sol";
-import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
+import {REVLoans} from "../../src/REVLoans.sol";
+import {REVLoan} from "../../src/structs/REVLoan.sol";
+import {REVStageConfig, REVAutoIssuance} from "../../src/structs/REVStageConfig.sol";
+import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
+import {REVDescription} from "../../src/structs/REVDescription.sol";
+import {IREVLoans} from "../../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
 import {JBSuckerRegistry} from "@bananapus/suckers-v6/src/JBSuckerRegistry.sol";
 import {JB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
@@ -30,8 +31,11 @@ import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStor
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 
-/// @notice Tests for PR #13: cross-source reallocation prevention.
-contract TestPR13_CrossSourceReallocation is TestBaseWorkflow {
+/// @notice totalLoansBorrowedFor is a cumulative counter, not an active loan count.
+/// @dev The rename from numberOfLoansFor to totalLoansBorrowedFor clarifies that the counter only increments
+/// and never decrements. Repaying or liquidating a loan does NOT reduce the counter. This test verifies that
+/// the counter remains at its high-water mark after loans are fully repaid and after loans are liquidated.
+contract TestCumulativeLoanCounter is TestBaseWorkflow {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
 
     REVDeployer REV_DEPLOYER;
@@ -39,8 +43,7 @@ contract TestPR13_CrossSourceReallocation is TestBaseWorkflow {
     IJB721TiersHookDeployer HOOK_DEPLOYER;
     IJB721TiersHookStore HOOK_STORE;
     IJBAddressRegistry ADDRESS_REGISTRY;
-    IREVLoans LOANS_CONTRACT;
-    MockERC20 TOKEN;
+    REVLoans LOANS_CONTRACT;
     IJBSuckerRegistry SUCKER_REGISTRY;
     CTPublisher PUBLISHER;
     MockBuybackDataHook MOCK_BUYBACK;
@@ -48,7 +51,9 @@ contract TestPR13_CrossSourceReallocation is TestBaseWorkflow {
     uint256 FEE_PROJECT_ID;
     uint256 REVNET_ID;
 
-    address USER = makeAddr("user");
+    address USER1 = makeAddr("user1");
+    address USER2 = makeAddr("user2");
+    address USER3 = makeAddr("user3");
 
     address private constant TRUSTED_FORWARDER = 0xB2b5841DBeF766d4b521221732F9B618fCf34A87;
 
@@ -63,11 +68,12 @@ contract TestPR13_CrossSourceReallocation is TestBaseWorkflow {
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
         MOCK_BUYBACK = new MockBuybackDataHook();
-        TOKEN = new MockERC20("1/2 ETH", "1/2");
-        MockPriceFeed priceFeed = new MockPriceFeed(1e21, 6);
+        MockPriceFeed priceFeed = new MockPriceFeed(1e18, 18);
         vm.prank(multisig());
         jbPrices()
-            .addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
+            .addPriceFeedFor(
+                0, uint32(uint160(JBConstants.NATIVE_TOKEN)), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed
+            );
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
             projects: jbProjects(),
@@ -90,15 +96,16 @@ contract TestPR13_CrossSourceReallocation is TestBaseWorkflow {
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);
         _deployFeeProject();
         _deployRevnet();
-        vm.deal(USER, 1000e18);
+        vm.deal(USER1, 100e18);
+        vm.deal(USER2, 100e18);
+        vm.deal(USER3, 100e18);
     }
 
     function _deployFeeProject() internal {
-        JBAccountingContext[] memory acc = new JBAccountingContext[](2);
+        JBAccountingContext[] memory acc = new JBAccountingContext[](1);
         acc[0] = JBAccountingContext({
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
-        acc[1] = JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
         JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
         tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
         REVStageConfig[] memory stages = new REVStageConfig[](1);
@@ -136,11 +143,10 @@ contract TestPR13_CrossSourceReallocation is TestBaseWorkflow {
     }
 
     function _deployRevnet() internal {
-        JBAccountingContext[] memory acc = new JBAccountingContext[](2);
+        JBAccountingContext[] memory acc = new JBAccountingContext[](1);
         acc[0] = JBAccountingContext({
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
-        acc[1] = JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
         JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
         tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
         REVStageConfig[] memory stages = new REVStageConfig[](1);
@@ -160,8 +166,6 @@ contract TestPR13_CrossSourceReallocation is TestBaseWorkflow {
             cashOutTaxRate: 6000,
             extraMetadata: 0
         });
-        REVLoanSource[] memory ls = new REVLoanSource[](1);
-        ls[0] = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
         REVConfig memory cfg = REVConfig({
             description: REVDescription("NANA", "$NANA", "ipfs://test2", "NANA_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
@@ -178,20 +182,13 @@ contract TestPR13_CrossSourceReallocation is TestBaseWorkflow {
         });
     }
 
-    function _setupLoan(
-        address user,
-        uint256 ethAmount,
-        uint256 prepaidFee
-    )
-        internal
-        returns (uint256 loanId, uint256 tokenCount, uint256 borrowAmount)
-    {
+    function _setupLoan(address user, uint256 ethAmount) internal returns (uint256 loanId, uint256 tokenCount) {
         vm.prank(user);
         tokenCount =
             jbMultiTerminal().pay{value: ethAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, ethAmount, user, 0, "", "");
-        borrowAmount =
+        uint256 borrowAmount =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
-        if (borrowAmount == 0) return (0, tokenCount, 0);
+        require(borrowAmount > 0, "Borrow amount should be > 0");
         mockExpect(
             address(jbPermissions()),
             abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), user, REVNET_ID, 11, true, true)),
@@ -199,105 +196,109 @@ contract TestPR13_CrossSourceReallocation is TestBaseWorkflow {
         );
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
         vm.prank(user);
-        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee);
+        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), 25);
     }
 
-    /// @notice Reallocating with the same source (token + terminal) should succeed.
-    function test_reallocateWithSameSource_succeeds() public {
-        // Setup: user pays and borrows
-        (uint256 loanId, uint256 tokenCount,) = _setupLoan(USER, 10e18, 25);
-        require(loanId != 0, "Loan setup failed");
+    /// @notice Verifies totalLoansBorrowedFor never decrements after loan repayment.
+    /// @dev Creates 3 loans, fully repays 2, then verifies the counter stays at 3 (not 1).
+    /// This confirms that the rename correctly reflects cumulative semantics.
+    function test_counterNeverDecrementsAfterRepayment() public {
+        // Counter starts at 0
+        assertEq(LOANS_CONTRACT.totalLoansBorrowedFor(REVNET_ID), 0, "Counter should start at 0");
 
-        // Donate a large amount to inflate surplus, making each collateral token worth significantly more.
-        // This ensures that after removing some collateral, the remaining collateral still supports the loan amount.
-        address donor = makeAddr("donor");
-        vm.deal(donor, 500e18);
-        vm.prank(donor);
-        jbMultiTerminal().addToBalanceOf{value: 500e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 500e18, false, "", "");
+        // Create 3 loans
+        (uint256 loanId1,) = _setupLoan(USER1, 3e18);
+        (uint256 loanId2,) = _setupLoan(USER2, 3e18);
+        (uint256 loanId3,) = _setupLoan(USER3, 3e18);
 
-        // User pays more to get additional tokens for the new loan's extra collateral
-        vm.prank(USER);
-        uint256 extraTokens =
-            jbMultiTerminal().pay{value: 50e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 50e18, USER, 0, "", "");
+        // Counter should be 3
+        assertEq(LOANS_CONTRACT.totalLoansBorrowedFor(REVNET_ID), 3, "Counter should be 3 after 3 loans");
 
-        // Transfer a small portion of collateral so the remaining collateral (now worth much more) supports the loan
-        uint256 collateralToTransfer = tokenCount / 10; // Transfer 10% of collateral
-
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
-
-        // Mock burn permission for the new loan's borrowFrom call
-        mockExpect(
-            address(jbPermissions()),
-            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, REVNET_ID, 11, true, true)),
-            abi.encode(true)
+        // Fully repay loan 1
+        REVLoan memory loan1 = LOANS_CONTRACT.loanOf(loanId1);
+        JBSingleAllowance memory allowance;
+        vm.prank(USER1);
+        LOANS_CONTRACT.repayLoan{value: loan1.amount}(
+            loanId1, loan1.amount, loan1.collateral, payable(USER1), allowance
         );
 
-        vm.prank(USER);
-        (uint256 reallocatedLoanId, uint256 newLoanId,,) = LOANS_CONTRACT.reallocateCollateralFromLoan(
-            loanId,
-            collateralToTransfer,
-            source,
-            0, // minBorrowAmount
-            extraTokens, // collateralCountToAdd
-            payable(USER),
-            25 // prepaidFeePercent
+        // Counter should still be 3 (NOT 2) -- repayment does not decrement
+        assertEq(
+            LOANS_CONTRACT.totalLoansBorrowedFor(REVNET_ID),
+            3,
+            "Counter should remain 3 after repaying loan 1 -- cumulative, never decrements"
         );
 
-        // Verify both loans exist
-        assertTrue(reallocatedLoanId != 0, "Reallocated loan should exist");
-        assertTrue(newLoanId != 0, "New loan should exist");
+        // Fully repay loan 2
+        REVLoan memory loan2 = LOANS_CONTRACT.loanOf(loanId2);
+        vm.prank(USER2);
+        LOANS_CONTRACT.repayLoan{value: loan2.amount}(
+            loanId2, loan2.amount, loan2.collateral, payable(USER2), allowance
+        );
 
-        // Verify new loan has correct source
-        REVLoan memory newLoan = LOANS_CONTRACT.loanOf(newLoanId);
-        assertEq(newLoan.source.token, JBConstants.NATIVE_TOKEN, "New loan source token should match");
-        assertEq(address(newLoan.source.terminal), address(jbMultiTerminal()), "New loan source terminal should match");
+        // Counter should still be 3 (NOT 1)
+        assertEq(
+            LOANS_CONTRACT.totalLoansBorrowedFor(REVNET_ID),
+            3,
+            "Counter should remain 3 after repaying loan 2 -- cumulative, never decrements"
+        );
+
+        // Verify the loans are actually deleted (createdAt == 0)
+        assertEq(LOANS_CONTRACT.loanOf(loanId1).createdAt, 0, "Loan 1 should be deleted");
+        assertEq(LOANS_CONTRACT.loanOf(loanId2).createdAt, 0, "Loan 2 should be deleted");
+        assertTrue(LOANS_CONTRACT.loanOf(loanId3).createdAt > 0, "Loan 3 should still exist");
     }
 
-    /// @notice Reallocating with a different token should revert with SourceMismatch.
-    function test_reallocateWithDifferentToken_reverts() public {
-        // Setup: user pays and borrows with NATIVE_TOKEN source
-        (uint256 loanId,,) = _setupLoan(USER, 10e18, 25);
-        require(loanId != 0, "Loan setup failed");
+    /// @notice Verifies totalLoansBorrowedFor never decrements after loan liquidation.
+    /// @dev Creates 2 loans, liquidates both, then verifies the counter stays at 2.
+    function test_counterNeverDecrementsAfterLiquidation() public {
+        // Create 2 loans
+        (uint256 loanId1,) = _setupLoan(USER1, 5e18);
+        (uint256 loanId2,) = _setupLoan(USER2, 5e18);
 
-        // Try to reallocate with a different token (TOKEN instead of NATIVE_TOKEN)
-        REVLoanSource memory wrongSource = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
+        assertEq(LOANS_CONTRACT.totalLoansBorrowedFor(REVNET_ID), 2, "Counter should be 2 after 2 loans");
 
-        vm.prank(USER);
-        vm.expectRevert(REVLoans.REVLoans_SourceMismatch.selector);
-        LOANS_CONTRACT.reallocateCollateralFromLoan(
-            loanId,
-            1, // collateralCountToTransfer (any nonzero value)
-            wrongSource,
-            0, // minBorrowAmount
-            0, // collateralCountToAdd
-            payable(USER),
-            25 // prepaidFeePercent
+        // Warp past liquidation duration
+        vm.warp(block.timestamp + LOANS_CONTRACT.LOAN_LIQUIDATION_DURATION() + 1);
+
+        // Liquidate both loans
+        LOANS_CONTRACT.liquidateExpiredLoansFrom(REVNET_ID, 1, 2);
+
+        // Both loans should be deleted
+        assertEq(LOANS_CONTRACT.loanOf(loanId1).createdAt, 0, "Loan 1 should be liquidated");
+        assertEq(LOANS_CONTRACT.loanOf(loanId2).createdAt, 0, "Loan 2 should be liquidated");
+
+        // Counter should still be 2 -- liquidation does not decrement
+        assertEq(
+            LOANS_CONTRACT.totalLoansBorrowedFor(REVNET_ID),
+            2,
+            "Counter should remain 2 after liquidating both loans -- cumulative, never decrements"
         );
     }
 
-    /// @notice Reallocating with a different terminal should revert with SourceMismatch.
-    function test_reallocateWithDifferentTerminal_reverts() public {
-        // Setup: user pays and borrows with jbMultiTerminal
-        (uint256 loanId,,) = _setupLoan(USER, 10e18, 25);
-        require(loanId != 0, "Loan setup failed");
+    /// @notice Verifies that partial repayment (which creates a new loan) increments the counter.
+    /// @dev When partially repaying, the old loan is burned and a new loan is minted for the remainder.
+    /// This should increment the counter by 1 since a new loan ID is generated.
+    function test_partialRepaymentIncrementsCounter() public {
+        // Create 1 loan
+        (uint256 loanId1,) = _setupLoan(USER1, 5e18);
+        assertEq(LOANS_CONTRACT.totalLoansBorrowedFor(REVNET_ID), 1, "Counter should be 1 after 1 loan");
 
-        // Create a fake terminal address
-        address fakeTerminal = makeAddr("fakeTerminal");
+        // Partially repay (repay half the borrow amount, return no collateral)
+        REVLoan memory loan1 = LOANS_CONTRACT.loanOf(loanId1);
+        uint256 halfAmount = loan1.amount / 2;
+        JBSingleAllowance memory allowance;
+        vm.prank(USER1);
+        LOANS_CONTRACT.repayLoan{value: halfAmount}(loanId1, halfAmount, 0, payable(USER1), allowance);
 
-        // Try to reallocate with a different terminal
-        REVLoanSource memory wrongSource =
-            REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: IJBPayoutTerminal(fakeTerminal)});
-
-        vm.prank(USER);
-        vm.expectRevert(REVLoans.REVLoans_SourceMismatch.selector);
-        LOANS_CONTRACT.reallocateCollateralFromLoan(
-            loanId,
-            1, // collateralCountToTransfer
-            wrongSource,
-            0, // minBorrowAmount
-            0, // collateralCountToAdd
-            payable(USER),
-            25 // prepaidFeePercent
+        // Counter should be 2: original loan (burned) + replacement loan (new ID)
+        assertEq(
+            LOANS_CONTRACT.totalLoansBorrowedFor(REVNET_ID),
+            2,
+            "Counter should be 2 after partial repayment creates a replacement loan"
         );
+
+        // Original loan should be deleted
+        assertEq(LOANS_CONTRACT.loanOf(loanId1).createdAt, 0, "Original loan should be deleted after partial repay");
     }
 }

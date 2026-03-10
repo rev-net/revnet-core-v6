@@ -30,10 +30,9 @@ import {JB721TiersHook} from "@bananapus/721-hook-v6/src/JB721TiersHook.sol";
 import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStore.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
-import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
-/// @notice Tests for PR #10: liquidation behavior documentation and collateral burn mechanics.
-contract TestPR10_LiquidationBehavior is TestBaseWorkflow {
+/// @notice Tests for PR #16: zero repayment prevention.
+contract TestZeroRepayment is TestBaseWorkflow {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
 
     REVDeployer REV_DEPLOYER;
@@ -41,7 +40,7 @@ contract TestPR10_LiquidationBehavior is TestBaseWorkflow {
     IJB721TiersHookDeployer HOOK_DEPLOYER;
     IJB721TiersHookStore HOOK_STORE;
     IJBAddressRegistry ADDRESS_REGISTRY;
-    REVLoans LOANS_CONTRACT;
+    IREVLoans LOANS_CONTRACT;
     MockERC20 TOKEN;
     IJBSuckerRegistry SUCKER_REGISTRY;
     CTPublisher PUBLISHER;
@@ -204,138 +203,94 @@ contract TestPR10_LiquidationBehavior is TestBaseWorkflow {
         (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee);
     }
 
-    /// @notice Verify that collateral is burned (not escrowed) — totalCollateralOf increases and loans contract holds
-    /// no tokens.
-    function test_collateralBurnedNotEscrowed() public {
-        uint256 totalCollateralBefore = LOANS_CONTRACT.totalCollateralOf(REVNET_ID);
-        assertEq(totalCollateralBefore, 0, "No collateral before any loans");
-
-        // User pays to get tokens
-        vm.prank(USER);
-        uint256 tokenCount =
-            jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
-
-        // Now borrow (which burns collateral tokens)
-        uint256 borrowAmount =
-            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
-        require(borrowAmount > 0, "Borrow amount should be > 0");
-
-        mockExpect(
-            address(jbPermissions()),
-            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, REVNET_ID, 11, true, true)),
-            abi.encode(true)
-        );
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
-        vm.prank(USER);
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(USER), 25);
-
-        uint256 totalCollateralAfterBorrow = LOANS_CONTRACT.totalCollateralOf(REVNET_ID);
-
-        // totalCollateralOf should have increased by tokenCount (bookkeeping for burned collateral)
-        assertEq(
-            totalCollateralAfterBorrow,
-            totalCollateralBefore + tokenCount,
-            "Total collateral tracking should increase by the collateral amount"
-        );
-
-        // The loans contract should NOT hold any project tokens — they are burned, not escrowed.
-        // Check that the REVLoans contract has zero balance of the project's ERC20 token.
-        uint256 loansTokenBalance = jbTokens().totalBalanceOf(address(LOANS_CONTRACT), REVNET_ID);
-        assertEq(loansTokenBalance, 0, "Loans contract should hold zero project tokens (burned, not escrowed)");
-
-        // Note: The user may hold some project tokens received as fee payment beneficiary during borrowing.
-        // The key point is that the LOANS CONTRACT holds zero — collateral is burned, not escrowed.
-    }
-
-    /// @notice Verify borrower receives ETH from borrowing.
-    function test_borrowerKeepsBorrowedFunds() public {
-        uint256 userBalanceBefore = USER.balance;
-
-        (uint256 loanId,, uint256 borrowAmount) = _setupLoan(USER, 10e18, 25);
+    /// @notice Repaying with zero borrow amount and zero collateral return should revert.
+    /// @dev After borrowing, we inflate surplus back so newBorrowAmount >= loan.amount, then
+    /// repayBorrowAmount = loan.amount - newBorrowAmount = 0 with collateralCountToReturn = 0.
+    /// This should revert with NothingToRepay (or NewBorrowAmountGreaterThanLoanAmount if surplus overshot).
+    function test_repayZeroBoth_reverts() public {
+        // Setup: borrow against 10 ETH
+        (uint256 loanId,,) = _setupLoan(USER, 10e18, 25);
         require(loanId != 0, "Loan setup failed");
 
-        uint256 userBalanceAfter = USER.balance;
+        // After borrowing, fees reduced surplus. We need to restore it so newBorrowAmount >= loan.amount.
+        // Donate enough surplus to compensate for all fees extracted during borrowing.
+        // A large donation ensures newBorrowAmount > loan.amount, hitting
+        // REVLoans_NewBorrowAmountGreaterThanLoanAmount, OR at exact match, hitting REVLoans_NothingToRepay.
+        // Either way, the "zero repayment" is prevented.
+        address donor = makeAddr("donor");
+        vm.deal(donor, 500e18);
+        vm.prank(donor);
+        jbMultiTerminal().addToBalanceOf{value: 500e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 500e18, false, "", "");
 
-        // User spent 10 ETH paying in, then received borrowAmount minus fees.
-        // The net balance change: -10 ETH (payment) + borrowed funds received
-        // Borrowed funds = borrowAmount minus protocol fee (2.5%) minus REV fee (1%) minus prepaid source fee (2.5%)
-        // The user's balance should have increased relative to the post-payment balance.
-        // Since _setupLoan sends ETH to pay AND receives borrow, let's just check:
-        // userBalanceAfter should be > (userBalanceBefore - 10e18) because they received borrowed funds
-        assertTrue(userBalanceAfter > userBalanceBefore - 10e18, "Borrower should have received ETH from the loan");
+        JBSingleAllowance memory allowance;
 
-        // Furthermore, the amount received should be meaningful (not zero)
-        // The borrow amount minus all fees should still be positive
-        assertTrue(userBalanceAfter > userBalanceBefore - 10e18, "Borrower keeps borrowed funds");
+        // Try to repay with collateralCountToReturn = 0 and some maxRepayBorrowAmount.
+        // Since surplus was inflated, newBorrowAmount > loan.amount, which reverts with
+        // REVLoans_NewBorrowAmountGreaterThanLoanAmount. This shows zero-repayment is blocked.
+        vm.prank(USER);
+        vm.expectRevert(); // Will revert with either NothingToRepay or NewBorrowAmountGreaterThanLoanAmount
+        LOANS_CONTRACT.repayLoan{value: 0}(
+            loanId,
+            0, // maxRepayBorrowAmount
+            0, // collateralCountToReturn = 0
+            payable(USER),
+            allowance
+        );
     }
 
-    /// @notice Repay before expiry returns collateral (re-mints tokens).
-    function test_repayBeforeExpiry_collateralReminted() public {
-        (uint256 loanId,, uint256 borrowAmount) = _setupLoan(USER, 10e18, 25);
+    /// @notice Repaying full borrow amount should succeed (returning all collateral).
+    function test_repayNonZeroAmount_succeeds() public {
+        // Setup: borrow against 10 ETH
+        (uint256 loanId,,) = _setupLoan(USER, 10e18, 25);
         require(loanId != 0, "Loan setup failed");
 
         REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
-        uint256 totalCollateralAfterBorrow = LOANS_CONTRACT.totalCollateralOf(REVNET_ID);
-        assertTrue(totalCollateralAfterBorrow > 0, "Should have collateral tracking after borrow");
 
-        // Repay the full loan (returning all collateral)
+        // Repay the full loan by returning all collateral.
+        // collateralCountToReturn == loan.collateral means full repayment path (newBorrowAmount = 0).
+        // Need to send enough ETH to cover loan.amount (the repayBorrowAmount) + any source fee.
         JBSingleAllowance memory allowance;
+
         vm.prank(USER);
-        LOANS_CONTRACT.repayLoan{value: loan.amount}(
+        (uint256 paidOffLoanId,) = LOANS_CONTRACT.repayLoan{value: loan.amount}(
             loanId,
-            loan.amount,
+            loan.amount, // maxRepayBorrowAmount — covers full repayment
             loan.collateral, // return all collateral
             payable(USER),
             allowance
         );
 
-        // After full repayment, totalCollateralOf should return to 0
-        uint256 totalCollateralAfterRepay = LOANS_CONTRACT.totalCollateralOf(REVNET_ID);
-        assertEq(totalCollateralAfterRepay, 0, "Total collateral should be 0 after full repay (collateral re-minted)");
+        // Verify loan was fully repaid
+        // After full repayment with all collateral returned, the original loan is burned.
+        // The paidOffLoanId should match the loanId since all collateral was returned.
+        assertEq(paidOffLoanId, loanId, "Full repay should return original loan ID");
     }
 
-    /// @notice After liquidation, the loan NFT is burned and collateral/borrow tracking is decremented.
-    function test_loanDataDeletedAfterLiquidation() public {
-        (uint256 loanId,, uint256 borrowAmount) = _setupLoan(USER, 10e18, 25);
+    /// @notice Repaying some collateral (non-zero) should succeed.
+    function test_repayNonZeroCollateral_succeeds() public {
+        // Setup: borrow against 10 ETH
+        (uint256 loanId,,) = _setupLoan(USER, 10e18, 25);
         require(loanId != 0, "Loan setup failed");
 
         REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
-        uint256 totalCollateralBefore = LOANS_CONTRACT.totalCollateralOf(REVNET_ID);
-        uint256 totalBorrowedBefore =
-            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
+        uint256 collateralToReturn = loan.collateral / 2; // Return half the collateral
 
-        assertTrue(totalCollateralBefore > 0, "Should have collateral before liquidation");
-        assertTrue(totalBorrowedBefore > 0, "Should have borrowed amount before liquidation");
+        // When returning half the collateral, the new borrow amount covers the remaining half.
+        // The repay amount = loan.amount - newBorrowAmount (which is > 0).
+        // We need to send enough ETH to cover it.
+        JBSingleAllowance memory allowance;
 
-        // Warp past the liquidation duration
-        vm.warp(loan.createdAt + LOANS_CONTRACT.LOAN_LIQUIDATION_DURATION() + 1);
+        vm.prank(USER);
+        (, REVLoan memory paidOffLoan) = LOANS_CONTRACT.repayLoan{value: loan.amount}(
+            loanId,
+            loan.amount, // maxRepayBorrowAmount — generous cap
+            collateralToReturn,
+            payable(USER),
+            allowance
+        );
 
-        // Get the loan number (loanId = revnetId * 1_000_000_000_000 + loanNumber)
-        uint256 loanNumber = loanId - (REVNET_ID * 1_000_000_000_000);
-
-        // Liquidate the loan
-        LOANS_CONTRACT.liquidateExpiredLoansFrom(REVNET_ID, loanNumber, 1);
-
-        // After liquidation:
-        // 1. The NFT should be burned (ownerOf should revert)
-        vm.expectRevert();
-        IERC721(address(LOANS_CONTRACT)).ownerOf(loanId);
-
-        // 2. totalCollateralOf should be decremented
-        uint256 totalCollateralAfter = LOANS_CONTRACT.totalCollateralOf(REVNET_ID);
-        assertEq(totalCollateralAfter, 0, "Collateral tracking should be 0 after liquidation");
-
-        // 3. totalBorrowedFrom should be decremented
-        uint256 totalBorrowedAfter =
-            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
-        assertEq(totalBorrowedAfter, 0, "Borrowed tracking should be 0 after liquidation");
-
-        // 4. The loan data in _loanOf[loanId] is NOT deleted (no `delete` statement),
-        //    but the loan is effectively dead since the NFT is burned and tracking is zeroed.
-        REVLoan memory loanAfter = LOANS_CONTRACT.loanOf(loanId);
-        // The loan struct data is deleted for a gas refund (delete _loanOf[loanId]).
-        assertEq(loanAfter.amount, 0, "Loan data should be cleared after liquidation");
-        assertEq(loanAfter.collateral, 0, "Loan collateral should be cleared after liquidation");
-        assertEq(loanAfter.createdAt, 0, "Loan createdAt should be cleared after liquidation");
+        // Verify some collateral was returned and loan still exists with reduced collateral
+        assertTrue(paidOffLoan.collateral < loan.collateral, "Collateral should have decreased");
+        assertTrue(paidOffLoan.amount < loan.amount, "Borrow amount should have decreased");
     }
 }

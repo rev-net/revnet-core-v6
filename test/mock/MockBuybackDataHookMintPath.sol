@@ -19,7 +19,7 @@ import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 contract MockBuybackDataHookMintPath is IJBRulesetDataHook, IJBPayHook {
     function beforePayRecordedWith(JBBeforePayRecordedContext calldata context)
         external
-        view
+        pure
         override
         returns (uint256 weight, JBPayHookSpecification[] memory hookSpecifications)
     {
@@ -30,7 +30,7 @@ contract MockBuybackDataHookMintPath is IJBRulesetDataHook, IJBPayHook {
 
     function beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext calldata context)
         external
-        view
+        pure
         override
         returns (
             uint256 cashOutTaxRate,

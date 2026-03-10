@@ -4,9 +4,9 @@ pragma solidity 0.8.26;
 import "forge-std/Test.sol";
 import /* {*} from */ "@bananapus/core-v6/test/helpers/TestBaseWorkflow.sol";
 import /* {*} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
-import /* {*} from */ "./../../src/REVDeployer.sol";
+import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v6/src/CTPublisher.sol";
-import {MockBuybackDataHook} from "./../mock/MockBuybackDataHook.sol";
+import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
 import "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
 import "@bananapus/721-hook-v6/script/helpers/Hook721DeploymentLib.sol";
 import "@bananapus/suckers-v6/script/helpers/SuckerDeploymentLib.sol";
@@ -17,12 +17,12 @@ import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingCo
 import {JBSingleAllowance} from "@bananapus/core-v6/src/structs/JBSingleAllowance.sol";
 import {MockPriceFeed} from "@bananapus/core-v6/test/mock/MockPriceFeed.sol";
 import {MockERC20} from "@bananapus/core-v6/test/mock/MockERC20.sol";
-import {REVLoans} from "../../src/REVLoans.sol";
-import {REVLoan} from "../../src/structs/REVLoan.sol";
-import {REVStageConfig, REVAutoIssuance} from "../../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
-import {REVDescription} from "../../src/structs/REVDescription.sol";
-import {IREVLoans} from "../../src/interfaces/IREVLoans.sol";
+import {REVLoans} from "../src/REVLoans.sol";
+import {REVLoan} from "../src/structs/REVLoan.sol";
+import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
+import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
+import {REVDescription} from "../src/structs/REVDescription.sol";
+import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
 import {JBSuckerRegistry} from "@bananapus/suckers-v6/src/JBSuckerRegistry.sol";
 import {JB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
@@ -32,11 +32,8 @@ import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressReg
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
-/// @notice liquidateExpiredLoansFrom halts on deleted loan gaps.
-/// @dev Before the fix, the function used `break` when encountering a deleted loan (createdAt == 0),
-/// which stopped the entire iteration. Expired loans after the gap were never liquidated.
-/// After the fix, `continue` is used instead, so the loop skips gaps and keeps processing.
-contract TestL27_LiquidateGapHandling is TestBaseWorkflow {
+/// @notice Tests for PR #10: liquidation behavior documentation and collateral burn mechanics.
+contract TestLiquidationBehavior is TestBaseWorkflow {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
 
     REVDeployer REV_DEPLOYER;
@@ -53,9 +50,7 @@ contract TestL27_LiquidateGapHandling is TestBaseWorkflow {
     uint256 FEE_PROJECT_ID;
     uint256 REVNET_ID;
 
-    address USER1 = makeAddr("user1");
-    address USER2 = makeAddr("user2");
-    address USER3 = makeAddr("user3");
+    address USER = makeAddr("user");
 
     address private constant TRUSTED_FORWARDER = 0xB2b5841DBeF766d4b521221732F9B618fCf34A87;
 
@@ -97,9 +92,7 @@ contract TestL27_LiquidateGapHandling is TestBaseWorkflow {
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);
         _deployFeeProject();
         _deployRevnet();
-        vm.deal(USER1, 100e18);
-        vm.deal(USER2, 100e18);
-        vm.deal(USER3, 100e18);
+        vm.deal(USER, 1000e18);
     }
 
     function _deployFeeProject() internal {
@@ -169,6 +162,8 @@ contract TestL27_LiquidateGapHandling is TestBaseWorkflow {
             cashOutTaxRate: 6000,
             extraMetadata: 0
         });
+        REVLoanSource[] memory ls = new REVLoanSource[](1);
+        ls[0] = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
         REVConfig memory cfg = REVConfig({
             description: REVDescription("NANA", "$NANA", "ipfs://test2", "NANA_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
@@ -185,13 +180,20 @@ contract TestL27_LiquidateGapHandling is TestBaseWorkflow {
         });
     }
 
-    function _setupLoan(address user, uint256 ethAmount) internal returns (uint256 loanId, uint256 tokenCount) {
+    function _setupLoan(
+        address user,
+        uint256 ethAmount,
+        uint256 prepaidFee
+    )
+        internal
+        returns (uint256 loanId, uint256 tokenCount, uint256 borrowAmount)
+    {
         vm.prank(user);
         tokenCount =
             jbMultiTerminal().pay{value: ethAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, ethAmount, user, 0, "", "");
-        uint256 borrowAmount =
+        borrowAmount =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
-        require(borrowAmount > 0, "Borrow amount should be > 0");
+        if (borrowAmount == 0) return (0, tokenCount, 0);
         mockExpect(
             address(jbPermissions()),
             abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), user, REVNET_ID, 11, true, true)),
@@ -199,137 +201,141 @@ contract TestL27_LiquidateGapHandling is TestBaseWorkflow {
         );
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
         vm.prank(user);
-        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), 25);
+        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee);
     }
 
-    /// @notice Liquidation should continue past deleted loan gaps.
-    /// @dev Steps:
-    ///   1. Create 3 loans (loan numbers 1, 2, 3)
-    ///   2. Fully repay loan 2, which deletes it (createdAt == 0), creating a gap
-    ///   3. Warp past the liquidation duration
-    ///   4. Call liquidateExpiredLoansFrom(revnetId, 1, 3) to try liquidating all 3
-    ///   5. Verify that loan 3 (after the gap) IS liquidated
-    ///
-    /// Before the fix (break): Loan 1 liquidated, loan 2 gap causes break, loan 3 skipped.
-    /// After the fix (continue): Loan 1 liquidated, loan 2 gap skipped, loan 3 liquidated.
-    function test_L27_liquidationContinuesPastDeletedLoanGaps() public {
-        // Step 1: Create 3 loans
-        (uint256 loanId1,) = _setupLoan(USER1, 5e18);
-        (uint256 loanId2,) = _setupLoan(USER2, 5e18);
-        (uint256 loanId3,) = _setupLoan(USER3, 5e18);
+    /// @notice Verify that collateral is burned (not escrowed) — totalCollateralOf increases and loans contract holds
+    /// no tokens.
+    function test_collateralBurnedNotEscrowed() public {
+        uint256 totalCollateralBefore = LOANS_CONTRACT.totalCollateralOf(REVNET_ID);
+        assertEq(totalCollateralBefore, 0, "No collateral before any loans");
 
-        require(loanId1 != 0 && loanId2 != 0 && loanId3 != 0, "All loans should be created");
+        // User pays to get tokens
+        vm.prank(USER);
+        uint256 tokenCount =
+            jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
 
-        // Verify all 3 loans exist
-        REVLoan memory loan1 = LOANS_CONTRACT.loanOf(loanId1);
-        REVLoan memory loan2 = LOANS_CONTRACT.loanOf(loanId2);
-        REVLoan memory loan3 = LOANS_CONTRACT.loanOf(loanId3);
-        assertTrue(loan1.createdAt > 0, "Loan 1 should exist");
-        assertTrue(loan2.createdAt > 0, "Loan 2 should exist");
-        assertTrue(loan3.createdAt > 0, "Loan 3 should exist");
+        // Now borrow (which burns collateral tokens)
+        uint256 borrowAmount =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        require(borrowAmount > 0, "Borrow amount should be > 0");
 
-        // Step 2: Fully repay loan 2 to create a gap
+        mockExpect(
+            address(jbPermissions()),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, REVNET_ID, 11, true, true)),
+            abi.encode(true)
+        );
+        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        vm.prank(USER);
+        LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(USER), 25);
+
+        uint256 totalCollateralAfterBorrow = LOANS_CONTRACT.totalCollateralOf(REVNET_ID);
+
+        // totalCollateralOf should have increased by tokenCount (bookkeeping for burned collateral)
+        assertEq(
+            totalCollateralAfterBorrow,
+            totalCollateralBefore + tokenCount,
+            "Total collateral tracking should increase by the collateral amount"
+        );
+
+        // The loans contract should NOT hold any project tokens — they are burned, not escrowed.
+        // Check that the REVLoans contract has zero balance of the project's ERC20 token.
+        uint256 loansTokenBalance = jbTokens().totalBalanceOf(address(LOANS_CONTRACT), REVNET_ID);
+        assertEq(loansTokenBalance, 0, "Loans contract should hold zero project tokens (burned, not escrowed)");
+
+        // Note: The user may hold some project tokens received as fee payment beneficiary during borrowing.
+        // The key point is that the LOANS CONTRACT holds zero — collateral is burned, not escrowed.
+    }
+
+    /// @notice Verify borrower receives ETH from borrowing.
+    function test_borrowerKeepsBorrowedFunds() public {
+        uint256 userBalanceBefore = USER.balance;
+
+        (uint256 loanId,,) = _setupLoan(USER, 10e18, 25);
+        require(loanId != 0, "Loan setup failed");
+
+        uint256 userBalanceAfter = USER.balance;
+
+        // User spent 10 ETH paying in, then received borrowAmount minus fees.
+        // The net balance change: -10 ETH (payment) + borrowed funds received
+        // Borrowed funds = borrowAmount minus protocol fee (2.5%) minus REV fee (1%) minus prepaid source fee (2.5%)
+        // The user's balance should have increased relative to the post-payment balance.
+        // Since _setupLoan sends ETH to pay AND receives borrow, let's just check:
+        // userBalanceAfter should be > (userBalanceBefore - 10e18) because they received borrowed funds
+        assertTrue(userBalanceAfter > userBalanceBefore - 10e18, "Borrower should have received ETH from the loan");
+
+        // Furthermore, the amount received should be meaningful (not zero)
+        // The borrow amount minus all fees should still be positive
+        assertTrue(userBalanceAfter > userBalanceBefore - 10e18, "Borrower keeps borrowed funds");
+    }
+
+    /// @notice Repay before expiry returns collateral (re-mints tokens).
+    function test_repayBeforeExpiry_collateralReminted() public {
+        (uint256 loanId,,) = _setupLoan(USER, 10e18, 25);
+        require(loanId != 0, "Loan setup failed");
+
+        REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
+        uint256 totalCollateralAfterBorrow = LOANS_CONTRACT.totalCollateralOf(REVNET_ID);
+        assertTrue(totalCollateralAfterBorrow > 0, "Should have collateral tracking after borrow");
+
+        // Repay the full loan (returning all collateral)
         JBSingleAllowance memory allowance;
-        vm.prank(USER2);
-        LOANS_CONTRACT.repayLoan{value: loan2.amount}(
-            loanId2,
-            loan2.amount,
-            loan2.collateral, // return all collateral to fully close the loan
-            payable(USER2),
+        vm.prank(USER);
+        LOANS_CONTRACT.repayLoan{value: loan.amount}(
+            loanId,
+            loan.amount,
+            loan.collateral, // return all collateral
+            payable(USER),
             allowance
         );
 
-        // Verify loan 2 is now deleted (createdAt == 0)
-        REVLoan memory deletedLoan2 = LOANS_CONTRACT.loanOf(loanId2);
-        assertEq(deletedLoan2.createdAt, 0, "Loan 2 should be deleted after full repayment");
+        // After full repayment, totalCollateralOf should return to 0
+        uint256 totalCollateralAfterRepay = LOANS_CONTRACT.totalCollateralOf(REVNET_ID);
+        assertEq(totalCollateralAfterRepay, 0, "Total collateral should be 0 after full repay (collateral re-minted)");
+    }
 
-        // Verify loans 1 and 3 still exist
-        REVLoan memory stillLoan1 = LOANS_CONTRACT.loanOf(loanId1);
-        REVLoan memory stillLoan3 = LOANS_CONTRACT.loanOf(loanId3);
-        assertTrue(stillLoan1.createdAt > 0, "Loan 1 should still exist");
-        assertTrue(stillLoan3.createdAt > 0, "Loan 3 should still exist");
+    /// @notice After liquidation, the loan NFT is burned and collateral/borrow tracking is decremented.
+    function test_loanDataDeletedAfterLiquidation() public {
+        (uint256 loanId,,) = _setupLoan(USER, 10e18, 25);
+        require(loanId != 0, "Loan setup failed");
 
-        // Record collateral and borrowed amounts before liquidation
+        REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
         uint256 totalCollateralBefore = LOANS_CONTRACT.totalCollateralOf(REVNET_ID);
         uint256 totalBorrowedBefore =
             LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
-        assertTrue(totalCollateralBefore > 0, "Should have collateral from loans 1 and 3");
-        assertTrue(totalBorrowedBefore > 0, "Should have borrowed amount from loans 1 and 3");
 
-        // Step 3: Warp past the liquidation duration
-        vm.warp(block.timestamp + LOANS_CONTRACT.LOAN_LIQUIDATION_DURATION() + 1);
+        assertTrue(totalCollateralBefore > 0, "Should have collateral before liquidation");
+        assertTrue(totalBorrowedBefore > 0, "Should have borrowed amount before liquidation");
 
-        // Step 4: Call liquidateExpiredLoansFrom starting from loan 1, iterating over 3 loans
-        // Loan numbers are 1, 2, 3 (not the full loanIds which include revnetId prefix)
-        LOANS_CONTRACT.liquidateExpiredLoansFrom(REVNET_ID, 1, 3);
+        // Warp past the liquidation duration
+        vm.warp(loan.createdAt + LOANS_CONTRACT.LOAN_LIQUIDATION_DURATION() + 1);
 
-        // Step 5: Verify BOTH loan 1 and loan 3 were liquidated (not just loan 1)
+        // Get the loan number (loanId = revnetId * 1_000_000_000_000 + loanNumber)
+        uint256 loanNumber = loanId - (REVNET_ID * 1_000_000_000_000);
 
-        // Loan 1 should be liquidated (NFT burned, data deleted)
-        REVLoan memory liquidatedLoan1 = LOANS_CONTRACT.loanOf(loanId1);
-        assertEq(liquidatedLoan1.createdAt, 0, "Loan 1 should be liquidated (data deleted)");
+        // Liquidate the loan
+        LOANS_CONTRACT.liquidateExpiredLoansFrom(REVNET_ID, loanNumber, 1);
 
-        // Loan 3 should ALSO be liquidated -- this is the critical assertion.
-        // Before the fix, this would fail because the `break` at loan 2's gap stopped iteration.
-        REVLoan memory liquidatedLoan3 = LOANS_CONTRACT.loanOf(loanId3);
-        assertEq(liquidatedLoan3.createdAt, 0, "Loan 3 should be liquidated despite gap at loan 2");
+        // After liquidation:
+        // 1. The NFT should be burned (ownerOf should revert)
+        vm.expectRevert();
+        IERC721(address(LOANS_CONTRACT)).ownerOf(loanId);
 
-        // All collateral and borrowed tracking should be zeroed out
+        // 2. totalCollateralOf should be decremented
         uint256 totalCollateralAfter = LOANS_CONTRACT.totalCollateralOf(REVNET_ID);
-        assertEq(totalCollateralAfter, 0, "All collateral tracking should be zero after full liquidation");
+        assertEq(totalCollateralAfter, 0, "Collateral tracking should be 0 after liquidation");
 
+        // 3. totalBorrowedFrom should be decremented
         uint256 totalBorrowedAfter =
             LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
-        assertEq(totalBorrowedAfter, 0, "All borrowed tracking should be zero after full liquidation");
-    }
+        assertEq(totalBorrowedAfter, 0, "Borrowed tracking should be 0 after liquidation");
 
-    /// @notice Verify that liquidation handles multiple consecutive gaps correctly.
-    /// @dev Creates 4 loans, repays loans 2 and 3, then liquidates the range.
-    ///   Loan 1 and 4 should both be liquidated despite the double gap.
-    function test_L27_liquidationHandlesMultipleConsecutiveGaps() public {
-        // Create 4 loans from the same user (simpler)
-        address USER4 = makeAddr("user4");
-        vm.deal(USER4, 100e18);
-
-        (uint256 loanId1,) = _setupLoan(USER1, 3e18);
-        (uint256 loanId2,) = _setupLoan(USER2, 3e18);
-        (uint256 loanId3,) = _setupLoan(USER3, 3e18);
-        (uint256 loanId4,) = _setupLoan(USER4, 3e18);
-
-        // Fully repay loans 2 and 3 to create consecutive gaps
-        REVLoan memory loan2 = LOANS_CONTRACT.loanOf(loanId2);
-        REVLoan memory loan3 = LOANS_CONTRACT.loanOf(loanId3);
-
-        JBSingleAllowance memory allowance;
-        vm.prank(USER2);
-        LOANS_CONTRACT.repayLoan{value: loan2.amount}(
-            loanId2, loan2.amount, loan2.collateral, payable(USER2), allowance
-        );
-        vm.prank(USER3);
-        LOANS_CONTRACT.repayLoan{value: loan3.amount}(
-            loanId3, loan3.amount, loan3.collateral, payable(USER3), allowance
-        );
-
-        // Verify the gaps exist
-        assertEq(LOANS_CONTRACT.loanOf(loanId2).createdAt, 0, "Loan 2 should be deleted");
-        assertEq(LOANS_CONTRACT.loanOf(loanId3).createdAt, 0, "Loan 3 should be deleted");
-
-        // Warp past liquidation duration
-        vm.warp(block.timestamp + LOANS_CONTRACT.LOAN_LIQUIDATION_DURATION() + 1);
-
-        // Liquidate the range
-        LOANS_CONTRACT.liquidateExpiredLoansFrom(REVNET_ID, 1, 4);
-
-        // Both loan 1 and loan 4 should be liquidated
-        assertEq(LOANS_CONTRACT.loanOf(loanId1).createdAt, 0, "Loan 1 should be liquidated");
-        assertEq(LOANS_CONTRACT.loanOf(loanId4).createdAt, 0, "Loan 4 should be liquidated despite double gap");
-
-        // All tracking should be zeroed
-        assertEq(LOANS_CONTRACT.totalCollateralOf(REVNET_ID), 0, "All collateral should be zero");
-        assertEq(
-            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN),
-            0,
-            "All borrowed should be zero"
-        );
+        // 4. The loan data in _loanOf[loanId] is NOT deleted (no `delete` statement),
+        //    but the loan is effectively dead since the NFT is burned and tracking is zeroed.
+        REVLoan memory loanAfter = LOANS_CONTRACT.loanOf(loanId);
+        // The loan struct data is deleted for a gas refund (delete _loanOf[loanId]).
+        assertEq(loanAfter.amount, 0, "Loan data should be cleared after liquidation");
+        assertEq(loanAfter.collateral, 0, "Loan collateral should be cleared after liquidation");
+        assertEq(loanAfter.createdAt, 0, "Loan createdAt should be cleared after liquidation");
     }
 }

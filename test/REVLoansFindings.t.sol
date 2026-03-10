@@ -129,12 +129,12 @@ contract GarbageTerminal is ERC165, IJBPayoutTerminal {
     receive() external payable {}
 }
 
-/// @notice Regression tests for nemesis audit findings.
+/// @notice Regression tests for loan findings.
 /// Unvalidated loan source terminal
 /// RepayLoan event emits zeroed values
 /// Auto-issuance timing guard bypass (false positive)
 /// repayLoan revert on excess collateral (false positive)
-contract REVLoans_AuditFindings is TestBaseWorkflow {
+contract REVLoansFindings is TestBaseWorkflow {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
     bytes32 ERC20_SALT = "REV_TOKEN";
 
@@ -327,7 +327,7 @@ contract REVLoans_AuditFindings is TestBaseWorkflow {
     //*********************************************************************//
 
     /// @notice borrowFrom rejects a fake terminal not registered in the directory.
-    function test_H1_borrowFromRejectsUnregisteredTerminal() public {
+    function test_borrowFromRejectsUnregisteredTerminal() public {
         // Step 1: User pays into the revnet to get tokens.
         uint256 tokens = _payAndGetTokens(1e18);
         assertGt(tokens, 0, "user should receive tokens");
@@ -367,10 +367,10 @@ contract REVLoans_AuditFindings is TestBaseWorkflow {
 
     /// @notice RepayLoan event emits non-zero loan amount and collateral
     ///         when fully repaying a loan.
-    function test_L1_repayLoanEventEmitsNonZeroValues() public {
+    function test_repayLoanEventEmitsNonZeroValues() public {
         // Step 1: Pay in and borrow.
         uint256 tokens = _payAndGetTokens(1e18);
-        (uint256 loanId, REVLoan memory loan, uint256 loanable) = _borrow(tokens);
+        (uint256 loanId, REVLoan memory loan,) = _borrow(tokens);
 
         assertGt(loan.amount, 0, "loan amount should be non-zero");
         assertGt(loan.collateral, 0, "loan collateral should be non-zero");
@@ -408,7 +408,7 @@ contract REVLoans_AuditFindings is TestBaseWorkflow {
 
     /// @notice Secondary check: verify the original loan data in the emitted event
     ///         has the expected non-zero amount and collateral by recording logs.
-    function test_L1_repayLoanEventLoanFieldIsNonZero() public {
+    function test_repayLoanEventLoanFieldIsNonZero() public {
         // Step 1: Pay in and borrow.
         uint256 tokens = _payAndGetTokens(1e18);
         (uint256 loanId, REVLoan memory loan,) = _borrow(tokens);

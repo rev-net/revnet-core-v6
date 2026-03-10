@@ -31,7 +31,7 @@ import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressReg
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 
 /// @notice Tests for PR #32: liquidation boundary, reallocate msg.value, and decimal normalization fixes.
-contract TestPR32_MixedFixes is TestBaseWorkflow {
+contract TestMixedFixes is TestBaseWorkflow {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
 
     REVDeployer REV_DEPLOYER;

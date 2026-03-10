@@ -37,7 +37,7 @@ struct FeeProjectConfig {
     REVSuckerDeploymentConfig suckerDeploymentConfiguration;
 }
 
-contract TestPR26_BurnHeldTokens is TestBaseWorkflow {
+contract TestBurnHeldTokens is TestBaseWorkflow {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
     bytes32 ERC20_SALT = "REV_TOKEN";
 

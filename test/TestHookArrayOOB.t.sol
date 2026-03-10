@@ -36,7 +36,7 @@ import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
 /// The bug: `hookSpecifications[1] = buybackHookSpecifications[0]` would revert with OOB
 /// when there is no tiered 721 hook (array size is 1, not 2).
 /// The fix: `hookSpecifications[usesTiered721Hook ? 1 : 0] = buybackHookSpecifications[0]`.
-contract TestPR22_HookArrayOOB is TestBaseWorkflow {
+contract TestHookArrayOOB is TestBaseWorkflow {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
 
     REVDeployer REV_DEPLOYER;

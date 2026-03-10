@@ -195,8 +195,6 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
             extraMetadata: 0
         });
 
-        REVLoanSource[] memory _loanSources = new REVLoanSource[](0);
-
         REVConfig memory revnetConfiguration = REVConfig({
             description: REVDescription(
                 "Revnet", "$REV", "ipfs://QmNRHT91HcDgMcenebYX7rJigt77cgNcosvuhX21wkF3tx", ERC20_SALT

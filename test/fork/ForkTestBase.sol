@@ -536,7 +536,7 @@ abstract contract ForkTestBase is TestBaseWorkflow {
     }
 
     /// @notice Build payment metadata with only 721 tier selection (no quote -> TWAP/spot fallback).
-    function _buildPayMetadataNoQuote(address hookMetadataTarget) internal view returns (bytes memory) {
+    function _buildPayMetadataNoQuote(address hookMetadataTarget) internal pure returns (bytes memory) {
         uint16[] memory tierIds = new uint16[](1);
         tierIds[0] = 1;
         bytes memory tierData = abi.encode(true, tierIds);
