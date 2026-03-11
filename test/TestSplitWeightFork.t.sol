@@ -41,7 +41,6 @@ import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 import {JBBuybackHook} from "@bananapus/buyback-hook-v6/src/JBBuybackHook.sol";
 import {JBBuybackHookRegistry} from "@bananapus/buyback-hook-v6/src/JBBuybackHookRegistry.sol";
 import {IJBBuybackHook} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHook.sol";
-import {IWETH9} from "@bananapus/buyback-hook-v6/src/interfaces/external/IWETH9.sol";
 import {IGeomeanOracle} from "@bananapus/buyback-hook-v6/src/interfaces/IGeomeanOracle.sol";
 
 // Uniswap V4
@@ -207,7 +206,6 @@ contract TestSplitWeightFork is TestBaseWorkflow {
     // ─────────────────────────
 
     address constant POOL_MANAGER_ADDR = 0x000000000004444c5dc75cB358380D2e3dE08A90;
-    address constant WETH_ADDR = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
     /// @notice Full-range tick bounds for tickSpacing = 200.
     int24 constant TICK_LOWER = -887_200;
@@ -227,7 +225,6 @@ contract TestSplitWeightFork is TestBaseWorkflow {
     IJBSuckerRegistry SUCKER_REGISTRY;
     CTPublisher PUBLISHER;
     IPoolManager poolManager;
-    IWETH9 weth;
     LiquidityHelper liqHelper;
 
     uint256 FEE_PROJECT_ID;
@@ -255,7 +252,6 @@ contract TestSplitWeightFork is TestBaseWorkflow {
         super.setUp();
 
         poolManager = IPoolManager(POOL_MANAGER_ADDR);
-        weth = IWETH9(WETH_ADDR);
         liqHelper = new LiquidityHelper(poolManager);
 
         FEE_PROJECT_ID = jbProjects().createFor(multisig());
@@ -275,7 +271,6 @@ contract TestSplitWeightFork is TestBaseWorkflow {
             jbPrices(),
             jbProjects(),
             jbTokens(),
-            weth,
             poolManager,
             address(0) // trustedForwarder
         );
@@ -449,26 +444,17 @@ contract TestSplitWeightFork is TestBaseWorkflow {
         });
     }
 
-    /// @notice Set up a V4 pool for the revnet's project token / WETH pair and register it with the buyback hook.
+    /// @notice Set up a V4 pool for the revnet's project token / native ETH pair and register it with the buyback hook.
     function _setupPool(uint256 revnetId, uint256 liquidityTokenAmount) internal returns (PoolKey memory key) {
         // Get the project token.
         address projectToken = address(jbTokens().tokenOf(revnetId));
         require(projectToken != address(0), "project token not deployed");
 
-        // Build sorted pool key.
-        address token0;
-        address token1;
-        if (projectToken < WETH_ADDR) {
-            token0 = projectToken;
-            token1 = WETH_ADDR;
-        } else {
-            token0 = WETH_ADDR;
-            token1 = projectToken;
-        }
-
+        // Native ETH is represented as address(0) in V4 pool keys.
+        // address(0) is always less than any deployed token address.
         key = PoolKey({
-            currency0: Currency.wrap(token0),
-            currency1: Currency.wrap(token1),
+            currency0: Currency.wrap(address(0)),
+            currency1: Currency.wrap(projectToken),
             fee: REV_DEPLOYER.DEFAULT_BUYBACK_POOL_FEE(),
             tickSpacing: REV_DEPLOYER.DEFAULT_BUYBACK_TICK_SPACING(),
             hooks: IHooks(address(0))
@@ -481,20 +467,18 @@ contract TestSplitWeightFork is TestBaseWorkflow {
         // deal() skips ERC20Votes checkpoints, causing underflow when tokens are burned.
         vm.prank(address(jbController()));
         jbTokens().mintFor(address(liqHelper), revnetId, liquidityTokenAmount);
+        // Fund with ETH for the native currency side.
         vm.deal(address(liqHelper), liquidityTokenAmount);
-        vm.prank(address(liqHelper));
-        IWETH9(WETH_ADDR).deposit{value: liquidityTokenAmount}();
 
-        // Approve PoolManager to spend tokens from LiquidityHelper.
+        // Approve PoolManager to spend project tokens from LiquidityHelper.
         vm.startPrank(address(liqHelper));
         IERC20(projectToken).approve(address(poolManager), type(uint256).max);
-        IERC20(WETH_ADDR).approve(address(poolManager), type(uint256).max);
         vm.stopPrank();
 
         // Add full-range liquidity.
         int256 liquidityDelta = int256(liquidityTokenAmount / 2);
         vm.prank(address(liqHelper));
-        liqHelper.addLiquidity(key, TICK_LOWER, TICK_UPPER, liquidityDelta);
+        liqHelper.addLiquidity{value: liquidityTokenAmount}(key, TICK_LOWER, TICK_UPPER, liquidityDelta);
 
         // Mock the oracle at address(0) for hookless pools.
         _mockOracle(liquidityDelta, 0, uint32(REV_DEPLOYER.DEFAULT_BUYBACK_TWAP_WINDOW()));
@@ -582,21 +566,16 @@ contract TestSplitWeightFork is TestBaseWorkflow {
         (uint256 revnetId, IJB721TiersHook hook) = _deployRevnetWith721();
 
         // Pool is initialized at tick 0 (1:1) by REVDeployer during deployment.
-        // We need the pool price to favor buying project tokens: > 1000 tokens/WETH.
-        // Strategy: add liquidity, then swap project tokens for WETH to move the tick.
+        // We need the pool price to favor buying project tokens: > 1000 tokens/ETH.
+        // Strategy: add liquidity, then swap project tokens for ETH to move the tick.
 
         address projectToken = address(jbTokens().tokenOf(revnetId));
         require(projectToken != address(0), "project token not deployed");
 
-        bool projectTokenIs0 = projectToken < WETH_ADDR;
-
-        // Build sorted pool key.
-        address token0 = projectTokenIs0 ? projectToken : WETH_ADDR;
-        address token1 = projectTokenIs0 ? WETH_ADDR : projectToken;
-
+        // Native ETH is address(0), always less than any deployed token.
         PoolKey memory key = PoolKey({
-            currency0: Currency.wrap(token0),
-            currency1: Currency.wrap(token1),
+            currency0: Currency.wrap(address(0)),
+            currency1: Currency.wrap(projectToken),
             fee: REV_DEPLOYER.DEFAULT_BUYBACK_POOL_FEE(),
             tickSpacing: REV_DEPLOYER.DEFAULT_BUYBACK_TICK_SPACING(),
             hooks: IHooks(address(0))
@@ -605,35 +584,32 @@ contract TestSplitWeightFork is TestBaseWorkflow {
         // Seed liquidity. We need both tokens.
         // IMPORTANT: Use JBTokens.mintFor (not deal) so ERC20Votes checkpoints are updated.
         uint256 projectLiq = 10_000_000e18;
-        uint256 wethLiq = 5000e18;
+        uint256 ethLiq = 5000e18;
 
         vm.prank(address(jbController()));
         jbTokens().mintFor(address(liqHelper), revnetId, projectLiq);
-        vm.deal(address(liqHelper), wethLiq);
-        vm.prank(address(liqHelper));
-        IWETH9(WETH_ADDR).deposit{value: wethLiq}();
+        vm.deal(address(liqHelper), ethLiq);
 
         vm.startPrank(address(liqHelper));
         IERC20(projectToken).approve(address(poolManager), type(uint256).max);
-        IERC20(WETH_ADDR).approve(address(poolManager), type(uint256).max);
         vm.stopPrank();
 
         // Add full-range liquidity at tick 0 (1:1 price).
-        int256 liquidityDelta = int256(wethLiq / 4);
+        int256 liquidityDelta = int256(ethLiq / 4);
         vm.prank(address(liqHelper));
-        liqHelper.addLiquidity(key, TICK_LOWER, TICK_UPPER, liquidityDelta);
+        liqHelper.addLiquidity{value: ethLiq}(key, TICK_LOWER, TICK_UPPER, liquidityDelta);
 
-        // Swap a large amount of project tokens for WETH to move the price.
-        // This makes project tokens cheaper → more tokens per WETH → swap path wins.
+        // Swap a large amount of project tokens for ETH to move the price.
+        // This makes project tokens cheaper (more tokens per ETH) so the swap path wins.
         uint256 swapAmount = 5_000_000e18;
         vm.prank(address(jbController()));
         jbTokens().mintFor(address(liqHelper), revnetId, swapAmount);
 
-        // Determine swap direction: sell projectToken for WETH.
-        bool zeroForOne = projectTokenIs0; // If projectToken is token0, swap 0→1.
-        uint160 sqrtPriceLimit = zeroForOne
-            ? TickMath.getSqrtPriceAtTick(-76_000)  // Push price down (project tokens cheaper).
-            : TickMath.getSqrtPriceAtTick(76_000); // Push price up.
+        // currency0 is native ETH (address(0)), currency1 is projectToken.
+        // To sell projectToken for ETH (making project tokens cheaper), swap 1->0 (zeroForOne = false).
+        // zeroForOne=false pushes sqrtPrice up (more projectTokens per ETH).
+        bool zeroForOne = false;
+        uint160 sqrtPriceLimit = TickMath.getSqrtPriceAtTick(76_000);
 
         vm.prank(address(liqHelper));
         liqHelper.swap(key, zeroForOne, -int256(swapAmount), sqrtPriceLimit);
@@ -686,7 +662,7 @@ contract TestSplitWeightFork is TestBaseWorkflow {
         (uint256 revnetId, IJB721TiersHook hook) = _deployRevnetWith721();
 
         // Set up pool with 1:1 price. At this price:
-        //   0.7 WETH → ~0.7 tokens from pool (after fees).
+        //   0.7 ETH → ~0.7 tokens from pool (after fees).
         //   Direct minting: 700 tokens.
         //   Minting wins by a huge margin → buyback returns context.weight unchanged.
         _setupPool(revnetId, 10_000 ether);
@@ -694,7 +670,7 @@ contract TestSplitWeightFork is TestBaseWorkflow {
         // Build metadata: mint tier 1 + quote for "swap" with 0.7 ETH, but expect many tokens (forces mint path).
         // When minimumSwapAmountOut > actual pool output, the buyback hook falls back to minting.
         // Actually the buyback hook uses max(payerQuote, twapQuote). If we set minimumSwapAmountOut=0,
-        // it'll use the TWAP/spot quote. At 1:1 pool price, spot says ~0.7 tokens for 0.7 WETH.
+        // it'll use the TWAP/spot quote. At 1:1 pool price, spot says ~0.7 tokens for 0.7 ETH.
         // tokenCountWithoutHook = 700 tokens. 700 > ~0.7 → mint wins.
         // We don't even need quote metadata — the spot fallback handles it.
         address metadataTarget = hook.METADATA_ID_TARGET();

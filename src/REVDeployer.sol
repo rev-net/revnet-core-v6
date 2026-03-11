@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {mulDiv} from "@prb/math/src/Common.sol";
@@ -484,9 +485,22 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     }
 
     /// @notice Try to initialize and configure a buyback pool for a terminal token. Silently catches failures.
+    /// @dev Computes the initial pool price from the issuance weight so the pool starts at a price consistent with
+    /// the project's mint rate. This ensures the LP split hook can provision liquidity in the correct tick range.
     /// @param revnetId The ID of the revnet.
     /// @param terminalToken The terminal token to configure a buyback pool for.
-    function _tryInitializeBuybackPoolFor(uint256 revnetId, address terminalToken) internal {
+    /// @param weight The initial issuance weight (tokens per 1e18 terminal tokens).
+    function _tryInitializeBuybackPoolFor(uint256 revnetId, address terminalToken, uint256 weight) internal {
+        // If weight is 0, no tokens are issued — skip pool initialization.
+        if (weight == 0) return;
+
+        // Compute sqrtPriceX96 from the issuance weight.
+        // The pool is native ETH (address(0)) = currency0, projectToken = currency1.
+        // price = tokens_per_ETH = weight / 1e18 (weight has 18 implicit decimals).
+        // sqrtPriceX96 = sqrt(price) * 2^96 = sqrt(weight) * 2^96 / sqrt(1e18)
+        //              = sqrt(weight) * 2^96 / 1e9
+        uint160 sqrtPriceX96 = uint160(Math.sqrt(weight) * (1 << 96) / 1e9);
+
         // Try to initialize and set the pool — atomically creates the pool in the PoolManager and configures the
         // buyback hook.
         // slither-disable-next-line calls-loop
@@ -495,9 +509,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             fee: DEFAULT_BUYBACK_POOL_FEE,
             tickSpacing: DEFAULT_BUYBACK_TICK_SPACING,
             twapWindow: DEFAULT_BUYBACK_TWAP_WINDOW,
-            terminalToken: terminalToken
-        }) {}
-            catch {}
+            terminalToken: terminalToken,
+            sqrtPriceX96: sqrtPriceX96
+        }) {} catch {}
     }
 
     /// @notice Make a ruleset configuration for a revnet's stage.
@@ -1057,9 +1071,13 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         });
 
         // Initialize buyback pools for each terminal token (must happen after ERC-20 exists).
+        // Use the first ruleset's weight as the initial issuance price for the pool.
+        uint256 initialWeight = rulesetConfigurations[0].weight;
         for (uint256 i; i < terminalConfigurations.length; i++) {
             for (uint256 j; j < terminalConfigurations[i].accountingContextsToAccept.length; j++) {
-                _tryInitializeBuybackPoolFor(revnetId, terminalConfigurations[i].accountingContextsToAccept[j].token);
+                _tryInitializeBuybackPoolFor(
+                    revnetId, terminalConfigurations[i].accountingContextsToAccept[j].token, initialWeight
+                );
             }
         }
 

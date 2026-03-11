@@ -42,7 +42,6 @@ import {REVCroptopAllowedPost} from "../../src/structs/REVCroptopAllowedPost.sol
 import {JBBuybackHook} from "@bananapus/buyback-hook-v6/src/JBBuybackHook.sol";
 import {JBBuybackHookRegistry} from "@bananapus/buyback-hook-v6/src/JBBuybackHookRegistry.sol";
 import {IJBBuybackHook} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHook.sol";
-import {IWETH9} from "@bananapus/buyback-hook-v6/src/interfaces/external/IWETH9.sol";
 import {IGeomeanOracle} from "@bananapus/buyback-hook-v6/src/interfaces/IGeomeanOracle.sol";
 
 // Uniswap V4
@@ -204,7 +203,6 @@ abstract contract ForkTestBase is TestBaseWorkflow {
     // ─────────────────────────
 
     address constant POOL_MANAGER_ADDR = 0x000000000004444c5dc75cB358380D2e3dE08A90;
-    address constant WETH_ADDR = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
     /// @notice Full-range tick bounds for tickSpacing = 60.
     int24 constant TICK_LOWER = -887_200;
@@ -224,7 +222,6 @@ abstract contract ForkTestBase is TestBaseWorkflow {
     IJBSuckerRegistry SUCKER_REGISTRY;
     CTPublisher PUBLISHER;
     IPoolManager poolManager;
-    IWETH9 weth;
     LiquidityHelper liqHelper;
 
     uint256 FEE_PROJECT_ID;
@@ -253,7 +250,6 @@ abstract contract ForkTestBase is TestBaseWorkflow {
         super.setUp();
 
         poolManager = IPoolManager(POOL_MANAGER_ADDR);
-        weth = IWETH9(WETH_ADDR);
         liqHelper = new LiquidityHelper(poolManager);
 
         FEE_PROJECT_ID = jbProjects().createFor(multisig());
@@ -273,7 +269,6 @@ abstract contract ForkTestBase is TestBaseWorkflow {
             jbPrices(),
             jbProjects(),
             jbTokens(),
-            weth,
             poolManager,
             address(0) // trustedForwarder
         );
@@ -467,47 +462,40 @@ abstract contract ForkTestBase is TestBaseWorkflow {
     // ───────────────────────── Pool Helpers
     // ─────────────────────────
 
-    /// @notice Set up a V4 pool for the revnet's project token / WETH pair at 1:1 price.
+    /// @notice Set up a V4 pool for the revnet's project token / native ETH pair at 1:1 price.
     function _setupPool(uint256 revnetId, uint256 liquidityTokenAmount) internal returns (PoolKey memory key) {
         address projectToken = address(jbTokens().tokenOf(revnetId));
         require(projectToken != address(0), "project token not deployed");
 
-        address token0;
-        address token1;
-        if (projectToken < WETH_ADDR) {
-            token0 = projectToken;
-            token1 = WETH_ADDR;
-        } else {
-            token0 = WETH_ADDR;
-            token1 = projectToken;
-        }
-
+        // Native ETH is represented as address(0) in V4 pool keys.
+        // address(0) is always less than any deployed token address.
         key = PoolKey({
-            currency0: Currency.wrap(token0),
-            currency1: Currency.wrap(token1),
+            currency0: Currency.wrap(address(0)),
+            currency1: Currency.wrap(projectToken),
             fee: REV_DEPLOYER.DEFAULT_BUYBACK_POOL_FEE(),
             tickSpacing: REV_DEPLOYER.DEFAULT_BUYBACK_TICK_SPACING(),
             hooks: IHooks(address(0))
         });
 
-        // Pool is already initialized and registered by REVDeployer during deployment.
-        // This helper only adds liquidity to the existing pool.
+        // Pool is already initialized and registered by REVDeployer during deployment
+        // at the issuance weight (1000 tokens/ETH). Full-range liquidity at that price
+        // requires ~sqrt(1000) ≈ 31.6x more project tokens than ETH.
+        // Mint enough project tokens to cover the asymmetric requirement.
+        uint256 projectTokenAmount = liquidityTokenAmount * INITIAL_ISSUANCE / 1e18;
 
         // Fund LiquidityHelper with project tokens via JBTokens.mintFor (not deal).
         vm.prank(address(jbController()));
-        jbTokens().mintFor(address(liqHelper), revnetId, liquidityTokenAmount);
+        jbTokens().mintFor(address(liqHelper), revnetId, projectTokenAmount);
+        // Fund with ETH for the native currency side.
         vm.deal(address(liqHelper), liquidityTokenAmount);
-        vm.prank(address(liqHelper));
-        IWETH9(WETH_ADDR).deposit{value: liquidityTokenAmount}();
 
         vm.startPrank(address(liqHelper));
         IERC20(projectToken).approve(address(poolManager), type(uint256).max);
-        IERC20(WETH_ADDR).approve(address(poolManager), type(uint256).max);
         vm.stopPrank();
 
         int256 liquidityDelta = int256(liquidityTokenAmount / 2);
         vm.prank(address(liqHelper));
-        liqHelper.addLiquidity(key, TICK_LOWER, TICK_UPPER, liquidityDelta);
+        liqHelper.addLiquidity{value: liquidityTokenAmount}(key, TICK_LOWER, TICK_UPPER, liquidityDelta);
 
         _mockOracle(liquidityDelta, 0, uint32(REV_DEPLOYER.DEFAULT_BUYBACK_TWAP_WINDOW()));
     }

@@ -29,45 +29,41 @@ contract TestSplitWeightFork is ForkTestBase {
         address projectToken = address(jbTokens().tokenOf(revnetId));
         require(projectToken != address(0), "project token not deployed");
 
-        bool projectTokenIs0 = projectToken < WETH_ADDR;
-
-        address token0 = projectTokenIs0 ? projectToken : WETH_ADDR;
-        address token1 = projectTokenIs0 ? WETH_ADDR : projectToken;
-
+        // Native ETH is address(0), always less than any deployed token.
         PoolKey memory key = PoolKey({
-            currency0: Currency.wrap(token0),
-            currency1: Currency.wrap(token1),
+            currency0: Currency.wrap(address(0)),
+            currency1: Currency.wrap(projectToken),
             fee: REV_DEPLOYER.DEFAULT_BUYBACK_POOL_FEE(),
             tickSpacing: REV_DEPLOYER.DEFAULT_BUYBACK_TICK_SPACING(),
             hooks: IHooks(address(0))
         });
 
         uint256 projectLiq = 10_000_000e18;
-        uint256 wethLiq = 5000e18;
+        uint256 ethLiq = 5000e18;
 
         vm.prank(address(jbController()));
         jbTokens().mintFor(address(liqHelper), revnetId, projectLiq);
-        vm.deal(address(liqHelper), wethLiq);
-        vm.prank(address(liqHelper));
-        IWETH9(WETH_ADDR).deposit{value: wethLiq}();
+        vm.deal(address(liqHelper), ethLiq);
 
         vm.startPrank(address(liqHelper));
         IERC20(projectToken).approve(address(poolManager), type(uint256).max);
-        IERC20(WETH_ADDR).approve(address(poolManager), type(uint256).max);
         vm.stopPrank();
 
         // Add full-range liquidity at tick 0 (1:1 price).
-        int256 liquidityDelta = int256(wethLiq / 4);
+        int256 liquidityDelta = int256(ethLiq / 4);
         vm.prank(address(liqHelper));
-        liqHelper.addLiquidity(key, TICK_LOWER, TICK_UPPER, liquidityDelta);
+        liqHelper.addLiquidity{value: ethLiq}(key, TICK_LOWER, TICK_UPPER, liquidityDelta);
 
-        // Swap a large amount of project tokens for WETH to move the price.
+        // Swap a large amount of project tokens for ETH to move the price.
         uint256 swapAmount = 5_000_000e18;
         vm.prank(address(jbController()));
         jbTokens().mintFor(address(liqHelper), revnetId, swapAmount);
 
-        bool zeroForOne = projectTokenIs0;
-        uint160 sqrtPriceLimit = zeroForOne ? TickMath.getSqrtPriceAtTick(-76_000) : TickMath.getSqrtPriceAtTick(76_000);
+        // currency0 is native ETH (address(0)), currency1 is projectToken.
+        // To sell projectToken for ETH (making project tokens cheaper), swap 1->0 (zeroForOne = false).
+        // zeroForOne=false pushes sqrtPrice up (more projectTokens per ETH).
+        bool zeroForOne = false;
+        uint160 sqrtPriceLimit = TickMath.getSqrtPriceAtTick(76_000);
 
         vm.prank(address(liqHelper));
         liqHelper.swap(key, zeroForOne, -int256(swapAmount), sqrtPriceLimit);
