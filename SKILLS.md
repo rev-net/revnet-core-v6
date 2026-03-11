@@ -17,8 +17,8 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 
 | Function | What it does |
 |----------|-------------|
-| `REVDeployer.deployFor(revnetId, config, terminals, buybackHookConfig, suckerConfig)` | Deploy a new revnet (`revnetId=0`) or convert an existing Juicebox project. Encodes stage configs into rulesets, deploys ERC-20 token, sets up split operator, buyback pools, suckers, and loans permissions. |
-| `REVDeployer.deployWith721sFor(revnetId, config, terminals, buybackHookConfig, suckerConfig, hookConfig, allowedPosts)` | Same as `deployFor` but also deploys a tiered ERC-721 hook. Optionally configures Croptop posting criteria and grants publisher permission to add tiers. |
+| `REVDeployer.deployFor(revnetId, config, terminals, suckerConfig)` | Deploy a new revnet (`revnetId=0`) or convert an existing Juicebox project. Encodes stage configs into rulesets, deploys ERC-20 token, initializes buyback pool at 1:1 price, sets up split operator, suckers, and loans permissions. |
+| `REVDeployer.deployWith721sFor(revnetId, config, terminals, suckerConfig, hookConfig, allowedPosts)` | Same as `deployFor` but also deploys a tiered ERC-721 hook. Optionally configures Croptop posting criteria and grants publisher permission to add tiers. |
 | `REVDeployer.deploySuckersFor(revnetId, suckerConfig)` | Deploy new cross-chain suckers post-launch. Split operator only. Validates ruleset allows sucker deployment (bit 2 of `extraMetadata`). Uses stored config hash for cross-chain matching. |
 
 ### Data Hooks
@@ -187,7 +187,6 @@ JBAccountingContext({
 import {REVConfig} from "@rev-net/core-v6/src/structs/REVConfig.sol";
 import {REVStageConfig} from "@rev-net/core-v6/src/structs/REVStageConfig.sol";
 import {REVDescription} from "@rev-net/core-v6/src/structs/REVDescription.sol";
-import {REVBuybackHookConfig} from "@rev-net/core-v6/src/structs/REVBuybackHookConfig.sol";
 import {REVSuckerDeploymentConfig} from "@rev-net/core-v6/src/structs/REVSuckerDeploymentConfig.sol";
 import {IREVDeployer} from "@rev-net/core-v6/src/interfaces/IREVDeployer.sol";
 
@@ -224,11 +223,6 @@ deployer.deployFor({
     revnetId: 0,                           // 0 = deploy new
     configuration: config,
     terminalConfigurations: terminals,
-    buybackHookConfiguration: REVBuybackHookConfig({
-        dataHook: IJBRulesetDataHook(address(0)),
-        hookToConfigure: IJBBuybackHook(address(0)),
-        poolConfigurations: new REVBuybackPoolConfig[](0)
-    }),
     suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
         deployerConfigurations: new JBSuckerDeployerConfig[](0),
         salt: bytes32(0)

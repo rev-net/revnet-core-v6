@@ -16,9 +16,9 @@ Revnets are autonomous Juicebox projects with predetermined economic stages. Eac
 
 ```
 1. Deploy revnet with stage configurations
-   → REVDeployer.deployFor(revnetId=0, config, terminals, ...)
+   → REVDeployer.deployFor(revnetId=0, config, terminals, suckerConfig)
    → Creates Juicebox project owned by REVDeployer (permanently)
-   → Deploys ERC-20 token, configures buyback pools, deploys suckers
+   → Deploys ERC-20 token, initializes buyback pools at 1:1 price, deploys suckers
    |
 2. Stage 1 begins (startsAtOrAfter or block.timestamp)
    → Tokens issued at initialIssuance rate per unit of base currency
