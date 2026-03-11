@@ -477,15 +477,8 @@ abstract contract ForkTestBase is TestBaseWorkflow {
             hooks: IHooks(address(0))
         });
 
-        // Initialize the pool at 1:1 price (sqrtPriceX96 = 2^96).
-        // REVDeployer only calls setPoolFor (which silently fails if pool isn't initialized yet),
-        // so the pool must be initialized externally first, then registered with the buyback hook.
-        poolManager.initialize(key, uint160(1 << 96));
-
-        // Register the pool with the buyback hook (requires SET_BUYBACK_POOL permission from the project owner).
-        uint256 twapWindow = uint256(REV_DEPLOYER.DEFAULT_BUYBACK_TWAP_WINDOW());
-        vm.prank(address(REV_DEPLOYER));
-        BUYBACK_REGISTRY.setPoolFor(revnetId, key.fee, key.tickSpacing, twapWindow, JBConstants.NATIVE_TOKEN);
+        // Pool is already initialized at 1:1 price by REVDeployer during deployment.
+        // Just add liquidity and mock the oracle.
 
         // At 1:1 price, full-range liquidity needs equal amounts of both tokens.
         uint256 projectTokenAmount = liquidityTokenAmount;

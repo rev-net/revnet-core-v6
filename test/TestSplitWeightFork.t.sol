@@ -460,17 +460,8 @@ contract TestSplitWeightFork is TestBaseWorkflow {
             hooks: IHooks(address(0))
         });
 
-        // Initialize the pool at 1:1 price (sqrtPriceX96 = 2^96).
-        // REVDeployer only calls setPoolFor (which silently fails if pool isn't initialized yet),
-        // so the pool must be initialized externally first, then registered with the buyback hook.
-        poolManager.initialize(key, uint160(1 << 96));
-
-        // Register the pool with the buyback hook (requires SET_BUYBACK_POOL permission from the project owner).
-        uint256 twapWindow = uint256(REV_DEPLOYER.DEFAULT_BUYBACK_TWAP_WINDOW());
-        vm.prank(address(REV_DEPLOYER));
-        BUYBACK_REGISTRY.setPoolFor(revnetId, key.fee, key.tickSpacing, twapWindow, JBConstants.NATIVE_TOKEN);
-
-        // At 1:1 price, full-range liquidity needs equal amounts of both tokens.
+        // Pool is already initialized at 1:1 price by REVDeployer during deployment.
+        // Just add liquidity and mock the oracle.
 
         // Fund LiquidityHelper with project tokens via JBTokens.mintFor (not deal).
         // deal() skips ERC20Votes checkpoints, causing underflow when tokens are burned.
@@ -589,11 +580,7 @@ contract TestSplitWeightFork is TestBaseWorkflow {
             hooks: IHooks(address(0))
         });
 
-        // Initialize pool at 1:1 price and register with buyback hook.
-        poolManager.initialize(key, uint160(1 << 96));
-        uint256 twapWindow = uint256(REV_DEPLOYER.DEFAULT_BUYBACK_TWAP_WINDOW());
-        vm.prank(address(REV_DEPLOYER));
-        BUYBACK_REGISTRY.setPoolFor(revnetId, key.fee, key.tickSpacing, twapWindow, JBConstants.NATIVE_TOKEN);
+        // Pool is already initialized at 1:1 price by REVDeployer during deployment.
 
         // Seed liquidity. We need both tokens.
         // IMPORTANT: Use JBTokens.mintFor (not deal) so ERC20Votes checkpoints are updated.

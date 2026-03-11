@@ -442,17 +442,14 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         return SUCKER_REGISTRY.isSuckerOf({projectId: revnetId, addr: addr});
     }
 
-    /// @notice Initialize fund access limits for the loan contract and configure buyback pools for each terminal token.
+    /// @notice Initialize fund access limits for the loan contract.
     /// @dev Returns an unlimited surplus allowance for each terminal+token pair derived from the terminal
-    /// configurations. Also auto-configures a buyback pool for each token with sensible defaults (1% fee, 2-day TWAP).
-    /// @param revnetId The ID of the revnet to configure buyback pools for.
+    /// configurations.
     /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
     /// @return fundAccessLimitGroups The fund access limit groups for the loans.
-    function _makeLoanFundAccessLimitsAndBuybackPools(
-        uint256 revnetId,
-        JBTerminalConfig[] calldata terminalConfigurations
-    )
+    function _makeLoanFundAccessLimits(JBTerminalConfig[] calldata terminalConfigurations)
         internal
+        pure
         returns (JBFundAccessLimitGroup[] memory fundAccessLimitGroups)
     {
         // Count the total number of accounting contexts across all terminals.
@@ -464,7 +461,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         // Initialize the fund access limit groups.
         fundAccessLimitGroups = new JBFundAccessLimitGroup[](count);
 
-        // Set up the fund access limits and buyback pools.
+        // Set up the fund access limits.
         uint256 index;
         for (uint256 i; i < terminalConfigurations.length; i++) {
             JBTerminalConfig calldata terminalConfiguration = terminalConfigurations[i];
@@ -482,30 +479,28 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
                     payoutLimits: new JBCurrencyAmount[](0),
                     surplusAllowances: loanAllowances
                 });
-
-                // Configure a buyback pool for this terminal token with default fee and TWAP window.
-                // slither-disable-next-line calls-loop
-                _trySetBuybackPoolFor(revnetId, accountingContext.token);
             }
         }
     }
 
-    /// @notice Try to configure a buyback pool for a terminal token. Silently catches failures (e.g., if the Uniswap V4
-    /// pool isn't initialized yet).
+    /// @notice Try to initialize a Uniswap V4 buyback pool for a terminal token at a generic 1:1 price.
+    /// @dev Called after the ERC-20 token is deployed so the pool can be initialized in the PoolManager.
+    /// Silently catches failures (e.g., if the pool is already initialized).
     /// @param revnetId The ID of the revnet.
-    /// @param terminalToken The terminal token to configure a buyback pool for.
-    function _trySetBuybackPoolFor(uint256 revnetId, address terminalToken) internal {
-        // Try to set the pool — if the pool isn't initialized in the PoolManager yet, this will revert and be caught.
+    /// @param terminalToken The terminal token to initialize a buyback pool for.
+    function _tryInitializeBuybackPoolFor(uint256 revnetId, address terminalToken) internal {
+        // Try to initialize the pool at a generic 1:1 sqrtPriceX96 and configure the buyback hook.
         // The buyback hook constructs the PoolKey internally from the project token, terminal token, and pool params.
         // slither-disable-next-line calls-loop
-        try BUYBACK_HOOK.setPoolFor({
+        try BUYBACK_HOOK.initializePoolFor({
             projectId: revnetId,
             fee: DEFAULT_BUYBACK_POOL_FEE,
             tickSpacing: DEFAULT_BUYBACK_TICK_SPACING,
             twapWindow: DEFAULT_BUYBACK_TWAP_WINDOW,
-            terminalToken: terminalToken
+            terminalToken: terminalToken,
+            sqrtPriceX96: uint160(1 << 96)
         }) {}
-            catch {} // Pool may not be initialized yet — that's OK.
+            catch {} // Pool may already be initialized — that's OK.
     }
 
     /// @notice Make a ruleset configuration for a revnet's stage.
@@ -1064,6 +1059,15 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             salt: keccak256(abi.encode(configuration.description.salt, encodedConfigurationHash, _msgSender()))
         });
 
+        // Now that the ERC-20 exists, initialize buyback pools for each terminal token.
+        for (uint256 i; i < terminalConfigurations.length; i++) {
+            JBTerminalConfig calldata terminalConfiguration = terminalConfigurations[i];
+            for (uint256 j; j < terminalConfiguration.accountingContextsToAccept.length; j++) {
+                // slither-disable-next-line calls-loop
+                _tryInitializeBuybackPoolFor(revnetId, terminalConfiguration.accountingContextsToAccept[j].token);
+            }
+        }
+
         // Give the split operator their permissions.
         _setSplitOperatorOf({revnetId: revnetId, operator: configuration.splitOperator});
 
@@ -1154,10 +1158,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             configuration.description.salt
         );
 
-        // Initialize fund access limit groups for the loan contract and configure buyback pools.
-        JBFundAccessLimitGroup[] memory fundAccessLimitGroups = _makeLoanFundAccessLimitsAndBuybackPools({
-            revnetId: revnetId, terminalConfigurations: terminalConfigurations
-        });
+        // Initialize fund access limit groups for the loan contract.
+        JBFundAccessLimitGroup[] memory fundAccessLimitGroups =
+            _makeLoanFundAccessLimits({terminalConfigurations: terminalConfigurations});
 
         // Iterate through each stage to set up its ruleset.
         for (uint256 i; i < configuration.stageConfigurations.length; i++) {
