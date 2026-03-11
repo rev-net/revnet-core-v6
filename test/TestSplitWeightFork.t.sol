@@ -460,8 +460,17 @@ contract TestSplitWeightFork is TestBaseWorkflow {
             hooks: IHooks(address(0))
         });
 
-        // Pool is already initialized and registered by REVDeployer during deployment.
-        // This helper only adds liquidity to the existing pool.
+        // Initialize the pool at 1:1 price (sqrtPriceX96 = 2^96).
+        // REVDeployer only calls setPoolFor (which silently fails if pool isn't initialized yet),
+        // so the pool must be initialized externally first, then registered with the buyback hook.
+        poolManager.initialize(key, uint160(1 << 96));
+
+        // Register the pool with the buyback hook (requires SET_BUYBACK_POOL permission from the project owner).
+        uint256 twapWindow = uint256(REV_DEPLOYER.DEFAULT_BUYBACK_TWAP_WINDOW());
+        vm.prank(address(REV_DEPLOYER));
+        BUYBACK_REGISTRY.setPoolFor(revnetId, key.fee, key.tickSpacing, twapWindow, JBConstants.NATIVE_TOKEN);
+
+        // At 1:1 price, full-range liquidity needs equal amounts of both tokens.
 
         // Fund LiquidityHelper with project tokens via JBTokens.mintFor (not deal).
         // deal() skips ERC20Votes checkpoints, causing underflow when tokens are burned.
@@ -565,9 +574,8 @@ contract TestSplitWeightFork is TestBaseWorkflow {
     function test_fork_swapPath_splitWithBuyback() public {
         (uint256 revnetId, IJB721TiersHook hook) = _deployRevnetWith721();
 
-        // Pool is initialized at tick 0 (1:1) by REVDeployer during deployment.
-        // We need the pool price to favor buying project tokens: > 1000 tokens/ETH.
-        // Strategy: add liquidity, then swap project tokens for ETH to move the tick.
+        // We need to initialize the pool and get the price to favor buying project tokens: > 1000 tokens/ETH.
+        // Strategy: initialize pool, add liquidity, then swap project tokens for ETH to move the tick.
 
         address projectToken = address(jbTokens().tokenOf(revnetId));
         require(projectToken != address(0), "project token not deployed");
@@ -580,6 +588,12 @@ contract TestSplitWeightFork is TestBaseWorkflow {
             tickSpacing: REV_DEPLOYER.DEFAULT_BUYBACK_TICK_SPACING(),
             hooks: IHooks(address(0))
         });
+
+        // Initialize pool at 1:1 price and register with buyback hook.
+        poolManager.initialize(key, uint160(1 << 96));
+        uint256 twapWindow = uint256(REV_DEPLOYER.DEFAULT_BUYBACK_TWAP_WINDOW());
+        vm.prank(address(REV_DEPLOYER));
+        BUYBACK_REGISTRY.setPoolFor(revnetId, key.fee, key.tickSpacing, twapWindow, JBConstants.NATIVE_TOKEN);
 
         // Seed liquidity. We need both tokens.
         // IMPORTANT: Use JBTokens.mintFor (not deal) so ERC20Votes checkpoints are updated.

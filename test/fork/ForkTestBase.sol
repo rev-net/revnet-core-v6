@@ -477,11 +477,18 @@ abstract contract ForkTestBase is TestBaseWorkflow {
             hooks: IHooks(address(0))
         });
 
-        // Pool is already initialized and registered by REVDeployer during deployment
-        // at the issuance weight (1000 tokens/ETH). Full-range liquidity at that price
-        // requires ~sqrt(1000) ≈ 31.6x more project tokens than ETH.
-        // Mint enough project tokens to cover the asymmetric requirement.
-        uint256 projectTokenAmount = liquidityTokenAmount * INITIAL_ISSUANCE / 1e18;
+        // Initialize the pool at 1:1 price (sqrtPriceX96 = 2^96).
+        // REVDeployer only calls setPoolFor (which silently fails if pool isn't initialized yet),
+        // so the pool must be initialized externally first, then registered with the buyback hook.
+        poolManager.initialize(key, uint160(1 << 96));
+
+        // Register the pool with the buyback hook (requires SET_BUYBACK_POOL permission from the project owner).
+        uint256 twapWindow = uint256(REV_DEPLOYER.DEFAULT_BUYBACK_TWAP_WINDOW());
+        vm.prank(address(REV_DEPLOYER));
+        BUYBACK_REGISTRY.setPoolFor(revnetId, key.fee, key.tickSpacing, twapWindow, JBConstants.NATIVE_TOKEN);
+
+        // At 1:1 price, full-range liquidity needs equal amounts of both tokens.
+        uint256 projectTokenAmount = liquidityTokenAmount;
 
         // Fund LiquidityHelper with project tokens via JBTokens.mintFor (not deal).
         vm.prank(address(jbController()));

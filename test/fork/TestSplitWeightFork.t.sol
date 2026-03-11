@@ -23,8 +23,8 @@ contract TestSplitWeightFork is ForkTestBase {
         _deployFeeProject(5000);
         (uint256 revnetId, IJB721TiersHook hook) = _deployRevnetWith721(5000);
 
-        // Pool is initialized at tick 0 (1:1) by REVDeployer during deployment.
-        // We need to move the price so project tokens are cheap (swap path wins).
+        // Initialize pool and register with buyback hook, then move the price
+        // so project tokens are cheap (swap path wins).
 
         address projectToken = address(jbTokens().tokenOf(revnetId));
         require(projectToken != address(0), "project token not deployed");
@@ -37,6 +37,12 @@ contract TestSplitWeightFork is ForkTestBase {
             tickSpacing: REV_DEPLOYER.DEFAULT_BUYBACK_TICK_SPACING(),
             hooks: IHooks(address(0))
         });
+
+        // Initialize at 1:1 price and register with buyback hook.
+        poolManager.initialize(key, uint160(1 << 96));
+        uint256 twapWindow = uint256(REV_DEPLOYER.DEFAULT_BUYBACK_TWAP_WINDOW());
+        vm.prank(address(REV_DEPLOYER));
+        BUYBACK_REGISTRY.setPoolFor(revnetId, key.fee, key.tickSpacing, twapWindow, JBConstants.NATIVE_TOKEN);
 
         uint256 projectLiq = 10_000_000e18;
         uint256 ethLiq = 5000e18;
