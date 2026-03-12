@@ -335,7 +335,6 @@ wrap_comments = true
 
 **Optional sections (add only when needed):**
 - `[rpc_endpoints]` — repos with fork tests. Maps named endpoints to env vars (e.g. `ethereum = "${RPC_ETHEREUM_MAINNET}"`).
-- `[profile.ci_sizes]` — only when CI needs different optimizer settings than defaults for the size check step (e.g. `optimizer_runs = 200` when the default profile uses a lower value).
 
 **Common variations:**
 - `via_ir = true` when hitting stack-too-deep
@@ -551,7 +550,7 @@ CI checks formatting via `forge fmt --check`.
 
 ### Contract Size Checks
 
-CI runs `forge build --sizes` to catch contracts approaching the 24KB limit. When the repo's default `optimizer_runs` differs from what you want for size checking, use `FOUNDRY_PROFILE=ci_sizes forge build --sizes` with a `[profile.ci_sizes]` section in `foundry.toml`.
+CI runs `forge build --sizes` to catch contracts approaching the 24KB limit.
 
 ## Repo-Specific Deviations
 
