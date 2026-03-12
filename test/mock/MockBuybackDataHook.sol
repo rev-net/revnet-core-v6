@@ -4,7 +4,6 @@ pragma solidity 0.8.26;
 import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDataHook.sol";
 import {IJBPayHook} from "@bananapus/core-v6/src/interfaces/IJBPayHook.sol";
 import {IJBBuybackHook} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHook.sol";
-import {IWETH9} from "@bananapus/buyback-hook-v6/src/interfaces/external/IWETH9.sol";
 import {JBBeforePayRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforePayRecordedContext.sol";
 import {JBBeforeCashOutRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforeCashOutRecordedContext.sol";
 import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
@@ -29,7 +28,7 @@ contract MockBuybackDataHook is IJBRulesetDataHook, IJBPayHook {
 
     function beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext calldata context)
         external
-        view
+        pure
         override
         returns (
             uint256 cashOutTaxRate,
@@ -50,16 +49,14 @@ contract MockBuybackDataHook is IJBRulesetDataHook, IJBPayHook {
 
     function afterPayRecordedWith(JBAfterPayRecordedContext calldata) external payable override {}
 
-    /// @notice Returns a dummy wrapped native token address for tests.
-    function WRAPPED_NATIVE_TOKEN() external pure returns (IWETH9) {
-        return IWETH9(address(1));
-    }
-
     /// @notice No-op pool configuration for tests (PoolKey overload).
     function setPoolFor(uint256, PoolKey calldata, uint256, address) external pure {}
 
     /// @notice No-op pool configuration for tests (simplified overload).
     function setPoolFor(uint256, uint24, int24, uint256, address) external pure {}
+
+    /// @notice No-op pool initialization for tests.
+    function initializePoolFor(uint256, uint24, int24, uint256, address, uint160) external pure {}
 
     function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
         return interfaceId == type(IJBRulesetDataHook).interfaceId || interfaceId == type(IJBPayHook).interfaceId

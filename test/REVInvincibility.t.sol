@@ -373,7 +373,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
     /// @notice hasMintPermissionFor returns false for random addresses.
     /// @dev With the buyback hook removed, hasMintPermissionFor should return false
     ///      for addresses that are not the loans contract or a sucker.
-    function test_fixVerify_hasMintPermission_noBuyback() public {
+    function test_fixVerify_hasMintPermission_noBuyback() public view {
         // The fee project was deployed without buyback hook in our setup
         JBRuleset memory currentRuleset = jbRulesets().currentOf(FEE_PROJECT_ID);
 
@@ -574,7 +574,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
     function test_econ_loanAmplificationSpiral() public {
         // Step 1: Pay to get tokens
         uint256 payAmount = 10e18;
-        (uint256 loanId1, uint256 tokens1, uint256 borrow1) = _setupLoan(USER, payAmount, 25);
+        (,, uint256 borrow1) = _setupLoan(USER, payAmount, 25);
         assertTrue(borrow1 > 0, "First loan should have borrow amount");
 
         // Step 2: Add borrowed amount back to balance (inflating surplus)
@@ -588,8 +588,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
             jbMultiTerminal().pay{value: payAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, payAmount, USER, 0, "", "");
 
         // Step 4: Try to borrow again
-        uint256 borrowable2 =
-            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens2, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens2, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // The totalBorrowed from loan1 is added to surplus in borrowableAmountFrom,
         // so the second borrow should not amplify beyond what the real surplus supports.
@@ -619,7 +618,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
         jbMultiTerminal().pay{value: 0.01e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 0.01e18, payor, 0, "", "");
 
         // Get current ruleset to verify we're in stage 1
-        JBRuleset memory currentRuleset = jbRulesets().currentOf(REVNET_ID);
+        jbRulesets().currentOf(REVNET_ID);
 
         // Cash out at the new (lower) tax rate
         // Note: there's a 30-day cash out delay, so we advance more
@@ -653,8 +652,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
     function test_econ_reservedTokenDilution() public {
         // Pay to create surplus + mint tokens (some go to reserved)
         vm.prank(USER);
-        uint256 userTokens =
-            jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
+        jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
 
         // Send reserved tokens to splits
         try jbController().sendReservedTokensToSplitsOf(REVNET_ID) {} catch {}
@@ -721,8 +719,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
             jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, userA, 0, "", "");
 
         vm.prank(userB);
-        uint256 tokensB =
-            jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, userB, 0, "", "");
+        jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, userB, 0, "", "");
 
         // UserA borrows (tokens locked as collateral)
         mockExpect(
@@ -757,7 +754,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
     /// @dev Extraction should be bounded by the bonding curve.
     function test_econ_collateralRotation() public {
         // Setup initial loan
-        (uint256 loanId, uint256 tokens, uint256 borrowAmount) = _setupLoan(USER, 5e18, 25);
+        (uint256 loanId,, uint256 borrowAmount) = _setupLoan(USER, 5e18, 25);
         if (borrowAmount == 0) return;
 
         // Surplus increases (someone else pays in)
@@ -787,7 +784,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
     /// @dev Borrow all available surplus → new payments and repayment still functional.
     function test_econ_zeroSurplusLoanDefault() public {
         // Pay and borrow maximum
-        (uint256 loanId, uint256 tokens, uint256 borrowAmount) = _setupLoan(USER, 10e18, 25);
+        (,, uint256 borrowAmount) = _setupLoan(USER, 10e18, 25);
         if (borrowAmount == 0) return;
 
         // New user can still pay into the system
@@ -802,7 +799,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
     /// @notice Loans across stage boundary: loans stay healthy when tax rate decreases.
     function test_econ_stageTransitionWithLoans() public {
         // Create loan in stage 0
-        (uint256 loanId, uint256 tokens, uint256 borrowAmount) = _setupLoan(USER, 10e18, 25);
+        (uint256 loanId,, uint256 borrowAmount) = _setupLoan(USER, 10e18, 25);
         if (borrowAmount == 0) return;
 
         REVLoan memory loanBefore = LOANS_CONTRACT.loanOf(loanId);
@@ -822,7 +819,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
         assertEq(loanAfter.collateral, loanBefore.collateral, "Loan collateral unchanged across stages");
 
         // Borrowable amount may have changed (different tax rate)
-        uint256 newBorrowable = LOANS_CONTRACT.borrowableAmountFrom(
+        LOANS_CONTRACT.borrowableAmountFrom(
             REVNET_ID, loanAfter.collateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
         // With lower tax rate in stage 1, borrowable should increase
@@ -834,8 +831,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
     function test_econ_splitOperatorRug() public {
         // Pay to build up surplus and reserved tokens
         vm.prank(USER);
-        uint256 userTokens =
-            jbMultiTerminal().pay{value: 50e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 50e18, USER, 0, "", "");
+        jbMultiTerminal().pay{value: 50e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 50e18, USER, 0, "", "");
 
         // Send reserved tokens to splits (multisig = split beneficiary)
         try jbController().sendReservedTokensToSplitsOf(REVNET_ID) {} catch {}
@@ -1168,7 +1164,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
     // INV-REV-2: Collateral accounting exact
     // =====================================================================
     /// @notice Ghost collateral sum must match contract's totalCollateralOf.
-    function invariant_REV_2_collateralAccountingExact() public {
+    function invariant_REV_2_collateralAccountingExact() public view {
         assertEq(
             HANDLER.COLLATERAL_SUM(),
             LOANS_CONTRACT.totalCollateralOf(REVNET_ID),
@@ -1180,7 +1176,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
     // INV-REV-3: Borrow accounting exact
     // =====================================================================
     /// @notice Ghost borrowed sum must match contract's totalBorrowedFrom.
-    function invariant_REV_3_borrowAccountingExact() public {
+    function invariant_REV_3_borrowAccountingExact() public view {
         uint256 actualTotalBorrowed =
             LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
 
@@ -1196,7 +1192,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
     /// @dev Loans CAN become undercollateralized when new payments increase totalSupply
     ///      faster than surplus grows (bonding curve dilution). This is expected behavior.
     ///      We verify that the loan struct itself is internally consistent.
-    function invariant_REV_4_noUndercollateralizedLoans() public {
+    function invariant_REV_4_noUndercollateralizedLoans() public view {
         if (HANDLER.callCount_payAndBorrow() == 0) return;
 
         for (uint256 i = 1; i <= HANDLER.callCount_payAndBorrow(); i++) {
@@ -1226,7 +1222,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
     // INV-REV-5: Supply + collateral consistency
     // =====================================================================
     /// @notice totalSupply + totalCollateral should be coherent with token tracking.
-    function invariant_REV_5_supplyCollateralConsistency() public {
+    function invariant_REV_5_supplyCollateralConsistency() public view {
         uint256 totalSupply = jbController().totalTokenSupplyWithReservedTokensOf(REVNET_ID);
         uint256 totalCollateral = LOANS_CONTRACT.totalCollateralOf(REVNET_ID);
 

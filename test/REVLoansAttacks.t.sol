@@ -524,7 +524,7 @@ contract REVLoansAttacks is TestBaseWorkflow {
 
         // Setup: create a loan first
         uint256 payAmount = 10e18;
-        (uint256 loanId, uint256 tokenCount, uint256 borrowAmount) = _setupLoan(USER, payAmount, 25);
+        (uint256 loanId,, uint256 borrowAmount) = _setupLoan(USER, payAmount, 25);
         vm.assume(borrowAmount > 0);
 
         // The loan exists. The reentrancy risk during repayLoan:
@@ -559,8 +559,7 @@ contract REVLoansAttacks is TestBaseWorkflow {
             jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, userA, 0, "", "");
 
         vm.prank(userB);
-        uint256 tokensB =
-            jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, userB, 0, "", "");
+        jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, userB, 0, "", "");
 
         // Record pre-borrow state
         uint256 totalSupplyBefore = jbController().totalTokenSupplyWithReservedTokensOf(REVNET_ID);
@@ -604,7 +603,7 @@ contract REVLoansAttacks is TestBaseWorkflow {
     /// @notice After LOAN_LIQUIDATION_DURATION (3650 days), the loan expires and cannot be repaid.
     function test_liquidation_borrowRepayAfterExpiry() public {
         uint256 payAmount = 10e18;
-        (uint256 loanId, uint256 tokenCount, uint256 borrowAmount) = _setupLoan(USER, payAmount, 25);
+        (uint256 loanId,, uint256 borrowAmount) = _setupLoan(USER, payAmount, 25);
         vm.assume(borrowAmount > 0);
 
         // Warp past the liquidation duration (3650 days)
@@ -714,9 +713,6 @@ contract REVLoansAttacks is TestBaseWorkflow {
 
         // Calculate repay amount
         uint256 repayAmount = loan.amount;
-
-        // The user needs to have ETH to repay
-        uint256 userBalanceBefore = USER.balance;
 
         // Repay the full loan
         vm.prank(USER);

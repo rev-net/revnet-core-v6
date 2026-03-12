@@ -729,7 +729,9 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
 
         assertApproxEqAbs(balance, reclaimableSurplus - nanaFee, 1);
 
-        assertGe(reclaimableSurplus + revFee, mulDiv(loanable, 97, 100)); // small marging for curve rounding.
+        // Allow 2 wei absolute tolerance alongside 3% relative tolerance — at very small
+        // surplus values (e.g. 90 wei), a single mulDiv rounding error exceeds 3%.
+        assertGe(reclaimableSurplus + revFee + 2, mulDiv(loanable, 97, 100));
     }
 
     function test_Pay_Borrow_With_Loan_Source() public {

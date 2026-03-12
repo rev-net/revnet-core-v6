@@ -15,10 +15,6 @@ contract TestCashOutFork is ForkTestBase {
     function setUp() public override {
         super.setUp();
 
-        // Skip if no fork available.
-        string memory rpcUrl = vm.envOr("RPC_ETHEREUM_MAINNET", string(""));
-        if (bytes(rpcUrl).length == 0) return;
-
         // Deploy fee project + revnet with 50% cashOutTaxRate.
         _deployFeeProject(5000);
         revnetId = _deployRevnet(5000);
@@ -34,7 +30,7 @@ contract TestCashOutFork is ForkTestBase {
     }
 
     /// @notice Cash out tokens and verify fee deduction, token burn, and bonding curve reclaim.
-    function test_fork_cashOut_normalWithFee() public onlyFork {
+    function test_fork_cashOut_normalWithFee() public {
         uint256 payerTokens = jbTokens().totalBalanceOf(PAYER, revnetId);
         uint256 cashOutCount = payerTokens / 2; // Cash out half.
 
@@ -78,7 +74,7 @@ contract TestCashOutFork is ForkTestBase {
     }
 
     /// @notice High tax rate (90%) produces small reclaim relative to pro-rata.
-    function test_fork_cashOut_highTaxRate() public onlyFork {
+    function test_fork_cashOut_highTaxRate() public {
         // Deploy a separate revnet with 90% tax rate.
         uint256 highTaxRevnet = _deployRevnet(9000);
         _setupPool(highTaxRevnet, 10_000 ether);
@@ -111,7 +107,7 @@ contract TestCashOutFork is ForkTestBase {
     }
 
     /// @notice Sucker addresses get full pro-rata reclaim with 0% tax and no fee.
-    function test_fork_cashOut_suckerExempt() public onlyFork {
+    function test_fork_cashOut_suckerExempt() public {
         address sucker = makeAddr("sucker");
         vm.deal(sucker, 100 ether);
 
@@ -153,7 +149,7 @@ contract TestCashOutFork is ForkTestBase {
     }
 
     /// @notice After a payment with 30% tier split, surplus accounting reflects actual terminal balance.
-    function test_fork_cashOut_afterTierSplitPayment() public onlyFork {
+    function test_fork_cashOut_afterTierSplitPayment() public {
         // Deploy revnet with 721 hook.
         (uint256 splitRevnetId, IJB721TiersHook hook) = _deployRevnetWith721(5000);
         _setupPool(splitRevnetId, 10_000 ether);
@@ -202,9 +198,14 @@ contract TestCashOutFork is ForkTestBase {
     }
 
     /// @notice Cash out before delay expires should revert.
-    function test_fork_cashOut_delayEnforcement() public onlyFork {
-        // Deploy a fresh revnet (delay starts from deploy time).
-        uint256 delayRevnet = _deployRevnet(5000);
+    function test_fork_cashOut_delayEnforcement() public {
+        // Deploy a revnet whose first stage started in the past → triggers cash-out delay.
+        (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
+            _buildMinimalConfig(5000);
+        cfg.stageConfigurations[0].startsAtOrAfter = uint40(block.timestamp - 1);
+        uint256 delayRevnet = REV_DEPLOYER.deployFor({
+            revnetId: 0, configuration: cfg, terminalConfigurations: tc, suckerDeploymentConfiguration: sdc
+        });
         _setupPool(delayRevnet, 10_000 ether);
         _payRevnet(delayRevnet, PAYER, 1 ether);
 

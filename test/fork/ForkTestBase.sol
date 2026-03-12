@@ -42,7 +42,6 @@ import {REVCroptopAllowedPost} from "../../src/structs/REVCroptopAllowedPost.sol
 import {JBBuybackHook} from "@bananapus/buyback-hook-v6/src/JBBuybackHook.sol";
 import {JBBuybackHookRegistry} from "@bananapus/buyback-hook-v6/src/JBBuybackHookRegistry.sol";
 import {IJBBuybackHook} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHook.sol";
-import {IWETH9} from "@bananapus/buyback-hook-v6/src/interfaces/external/IWETH9.sol";
 import {IGeomeanOracle} from "@bananapus/buyback-hook-v6/src/interfaces/IGeomeanOracle.sol";
 
 // Uniswap V4
@@ -53,7 +52,7 @@ import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "@uniswap/v4-core/src/types/PoolId.sol";
 import {Currency, CurrencyLibrary} from "@uniswap/v4-core/src/types/Currency.sol";
 import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
-import {ModifyLiquidityParams} from "@uniswap/v4-core/src/types/PoolOperation.sol";
+import {ModifyLiquidityParams, SwapParams} from "@uniswap/v4-core/src/types/PoolOperation.sol";
 import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
 import {StateLibrary} from "@uniswap/v4-core/src/libraries/StateLibrary.sol";
 
@@ -63,11 +62,23 @@ import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 contract LiquidityHelper is IUnlockCallback {
     IPoolManager public immutable poolManager;
 
+    enum Action {
+        ADD_LIQUIDITY,
+        SWAP
+    }
+
     struct AddLiqParams {
         PoolKey key;
         int24 tickLower;
         int24 tickUpper;
         int256 liquidityDelta;
+    }
+
+    struct DoSwapParams {
+        PoolKey key;
+        bool zeroForOne;
+        int256 amountSpecified;
+        uint160 sqrtPriceLimitX96;
     }
 
     constructor(IPoolManager _poolManager) {
@@ -83,13 +94,38 @@ contract LiquidityHelper is IUnlockCallback {
         external
         payable
     {
-        bytes memory data = abi.encode(AddLiqParams(key, tickLower, tickUpper, liquidityDelta));
+        bytes memory data =
+            abi.encode(Action.ADD_LIQUIDITY, abi.encode(AddLiqParams(key, tickLower, tickUpper, liquidityDelta)));
+        poolManager.unlock(data);
+    }
+
+    function swap(
+        PoolKey calldata key,
+        bool zeroForOne,
+        int256 amountSpecified,
+        uint160 sqrtPriceLimitX96
+    )
+        external
+        payable
+    {
+        bytes memory data =
+            abi.encode(Action.SWAP, abi.encode(DoSwapParams(key, zeroForOne, amountSpecified, sqrtPriceLimitX96)));
         poolManager.unlock(data);
     }
 
     function unlockCallback(bytes calldata data) external override returns (bytes memory) {
         require(msg.sender == address(poolManager), "only PM");
 
+        (Action action, bytes memory inner) = abi.decode(data, (Action, bytes));
+
+        if (action == Action.ADD_LIQUIDITY) {
+            return _handleAddLiquidity(inner);
+        } else {
+            return _handleSwap(inner);
+        }
+    }
+
+    function _handleAddLiquidity(bytes memory data) internal returns (bytes memory) {
         AddLiqParams memory params = abi.decode(data, (AddLiqParams));
 
         (BalanceDelta callerDelta,) = poolManager.modifyLiquidity(
@@ -109,6 +145,27 @@ contract LiquidityHelper is IUnlockCallback {
         _takeIfPositive(params.key.currency1, callerDelta.amount1());
 
         return abi.encode(callerDelta);
+    }
+
+    function _handleSwap(bytes memory data) internal returns (bytes memory) {
+        DoSwapParams memory params = abi.decode(data, (DoSwapParams));
+
+        BalanceDelta delta = poolManager.swap(
+            params.key, SwapParams(params.zeroForOne, params.amountSpecified, params.sqrtPriceLimitX96), ""
+        );
+
+        if (delta.amount0() < 0) {
+            _settleIfNegative(params.key.currency0, delta.amount0());
+        } else {
+            _takeIfPositive(params.key.currency0, delta.amount0());
+        }
+        if (delta.amount1() < 0) {
+            _settleIfNegative(params.key.currency1, delta.amount1());
+        } else {
+            _takeIfPositive(params.key.currency1, delta.amount1());
+        }
+
+        return abi.encode(delta);
     }
 
     function _settleIfNegative(Currency currency, int128 delta) internal {
@@ -146,11 +203,10 @@ abstract contract ForkTestBase is TestBaseWorkflow {
     // ─────────────────────────
 
     address constant POOL_MANAGER_ADDR = 0x000000000004444c5dc75cB358380D2e3dE08A90;
-    address constant WETH_ADDR = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
     /// @notice Full-range tick bounds for tickSpacing = 60.
-    int24 constant TICK_LOWER = -887_220;
-    int24 constant TICK_UPPER = 887_220;
+    int24 constant TICK_LOWER = -887_200;
+    int24 constant TICK_UPPER = 887_200;
 
     // ───────────────────────── State
     // ─────────────────────────
@@ -166,7 +222,6 @@ abstract contract ForkTestBase is TestBaseWorkflow {
     IJBSuckerRegistry SUCKER_REGISTRY;
     CTPublisher PUBLISHER;
     IPoolManager poolManager;
-    IWETH9 weth;
     LiquidityHelper liqHelper;
 
     uint256 FEE_PROJECT_ID;
@@ -185,13 +240,8 @@ abstract contract ForkTestBase is TestBaseWorkflow {
     // ─────────────────────────
 
     function setUp() public virtual override {
-        // Fork mainnet first — we need the real V4 PoolManager.
-        string memory rpcUrl = vm.envOr("RPC_ETHEREUM_MAINNET", string(""));
-        if (bytes(rpcUrl).length == 0) {
-            vm.skip(true);
-            return;
-        }
-        vm.createSelectFork(rpcUrl);
+        // Fork mainnet at a stable block — deterministic and post-V4 deployment.
+        vm.createSelectFork("ethereum", 21_700_000);
 
         // Verify V4 PoolManager is deployed.
         require(POOL_MANAGER_ADDR.code.length > 0, "PoolManager not deployed at expected address");
@@ -200,7 +250,6 @@ abstract contract ForkTestBase is TestBaseWorkflow {
         super.setUp();
 
         poolManager = IPoolManager(POOL_MANAGER_ADDR);
-        weth = IWETH9(WETH_ADDR);
         liqHelper = new LiquidityHelper(poolManager);
 
         FEE_PROJECT_ID = jbProjects().createFor(multisig());
@@ -220,8 +269,8 @@ abstract contract ForkTestBase is TestBaseWorkflow {
             jbPrices(),
             jbProjects(),
             jbTokens(),
-            weth,
             poolManager,
+            IHooks(address(0)), // oracleHook
             address(0) // trustedForwarder
         );
 
@@ -260,12 +309,6 @@ abstract contract ForkTestBase is TestBaseWorkflow {
         // Fund payer and borrower.
         vm.deal(PAYER, 100 ether);
         vm.deal(BORROWER, 100 ether);
-    }
-
-    modifier onlyFork() {
-        string memory rpcUrl = vm.envOr("RPC_ETHEREUM_MAINNET", string(""));
-        if (bytes(rpcUrl).length == 0) return;
-        _;
     }
 
     // ───────────────────────── Config Helpers
@@ -403,6 +446,8 @@ abstract contract ForkTestBase is TestBaseWorkflow {
     function _deployRevnetWith721(uint16 cashOutTaxRate) internal returns (uint256 revnetId, IJB721TiersHook hook) {
         (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
             _buildMinimalConfig(cashOutTaxRate);
+        // Use a different salt to avoid CREATE2 collision with _deployRevnet's ERC-20.
+        cfg.description.salt = "FORK_721_SALT";
         REVDeploy721TiersHookConfig memory hookConfig = _build721Config();
 
         (revnetId, hook) = REV_DEPLOYER.deployWith721sFor({
@@ -418,55 +463,42 @@ abstract contract ForkTestBase is TestBaseWorkflow {
     // ───────────────────────── Pool Helpers
     // ─────────────────────────
 
-    /// @notice Set up a V4 pool for the revnet's project token / WETH pair at 1:1 price.
+    /// @notice Set up a V4 pool for the revnet's project token / native ETH pair at 1:1 price.
     function _setupPool(uint256 revnetId, uint256 liquidityTokenAmount) internal returns (PoolKey memory key) {
         address projectToken = address(jbTokens().tokenOf(revnetId));
         require(projectToken != address(0), "project token not deployed");
 
-        address token0;
-        address token1;
-        if (projectToken < WETH_ADDR) {
-            token0 = projectToken;
-            token1 = WETH_ADDR;
-        } else {
-            token0 = WETH_ADDR;
-            token1 = projectToken;
-        }
-
+        // Native ETH is represented as address(0) in V4 pool keys.
+        // address(0) is always less than any deployed token address.
         key = PoolKey({
-            currency0: Currency.wrap(token0),
-            currency1: Currency.wrap(token1),
+            currency0: Currency.wrap(address(0)),
+            currency1: Currency.wrap(projectToken),
             fee: REV_DEPLOYER.DEFAULT_BUYBACK_POOL_FEE(),
             tickSpacing: REV_DEPLOYER.DEFAULT_BUYBACK_TICK_SPACING(),
             hooks: IHooks(address(0))
         });
 
-        uint160 sqrtPrice = TickMath.getSqrtPriceAtTick(0);
-        poolManager.initialize(key, sqrtPrice);
+        // Pool is already initialized at 1:1 price by REVDeployer during deployment.
+        // Just add liquidity and mock the oracle.
+
+        // At 1:1 price, full-range liquidity needs equal amounts of both tokens.
+        uint256 projectTokenAmount = liquidityTokenAmount;
 
         // Fund LiquidityHelper with project tokens via JBTokens.mintFor (not deal).
         vm.prank(address(jbController()));
-        jbTokens().mintFor(address(liqHelper), revnetId, liquidityTokenAmount);
+        jbTokens().mintFor(address(liqHelper), revnetId, projectTokenAmount);
+        // Fund with ETH for the native currency side.
         vm.deal(address(liqHelper), liquidityTokenAmount);
-        vm.prank(address(liqHelper));
-        IWETH9(WETH_ADDR).deposit{value: liquidityTokenAmount}();
 
         vm.startPrank(address(liqHelper));
         IERC20(projectToken).approve(address(poolManager), type(uint256).max);
-        IERC20(WETH_ADDR).approve(address(poolManager), type(uint256).max);
         vm.stopPrank();
 
         int256 liquidityDelta = int256(liquidityTokenAmount / 2);
         vm.prank(address(liqHelper));
-        liqHelper.addLiquidity(key, TICK_LOWER, TICK_UPPER, liquidityDelta);
+        liqHelper.addLiquidity{value: liquidityTokenAmount}(key, TICK_LOWER, TICK_UPPER, liquidityDelta);
 
         _mockOracle(liquidityDelta, 0, uint32(REV_DEPLOYER.DEFAULT_BUYBACK_TWAP_WINDOW()));
-
-        uint256 twapWindow = REV_DEPLOYER.DEFAULT_BUYBACK_TWAP_WINDOW();
-        vm.prank(multisig());
-        BUYBACK_HOOK.setPoolFor({
-            projectId: revnetId, poolKey: key, twapWindow: twapWindow, terminalToken: JBConstants.NATIVE_TOKEN
-        });
     }
 
     /// @notice Mock the IGeomeanOracle at address(0) for hookless pools.
@@ -477,11 +509,11 @@ abstract contract ForkTestBase is TestBaseWorkflow {
         tickCumulatives[0] = 0;
         tickCumulatives[1] = int56(tick) * int56(int32(twapWindow));
 
-        uint160[] memory secondsPerLiquidityCumulativeX128s = new uint160[](2);
+        uint136[] memory secondsPerLiquidityCumulativeX128s = new uint136[](2);
         secondsPerLiquidityCumulativeX128s[0] = 0;
         uint256 liq = uint256(liquidity > 0 ? liquidity : -liquidity);
         if (liq == 0) liq = 1;
-        secondsPerLiquidityCumulativeX128s[1] = uint160((uint256(twapWindow) << 128) / liq);
+        secondsPerLiquidityCumulativeX128s[1] = uint136((uint256(twapWindow) << 128) / liq);
 
         vm.mockCall(
             address(0),
@@ -547,7 +579,7 @@ abstract contract ForkTestBase is TestBaseWorkflow {
     }
 
     /// @notice Build payment metadata with only 721 tier selection (no quote -> TWAP/spot fallback).
-    function _buildPayMetadataNoQuote(address hookMetadataTarget) internal view returns (bytes memory) {
+    function _buildPayMetadataNoQuote(address hookMetadataTarget) internal pure returns (bytes memory) {
         uint16[] memory tierIds = new uint16[](1);
         tierIds[0] = 1;
         bytes memory tierData = abi.encode(true, tierIds);

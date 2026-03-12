@@ -13,12 +13,10 @@ contract TestLoanRepayFork is ForkTestBase {
     uint256 loanId;
     REVLoan loan;
     uint256 borrowerTokens;
+    uint256 feeTokensFromLoan; // Tokens minted to borrower from source fee payment back to revnet.
 
     function setUp() public override {
         super.setUp();
-
-        string memory rpcUrl = vm.envOr("RPC_ETHEREUM_MAINNET", string(""));
-        if (bytes(rpcUrl).length == 0) return;
 
         // Deploy fee project + revnet.
         _deployFeeProject(5000);
@@ -33,10 +31,13 @@ contract TestLoanRepayFork is ForkTestBase {
 
         // Create a loan with min prepaid fee.
         (loanId, loan) = _createLoan(revnetId, BORROWER, borrowerTokens, LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT());
+
+        // Record fee tokens minted to borrower from source fee payment back to revnet.
+        feeTokensFromLoan = jbTokens().totalBalanceOf(BORROWER, revnetId);
     }
 
     /// @notice Full repay: return all collateral, burn loan NFT.
-    function test_fork_repay_full() public onlyFork {
+    function test_fork_repay_full() public {
         uint256 totalCollateralBefore = LOANS_CONTRACT.totalCollateralOf(revnetId);
         uint256 totalBorrowedBefore =
             LOANS_CONTRACT.totalBorrowedFrom(revnetId, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
@@ -55,9 +56,11 @@ contract TestLoanRepayFork is ForkTestBase {
             allowance: allowance
         });
 
-        // Collateral re-minted to borrower.
+        // Collateral re-minted to borrower (plus fee tokens from loan creation).
         assertEq(
-            jbTokens().totalBalanceOf(BORROWER, revnetId), borrowerTokens, "collateral should be returned to borrower"
+            jbTokens().totalBalanceOf(BORROWER, revnetId),
+            borrowerTokens + feeTokensFromLoan,
+            "collateral should be returned to borrower"
         );
 
         // Loan NFT burned.
@@ -78,7 +81,7 @@ contract TestLoanRepayFork is ForkTestBase {
     }
 
     /// @notice Partial repay: return half the collateral, old loan burned, new loan minted.
-    function test_fork_repay_partial() public onlyFork {
+    function test_fork_repay_partial() public {
         uint256 halfCollateral = loan.collateral / 2;
 
         vm.deal(BORROWER, 100 ether);
@@ -94,9 +97,9 @@ contract TestLoanRepayFork is ForkTestBase {
             allowance: allowance
         });
 
-        // Some collateral re-minted.
+        // Some collateral re-minted (plus fee tokens from loan creation).
         uint256 returnedTokens = jbTokens().totalBalanceOf(BORROWER, revnetId);
-        assertEq(returnedTokens, halfCollateral, "half collateral should be returned");
+        assertEq(returnedTokens, halfCollateral + feeTokensFromLoan, "half collateral should be returned");
 
         // Old loan burned.
         vm.expectRevert();
@@ -112,9 +115,9 @@ contract TestLoanRepayFork is ForkTestBase {
     }
 
     /// @notice After prepaid duration, source fee is charged on repayment.
-    function test_fork_repay_withSourceFee() public onlyFork {
-        // Warp past the prepaid duration but before 10 years.
-        vm.warp(block.timestamp + loan.prepaidDuration + 1 days);
+    function test_fork_repay_withSourceFee() public {
+        // Warp well past the prepaid duration to accrue a meaningful source fee.
+        vm.warp(block.timestamp + loan.prepaidDuration + 365 days);
 
         vm.deal(BORROWER, 100 ether);
 
@@ -139,7 +142,7 @@ contract TestLoanRepayFork is ForkTestBase {
     }
 
     /// @notice Repay immediately (within prepaid duration) -> no source fee.
-    function test_fork_repay_withinPrepaidNofee() public onlyFork {
+    function test_fork_repay_withinPrepaidNofee() public {
         // Don't warp — we're within prepaid duration.
         vm.deal(BORROWER, 100 ether);
 
@@ -163,7 +166,7 @@ contract TestLoanRepayFork is ForkTestBase {
     }
 
     /// @notice Repay after 10 years should revert (loan expired).
-    function test_fork_repay_expiredReverts() public onlyFork {
+    function test_fork_repay_expiredReverts() public {
         // Warp past the 10-year liquidation duration.
         vm.warp(block.timestamp + LOANS_CONTRACT.LOAN_LIQUIDATION_DURATION());
 

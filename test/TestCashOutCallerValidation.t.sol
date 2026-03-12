@@ -37,7 +37,7 @@ struct FeeProjectConfig {
     REVSuckerDeploymentConfig suckerDeploymentConfiguration;
 }
 
-contract TestPR15_CashOutCallerValidation is TestBaseWorkflow {
+contract TestCashOutCallerValidation is TestBaseWorkflow {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
     bytes32 ERC20_SALT = "REV_TOKEN";
 
@@ -95,8 +95,6 @@ contract TestPR15_CashOutCallerValidation is TestBaseWorkflow {
                 extraMetadata: 0
             });
         }
-
-        REVLoanSource[] memory loanSources = new REVLoanSource[](0);
 
         REVConfig memory revnetConfiguration = REVConfig({
             description: REVDescription(name, symbol, projectUri, ERC20_SALT),

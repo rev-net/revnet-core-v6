@@ -30,7 +30,7 @@ import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/
 
 /// @notice Tests for default operator permissions including SET_ROUTER_TERMINAL.
 /// Verifies that all default split operator permissions are granted correctly.
-contract TestPR29_SwapTerminalPermission is TestBaseWorkflow {
+contract TestSwapTerminalPermission is TestBaseWorkflow {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
 
     REVDeployer REV_DEPLOYER;

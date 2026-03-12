@@ -15,9 +15,6 @@ contract TestLoanBorrowFork is ForkTestBase {
     function setUp() public override {
         super.setUp();
 
-        string memory rpcUrl = vm.envOr("RPC_ETHEREUM_MAINNET", string(""));
-        if (bytes(rpcUrl).length == 0) return;
-
         // Deploy fee project + revnet with 50% cashOutTaxRate.
         _deployFeeProject(5000);
         revnetId = _deployRevnet(5000);
@@ -31,7 +28,7 @@ contract TestLoanBorrowFork is ForkTestBase {
     }
 
     /// @notice Basic borrow: collateralize all borrower tokens, verify loan state.
-    function test_fork_borrow_basic() public onlyFork {
+    function test_fork_borrow_basic() public {
         uint256 borrowerTokens = jbTokens().totalBalanceOf(BORROWER, revnetId);
 
         uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(
@@ -53,8 +50,11 @@ contract TestLoanBorrowFork is ForkTestBase {
         assertEq(loan.collateral, borrowerTokens, "loan collateral should match");
         assertEq(loan.createdAt, block.timestamp, "loan createdAt should be now");
 
-        // Borrower tokens should be burned (collateral deposited).
-        assertEq(jbTokens().totalBalanceOf(BORROWER, revnetId), 0, "borrower tokens should be burned");
+        // Borrower's original tokens are burned as collateral, but the source fee payment back to the revnet mints
+        // some tokens to the borrower.
+        uint256 feeTokens = jbTokens().totalBalanceOf(BORROWER, revnetId);
+        assertGt(feeTokens, 0, "borrower should have tokens from source fee payment");
+        assertLt(feeTokens, borrowerTokens, "fee tokens should be less than original collateral");
 
         // Borrower received ETH (net of fees).
         assertGt(BORROWER.balance, borrowerEthBefore, "borrower should receive ETH");
@@ -76,7 +76,7 @@ contract TestLoanBorrowFork is ForkTestBase {
     }
 
     /// @notice Verify fee distribution: source fee (2.5%) + REV fee (1%) deducted correctly.
-    function test_fork_borrow_feeDistribution() public onlyFork {
+    function test_fork_borrow_feeDistribution() public {
         uint256 borrowerTokens = jbTokens().totalBalanceOf(BORROWER, revnetId);
         uint256 prepaidFeePercent = LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT(); // 25 = 2.5%
 
@@ -86,8 +86,6 @@ contract TestLoanBorrowFork is ForkTestBase {
 
         // Record balances before.
         uint256 borrowerEthBefore = BORROWER.balance;
-        uint256 revnetTerminalBefore = _terminalBalance(revnetId, JBConstants.NATIVE_TOKEN);
-
         _grantBurnPermission(BORROWER, revnetId);
 
         REVLoanSource memory source = _nativeLoanSource();
@@ -122,7 +120,7 @@ contract TestLoanBorrowFork is ForkTestBase {
     }
 
     /// @notice Borrow after a payment with 30% tier splits.
-    function test_fork_borrow_afterTierSplits() public onlyFork {
+    function test_fork_borrow_afterTierSplits() public {
         // Deploy revnet with 721 hook.
         (uint256 splitRevnetId, IJB721TiersHook hook) = _deployRevnetWith721(5000);
         _setupPool(splitRevnetId, 10_000 ether);
@@ -142,8 +140,8 @@ contract TestLoanBorrowFork is ForkTestBase {
             metadata: metadata
         });
 
-        // With 30% split and 1000 tokens/ETH issuance, borrower gets 700 tokens/ETH * 5 = 3500 tokens.
-        assertEq(borrowerTokens, 3500e18, "should get 3500 tokens after 30% split");
+        // Tier 1 costs 1 ETH with 30% split → 0.3 ETH to splits, 4.7 ETH minted at 1000 tokens/ETH = 4700 tokens.
+        assertEq(borrowerTokens, 4700e18, "should get 4700 tokens after tier split");
 
         // Surplus should reflect actual terminal balance.
         uint256 surplus = _terminalBalance(splitRevnetId, JBConstants.NATIVE_TOKEN);

@@ -26,7 +26,7 @@ Deployer → REVDeployer.deployFor()
     → Each stage: duration, weight, cashOutTaxRate, splits
     → Auto-issuance: pre-mint tokens to specified beneficiaries per chain
   → Set REVDeployer as data hook (controls pay + cashout behavior)
-  → Configure buyback hook (swap vs mint decision)
+  → Initialize buyback pools at 1:1 price, configure buyback hook
   → Deploy suckers for cross-chain operation
   → Deploy 721 tiers if specified
   → Compute matching hash for cross-chain deployment verification

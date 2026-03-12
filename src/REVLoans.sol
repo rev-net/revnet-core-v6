@@ -1206,6 +1206,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     /// @param sourceFeeAmount The amount of the fee being taken from the revnet acting as the source of the loan.
     /// @param collateralCountToReturn The amount of collateral being returned that the loan no longer requires.
     /// @param beneficiary The address receiving the returned collateral and any tokens resulting from paying fees.
+    // slither-disable-next-line reentrancy-eth,reentrancy-events
     function _repayLoan(
         uint256 loanId,
         REVLoan storage loan,

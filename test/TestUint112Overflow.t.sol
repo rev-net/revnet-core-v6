@@ -31,9 +31,9 @@ import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStor
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 
-/// @title TestPR21_Uint112Overflow
+/// @title TestUint112Overflow
 /// @notice Tests for uint112 truncation fix in REVLoans._adjust()
-contract TestPR21_Uint112Overflow is TestBaseWorkflow {
+contract TestUint112Overflow is TestBaseWorkflow {
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
     bytes32 ERC20_SALT = "REV_TOKEN";
 
@@ -233,7 +233,7 @@ contract TestPR21_Uint112Overflow is TestBaseWorkflow {
     }
 
     /// @notice Verify that uint112.max exactly does NOT revert (boundary test).
-    function test_boundaryValue_exactlyUint112Max() public {
+    function test_boundaryValue_exactlyUint112Max() public pure {
         // uint112.max is the boundary — the check is `>`, not `>=`
         // So exactly uint112.max should NOT revert
         uint256 maxVal = type(uint112).max;
@@ -243,7 +243,7 @@ contract TestPR21_Uint112Overflow is TestBaseWorkflow {
 
     /// @notice Verify the overflow check exists: values > uint112.max are rejected.
     /// @dev We verify this by checking the error selector exists on the contract.
-    function test_overflowRevert_errorExists() public view {
+    function test_overflowRevert_errorExists() public pure {
         // The fix adds REVLoans_OverflowAlert error. Verify the error exists
         // by encoding it. If this compiles, the error exists.
         bytes4 selector = REVLoans.REVLoans_OverflowAlert.selector;

@@ -14,9 +14,6 @@ contract TestLoanReallocateFork is ForkTestBase {
     function setUp() public override {
         super.setUp();
 
-        string memory rpcUrl = vm.envOr("RPC_ETHEREUM_MAINNET", string(""));
-        if (bytes(rpcUrl).length == 0) return;
-
         // Deploy fee project + revnet.
         _deployFeeProject(5000);
         revnetId = _deployRevnet(5000);
@@ -27,13 +24,19 @@ contract TestLoanReallocateFork is ForkTestBase {
         _payRevnet(revnetId, BORROWER, 10 ether);
     }
 
-    /// @notice Reallocate half collateral to a new loan: original reduced, new loan created.
-    function test_fork_reallocate_basic() public onlyFork {
+    /// @notice Reallocate collateral to a new loan: original reduced, new loan created.
+    function test_fork_reallocate_basic() public {
         uint256 borrowerTokens = jbTokens().totalBalanceOf(BORROWER, revnetId);
         (uint256 loanId, REVLoan memory loan) =
             _createLoan(revnetId, BORROWER, borrowerTokens, LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT());
 
-        uint256 halfCollateral = loan.collateral / 2;
+        // Add more surplus after the loan so the remaining collateral supports the existing borrow amount.
+        // Without extra surplus, any collateral removal would make borrowable < loan.amount (bonding curve).
+        address extraPayer = makeAddr("extraPayer");
+        vm.deal(extraPayer, 20 ether);
+        _payRevnet(revnetId, extraPayer, 20 ether);
+
+        uint256 transferAmount = loan.collateral / 20;
         uint256 totalCollateralBefore = LOANS_CONTRACT.totalCollateralOf(revnetId);
 
         REVLoanSource memory source = _nativeLoanSource();
@@ -41,26 +44,29 @@ contract TestLoanReallocateFork is ForkTestBase {
         // Grant burn permission again for the new loan's collateral.
         _grantBurnPermission(BORROWER, revnetId);
 
+        // Cache before prank to avoid consuming the prank with a static call.
+        uint256 minFeePercent = LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT();
+
         vm.prank(BORROWER);
         (uint256 reallocatedLoanId, uint256 newLoanId, REVLoan memory reallocatedLoan, REVLoan memory newLoan) = LOANS_CONTRACT.reallocateCollateralFromLoan({
             loanId: loanId,
-            collateralCountToTransfer: halfCollateral,
+            collateralCountToTransfer: transferAmount,
             source: source,
             minBorrowAmount: 0,
             collateralCountToAdd: 0,
             beneficiary: payable(BORROWER),
-            prepaidFeePercent: LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT()
+            prepaidFeePercent: minFeePercent
         });
 
         // Original loan reduced.
         assertEq(
             reallocatedLoan.collateral,
-            loan.collateral - halfCollateral,
+            loan.collateral - transferAmount,
             "reallocated loan should have reduced collateral"
         );
 
         // New loan has the transferred collateral.
-        assertEq(newLoan.collateral, halfCollateral, "new loan should have transferred collateral");
+        assertEq(newLoan.collateral, transferAmount, "new loan should have transferred collateral");
 
         // Original loan burned, reallocated loan created.
         vm.expectRevert();
@@ -79,7 +85,7 @@ contract TestLoanReallocateFork is ForkTestBase {
     }
 
     /// @notice Reallocate with a different source terminal should revert.
-    function test_fork_reallocate_sourceMismatchReverts() public onlyFork {
+    function test_fork_reallocate_sourceMismatchReverts() public {
         uint256 borrowerTokens = jbTokens().totalBalanceOf(BORROWER, revnetId);
         (uint256 loanId, REVLoan memory loan) =
             _createLoan(revnetId, BORROWER, borrowerTokens, LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT());
@@ -87,6 +93,9 @@ contract TestLoanReallocateFork is ForkTestBase {
         // Create a source with a different terminal address.
         REVLoanSource memory badSource =
             REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: IJBPayoutTerminal(address(0xdead))});
+
+        // Cache before prank to avoid consuming the prank with a static call.
+        uint256 minFeePercent = LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT();
 
         vm.prank(BORROWER);
         vm.expectRevert();
@@ -97,7 +106,7 @@ contract TestLoanReallocateFork is ForkTestBase {
             minBorrowAmount: 0,
             collateralCountToAdd: 0,
             beneficiary: payable(BORROWER),
-            prepaidFeePercent: LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT()
+            prepaidFeePercent: minFeePercent
         });
     }
 }
