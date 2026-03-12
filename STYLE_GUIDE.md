@@ -555,3 +555,4 @@ CI runs `forge build --sizes` to catch contracts approaching the 24KB limit.
 ## Repo-Specific Deviations
 
 - **`optimizer_runs = 100`** — reduced for contract size compliance
+- **`npm install` (no `--omit=dev`) in CI** — test files import deployment helpers from dependencies (`SuckerDeploymentLib`, `CroptopDeploymentLib`) that use `@sphinx-labs` contracts, which are only available when devDependencies are installed
