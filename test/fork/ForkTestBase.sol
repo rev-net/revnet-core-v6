@@ -270,6 +270,7 @@ abstract contract ForkTestBase is TestBaseWorkflow {
             jbProjects(),
             jbTokens(),
             poolManager,
+            IHooks(address(0)), // oracleHook
             address(0) // trustedForwarder
         );
 
