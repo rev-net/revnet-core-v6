@@ -6,6 +6,9 @@ optimizer_runs = 100
 libs = ["node_modules", "lib"]
 fs_permissions = [{ access = "read-write", path = "./"}]
 
+[profile.lite]
+via_ir = false
+
 [fuzz]
 runs = 4096
 
