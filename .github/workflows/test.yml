@@ -17,6 +17,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22.4.x
+      - name: Add swap space
+        run: |
+          sudo fallocate -l 8G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
       - name: Install npm dependencies
         run: npm install --omit=dev && npm install @sphinx-labs/contracts
       - name: Install Foundry
