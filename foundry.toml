@@ -7,7 +7,7 @@ libs = ["node_modules", "lib"]
 fs_permissions = [{ access = "read-write", path = "./"}]
 
 [profile.lite]
-via_ir = false
+optimizer = false
 
 [fuzz]
 runs = 4096
