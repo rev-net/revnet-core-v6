@@ -11,7 +11,6 @@ import {IJB721TiersHook} from "@bananapus/721-hook-v6/src/interfaces/IJB721Tiers
 import {IJB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHookDeployer.sol";
 import {JB721TiersHookFlags} from "@bananapus/721-hook-v6/src/structs/JB721TiersHookFlags.sol";
 import {JBDeploy721TiersHookConfig} from "@bananapus/721-hook-v6/src/structs/JBDeploy721TiersHookConfig.sol";
-import {JB721InitTiersConfig} from "@bananapus/721-hook-v6/src/structs/JB721InitTiersConfig.sol";
 import {IJBBuybackHookRegistry} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHookRegistry.sol";
 import {IJBCashOutHook} from "@bananapus/core-v6/src/interfaces/IJBCashOutHook.sol";
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
@@ -729,6 +728,25 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         return (revnetId, hook);
     }
 
+    /// @inheritdoc IREVDeployer
+    function deployFor(
+        uint256 revnetId,
+        REVConfig calldata configuration,
+        JBTerminalConfig[] calldata terminalConfigurations,
+        REVSuckerDeploymentConfig calldata suckerDeploymentConfiguration
+    )
+        external
+        override
+        returns (uint256)
+    {
+        bool shouldDeployNewRevnet = revnetId == 0;
+        if (shouldDeployNewRevnet) revnetId = _nextProjectId();
+
+        _deployRevnetFor(revnetId, shouldDeployNewRevnet, configuration, terminalConfigurations, suckerDeploymentConfiguration);
+
+        return revnetId;
+    }
+
     /// @notice Burn any of a revnet's tokens held by this contract.
     /// @dev Project tokens can end up here from reserved token distribution when splits don't sum to 100%.
     /// @param revnetId The ID of the revnet whose tokens should be burned.
@@ -813,16 +831,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     }
 
     /// @notice Deploy a revnet which sells tiered ERC-721s and (optionally) allows croptop posts to its ERC-721 tiers.
-    /// @param revnetId The ID of the Juicebox project to turn into a revnet. Send 0 to deploy a new revnet.
-    /// @param shouldDeployNewRevnet Whether to deploy a new revnet or convert an existing Juicebox project into a
-    /// revnet.
-    /// @param configuration Core revnet configuration. See `REVConfig`.
-    /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
-    /// @param suckerDeploymentConfiguration The suckers to set up for the revnet. Suckers facilitate cross-chain
-    /// token transfers between peer revnets on different networks.
-    /// @param tiered721HookConfiguration How to set up the tiered ERC-721 hook for the revnet.
-    /// @param allowedPosts Restrictions on which croptop posts are allowed on the revnet's ERC-721 tiers.
-    /// @return hook The address of the tiered ERC-721 hook that was deployed for the revnet.
     function _deploy721RevnetFor(
         uint256 revnetId,
         bool shouldDeployNewRevnet,
@@ -835,42 +843,35 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         internal
         returns (IJB721TiersHook hook)
     {
-        // Normalize and encode the configurations.
-        (JBRulesetConfig[] memory rulesetConfigurations, bytes32 encodedConfigurationHash) = _makeRulesetConfigurations({
-            revnetId: revnetId, configuration: configuration, terminalConfigurations: terminalConfigurations
-        });
+        // Deploy the revnet (project, rulesets, ERC-20, suckers, etc.).
+        bytes32 encodedConfigurationHash = _deployRevnetFor(
+            revnetId, shouldDeployNewRevnet, configuration, terminalConfigurations, suckerDeploymentConfiguration
+        );
 
         // Convert the REVBaseline721HookConfig to JBDeploy721TiersHookConfig, forcing issueTokensForSplits to false.
         // Revnets do their own weight adjustment for splits, so the 721 hook must not also adjust.
-        JBDeploy721TiersHookConfig memory hookConfig = JBDeploy721TiersHookConfig({
-            name: tiered721HookConfiguration.baseline721HookConfiguration.name,
-            symbol: tiered721HookConfiguration.baseline721HookConfiguration.symbol,
-            baseUri: tiered721HookConfiguration.baseline721HookConfiguration.baseUri,
-            tokenUriResolver: tiered721HookConfiguration.baseline721HookConfiguration.tokenUriResolver,
-            contractUri: tiered721HookConfiguration.baseline721HookConfiguration.contractUri,
-            tiersConfig: JB721InitTiersConfig({
-                tiers: tiered721HookConfiguration.baseline721HookConfiguration.tiersConfig.tiers,
-                currency: configuration.baseCurrency,
-                decimals: tiered721HookConfiguration.baseline721HookConfiguration.tiersConfig.decimals,
-                prices: CONTROLLER.PRICES()
-            }),
-            reserveBeneficiary: tiered721HookConfiguration.baseline721HookConfiguration.reserveBeneficiary,
-            flags: JB721TiersHookFlags({
-                noNewTiersWithReserves: tiered721HookConfiguration.baseline721HookConfiguration.flags
-                .noNewTiersWithReserves,
-                noNewTiersWithVotes: tiered721HookConfiguration.baseline721HookConfiguration.flags.noNewTiersWithVotes,
-                noNewTiersWithOwnerMinting: tiered721HookConfiguration.baseline721HookConfiguration.flags
-                .noNewTiersWithOwnerMinting,
-                preventOverspending: tiered721HookConfiguration.baseline721HookConfiguration.flags.preventOverspending,
-                issueTokensForSplits: false
-            })
-        });
-
-        // Deploy the tiered ERC-721 hook contract.
-        // slither-disable-next-line reentrancy-benign
         hook = HOOK_DEPLOYER.deployHookFor({
             projectId: revnetId,
-            deployTiersHookConfig: hookConfig,
+            deployTiersHookConfig: JBDeploy721TiersHookConfig({
+                name: tiered721HookConfiguration.baseline721HookConfiguration.name,
+                symbol: tiered721HookConfiguration.baseline721HookConfiguration.symbol,
+                baseUri: tiered721HookConfiguration.baseline721HookConfiguration.baseUri,
+                tokenUriResolver: tiered721HookConfiguration.baseline721HookConfiguration.tokenUriResolver,
+                contractUri: tiered721HookConfiguration.baseline721HookConfiguration.contractUri,
+                tiersConfig: tiered721HookConfiguration.baseline721HookConfiguration.tiersConfig,
+                reserveBeneficiary: tiered721HookConfiguration.baseline721HookConfiguration.reserveBeneficiary,
+                flags: JB721TiersHookFlags({
+                    noNewTiersWithReserves: tiered721HookConfiguration.baseline721HookConfiguration.flags
+                        .noNewTiersWithReserves,
+                    noNewTiersWithVotes: tiered721HookConfiguration.baseline721HookConfiguration.flags
+                        .noNewTiersWithVotes,
+                    noNewTiersWithOwnerMinting: tiered721HookConfiguration.baseline721HookConfiguration.flags
+                        .noNewTiersWithOwnerMinting,
+                    preventOverspending: tiered721HookConfiguration.baseline721HookConfiguration.flags
+                        .preventOverspending,
+                    issueTokensForSplits: false
+                })
+            }),
             salt: keccak256(abi.encode(tiered721HookConfiguration.salt, encodedConfigurationHash, _msgSender()))
         });
 
@@ -928,16 +929,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
                 operator: address(PUBLISHER), revnetId: revnetId, permissionId: JBPermissionIds.ADJUST_721_TIERS
             });
         }
-
-        _deployRevnetFor({
-            revnetId: revnetId,
-            shouldDeployNewRevnet: shouldDeployNewRevnet,
-            configuration: configuration,
-            terminalConfigurations: terminalConfigurations,
-            suckerDeploymentConfiguration: suckerDeploymentConfiguration,
-            rulesetConfigurations: rulesetConfigurations,
-            encodedConfigurationHash: encodedConfigurationHash
-        });
     }
 
     /// @notice Deploy a revnet, or initialize an existing Juicebox project as a revnet.
@@ -954,21 +945,22 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
     /// @param suckerDeploymentConfiguration The suckers to set up for the revnet. Suckers facilitate cross-chain
     /// token transfers between peer revnets on different networks.
-    /// @param rulesetConfigurations The rulesets to set up for the revnet.
-    /// @param encodedConfigurationHash A hash that represents the revnet's configuration.
-    /// See `_makeRulesetConfigurations(…)` for encoding details. Clients can read the encoded configuration
-    /// from the `DeployRevnet` event emitted by this contract.
+    /// @return encodedConfigurationHash A hash that represents the revnet's configuration.
     function _deployRevnetFor(
         uint256 revnetId,
         bool shouldDeployNewRevnet,
         REVConfig calldata configuration,
         JBTerminalConfig[] calldata terminalConfigurations,
-        REVSuckerDeploymentConfig calldata suckerDeploymentConfiguration,
-        JBRulesetConfig[] memory rulesetConfigurations,
-        bytes32 encodedConfigurationHash
+        REVSuckerDeploymentConfig calldata suckerDeploymentConfiguration
     )
         internal
+        returns (bytes32 encodedConfigurationHash)
     {
+        // Normalize and encode the configurations.
+        JBRulesetConfig[] memory rulesetConfigurations;
+        (rulesetConfigurations, encodedConfigurationHash) = _makeRulesetConfigurations({
+            revnetId: revnetId, configuration: configuration, terminalConfigurations: terminalConfigurations
+        });
         if (shouldDeployNewRevnet) {
             // If we're deploying a new revnet, launch a Juicebox project for it.
             // Sanity check that we deployed the `revnetId` that we expected to deploy.
