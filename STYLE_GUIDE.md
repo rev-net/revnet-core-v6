@@ -340,7 +340,7 @@ wrap_comments = true
 - `via_ir = true` when hitting stack-too-deep
 - `optimizer = false` when optimization causes stack-too-deep
 - `optimizer_runs` reduced when deep struct nesting causes stack-too-deep at 200 runs
-- `[profile.lite]` with `optimizer = false` — repos that need `via_ir = true` should add a lite profile that disables the optimizer (the expensive part of the IR pipeline). Without it, large codebases OOM on CI runners. Use `FOUNDRY_PROFILE=lite` for the test step; keep the default profile for `forge build --sizes`
+- `[profile.lite]` with higher `optimizer_runs` — repos that need `via_ir = true` with reduced optimizer runs for size compliance should add a lite profile with the standard 200 runs. Lower optimizer runs increase bytecode size and compilation memory. Use `FOUNDRY_PROFILE=lite` for the test step; keep the default profile for `forge build --sizes`
 
 ### CI Workflows
 
