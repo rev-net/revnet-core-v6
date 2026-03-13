@@ -35,10 +35,10 @@ library REVEmpty721Config {
                 })
             }),
             salt: bytes32(0),
-            splitOperatorCanAdjustTiers: false,
-            splitOperatorCanUpdateMetadata: false,
-            splitOperatorCanMint: false,
-            splitOperatorCanIncreaseDiscountPercent: false
+            preventSplitOperatorAdjustingTiers: false,
+            preventSplitOperatorUpdatingMetadata: false,
+            preventSplitOperatorMinting: false,
+            preventSplitOperatorIncreasingDiscountPercent: false
         });
     }
 

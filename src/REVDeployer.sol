@@ -11,6 +11,7 @@ import {IJB721TiersHook} from "@bananapus/721-hook-v6/src/interfaces/IJB721Tiers
 import {IJB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHookDeployer.sol";
 import {JB721TiersHookFlags} from "@bananapus/721-hook-v6/src/structs/JB721TiersHookFlags.sol";
 import {JBDeploy721TiersHookConfig} from "@bananapus/721-hook-v6/src/structs/JBDeploy721TiersHookConfig.sol";
+import {JB721InitTiersConfig} from "@bananapus/721-hook-v6/src/structs/JB721InitTiersConfig.sol";
 import {IJBBuybackHookRegistry} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHookRegistry.sol";
 import {IJBCashOutHook} from "@bananapus/core-v6/src/interfaces/IJBCashOutHook.sol";
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
@@ -847,7 +848,12 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             baseUri: tiered721HookConfiguration.baseline721HookConfiguration.baseUri,
             tokenUriResolver: tiered721HookConfiguration.baseline721HookConfiguration.tokenUriResolver,
             contractUri: tiered721HookConfiguration.baseline721HookConfiguration.contractUri,
-            tiersConfig: tiered721HookConfiguration.baseline721HookConfiguration.tiersConfig,
+            tiersConfig: JB721InitTiersConfig({
+                tiers: tiered721HookConfiguration.baseline721HookConfiguration.tiersConfig.tiers,
+                currency: configuration.baseCurrency,
+                decimals: tiered721HookConfiguration.baseline721HookConfiguration.tiersConfig.decimals,
+                prices: CONTROLLER.PRICES()
+            }),
             reserveBeneficiary: tiered721HookConfiguration.baseline721HookConfiguration.reserveBeneficiary,
             flags: JB721TiersHookFlags({
                 noNewTiersWithReserves: tiered721HookConfiguration.baseline721HookConfiguration.flags
@@ -871,24 +877,24 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         // Store the tiered ERC-721 hook.
         tiered721HookOf[revnetId] = hook;
 
-        // If specified, give the split operator permission to add and remove tiers.
-        if (tiered721HookConfiguration.splitOperatorCanAdjustTiers) {
+        // Give the split operator permission to add and remove tiers unless prevented.
+        if (!tiered721HookConfiguration.preventSplitOperatorAdjustingTiers) {
             _extraOperatorPermissions[revnetId].push(JBPermissionIds.ADJUST_721_TIERS);
         }
 
-        // If specified, give the split operator permission to set ERC-721 tier metadata.
-        if (tiered721HookConfiguration.splitOperatorCanUpdateMetadata) {
+        // Give the split operator permission to set ERC-721 tier metadata unless prevented.
+        if (!tiered721HookConfiguration.preventSplitOperatorUpdatingMetadata) {
             _extraOperatorPermissions[revnetId].push(JBPermissionIds.SET_721_METADATA);
         }
 
-        // If specified, give the split operator permission to mint ERC-721s (without a payment)
-        // from tiers with `allowOwnerMint` set to true.
-        if (tiered721HookConfiguration.splitOperatorCanMint) {
+        // Give the split operator permission to mint ERC-721s (without a payment)
+        // from tiers with `allowOwnerMint` set to true, unless prevented.
+        if (!tiered721HookConfiguration.preventSplitOperatorMinting) {
             _extraOperatorPermissions[revnetId].push(JBPermissionIds.MINT_721);
         }
 
-        // If specified, give the split operator permission to increase the discount of a tier.
-        if (tiered721HookConfiguration.splitOperatorCanIncreaseDiscountPercent) {
+        // Give the split operator permission to increase the discount of a tier unless prevented.
+        if (!tiered721HookConfiguration.preventSplitOperatorIncreasingDiscountPercent) {
             _extraOperatorPermissions[revnetId].push(JBPermissionIds.SET_721_DISCOUNT_PERCENT);
         }
 

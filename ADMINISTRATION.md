@@ -62,10 +62,10 @@ Optional 721 permissions (granted only if enabled at deployment via `REVDeploy72
 
 | Permission ID | Deployment Flag | What It Allows |
 |---------------|----------------|----------------|
-| `ADJUST_721_TIERS` | `splitOperatorCanAdjustTiers` | Add or remove ERC-721 tiers. |
-| `SET_721_METADATA` | `splitOperatorCanUpdateMetadata` | Update ERC-721 tier metadata. |
-| `MINT_721` | `splitOperatorCanMint` | Mint ERC-721s without payment from tiers with `allowOwnerMint`. |
-| `SET_721_DISCOUNT_PERCENT` | `splitOperatorCanIncreaseDiscountPercent` | Increase the discount percentage of a tier. |
+| `ADJUST_721_TIERS` | `preventSplitOperatorAdjustingTiers` | Add or remove ERC-721 tiers. Allowed unless prevented. |
+| `SET_721_METADATA` | `preventSplitOperatorUpdatingMetadata` | Update ERC-721 tier metadata. Allowed unless prevented. |
+| `MINT_721` | `preventSplitOperatorMinting` | Mint ERC-721s without payment from tiers with `allowOwnerMint`. Allowed unless prevented. |
+| `SET_721_DISCOUNT_PERCENT` | `preventSplitOperatorIncreasingDiscountPercent` | Increase the discount percentage of a tier. Allowed unless prevented. |
 
 ### REVLoans
 

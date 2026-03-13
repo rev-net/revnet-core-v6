@@ -295,10 +295,10 @@ contract DeployScript is Script, Sphinx {
                     })
                 }),
                 salt: bytes32(0),
-                splitOperatorCanAdjustTiers: false,
-                splitOperatorCanUpdateMetadata: false,
-                splitOperatorCanMint: false,
-                splitOperatorCanIncreaseDiscountPercent: false
+                preventSplitOperatorAdjustingTiers: false,
+                preventSplitOperatorUpdatingMetadata: false,
+                preventSplitOperatorMinting: false,
+                preventSplitOperatorIncreasingDiscountPercent: false
             }),
             allowedPosts: new REVCroptopAllowedPost[](0)
         });

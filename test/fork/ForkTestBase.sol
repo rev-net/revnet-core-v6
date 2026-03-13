@@ -408,10 +408,10 @@ abstract contract ForkTestBase is TestBaseWorkflow {
                 })
             }),
             salt: bytes32("FORK_721"),
-            splitOperatorCanAdjustTiers: false,
-            splitOperatorCanUpdateMetadata: false,
-            splitOperatorCanMint: false,
-            splitOperatorCanIncreaseDiscountPercent: false
+            preventSplitOperatorAdjustingTiers: false,
+            preventSplitOperatorUpdatingMetadata: false,
+            preventSplitOperatorMinting: false,
+            preventSplitOperatorIncreasingDiscountPercent: false
         });
     }
 
