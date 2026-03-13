@@ -7,6 +7,8 @@ import /* {*} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
 import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v6/src/CTPublisher.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
+import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
+import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 
 import "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
 import "@bananapus/721-hook-v6/script/helpers/Hook721DeploymentLib.sol";
@@ -152,7 +154,9 @@ contract TestConversionDocumentation is TestBaseWorkflow {
             revnetId: FEE_PROJECT_ID,
             configuration: cfg,
             terminalConfigurations: terms,
-            suckerDeploymentConfiguration: suckerCfg
+            suckerDeploymentConfiguration: suckerCfg,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
     }
 
@@ -172,11 +176,13 @@ contract TestConversionDocumentation is TestBaseWorkflow {
 
         // Deploy as revnet — should succeed since project is blank.
         vm.prank(USER);
-        uint256 deployed = REV_DEPLOYER.deployFor({
+        (uint256 deployed,) = REV_DEPLOYER.deployFor({
             revnetId: blankId,
             configuration: cfg,
             terminalConfigurations: terms,
-            suckerDeploymentConfiguration: suckerCfg
+            suckerDeploymentConfiguration: suckerCfg,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         assertEq(deployed, blankId, "Should return the same project ID");
@@ -253,7 +259,9 @@ contract TestConversionDocumentation is TestBaseWorkflow {
             revnetId: projectId,
             configuration: cfg,
             terminalConfigurations: terms2,
-            suckerDeploymentConfiguration: suckerCfg
+            suckerDeploymentConfiguration: suckerCfg,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
     }
 
@@ -277,7 +285,9 @@ contract TestConversionDocumentation is TestBaseWorkflow {
             revnetId: blankId,
             configuration: cfg,
             terminalConfigurations: terms,
-            suckerDeploymentConfiguration: suckerCfg
+            suckerDeploymentConfiguration: suckerCfg,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         // Verify the project's owner is now the REVDeployer (NFT transferred permanently).
@@ -292,8 +302,13 @@ contract TestConversionDocumentation is TestBaseWorkflow {
         (REVConfig memory cfg, JBTerminalConfig[] memory terms, REVSuckerDeploymentConfig memory suckerCfg) =
             _getRevnetConfig("NewRevnet", "$NEW", "NEW_TOKEN");
 
-        uint256 newId = REV_DEPLOYER.deployFor({
-            revnetId: 0, configuration: cfg, terminalConfigurations: terms, suckerDeploymentConfiguration: suckerCfg
+        (uint256 newId,) = REV_DEPLOYER.deployFor({
+            revnetId: 0,
+            configuration: cfg,
+            terminalConfigurations: terms,
+            suckerDeploymentConfiguration: suckerCfg,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         // Verify the project was created (ID > fee project).

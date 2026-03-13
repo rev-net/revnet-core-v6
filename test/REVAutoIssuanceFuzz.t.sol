@@ -26,6 +26,8 @@ import {JB721TiersHook} from "@bananapus/721-hook-v6/src/JB721TiersHook.sol";
 import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStore.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
+import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
+import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 
 /// @notice Fuzz tests for REVDeployer multi-stage auto-issuance.
 /// Tests stage ID computation consistency and multi-stage claiming behavior.
@@ -135,14 +137,16 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
         });
 
         vm.prank(multisig());
-        revnetId = REV_DEPLOYER.deployFor({
+        (revnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: config,
             terminalConfigurations: terminalConfigs,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0),
                 salt: keccak256(abi.encodePacked("AUTOISSUE", numStages))
-            })
+            }),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
     }
 

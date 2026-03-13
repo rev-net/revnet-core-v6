@@ -31,11 +31,21 @@ import {REVDescription} from "../src/structs/REVDescription.sol";
 import {REVStageConfig} from "../src/structs/REVStageConfig.sol";
 import {REVSuckerDeploymentConfig} from "../src/structs/REVSuckerDeploymentConfig.sol";
 import {REVLoans, IREVLoans} from "./../src/REVLoans.sol";
+import {REVDeploy721TiersHookConfig} from "../src/structs/REVDeploy721TiersHookConfig.sol";
+import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
+import {IJB721TokenUriResolver} from "@bananapus/721-hook-v6/src/interfaces/IJB721TokenUriResolver.sol";
+import {IJBPrices} from "@bananapus/core-v6/src/interfaces/IJBPrices.sol";
+import {JB721InitTiersConfig} from "@bananapus/721-hook-v6/src/structs/JB721InitTiersConfig.sol";
+import {JB721TierConfig} from "@bananapus/721-hook-v6/src/structs/JB721TierConfig.sol";
+import {REVBaseline721HookConfig} from "../src/structs/REVBaseline721HookConfig.sol";
+import {REV721TiersHookFlags} from "../src/structs/REV721TiersHookFlags.sol";
 
 struct FeeProjectConfig {
     REVConfig configuration;
     JBTerminalConfig[] terminalConfigurations;
     REVSuckerDeploymentConfig suckerDeploymentConfiguration;
+    REVDeploy721TiersHookConfig tiered721HookConfiguration;
+    REVCroptopAllowedPost[] allowedPosts;
 }
 
 contract DeployScript is Script, Sphinx {
@@ -262,7 +272,35 @@ contract DeployScript is Script, Sphinx {
         return FeeProjectConfig({
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
-            suckerDeploymentConfiguration: suckerDeploymentConfiguration
+            suckerDeploymentConfiguration: suckerDeploymentConfiguration,
+            tiered721HookConfiguration: REVDeploy721TiersHookConfig({
+                baseline721HookConfiguration: REVBaseline721HookConfig({
+                    name: "",
+                    symbol: "",
+                    baseUri: "",
+                    tokenUriResolver: IJB721TokenUriResolver(address(0)),
+                    contractUri: "",
+                    tiersConfig: JB721InitTiersConfig({
+                        tiers: new JB721TierConfig[](0),
+                        currency: 0,
+                        decimals: 18,
+                        prices: IJBPrices(address(0))
+                    }),
+                    reserveBeneficiary: address(0),
+                    flags: REV721TiersHookFlags({
+                        noNewTiersWithReserves: false,
+                        noNewTiersWithVotes: false,
+                        noNewTiersWithOwnerMinting: false,
+                        preventOverspending: false
+                    })
+                }),
+                salt: bytes32(0),
+                splitOperatorCanAdjustTiers: false,
+                splitOperatorCanUpdateMetadata: false,
+                splitOperatorCanMint: false,
+                splitOperatorCanIncreaseDiscountPercent: false
+            }),
+            allowedPosts: new REVCroptopAllowedPost[](0)
         });
     }
 
@@ -326,7 +364,9 @@ contract DeployScript is Script, Sphinx {
             revnetId: FEE_PROJECT_ID,
             configuration: feeProjectConfig.configuration,
             terminalConfigurations: feeProjectConfig.terminalConfigurations,
-            suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration
+            suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration,
+            tiered721HookConfiguration: feeProjectConfig.tiered721HookConfiguration,
+            allowedPosts: feeProjectConfig.allowedPosts
         });
     }
 

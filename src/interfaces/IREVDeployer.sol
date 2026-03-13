@@ -182,20 +182,26 @@ interface IREVDeployer {
     /// @param revnetId The ID of the revnet whose tokens should be burned.
     function burnHeldTokensOf(uint256 revnetId) external;
 
-    /// @notice Deploy a revnet, or initialize an existing Juicebox project as a revnet.
+    /// @notice Deploy a revnet with a tiered ERC-721 hook and optional croptop posting support.
+    /// @dev Every revnet gets a 721 hook — pass an empty config if no tiers are needed initially.
     /// @param revnetId The ID of the Juicebox project to initialize. Send 0 to deploy a new revnet.
     /// @param configuration Core revnet configuration.
     /// @param terminalConfigurations The terminals to set up for the revnet.
     /// @param suckerDeploymentConfiguration The suckers to set up for cross-chain token transfers.
+    /// @param tiered721HookConfiguration How to set up the tiered ERC-721 hook for the revnet.
+    /// @param allowedPosts Restrictions on which croptop posts are allowed on the revnet's ERC-721 tiers.
     /// @return The ID of the newly created or initialized revnet.
+    /// @return hook The tiered ERC-721 hook that was deployed for the revnet.
     function deployFor(
         uint256 revnetId,
         REVConfig memory configuration,
         JBTerminalConfig[] memory terminalConfigurations,
-        REVSuckerDeploymentConfig memory suckerDeploymentConfiguration
+        REVSuckerDeploymentConfig memory suckerDeploymentConfiguration,
+        REVDeploy721TiersHookConfig memory tiered721HookConfiguration,
+        REVCroptopAllowedPost[] memory allowedPosts
     )
         external
-        returns (uint256);
+        returns (uint256, IJB721TiersHook hook);
 
     /// @notice Deploy new suckers for an existing revnet.
     /// @param revnetId The ID of the revnet to deploy suckers for.
@@ -207,26 +213,6 @@ interface IREVDeployer {
     )
         external
         returns (address[] memory suckers);
-
-    /// @notice Deploy a revnet with tiered ERC-721s and optional croptop posting support.
-    /// @param revnetId The ID of the Juicebox project to initialize. Send 0 to deploy a new revnet.
-    /// @param configuration Core revnet configuration.
-    /// @param terminalConfigurations The terminals to set up for the revnet.
-    /// @param suckerDeploymentConfiguration The suckers to set up for cross-chain token transfers.
-    /// @param tiered721HookConfiguration How to set up the tiered ERC-721 hook.
-    /// @param allowedPosts Restrictions on which croptop posts are allowed on the revnet's ERC-721 tiers.
-    /// @return The ID of the newly created or initialized revnet.
-    /// @return hook The tiered ERC-721 hook that was deployed for the revnet.
-    function deployWith721sFor(
-        uint256 revnetId,
-        REVConfig calldata configuration,
-        JBTerminalConfig[] memory terminalConfigurations,
-        REVSuckerDeploymentConfig memory suckerDeploymentConfiguration,
-        REVDeploy721TiersHookConfig memory tiered721HookConfiguration,
-        REVCroptopAllowedPost[] memory allowedPosts
-    )
-        external
-        returns (uint256, IJB721TiersHook hook);
 
     /// @notice Change a revnet's split operator. Only the current split operator can call this.
     /// @param revnetId The ID of the revnet.

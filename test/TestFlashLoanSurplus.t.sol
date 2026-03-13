@@ -7,6 +7,8 @@ import /* {*} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
 import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v6/src/CTPublisher.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
+import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
+import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 import "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
 import "@bananapus/721-hook-v6/script/helpers/Hook721DeploymentLib.sol";
 import "@bananapus/suckers-v6/script/helpers/SuckerDeploymentLib.sol";
@@ -134,7 +136,9 @@ contract TestFlashLoanSurplus is TestBaseWorkflow {
             terminalConfigurations: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")
-            })
+            }),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
     }
 
@@ -171,13 +175,15 @@ contract TestFlashLoanSurplus is TestBaseWorkflow {
             splitOperator: multisig(),
             stageConfigurations: stages
         });
-        REVNET_ID = REV_DEPLOYER.deployFor({
+        (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
             terminalConfigurations: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NANA")
-            })
+            }),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
     }
 

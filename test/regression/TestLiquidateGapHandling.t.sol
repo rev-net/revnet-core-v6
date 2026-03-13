@@ -30,6 +30,8 @@ import {JB721TiersHook} from "@bananapus/721-hook-v6/src/JB721TiersHook.sol";
 import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStore.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
+import {REVEmpty721Config} from "../helpers/REVEmpty721Config.sol";
+import {REVCroptopAllowedPost} from "../../src/structs/REVCroptopAllowedPost.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 /// @notice liquidateExpiredLoansFrom halts on deleted loan gaps.
@@ -140,7 +142,9 @@ contract TestLiquidateGapHandling is TestBaseWorkflow {
             terminalConfigurations: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")
-            })
+            }),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
     }
 
@@ -175,13 +179,15 @@ contract TestLiquidateGapHandling is TestBaseWorkflow {
             splitOperator: multisig(),
             stageConfigurations: stages
         });
-        REVNET_ID = REV_DEPLOYER.deployFor({
+        (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
             terminalConfigurations: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NANA")
-            })
+            }),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
     }
 

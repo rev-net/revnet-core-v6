@@ -29,6 +29,8 @@ import {JB721TiersHook} from "@bananapus/721-hook-v6/src/JB721TiersHook.sol";
 import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStore.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
+import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
+import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 
 /// @notice Tests for PR #32: liquidation boundary, reallocate msg.value, and decimal normalization fixes.
 contract TestMixedFixes is TestBaseWorkflow {
@@ -131,7 +133,9 @@ contract TestMixedFixes is TestBaseWorkflow {
             terminalConfigurations: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")
-            })
+            }),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
     }
 
@@ -168,13 +172,15 @@ contract TestMixedFixes is TestBaseWorkflow {
             splitOperator: multisig(),
             stageConfigurations: stages
         });
-        REVNET_ID = REV_DEPLOYER.deployFor({
+        (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
             terminalConfigurations: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NANA")
-            })
+            }),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
     }
 
@@ -343,13 +349,15 @@ contract TestMixedFixes is TestBaseWorkflow {
             splitOperator: multisig(),
             stageConfigurations: stages
         });
-        MIXED_REVNET_ID = REV_DEPLOYER.deployFor({
+        (MIXED_REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
             terminalConfigurations: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("MIXED")
-            })
+            }),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
     }
 

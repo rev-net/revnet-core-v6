@@ -3,6 +3,7 @@ pragma solidity 0.8.26;
 
 import "./ForkTestBase.sol";
 import {JBFees} from "@bananapus/core-v6/src/libraries/JBFees.sol";
+import {REVEmpty721Config} from "../helpers/REVEmpty721Config.sol";
 
 /// @notice Fork tests for loan lifecycle spanning multiple revnet stages (rulesets).
 ///
@@ -85,8 +86,13 @@ contract TestLoanCrossRulesetFork is ForkTestBase {
         (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
             _buildTwoStageConfig(7000, 2000);
 
-        revnetId = REV_DEPLOYER.deployFor({
-            revnetId: 0, configuration: cfg, terminalConfigurations: tc, suckerDeploymentConfiguration: sdc
+        (revnetId,) = REV_DEPLOYER.deployFor({
+            revnetId: 0,
+            configuration: cfg,
+            terminalConfigurations: tc,
+            suckerDeploymentConfiguration: sdc,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         // Set up pool at 1:1 (mint path wins).

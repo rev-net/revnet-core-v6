@@ -691,16 +691,21 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
     /// @param suckerDeploymentConfiguration The suckers to set up for the revnet. Suckers facilitate cross-chain
     /// token transfers between peer revnets on different networks.
+    /// @param tiered721HookConfiguration How to set up the tiered ERC-721 hook for the revnet.
+    /// @param allowedPosts Restrictions on which croptop posts are allowed on the revnet's ERC-721 tiers.
     /// @return revnetId The ID of the newly created revnet.
+    /// @return hook The address of the tiered ERC-721 hook that was deployed for the revnet.
     function deployFor(
         uint256 revnetId,
         REVConfig calldata configuration,
         JBTerminalConfig[] calldata terminalConfigurations,
-        REVSuckerDeploymentConfig calldata suckerDeploymentConfiguration
+        REVSuckerDeploymentConfig calldata suckerDeploymentConfiguration,
+        REVDeploy721TiersHookConfig calldata tiered721HookConfiguration,
+        REVCroptopAllowedPost[] calldata allowedPosts
     )
         external
         override
-        returns (uint256)
+        returns (uint256, IJB721TiersHook hook)
     {
         // Keep a reference to the revnet ID which was passed in.
         bool shouldDeployNewRevnet = revnetId == 0;
@@ -709,23 +714,18 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         // (which will be 1 greater than the current count).
         if (shouldDeployNewRevnet) revnetId = _nextProjectId();
 
-        // Normalize and encode the configurations.
-        (JBRulesetConfig[] memory rulesetConfigurations, bytes32 encodedConfigurationHash) = _makeRulesetConfigurations({
-            revnetId: revnetId, configuration: configuration, terminalConfigurations: terminalConfigurations
-        });
-
-        // Deploy the revnet.
-        _deployRevnetFor({
+        // Deploy the revnet with the specified tiered ERC-721 hook and croptop posting criteria.
+        hook = _deploy721RevnetFor({
             revnetId: revnetId,
             shouldDeployNewRevnet: shouldDeployNewRevnet,
             configuration: configuration,
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: suckerDeploymentConfiguration,
-            rulesetConfigurations: rulesetConfigurations,
-            encodedConfigurationHash: encodedConfigurationHash
+            tiered721HookConfiguration: tiered721HookConfiguration,
+            allowedPosts: allowedPosts
         });
 
-        return revnetId;
+        return (revnetId, hook);
     }
 
     /// @notice Burn any of a revnet's tokens held by this contract.
@@ -773,51 +773,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             encodedConfigurationHash: hashedEncodedConfigurationOf[revnetId],
             suckerDeploymentConfiguration: suckerDeploymentConfiguration
         });
-    }
-
-    /// @notice Launch a revnet which sells tiered ERC-721s and (optionally) allows croptop posts to its ERC-721 tiers.
-    /// @dev When initializing an existing project (revnetId != 0), the project must be blank (no controller or
-    /// rulesets). The initialization is irreversible. See `deployFor` documentation for full details.
-    /// @param revnetId The ID of the Juicebox project to initialize as a revnet. Send 0 to deploy a new revnet.
-    /// @param configuration Core revnet configuration. See `REVConfig`.
-    /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
-    /// @param suckerDeploymentConfiguration The suckers to set up for the revnet. Suckers facilitate cross-chain
-    /// token transfers between peer revnets on different networks.
-    /// @param tiered721HookConfiguration How to set up the tiered ERC-721 hook for the revnet.
-    /// @param allowedPosts Restrictions on which croptop posts are allowed on the revnet's ERC-721 tiers.
-    /// @return revnetId The ID of the newly created revnet.
-    /// @return hook The address of the tiered ERC-721 hook that was deployed for the revnet.
-    function deployWith721sFor(
-        uint256 revnetId,
-        REVConfig calldata configuration,
-        JBTerminalConfig[] calldata terminalConfigurations,
-        REVSuckerDeploymentConfig calldata suckerDeploymentConfiguration,
-        REVDeploy721TiersHookConfig calldata tiered721HookConfiguration,
-        REVCroptopAllowedPost[] calldata allowedPosts
-    )
-        external
-        override
-        returns (uint256, IJB721TiersHook hook)
-    {
-        // Keep a reference to the revnet ID which was passed in.
-        bool shouldDeployNewRevnet = revnetId == 0;
-
-        // If the caller is deploying a new revnet, calculate its ID
-        // (which will be 1 greater than the current count).
-        if (shouldDeployNewRevnet) revnetId = _nextProjectId();
-
-        // Deploy the revnet with the specified tiered ERC-721 hook and croptop posting criteria.
-        hook = _deploy721RevnetFor({
-            revnetId: revnetId,
-            shouldDeployNewRevnet: shouldDeployNewRevnet,
-            configuration: configuration,
-            terminalConfigurations: terminalConfigurations,
-            suckerDeploymentConfiguration: suckerDeploymentConfiguration,
-            tiered721HookConfiguration: tiered721HookConfiguration,
-            allowedPosts: allowedPosts
-        });
-
-        return (revnetId, hook);
     }
 
     /// @notice Change a revnet's split operator.

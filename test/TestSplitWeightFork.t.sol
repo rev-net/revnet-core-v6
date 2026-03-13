@@ -36,6 +36,7 @@ import {JB721InitTiersConfig} from "@bananapus/721-hook-v6/src/structs/JB721Init
 import {IJB721TokenUriResolver} from "@bananapus/721-hook-v6/src/interfaces/IJB721TokenUriResolver.sol";
 import {REVDeploy721TiersHookConfig} from "../src/structs/REVDeploy721TiersHookConfig.sol";
 import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
+import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
 
 // Buyback hook
 import {JBBuybackHook} from "@bananapus/buyback-hook-v6/src/JBBuybackHook.sol";
@@ -427,7 +428,9 @@ contract TestSplitWeightFork is TestBaseWorkflow {
             revnetId: FEE_PROJECT_ID,
             configuration: feeCfg,
             terminalConfigurations: feeTc,
-            suckerDeploymentConfiguration: feeSdc
+            suckerDeploymentConfiguration: feeSdc,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         // Deploy the revnet with 721 hook.
@@ -435,7 +438,7 @@ contract TestSplitWeightFork is TestBaseWorkflow {
             _buildMinimalConfig();
         REVDeploy721TiersHookConfig memory hookConfig = _build721Config();
 
-        (revnetId, hook) = REV_DEPLOYER.deployWith721sFor({
+        (revnetId, hook) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
             terminalConfigurations: tc,
@@ -748,8 +751,13 @@ contract TestSplitWeightFork is TestBaseWorkflow {
             _buildMinimalConfig();
         cfg2.description = REVDescription("NoSplit Fork", "NSF", "ipfs://nosplit", "NSF_SALT");
 
-        uint256 revnetId2 = REV_DEPLOYER.deployFor({
-            revnetId: 0, configuration: cfg2, terminalConfigurations: tc2, suckerDeploymentConfiguration: sdc2
+        (uint256 revnetId2,) = REV_DEPLOYER.deployFor({
+            revnetId: 0,
+            configuration: cfg2,
+            terminalConfigurations: tc2,
+            suckerDeploymentConfiguration: sdc2,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         // Set up pool for revnet2 too (so buyback hook has a pool, but will choose mint at 1:1).

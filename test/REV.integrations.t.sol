@@ -7,6 +7,8 @@ import /* {*} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
 import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v6/src/CTPublisher.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
+import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
+import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 
 import "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
 import "@bananapus/721-hook-v6/script/helpers/Hook721DeploymentLib.sol";
@@ -226,11 +228,13 @@ contract REVnet_Integrations is TestBaseWorkflow {
 
         // Configure the project.
         vm.prank(address(multisig()));
-        REVNET_ID = REV_DEPLOYER.deployFor({
+        (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID, // Zero to deploy a new revnet
             configuration: feeProjectConfig.configuration,
             terminalConfigurations: feeProjectConfig.terminalConfigurations,
-            suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration
+            suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
     }
 
@@ -355,11 +359,13 @@ contract REVnet_Integrations is TestBaseWorkflow {
         projectConfig.configuration.stageConfigurations = stageConfigurations;
         projectConfig.configuration.description.salt = "FeeChange";
 
-        uint256 revnetProjectId = REV_DEPLOYER.deployFor({
+        (uint256 revnetProjectId,) = REV_DEPLOYER.deployFor({
             revnetId: 0, // Zero to deploy a new revnet
             configuration: projectConfig.configuration,
             terminalConfigurations: projectConfig.terminalConfigurations,
-            suckerDeploymentConfiguration: projectConfig.suckerDeploymentConfiguration
+            suckerDeploymentConfiguration: projectConfig.suckerDeploymentConfiguration,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         {
@@ -411,11 +417,13 @@ contract REVnet_Integrations is TestBaseWorkflow {
             abi.encodeWithSelector(REVDeployer.REVDeployer_Unauthorized.selector, FEE_PROJECT_ID, address(this))
         );
         // Configure the project.
-        REVNET_ID = REV_DEPLOYER.deployFor({
+        (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID, // Zero to deploy a new revnet
             configuration: feeProjectConfig.configuration,
             terminalConfigurations: feeProjectConfig.terminalConfigurations,
-            suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration
+            suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
     }
 }

@@ -30,6 +30,8 @@ import {JBBeforePayRecordedContext} from "@bananapus/core-v6/src/structs/JBBefor
 import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
 import {JBTokenAmount} from "@bananapus/core-v6/src/structs/JBTokenAmount.sol";
 import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
+import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
+import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 
 /// @notice Tests for PR #22: fix/c2-hook-array-oob
 /// Verifies that the fix for the hook array out-of-bounds bug works correctly.
@@ -139,7 +141,9 @@ contract TestHookArrayOOB is TestBaseWorkflow {
             revnetId: FEE_PROJECT_ID,
             configuration: feeCfg,
             terminalConfigurations: feeTc,
-            suckerDeploymentConfiguration: feeSdc
+            suckerDeploymentConfiguration: feeSdc,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         // Deploy a new test revnet (revnetId: 0 = create new)
@@ -148,8 +152,13 @@ contract TestHookArrayOOB is TestBaseWorkflow {
         // Use a different salt so the ERC20 deploy doesn't clash
         cfg.description = REVDescription("Test2", "TS2", "ipfs://test2", "TEST_SALT_2");
 
-        revnetId = REV_DEPLOYER.deployFor({
-            revnetId: 0, configuration: cfg, terminalConfigurations: tc, suckerDeploymentConfiguration: sdc
+        (revnetId,) = REV_DEPLOYER.deployFor({
+            revnetId: 0,
+            configuration: cfg,
+            terminalConfigurations: tc,
+            suckerDeploymentConfiguration: sdc,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
     }
 
@@ -190,8 +199,8 @@ contract TestHookArrayOOB is TestBaseWorkflow {
     }
 
     /// @notice Test that beforePayRecordedWith returns correct hook specification counts.
-    /// When no hooks are configured, should return empty array.
-    function test_beforePayRecordedWith_noHooks_returnsEmptySpecs() public {
+    /// Every revnet now has both a buyback hook and a 721 hook.
+    function test_beforePayRecordedWith_returnsHookSpecs() public {
         uint256 revnetId = _deployFeeAndRevnet();
 
         // Build a mock context for beforePayRecordedWith
@@ -214,9 +223,8 @@ contract TestHookArrayOOB is TestBaseWorkflow {
 
         (uint256 weight, JBPayHookSpecification[] memory specs) = REV_DEPLOYER.beforePayRecordedWith(context);
 
-        // With the global buyback hook but no 721 hook, weight should be the context weight
-        // and specs should contain exactly the buyback hook specification.
+        // Every revnet has both the buyback hook and the 721 hook.
         assertEq(weight, context.weight, "Weight should be the default context weight");
-        assertEq(specs.length, 1, "Should have exactly the buyback hook specification");
+        assertEq(specs.length, 2, "Should have buyback hook and 721 hook specifications");
     }
 }
