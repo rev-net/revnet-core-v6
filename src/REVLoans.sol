@@ -191,7 +191,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         IPermit2 permit2,
         address trustedForwarder
     )
-        ERC721({name_: "REV Loans", symbol_: "$REVLOAN"})
+        ERC721("REV Loans", "$REVLOAN")
         ERC2771Context(trustedForwarder)
         Ownable(owner)
     {
