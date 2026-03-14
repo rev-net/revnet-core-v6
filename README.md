@@ -55,7 +55,7 @@ Revnets are autonomous Juicebox projects with predetermined economic stages. Eac
 ### Deployer Variants
 
 - **Basic revnet** -- `deployFor` with stage configurations mapped to Juicebox rulesets.
-- **Tiered 721 revnet** -- `deployWith721sFor` adds a tiered 721 pay hook that mints NFTs as people pay.
+- **Tiered 721 revnet** -- `deployFor` adds a tiered 721 pay hook that mints NFTs as people pay.
 - **Croptop revnet** -- A tiered 721 revnet with Croptop posting criteria, allowing the public to post content.
 
 ## Architecture
@@ -102,8 +102,8 @@ If `forge install` has issues, try `git submodule update --init --recursive`.
 
 ```
 src/
-  REVDeployer.sol                                # Revnet deployer + data hook (~1,256 lines)
-  REVLoans.sol                                   # Token-collateralized lending (~1,333 lines)
+  REVDeployer.sol                                # Revnet deployer + data hook (~1,287 lines)
+  REVLoans.sol                                   # Token-collateralized lending (~1,359 lines)
   interfaces/
     IREVDeployer.sol                             # Deployer interface + events
     IREVLoans.sol                                # Loans interface + events
