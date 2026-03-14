@@ -253,7 +253,9 @@ contract REVDeployerRegressions is TestBaseWorkflow {
             REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
             issuanceConfs[0] = REVAutoIssuance({
                 // forge-lint: disable-next-line(unsafe-typecast)
-                chainId: uint32(block.chainid), count: uint104(50_000 * decimalMultiplier), beneficiary: multisig()
+                chainId: uint32(block.chainid),
+                count: uint104(50_000 * decimalMultiplier),
+                beneficiary: multisig()
             });
 
             stageConfigurations[0] = REVStageConfig({
@@ -275,7 +277,9 @@ contract REVDeployerRegressions is TestBaseWorkflow {
             REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
             issuanceConfs[0] = REVAutoIssuance({
                 // forge-lint: disable-next-line(unsafe-typecast)
-                chainId: uint32(block.chainid), count: uint104(30_000 * decimalMultiplier), beneficiary: multisig()
+                chainId: uint32(block.chainid),
+                count: uint104(30_000 * decimalMultiplier),
+                beneficiary: multisig()
             });
 
             stageConfigurations[1] = REVStageConfig({

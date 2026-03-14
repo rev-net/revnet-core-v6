@@ -110,8 +110,8 @@ contract LiquidityHelper is IUnlockCallback {
         payable
     {
         bytes memory data =
-            // forge-lint: disable-next-line(named-struct-fields)
-            abi.encode(Action.ADD_LIQUIDITY, abi.encode(AddLiqParams(key, tickLower, tickUpper, liquidityDelta)));
+        // forge-lint: disable-next-line(named-struct-fields)
+        abi.encode(Action.ADD_LIQUIDITY, abi.encode(AddLiqParams(key, tickLower, tickUpper, liquidityDelta)));
         poolManager.unlock(data);
     }
 
@@ -125,8 +125,8 @@ contract LiquidityHelper is IUnlockCallback {
         payable
     {
         bytes memory data =
-            // forge-lint: disable-next-line(named-struct-fields)
-            abi.encode(Action.SWAP, abi.encode(DoSwapParams(key, zeroForOne, amountSpecified, sqrtPriceLimitX96)));
+        // forge-lint: disable-next-line(named-struct-fields)
+        abi.encode(Action.SWAP, abi.encode(DoSwapParams(key, zeroForOne, amountSpecified, sqrtPriceLimitX96)));
         poolManager.unlock(data);
     }
 
@@ -169,7 +169,9 @@ contract LiquidityHelper is IUnlockCallback {
 
         BalanceDelta delta = poolManager.swap(
             // forge-lint: disable-next-line(named-struct-fields)
-            params.key, SwapParams(params.zeroForOne, params.amountSpecified, params.sqrtPriceLimitX96), ""
+            params.key,
+            SwapParams(params.zeroForOne, params.amountSpecified, params.sqrtPriceLimitX96),
+            ""
         );
 
         if (delta.amount0() < 0) {

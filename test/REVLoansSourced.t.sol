@@ -131,7 +131,9 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
             issuanceConfs[0] = REVAutoIssuance({
                 // forge-lint: disable-next-line(unsafe-typecast)
-                chainId: uint32(block.chainid), count: uint104(70_000 * decimalMultiplier), beneficiary: multisig()
+                chainId: uint32(block.chainid),
+                count: uint104(70_000 * decimalMultiplier),
+                beneficiary: multisig()
             });
 
             stageConfigurations[0] = REVStageConfig({
@@ -225,7 +227,9 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
             issuanceConfs[0] = REVAutoIssuance({
                 // forge-lint: disable-next-line(unsafe-typecast)
-                chainId: uint32(block.chainid), count: uint104(70_000 * decimalMultiplier), beneficiary: multisig()
+                chainId: uint32(block.chainid),
+                count: uint104(70_000 * decimalMultiplier),
+                beneficiary: multisig()
             });
 
             stageConfigurations[0] = REVStageConfig({
@@ -704,7 +708,10 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         // Check what a borrow would result in more.
         uint256 loanable = LOANS_CONTRACT.borrowableAmountFrom(
             // forge-lint: disable-next-line(unsafe-typecast)
-            revnetProjectId, tokensToCashout, useNative ? 18 : 6, uint32(uint160(token))
+            revnetProjectId,
+            tokensToCashout,
+            useNative ? 18 : 6,
+            uint32(uint160(token))
         );
 
         uint256 fullReclaimableSurplus = jbMultiTerminal().STORE()
@@ -1160,8 +1167,8 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             if (premint > 0) {
                 issuanceConfs = new REVAutoIssuance[](1);
                 issuanceConfs[0] =
-                    // forge-lint: disable-next-line(unsafe-typecast)
-                    REVAutoIssuance({chainId: uint32(block.chainid), count: uint104(premint), beneficiary: multisig()});
+                // forge-lint: disable-next-line(unsafe-typecast)
+                REVAutoIssuance({chainId: uint32(block.chainid), count: uint104(premint), beneficiary: multisig()});
             }
 
             JBSplit[] memory splits = new JBSplit[](1);
@@ -1212,7 +1219,9 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
 
             JBPermissionsData memory permissionsData = JBPermissionsData({
                 // forge-lint: disable-next-line(unsafe-typecast)
-                operator: address(LOANS_CONTRACT), projectId: uint56(revnetProjectId), permissionIds: permissionIds
+                operator: address(LOANS_CONTRACT),
+                projectId: uint56(revnetProjectId),
+                permissionIds: permissionIds
             });
 
             // Give the loans contract permission to our tokens.

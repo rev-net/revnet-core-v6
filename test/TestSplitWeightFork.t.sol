@@ -55,7 +55,8 @@ import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
 import {IUnlockCallback} from "@uniswap/v4-core/src/interfaces/callback/IUnlockCallback.sol";
 import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
-import {PoolIdLibrary} from "@uniswap/v4-core/src/types/PoolId.sol";import {Currency, CurrencyLibrary} from "@uniswap/v4-core/src/types/Currency.sol";
+import {PoolIdLibrary} from "@uniswap/v4-core/src/types/PoolId.sol";
+import {Currency, CurrencyLibrary} from "@uniswap/v4-core/src/types/Currency.sol";
 import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
 import {ModifyLiquidityParams, SwapParams} from "@uniswap/v4-core/src/types/PoolOperation.sol";
 import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
@@ -101,8 +102,8 @@ contract LiquidityHelper is IUnlockCallback {
         payable
     {
         bytes memory data =
-            // forge-lint: disable-next-line(named-struct-fields)
-            abi.encode(Action.ADD_LIQUIDITY, abi.encode(AddLiqParams(key, tickLower, tickUpper, liquidityDelta)));
+        // forge-lint: disable-next-line(named-struct-fields)
+        abi.encode(Action.ADD_LIQUIDITY, abi.encode(AddLiqParams(key, tickLower, tickUpper, liquidityDelta)));
         poolManager.unlock(data);
     }
 
@@ -116,8 +117,8 @@ contract LiquidityHelper is IUnlockCallback {
         payable
     {
         bytes memory data =
-            // forge-lint: disable-next-line(named-struct-fields)
-            abi.encode(Action.SWAP, abi.encode(DoSwapParams(key, zeroForOne, amountSpecified, sqrtPriceLimitX96)));
+        // forge-lint: disable-next-line(named-struct-fields)
+        abi.encode(Action.SWAP, abi.encode(DoSwapParams(key, zeroForOne, amountSpecified, sqrtPriceLimitX96)));
         poolManager.unlock(data);
     }
 
@@ -160,7 +161,9 @@ contract LiquidityHelper is IUnlockCallback {
 
         BalanceDelta delta = poolManager.swap(
             // forge-lint: disable-next-line(named-struct-fields)
-            params.key, SwapParams(params.zeroForOne, params.amountSpecified, params.sqrtPriceLimitX96), ""
+            params.key,
+            SwapParams(params.zeroForOne, params.amountSpecified, params.sqrtPriceLimitX96),
+            ""
         );
 
         // Settle (pay) what we owe, take what we're owed.

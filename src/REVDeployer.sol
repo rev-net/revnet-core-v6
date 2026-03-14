@@ -1284,8 +1284,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     {
         // Set up the permission data.
         JBPermissionsData memory permissionData =
-            // forge-lint: disable-next-line(unsafe-typecast)
-            JBPermissionsData({operator: operator, projectId: uint64(revnetId), permissionIds: permissionIds});
+        // forge-lint: disable-next-line(unsafe-typecast)
+        JBPermissionsData({operator: operator, projectId: uint64(revnetId), permissionIds: permissionIds});
 
         // Set the permissions.
         PERMISSIONS.setPermissionsFor({account: account, permissionsData: permissionData});

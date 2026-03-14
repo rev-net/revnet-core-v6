@@ -35,7 +35,8 @@ import {REVConfig} from "../src/structs/REVConfig.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {REVStageConfig} from "../src/structs/REVStageConfig.sol";
 import {REVSuckerDeploymentConfig} from "../src/structs/REVSuckerDeploymentConfig.sol";
-import {REVLoans} from "./../src/REVLoans.sol";import {REVDeploy721TiersHookConfig} from "../src/structs/REVDeploy721TiersHookConfig.sol";
+import {REVLoans} from "./../src/REVLoans.sol";
+import {REVDeploy721TiersHookConfig} from "../src/structs/REVDeploy721TiersHookConfig.sol";
 import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 import {IJB721TokenUriResolver} from "@bananapus/721-hook-v6/src/interfaces/IJB721TokenUriResolver.sol";
 import {JB721InitTiersConfig} from "@bananapus/721-hook-v6/src/structs/JB721InitTiersConfig.sol";
@@ -227,7 +228,9 @@ contract DeployScript is Script, Sphinx {
             REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
             issuanceConfs[0] = REVAutoIssuance({
                 // forge-lint: disable-next-line(unsafe-typecast)
-                chainId: PREMINT_CHAIN_ID, count: uint104(1_550_000 * DECIMAL_MULTIPLIER), beneficiary: OPERATOR
+                chainId: PREMINT_CHAIN_ID,
+                count: uint104(1_550_000 * DECIMAL_MULTIPLIER),
+                beneficiary: OPERATOR
             });
 
             stageConfigurations[1] = REVStageConfig({
