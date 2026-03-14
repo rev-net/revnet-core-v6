@@ -276,7 +276,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         }
 
         // Get a reference to the number of tokens being used to pay the fee (out of the total being cashed out).
-        uint256 feeCashOutCount = mulDiv(context.cashOutCount, FEE, JBConstants.MAX_FEE);
+        uint256 feeCashOutCount = mulDiv({x: context.cashOutCount, y: FEE, denominator: JBConstants.MAX_FEE});
         uint256 nonFeeCashOutCount = context.cashOutCount - feeCashOutCount;
 
         // Keep a reference to the amount claimable with non-fee tokens.
@@ -353,7 +353,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         if (projectAmount == 0) {
             weight = 0;
         } else if (projectAmount < context.amount.value) {
-            weight = mulDiv(weight, projectAmount, context.amount.value);
+            weight = mulDiv({x: weight, y: projectAmount, denominator: context.amount.value});
         }
 
         // Merge hook specifications: 721 hook spec first, then buyback hook spec.
@@ -742,7 +742,13 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         bool shouldDeployNewRevnet = revnetId == 0;
         if (shouldDeployNewRevnet) revnetId = _nextProjectId();
 
-        _deployRevnetFor(revnetId, shouldDeployNewRevnet, configuration, terminalConfigurations, suckerDeploymentConfiguration);
+        _deployRevnetFor({
+            revnetId: revnetId,
+            shouldDeployNewRevnet: shouldDeployNewRevnet,
+            configuration: configuration,
+            terminalConfigurations: terminalConfigurations,
+            suckerDeploymentConfiguration: suckerDeploymentConfiguration
+        });
 
         return revnetId;
     }
@@ -826,7 +832,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     function _beforeTransferTo(address to, address token, uint256 amount) internal returns (uint256) {
         // If the token is the native token, no allowance needed.
         if (token == JBConstants.NATIVE_TOKEN) return amount;
-        IERC20(token).safeIncreaseAllowance(to, amount);
+        IERC20(token).safeIncreaseAllowance({spender: to, value: amount});
         return 0;
     }
 
@@ -844,9 +850,13 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         returns (IJB721TiersHook hook)
     {
         // Deploy the revnet (project, rulesets, ERC-20, suckers, etc.).
-        bytes32 encodedConfigurationHash = _deployRevnetFor(
-            revnetId, shouldDeployNewRevnet, configuration, terminalConfigurations, suckerDeploymentConfiguration
-        );
+        bytes32 encodedConfigurationHash = _deployRevnetFor({
+            revnetId: revnetId,
+            shouldDeployNewRevnet: shouldDeployNewRevnet,
+            configuration: configuration,
+            terminalConfigurations: terminalConfigurations,
+            suckerDeploymentConfiguration: suckerDeploymentConfiguration
+        });
 
         // Convert the REVBaseline721HookConfig to JBDeploy721TiersHookConfig, forcing issueTokensForSplits to false.
         // Revnets do their own weight adjustment for splits, so the 721 hook must not also adjust.
@@ -862,7 +872,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
                 reserveBeneficiary: tiered721HookConfiguration.baseline721HookConfiguration.reserveBeneficiary,
                 flags: JB721TiersHookFlags({
                     noNewTiersWithReserves: tiered721HookConfiguration.baseline721HookConfiguration.flags
-                        .noNewTiersWithReserves,
+                    .noNewTiersWithReserves,
                     noNewTiersWithVotes: tiered721HookConfiguration.baseline721HookConfiguration.flags
                         .noNewTiersWithVotes,
                     noNewTiersWithOwnerMinting: tiered721HookConfiguration.baseline721HookConfiguration.flags
@@ -1017,7 +1027,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             JBTerminalConfig calldata terminalConfiguration = terminalConfigurations[i];
             for (uint256 j; j < terminalConfiguration.accountingContextsToAccept.length; j++) {
                 // slither-disable-next-line calls-loop
-                _tryInitializeBuybackPoolFor(revnetId, terminalConfiguration.accountingContextsToAccept[j].token);
+                _tryInitializeBuybackPoolFor({
+                    revnetId: revnetId, terminalToken: terminalConfiguration.accountingContextsToAccept[j].token
+                });
             }
         }
 

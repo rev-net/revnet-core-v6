@@ -29,7 +29,7 @@ library RevnetCoreDeploymentLib {
 
         for (uint256 _i; _i < networks.length; _i++) {
             if (networks[_i].chainId == chainId) {
-                return getDeployment(path, networks[_i].name);
+                return getDeployment({path: path, network_name: networks[_i].name});
             }
         }
 
@@ -44,10 +44,17 @@ library RevnetCoreDeploymentLib {
         view
         returns (RevnetCoreDeployment memory deployment)
     {
-        deployment.basic_deployer =
-            IREVDeployer(_getDeploymentAddress(path, "revnet-core-v6", network_name, "REVDeployer"));
+        deployment.basic_deployer = IREVDeployer(
+            _getDeploymentAddress({
+                path: path, project_name: "revnet-core-v6", network_name: network_name, contractName: "REVDeployer"
+            })
+        );
 
-        deployment.loans = IREVLoans(_getDeploymentAddress(path, "revnet-core-v6", network_name, "REVLoans"));
+        deployment.loans = IREVLoans(
+            _getDeploymentAddress({
+                path: path, project_name: "revnet-core-v6", network_name: network_name, contractName: "REVLoans"
+            })
+        );
     }
 
     /// @notice Get the address of a contract that was deployed by the Deploy script.
@@ -67,6 +74,6 @@ library RevnetCoreDeploymentLib {
     {
         string memory deploymentJson =
             vm.readFile(string.concat(path, project_name, "/", network_name, "/", contractName, ".json"));
-        return stdJson.readAddress(deploymentJson, ".address");
+        return stdJson.readAddress({json: deploymentJson, key: ".address"});
     }
 }
