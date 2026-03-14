@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {IJB721TokenUriResolver} from "@bananapus/721-hook-v6/src/interfaces/IJB721TokenUriResolver.sol";
-import {IJBPrices} from "@bananapus/core-v6/src/interfaces/IJBPrices.sol";
+import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JB721InitTiersConfig} from "@bananapus/721-hook-v6/src/structs/JB721InitTiersConfig.sol";
 import {JB721TierConfig} from "@bananapus/721-hook-v6/src/structs/JB721TierConfig.sol";
 import {REVBaseline721HookConfig} from "../../src/structs/REVBaseline721HookConfig.sol";
@@ -12,7 +12,7 @@ import {REVCroptopAllowedPost} from "../../src/structs/REVCroptopAllowedPost.sol
 
 /// @notice Helpers for constructing empty 721 hook configs in tests.
 library REVEmpty721Config {
-    function empty721Config() internal pure returns (REVDeploy721TiersHookConfig memory) {
+    function empty721Config(uint32 baseCurrency) internal pure returns (REVDeploy721TiersHookConfig memory) {
         return REVDeploy721TiersHookConfig({
             baseline721HookConfiguration: REVBaseline721HookConfig({
                 name: "",
@@ -22,7 +22,7 @@ library REVEmpty721Config {
                 contractUri: "",
                 tiersConfig: JB721InitTiersConfig({
                     tiers: new JB721TierConfig[](0),
-                    currency: 0,
+                    currency: baseCurrency,
                     decimals: 18
                 }),
                 reserveBeneficiary: address(0),

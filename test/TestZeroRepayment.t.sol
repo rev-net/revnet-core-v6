@@ -135,7 +135,7 @@ contract TestZeroRepayment is TestBaseWorkflow {
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")
             }),
-            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
     }
@@ -180,7 +180,7 @@ contract TestZeroRepayment is TestBaseWorkflow {
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NANA")
             }),
-            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
     }

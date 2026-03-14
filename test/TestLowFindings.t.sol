@@ -175,7 +175,7 @@ contract TestLowFindings is TestBaseWorkflow {
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("TWO"))
             }),
-            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
     }
@@ -230,7 +230,7 @@ contract TestLowFindings is TestBaseWorkflow {
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("SGL"))
             }),
-            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
     }
@@ -285,7 +285,7 @@ contract TestLowFindings is TestBaseWorkflow {
             configuration: feeProjectConfig.configuration,
             terminalConfigurations: feeProjectConfig.terminalConfigurations,
             suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration,
-            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 

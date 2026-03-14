@@ -364,7 +364,7 @@ contract REVLoansAttacks is TestBaseWorkflow {
             configuration: feeProjectConfig.configuration,
             terminalConfigurations: feeProjectConfig.terminalConfigurations,
             suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration,
-            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
@@ -375,7 +375,7 @@ contract REVLoansAttacks is TestBaseWorkflow {
             configuration: revnetConfig.configuration,
             terminalConfigurations: revnetConfig.terminalConfigurations,
             suckerDeploymentConfiguration: revnetConfig.suckerDeploymentConfiguration,
-            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 

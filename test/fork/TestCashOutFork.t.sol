@@ -209,7 +209,7 @@ contract TestCashOutFork is ForkTestBase {
             configuration: cfg,
             terminalConfigurations: tc,
             suckerDeploymentConfiguration: sdc,
-            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
         _setupPool(delayRevnet, 10_000 ether);

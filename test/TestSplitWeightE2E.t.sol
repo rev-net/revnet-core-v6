@@ -226,7 +226,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
             configuration: feeCfg,
             terminalConfigurations: feeTc,
             suckerDeploymentConfiguration: feeSdc,
-            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
@@ -408,7 +408,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
             configuration: feeCfg,
             terminalConfigurations: feeTc,
             suckerDeploymentConfiguration: feeSdc,
-            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
@@ -508,7 +508,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
             configuration: cfg2,
             terminalConfigurations: tc2,
             suckerDeploymentConfiguration: sdc2,
-            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 

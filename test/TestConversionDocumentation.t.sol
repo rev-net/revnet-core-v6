@@ -155,7 +155,7 @@ contract TestConversionDocumentation is TestBaseWorkflow {
             configuration: cfg,
             terminalConfigurations: terms,
             suckerDeploymentConfiguration: suckerCfg,
-            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
     }
@@ -181,7 +181,7 @@ contract TestConversionDocumentation is TestBaseWorkflow {
             configuration: cfg,
             terminalConfigurations: terms,
             suckerDeploymentConfiguration: suckerCfg,
-            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
@@ -260,7 +260,7 @@ contract TestConversionDocumentation is TestBaseWorkflow {
             configuration: cfg,
             terminalConfigurations: terms2,
             suckerDeploymentConfiguration: suckerCfg,
-            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
     }
@@ -286,7 +286,7 @@ contract TestConversionDocumentation is TestBaseWorkflow {
             configuration: cfg,
             terminalConfigurations: terms,
             suckerDeploymentConfiguration: suckerCfg,
-            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
@@ -307,7 +307,7 @@ contract TestConversionDocumentation is TestBaseWorkflow {
             configuration: cfg,
             terminalConfigurations: terms,
             suckerDeploymentConfiguration: suckerCfg,
-            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 

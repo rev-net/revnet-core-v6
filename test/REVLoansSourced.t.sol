@@ -320,7 +320,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             configuration: feeProjectConfig.configuration,
             terminalConfigurations: feeProjectConfig.terminalConfigurations,
             suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration,
-            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
@@ -333,7 +333,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             configuration: fee2Config.configuration,
             terminalConfigurations: fee2Config.terminalConfigurations,
             suckerDeploymentConfiguration: fee2Config.suckerDeploymentConfiguration,
-            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
@@ -642,7 +642,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
                 configuration: projectConfig.configuration,
                 terminalConfigurations: projectConfig.terminalConfigurations,
                 suckerDeploymentConfiguration: projectConfig.suckerDeploymentConfiguration,
-                tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+                tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
                 allowedPosts: REVEmpty721Config.emptyAllowedPosts()
             });
         }
@@ -1154,7 +1154,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
                 configuration: projectConfig.configuration,
                 terminalConfigurations: projectConfig.terminalConfigurations,
                 suckerDeploymentConfiguration: projectConfig.suckerDeploymentConfiguration,
-                tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+                tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
                 allowedPosts: REVEmpty721Config.emptyAllowedPosts()
             });
         }
@@ -1252,7 +1252,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             configuration: projectConfig.configuration,
             terminalConfigurations: projectConfig.terminalConfigurations,
             suckerDeploymentConfiguration: projectConfig.suckerDeploymentConfiguration,
-            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 

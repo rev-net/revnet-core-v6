@@ -92,7 +92,7 @@ contract TestSwapTerminalPermission is TestBaseWorkflow {
             configuration: feeCfg,
             terminalConfigurations: feeTc,
             suckerDeploymentConfiguration: feeSdc,
-            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
@@ -105,7 +105,7 @@ contract TestSwapTerminalPermission is TestBaseWorkflow {
             configuration: cfg,
             terminalConfigurations: tc,
             suckerDeploymentConfiguration: sdc,
-            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
     }

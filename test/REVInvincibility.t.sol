@@ -243,7 +243,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
             configuration: feeConfig.configuration,
             terminalConfigurations: feeConfig.terminalConfigurations,
             suckerDeploymentConfiguration: feeConfig.suckerDeploymentConfiguration,
-            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
@@ -254,7 +254,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
             configuration: revConfig.configuration,
             terminalConfigurations: revConfig.terminalConfigurations,
             suckerDeploymentConfiguration: revConfig.suckerDeploymentConfiguration,
-            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
@@ -498,7 +498,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("H5_INVINCIBILITY")
             }),
-            tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
@@ -1035,7 +1035,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
                 suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                     deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("REV_INV")
                 }),
-                tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+                tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
                 allowedPosts: REVEmpty721Config.emptyAllowedPosts()
             });
         }
@@ -1109,7 +1109,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
                 suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                     deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NANA_INV")
                 }),
-                tiered721HookConfiguration: REVEmpty721Config.empty721Config(),
+                tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
                 allowedPosts: REVEmpty721Config.emptyAllowedPosts()
             });
         }
