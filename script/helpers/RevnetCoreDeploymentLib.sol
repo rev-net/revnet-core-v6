@@ -9,6 +9,7 @@ import {IREVDeployer} from "./../../src/interfaces/IREVDeployer.sol";
 import {IREVLoans} from "./../../src/interfaces/IREVLoans.sol";
 
 struct RevnetCoreDeployment {
+    // forge-lint: disable-next-line(mixed-case-variable)
     IREVDeployer basic_deployer;
     IREVLoans loans;
 }
@@ -16,6 +17,7 @@ struct RevnetCoreDeployment {
 library RevnetCoreDeploymentLib {
     // Cheat code address, 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D.
     address internal constant VM_ADDRESS = address(uint160(uint256(keccak256("hevm cheat code"))));
+    // forge-lint: disable-next-line(screaming-snake-case-const)
     Vm internal constant vm = Vm(VM_ADDRESS);
 
     function getDeployment(string memory path) internal returns (RevnetCoreDeployment memory deployment) {
@@ -38,6 +40,7 @@ library RevnetCoreDeploymentLib {
 
     function getDeployment(
         string memory path,
+        // forge-lint: disable-next-line(mixed-case-variable)
         string memory network_name
     )
         internal
@@ -64,7 +67,9 @@ library RevnetCoreDeploymentLib {
     /// @return The address of the contract.
     function _getDeploymentAddress(
         string memory path,
+        // forge-lint: disable-next-line(mixed-case-variable)
         string memory project_name,
+        // forge-lint: disable-next-line(mixed-case-variable)
         string memory network_name,
         string memory contractName
     )
@@ -73,7 +78,8 @@ library RevnetCoreDeploymentLib {
         returns (address)
     {
         string memory deploymentJson =
-            vm.readFile(string.concat(path, project_name, "/", network_name, "/", contractName, ".json"));
+        // forge-lint: disable-next-line(unsafe-cheatcode)
+        vm.readFile(string.concat(path, project_name, "/", network_name, "/", contractName, ".json"));
         return stdJson.readAddress({json: deploymentJson, key: ".address"});
     }
 }

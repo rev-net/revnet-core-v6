@@ -9,6 +9,7 @@ import {REVLoanSource} from "./REVLoanSource.sol";
 /// @custom:member prepaidFeePercent The percentage of the loan's fees that were prepaid.
 /// @custom:member prepaidDuration The duration that the loan was prepaid for.
 /// @custom:member source The source of the loan.
+// forge-lint: disable-next-line(pascal-case-struct)
 struct REVLoan {
     uint112 amount;
     uint112 collateral;

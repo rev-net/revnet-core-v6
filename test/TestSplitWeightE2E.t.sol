@@ -1,16 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "forge-std/Test.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import /* {*} from */ "@bananapus/core-v6/test/helpers/TestBaseWorkflow.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import /* {*} from */ "./../src/REVDeployer.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@croptop/core-v6/src/CTPublisher.sol";
 import {MockBuybackDataHookMintPath} from "./mock/MockBuybackDataHookMintPath.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/721-hook-v6/script/helpers/Hook721DeploymentLib.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/suckers-v6/script/helpers/SuckerDeploymentLib.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@croptop/core-v6/script/helpers/CroptopDeploymentLib.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/router-terminal-v6/script/helpers/RouterTerminalDeploymentLib.sol";
 
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
@@ -18,7 +27,6 @@ import {JBMetadataResolver} from "@bananapus/core-v6/src/libraries/JBMetadataRes
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
@@ -30,7 +38,6 @@ import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressReg
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDataHook.sol";
 import {IJBBuybackHookRegistry} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHookRegistry.sol";
-import {IJBPayHook} from "@bananapus/core-v6/src/interfaces/IJBPayHook.sol";
 import {JB721TierConfig} from "@bananapus/721-hook-v6/src/structs/JB721TierConfig.sol";
 import {JB721InitTiersConfig} from "@bananapus/721-hook-v6/src/structs/JB721InitTiersConfig.sol";
 import {IJB721TokenUriResolver} from "@bananapus/721-hook-v6/src/interfaces/IJB721TokenUriResolver.sol";
@@ -46,22 +53,35 @@ import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
 contract TestSplitWeightE2E is TestBaseWorkflow {
     using JBMetadataResolver for bytes;
 
+    // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REV_DEPLOYER_SALT = "REVDeployer_E2E";
 
+    // forge-lint: disable-next-line(mixed-case-variable)
     REVDeployer REV_DEPLOYER;
+    // forge-lint: disable-next-line(mixed-case-variable)
     JB721TiersHook EXAMPLE_HOOK;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IJB721TiersHookDeployer HOOK_DEPLOYER;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IJB721TiersHookStore HOOK_STORE;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IJBAddressRegistry ADDRESS_REGISTRY;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IREVLoans LOANS_CONTRACT;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IJBSuckerRegistry SUCKER_REGISTRY;
+    // forge-lint: disable-next-line(mixed-case-variable)
     CTPublisher PUBLISHER;
+    // forge-lint: disable-next-line(mixed-case-variable)
     MockBuybackDataHookMintPath MOCK_BUYBACK_MINT;
 
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 FEE_PROJECT_ID;
 
     address private constant TRUSTED_FORWARDER = 0xB2b5841DBeF766d4b521221732F9B618fCf34A87;
+    // forge-lint: disable-next-line(mixed-case-variable)
     address PAYER = makeAddr("payer");
+    // forge-lint: disable-next-line(mixed-case-variable)
     address SPLIT_BENEFICIARY = makeAddr("splitBeneficiary");
 
     // Tier configuration: 1 ETH tier with 30% split.
@@ -143,6 +163,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
         });
 
         cfg = REVConfig({
+            // forge-lint: disable-next-line(named-struct-fields)
             description: REVDescription("E2E Test", "E2E", "ipfs://e2e", "E2E_SALT"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
@@ -173,6 +194,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
             votingUnits: 0,
             reserveFrequency: 0,
             reserveBeneficiary: address(0),
+            // forge-lint: disable-next-line(unsafe-typecast)
             encodedIPFSUri: bytes32("tier1"),
             category: 1,
             discountPercent: 0,
@@ -204,6 +226,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
                     preventOverspending: false
                 })
             }),
+            // forge-lint: disable-next-line(unsafe-typecast)
             salt: bytes32("E2E_721"),
             preventSplitOperatorAdjustingTiers: false,
             preventSplitOperatorUpdatingMetadata: false,
@@ -217,6 +240,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
         // Deploy fee project first.
         (REVConfig memory feeCfg, JBTerminalConfig[] memory feeTc, REVSuckerDeploymentConfig memory feeSdc) =
             _buildMinimalConfig();
+        // forge-lint: disable-next-line(named-struct-fields)
         feeCfg.description = REVDescription("Fee", "FEE", "ipfs://fee", "FEE_SALT");
 
         vm.prank(multisig());
@@ -399,6 +423,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
         // Deploy fee project.
         (REVConfig memory feeCfg, JBTerminalConfig[] memory feeTc, REVSuckerDeploymentConfig memory feeSdc) =
             _buildMinimalConfig();
+        // forge-lint: disable-next-line(named-struct-fields)
         feeCfg.description = REVDescription("Fee AMM", "FEEA", "ipfs://feeamm", "FEEA_SALT");
 
         vm.prank(multisig());
@@ -414,6 +439,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
         // Deploy revnet with 721 hook.
         (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
             _buildMinimalConfig();
+        // forge-lint: disable-next-line(named-struct-fields)
         cfg.description = REVDescription("AMM E2E", "AMME", "ipfs://amme2e", "AMME_SALT");
         REVDeploy721TiersHookConfig memory hookConfig = _build721Config();
 
@@ -500,6 +526,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
         // --- Revnet 2: no splits (plain payment, no tier metadata) ---
         (REVConfig memory cfg2, JBTerminalConfig[] memory tc2, REVSuckerDeploymentConfig memory sdc2) =
             _buildMinimalConfig();
+        // forge-lint: disable-next-line(named-struct-fields)
         cfg2.description = REVDescription("NoSplit", "NS", "ipfs://nosplit", "NOSPLIT_SALT");
 
         (uint256 revnetId2,) = REV_DEPLOYER.deployFor({

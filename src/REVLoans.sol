@@ -580,6 +580,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         // Set the loan's values.
         loan.source = source;
         loan.createdAt = uint40(block.timestamp);
+        // forge-lint: disable-next-line(unsafe-typecast)
         loan.prepaidFeePercent = uint16(prepaidFeePercent);
         loan.prepaidDuration =
             uint32(mulDiv({x: prepaidFeePercent, y: LOAN_LIQUIDATION_DURATION, denominator: MAX_PREPAID_FEE_PERCENT}));
@@ -1035,7 +1036,9 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         if (newCollateralCount > type(uint112).max) {
             revert REVLoans_OverflowAlert(newCollateralCount, type(uint112).max);
         }
+        // forge-lint: disable-next-line(unsafe-typecast)
         loan.amount = uint112(newBorrowAmount);
+        // forge-lint: disable-next-line(unsafe-typecast)
         loan.collateral = uint112(newCollateralCount);
 
         // INTERACTIONS: Execute external calls with pre-computed deltas.
@@ -1351,6 +1354,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         if (amount > type(uint160).max) revert REVLoans_OverflowAlert(amount, type(uint160).max);
 
         // Otherwise, attempt to use the `permit2` method.
+        // forge-lint: disable-next-line(unsafe-typecast)
         PERMIT2.transferFrom({from: from, to: to, amount: uint160(amount), token: token});
     }
 

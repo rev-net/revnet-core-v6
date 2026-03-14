@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "forge-std/Test.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import /* {*} from */ "@bananapus/core-v6/test/helpers/TestBaseWorkflow.sol";
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
+// forge-lint: disable-next-line(unused-import)
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
 import {mulDiv} from "@prb/math/src/Common.sol";
+// forge-lint: disable-next-line(unused-import)
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {IREVLoans} from "../src/interfaces/IREVLoans.sol";
@@ -20,24 +24,41 @@ contract REVInvincibilityHandler is JBTest {
     // =========================================================================
     // Ghost variables
     // =========================================================================
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 public COLLATERAL_SUM;
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 public COLLATERAL_RETURNED;
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 public BORROWED_SUM;
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 public REPAID_SUM;
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 public PAID_IN_SUM;
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 public CASHED_OUT_SUM;
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 public ADDED_TO_BALANCE_SUM;
 
     // Per-operation call counts
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 public callCount_payAndBorrow;
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 public callCount_repayLoan;
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 public callCount_reallocateCollateral;
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 public callCount_liquidateLoans;
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 public callCount_advanceTime;
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 public callCount_payInto;
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 public callCount_cashOut;
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 public callCount_addToBalance;
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 public callCount_sendReservedTokens;
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 public callCount_changeStage;
 
     // Fee project tracking
@@ -46,13 +67,21 @@ contract REVInvincibilityHandler is JBTest {
     // =========================================================================
     // Dependencies
     // =========================================================================
+    // forge-lint: disable-next-line(mixed-case-variable)
     IJBMultiTerminal public TERMINAL;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IREVLoans public LOANS;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IJBPermissions public PERMS;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IJBTokens public TOKENS;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IJBController public CTRL;
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 public REVNET_ID;
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 public FEE_PROJECT_ID;
+    // forge-lint: disable-next-line(mixed-case-variable)
     address public USER;
 
     // Stage boundaries (for changeStage)

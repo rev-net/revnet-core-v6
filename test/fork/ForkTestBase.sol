@@ -1,14 +1,23 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "forge-std/Test.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import /* {*} from */ "@bananapus/core-v6/test/helpers/TestBaseWorkflow.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import /* {*} from */ "../../src/REVDeployer.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@croptop/core-v6/src/CTPublisher.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/721-hook-v6/script/helpers/Hook721DeploymentLib.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/suckers-v6/script/helpers/SuckerDeploymentLib.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@croptop/core-v6/script/helpers/CroptopDeploymentLib.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/router-terminal-v6/script/helpers/RouterTerminalDeploymentLib.sol";
 
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
@@ -29,6 +38,7 @@ import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressReg
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDataHook.sol";
 import {IJBBuybackHookRegistry} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHookRegistry.sol";
+// forge-lint: disable-next-line(unused-import)
 import {IJBPayHook} from "@bananapus/core-v6/src/interfaces/IJBPayHook.sol";
 import {JB721TierConfig} from "@bananapus/721-hook-v6/src/structs/JB721TierConfig.sol";
 import {JB721InitTiersConfig} from "@bananapus/721-hook-v6/src/structs/JB721InitTiersConfig.sol";
@@ -42,6 +52,7 @@ import {REVEmpty721Config} from "../helpers/REVEmpty721Config.sol";
 // Buyback hook
 import {JBBuybackHook} from "@bananapus/buyback-hook-v6/src/JBBuybackHook.sol";
 import {JBBuybackHookRegistry} from "@bananapus/buyback-hook-v6/src/JBBuybackHookRegistry.sol";
+// forge-lint: disable-next-line(unused-import)
 import {IJBBuybackHook} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHook.sol";
 import {IGeomeanOracle} from "@bananapus/buyback-hook-v6/src/interfaces/IGeomeanOracle.sol";
 
@@ -50,10 +61,12 @@ import {IPoolManager} from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
 import {IUnlockCallback} from "@uniswap/v4-core/src/interfaces/callback/IUnlockCallback.sol";
 import {IHooks} from "@uniswap/v4-core/src/interfaces/IHooks.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
+// forge-lint: disable-next-line(unused-import)
 import {PoolId, PoolIdLibrary} from "@uniswap/v4-core/src/types/PoolId.sol";
 import {Currency, CurrencyLibrary} from "@uniswap/v4-core/src/types/Currency.sol";
 import {BalanceDelta} from "@uniswap/v4-core/src/types/BalanceDelta.sol";
 import {ModifyLiquidityParams, SwapParams} from "@uniswap/v4-core/src/types/PoolOperation.sol";
+// forge-lint: disable-next-line(unused-import)
 import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
 import {StateLibrary} from "@uniswap/v4-core/src/libraries/StateLibrary.sol";
 
@@ -61,6 +74,7 @@ import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 
 /// @notice Helper that adds liquidity to a V4 pool via the unlock/callback pattern.
 contract LiquidityHelper is IUnlockCallback {
+    // forge-lint: disable-next-line(screaming-snake-case-immutable)
     IPoolManager public immutable poolManager;
 
     enum Action {
@@ -96,7 +110,8 @@ contract LiquidityHelper is IUnlockCallback {
         payable
     {
         bytes memory data =
-            abi.encode(Action.ADD_LIQUIDITY, abi.encode(AddLiqParams(key, tickLower, tickUpper, liquidityDelta)));
+        // forge-lint: disable-next-line(named-struct-fields)
+        abi.encode(Action.ADD_LIQUIDITY, abi.encode(AddLiqParams(key, tickLower, tickUpper, liquidityDelta)));
         poolManager.unlock(data);
     }
 
@@ -110,7 +125,8 @@ contract LiquidityHelper is IUnlockCallback {
         payable
     {
         bytes memory data =
-            abi.encode(Action.SWAP, abi.encode(DoSwapParams(key, zeroForOne, amountSpecified, sqrtPriceLimitX96)));
+        // forge-lint: disable-next-line(named-struct-fields)
+        abi.encode(Action.SWAP, abi.encode(DoSwapParams(key, zeroForOne, amountSpecified, sqrtPriceLimitX96)));
         poolManager.unlock(data);
     }
 
@@ -152,7 +168,10 @@ contract LiquidityHelper is IUnlockCallback {
         DoSwapParams memory params = abi.decode(data, (DoSwapParams));
 
         BalanceDelta delta = poolManager.swap(
-            params.key, SwapParams(params.zeroForOne, params.amountSpecified, params.sqrtPriceLimitX96), ""
+            params.key,
+            // forge-lint: disable-next-line(named-struct-fields)
+            SwapParams(params.zeroForOne, params.amountSpecified, params.sqrtPriceLimitX96),
+            ""
         );
 
         if (delta.amount0() < 0) {
@@ -171,12 +190,14 @@ contract LiquidityHelper is IUnlockCallback {
 
     function _settleIfNegative(Currency currency, int128 delta) internal {
         if (delta >= 0) return;
+        // forge-lint: disable-next-line(unsafe-typecast)
         uint256 amount = uint256(uint128(-delta));
 
         if (currency.isAddressZero()) {
             poolManager.settle{value: amount}();
         } else {
             poolManager.sync(currency);
+            // forge-lint: disable-next-line(erc20-unchecked-transfer)
             IERC20(Currency.unwrap(currency)).transfer(address(poolManager), amount);
             poolManager.settle();
         }
@@ -184,6 +205,7 @@ contract LiquidityHelper is IUnlockCallback {
 
     function _takeIfPositive(Currency currency, int128 delta) internal {
         if (delta <= 0) return;
+        // forge-lint: disable-next-line(unsafe-typecast)
         uint256 amount = uint256(uint128(delta));
         poolManager.take(currency, address(this), amount);
     }
@@ -212,24 +234,38 @@ abstract contract ForkTestBase is TestBaseWorkflow {
     // ───────────────────────── State
     // ─────────────────────────
 
+    // forge-lint: disable-next-line(mixed-case-variable)
     REVDeployer REV_DEPLOYER;
+    // forge-lint: disable-next-line(mixed-case-variable)
     JBBuybackHook BUYBACK_HOOK;
+    // forge-lint: disable-next-line(mixed-case-variable)
     JBBuybackHookRegistry BUYBACK_REGISTRY;
+    // forge-lint: disable-next-line(mixed-case-variable)
     JB721TiersHook EXAMPLE_HOOK;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IJB721TiersHookDeployer HOOK_DEPLOYER;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IJB721TiersHookStore HOOK_STORE;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IJBAddressRegistry ADDRESS_REGISTRY;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IREVLoans LOANS_CONTRACT;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IJBSuckerRegistry SUCKER_REGISTRY;
+    // forge-lint: disable-next-line(mixed-case-variable)
     CTPublisher PUBLISHER;
     IPoolManager poolManager;
     LiquidityHelper liqHelper;
 
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 FEE_PROJECT_ID;
 
     address private constant TRUSTED_FORWARDER = 0xB2b5841DBeF766d4b521221732F9B618fCf34A87;
+    // forge-lint: disable-next-line(mixed-case-variable)
     address PAYER = makeAddr("payer");
+    // forge-lint: disable-next-line(mixed-case-variable)
     address BORROWER = makeAddr("borrower");
+    // forge-lint: disable-next-line(mixed-case-variable)
     address SPLIT_BENEFICIARY = makeAddr("splitBeneficiary");
 
     // Tier configuration: 1 ETH tier with 30% split.
@@ -345,6 +381,7 @@ abstract contract ForkTestBase is TestBaseWorkflow {
         });
 
         cfg = REVConfig({
+            // forge-lint: disable-next-line(named-struct-fields)
             description: REVDescription("Fork Test", "FORK", "ipfs://fork", "FORK_SALT"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
@@ -374,6 +411,7 @@ abstract contract ForkTestBase is TestBaseWorkflow {
             votingUnits: 0,
             reserveFrequency: 0,
             reserveBeneficiary: address(0),
+            // forge-lint: disable-next-line(unsafe-typecast)
             encodedIPFSUri: bytes32("tier1"),
             category: 1,
             discountPercent: 0,
@@ -405,6 +443,7 @@ abstract contract ForkTestBase is TestBaseWorkflow {
                     preventOverspending: false
                 })
             }),
+            // forge-lint: disable-next-line(unsafe-typecast)
             salt: bytes32("FORK_721"),
             preventSplitOperatorAdjustingTiers: false,
             preventSplitOperatorUpdatingMetadata: false,
@@ -420,6 +459,7 @@ abstract contract ForkTestBase is TestBaseWorkflow {
     function _deployFeeProject(uint16 cashOutTaxRate) internal {
         (REVConfig memory feeCfg, JBTerminalConfig[] memory feeTc, REVSuckerDeploymentConfig memory feeSdc) =
             _buildMinimalConfig(cashOutTaxRate);
+        // forge-lint: disable-next-line(named-struct-fields)
         feeCfg.description = REVDescription("Fee", "FEE", "ipfs://fee", "FEE_SALT");
 
         vm.prank(multisig());
@@ -500,6 +540,7 @@ abstract contract ForkTestBase is TestBaseWorkflow {
         IERC20(projectToken).approve(address(poolManager), type(uint256).max);
         vm.stopPrank();
 
+        // forge-lint: disable-next-line(unsafe-typecast)
         int256 liquidityDelta = int256(liquidityTokenAmount / 2);
         vm.prank(address(liqHelper));
         liqHelper.addLiquidity{value: liquidityTokenAmount}(key, TICK_LOWER, TICK_UPPER, liquidityDelta);
@@ -513,12 +554,14 @@ abstract contract ForkTestBase is TestBaseWorkflow {
 
         int56[] memory tickCumulatives = new int56[](2);
         tickCumulatives[0] = 0;
+        // forge-lint: disable-next-line(unsafe-typecast)
         tickCumulatives[1] = int56(tick) * int56(int32(twapWindow));
 
         uint136[] memory secondsPerLiquidityCumulativeX128s = new uint136[](2);
         secondsPerLiquidityCumulativeX128s[0] = 0;
         uint256 liq = uint256(liquidity > 0 ? liquidity : -liquidity);
         if (liq == 0) liq = 1;
+        // forge-lint: disable-next-line(unsafe-typecast)
         secondsPerLiquidityCumulativeX128s[1] = uint136((uint256(twapWindow) << 128) / liq);
 
         vm.mockCall(

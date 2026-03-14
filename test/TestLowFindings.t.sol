@@ -1,17 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "forge-std/Test.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import /* {*} from */ "@bananapus/core-v6/test/helpers/TestBaseWorkflow.sol";
-import /* {*} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
+// import /* {*} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import /* {*} from */ "./../src/REVDeployer.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@croptop/core-v6/src/CTPublisher.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
 
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/721-hook-v6/script/helpers/Hook721DeploymentLib.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/suckers-v6/script/helpers/SuckerDeploymentLib.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@croptop/core-v6/script/helpers/CroptopDeploymentLib.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/router-terminal-v6/script/helpers/RouterTerminalDeploymentLib.sol";
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
@@ -31,7 +40,6 @@ import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStor
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
-import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 
 struct FeeProjectConfig {
     REVConfig configuration;
@@ -40,23 +48,38 @@ struct FeeProjectConfig {
 }
 
 contract TestLowFindings is TestBaseWorkflow {
+    // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
+    // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 ERC20_SALT = "REV_TOKEN";
 
+    // forge-lint: disable-next-line(mixed-case-variable)
     REVDeployer REV_DEPLOYER;
+    // forge-lint: disable-next-line(mixed-case-variable)
     JB721TiersHook EXAMPLE_HOOK;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IJB721TiersHookDeployer HOOK_DEPLOYER;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IJB721TiersHookStore HOOK_STORE;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IJBAddressRegistry ADDRESS_REGISTRY;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IREVLoans LOANS_CONTRACT;
+    // forge-lint: disable-next-line(mixed-case-variable)
     MockERC20 TOKEN;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IJBSuckerRegistry SUCKER_REGISTRY;
+    // forge-lint: disable-next-line(mixed-case-variable)
     CTPublisher PUBLISHER;
+    // forge-lint: disable-next-line(mixed-case-variable)
     MockBuybackDataHook MOCK_BUYBACK;
 
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 FEE_PROJECT_ID;
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 REVNET_ID;
 
+    // forge-lint: disable-next-line(mixed-case-variable)
     address USER = makeAddr("user");
 
     address private constant TRUSTED_FORWARDER = 0xB2b5841DBeF766d4b521221732F9B618fCf34A87;
@@ -86,6 +109,7 @@ contract TestLowFindings is TestBaseWorkflow {
             autoIssuances: new REVAutoIssuance[](0),
             splitPercent: 2000,
             splits: splits,
+            // forge-lint: disable-next-line(unsafe-typecast)
             initialIssuance: uint112(1000 * decimalMultiplier),
             issuanceCutFrequency: 90 days,
             issuanceCutPercent: JBConstants.MAX_WEIGHT_CUT_PERCENT / 2,
@@ -94,6 +118,7 @@ contract TestLowFindings is TestBaseWorkflow {
         });
 
         REVConfig memory revnetConfiguration = REVConfig({
+            // forge-lint: disable-next-line(named-struct-fields)
             description: REVDescription("Revnet", "$REV", "ipfs://test", ERC20_SALT),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
@@ -138,6 +163,7 @@ contract TestLowFindings is TestBaseWorkflow {
             autoIssuances: new REVAutoIssuance[](0),
             splitPercent: 2000,
             splits: splits,
+            // forge-lint: disable-next-line(unsafe-typecast)
             initialIssuance: uint112(1000 * decimalMultiplier),
             issuanceCutFrequency: 0,
             issuanceCutPercent: 0,
@@ -162,6 +188,7 @@ contract TestLowFindings is TestBaseWorkflow {
         loanSources[0] = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 
         REVConfig memory revnetConfiguration = REVConfig({
+            // forge-lint: disable-next-line(named-struct-fields)
             description: REVDescription("TwoStage", "$TWO", "ipfs://test", "TWO_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
@@ -206,6 +233,7 @@ contract TestLowFindings is TestBaseWorkflow {
             autoIssuances: new REVAutoIssuance[](0),
             splitPercent: 2000,
             splits: splits,
+            // forge-lint: disable-next-line(unsafe-typecast)
             initialIssuance: uint112(1000 * decimalMultiplier),
             issuanceCutFrequency: 0,
             issuanceCutPercent: 0,
@@ -217,6 +245,7 @@ contract TestLowFindings is TestBaseWorkflow {
         loanSources[0] = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 
         REVConfig memory revnetConfiguration = REVConfig({
+            // forge-lint: disable-next-line(named-struct-fields)
             description: REVDescription("Single", "$SGL", "ipfs://test", "SGL_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
@@ -550,6 +579,7 @@ contract TestLowFindings is TestBaseWorkflow {
 
         // Increase surplus WITHOUT minting new tokens — makes existing collateral worth more.
         // This allows reallocating collateral since borrowable(reduced collateral) > loan.amount.
+        // forge-lint: disable-next-line(mixed-case-variable)
         address DONOR = makeAddr("donor");
         vm.deal(DONOR, 100 ether);
         vm.prank(DONOR);

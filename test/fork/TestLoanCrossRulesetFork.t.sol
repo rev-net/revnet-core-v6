@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "./ForkTestBase.sol";
-import {JBFees} from "@bananapus/core-v6/src/libraries/JBFees.sol";
 import {REVEmpty721Config} from "../helpers/REVEmpty721Config.sol";
 
 /// @notice Fork tests for loan lifecycle spanning multiple revnet stages (rulesets).
@@ -53,6 +53,7 @@ contract TestLoanCrossRulesetFork is ForkTestBase {
 
         // Stage 2: low tax — starts after STAGE_DURATION.
         stages[1] = REVStageConfig({
+            // forge-lint: disable-next-line(unsafe-typecast)
             startsAtOrAfter: uint40(block.timestamp + STAGE_DURATION),
             autoIssuances: new REVAutoIssuance[](0),
             splitPercent: 0,
@@ -65,6 +66,7 @@ contract TestLoanCrossRulesetFork is ForkTestBase {
         });
 
         cfg = REVConfig({
+            // forge-lint: disable-next-line(named-struct-fields)
             description: REVDescription("CrossStage", "XSTG", "ipfs://xstage", "XSTG_SALT"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),

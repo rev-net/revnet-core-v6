@@ -21,6 +21,7 @@ import {REVAutoIssuance} from "./REVAutoIssuance.sol";
 /// cashed out. This rate is out of 10_000 (JBConstants.MAX_CASH_OUT_TAX_RATE). 0% corresponds to no tax when cashing
 /// out.
 /// @custom:member extraMetadata Extra info to attach set into this stage that may affect hooks.
+// forge-lint: disable-next-line(pascal-case-struct)
 struct REVStageConfig {
     uint48 startsAtOrAfter;
     REVAutoIssuance[] autoIssuances;

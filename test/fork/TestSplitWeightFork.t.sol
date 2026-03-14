@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "./ForkTestBase.sol";
 
 /// @notice Fork tests verifying that revnet 721 tier splits + real Uniswap V4 buyback hook produce correct token
@@ -50,6 +51,7 @@ contract TestSplitWeightFork is ForkTestBase {
         vm.stopPrank();
 
         // Add full-range liquidity at tick 0 (1:1 price).
+        // forge-lint: disable-next-line(unsafe-typecast)
         int256 liquidityDelta = int256(ethLiq / 4);
         vm.prank(address(liqHelper));
         liqHelper.addLiquidity{value: ethLiq}(key, TICK_LOWER, TICK_UPPER, liquidityDelta);
@@ -66,6 +68,7 @@ contract TestSplitWeightFork is ForkTestBase {
         uint160 sqrtPriceLimit = TickMath.getSqrtPriceAtTick(76_000);
 
         vm.prank(address(liqHelper));
+        // forge-lint: disable-next-line(unsafe-typecast)
         liqHelper.swap(key, zeroForOne, -int256(swapAmount), sqrtPriceLimit);
 
         // Read the post-swap tick for the oracle mock.
