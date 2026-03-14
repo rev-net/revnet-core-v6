@@ -284,6 +284,101 @@ contract REVnet_Integrations is TestBaseWorkflow {
         assertEq(isNewOperator, true);
     }
 
+    function test_operator_has_default_permissions() public view {
+        address operator = multisig();
+
+        // Base permissions every split operator should have.
+        assertTrue(
+            jbPermissions()
+                .hasPermission(
+                    operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.SET_SPLIT_GROUPS, false, false
+                ),
+            "operator missing SET_SPLIT_GROUPS"
+        );
+        assertTrue(
+            jbPermissions()
+                .hasPermission(
+                    operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.SET_BUYBACK_POOL, false, false
+                ),
+            "operator missing SET_BUYBACK_POOL"
+        );
+        assertTrue(
+            jbPermissions()
+                .hasPermission(
+                    operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.SET_BUYBACK_TWAP, false, false
+                ),
+            "operator missing SET_BUYBACK_TWAP"
+        );
+        assertTrue(
+            jbPermissions()
+                .hasPermission(
+                    operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.SET_PROJECT_URI, false, false
+                ),
+            "operator missing SET_PROJECT_URI"
+        );
+        assertTrue(
+            jbPermissions()
+                .hasPermission(
+                    operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.ADD_PRICE_FEED, false, false
+                ),
+            "operator missing ADD_PRICE_FEED"
+        );
+        assertTrue(
+            jbPermissions()
+                .hasPermission(operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.SUCKER_SAFETY, false, false),
+            "operator missing SUCKER_SAFETY"
+        );
+        assertTrue(
+            jbPermissions()
+                .hasPermission(
+                    operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.SET_BUYBACK_HOOK, false, false
+                ),
+            "operator missing SET_BUYBACK_HOOK"
+        );
+        assertTrue(
+            jbPermissions()
+                .hasPermission(
+                    operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.SET_ROUTER_TERMINAL, false, false
+                ),
+            "operator missing SET_ROUTER_TERMINAL"
+        );
+        assertTrue(
+            jbPermissions()
+                .hasPermission(
+                    operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.SET_TOKEN_METADATA, false, false
+                ),
+            "operator missing SET_TOKEN_METADATA"
+        );
+
+        // 721 hook permissions (always granted since every revnet gets a 721 hook).
+        assertTrue(
+            jbPermissions()
+                .hasPermission(
+                    operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.ADJUST_721_TIERS, false, false
+                ),
+            "operator missing ADJUST_721_TIERS"
+        );
+        assertTrue(
+            jbPermissions()
+                .hasPermission(
+                    operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.SET_721_METADATA, false, false
+                ),
+            "operator missing SET_721_METADATA"
+        );
+        assertTrue(
+            jbPermissions()
+                .hasPermission(operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.MINT_721, false, false),
+            "operator missing MINT_721"
+        );
+        assertTrue(
+            jbPermissions()
+                .hasPermission(
+                    operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.SET_721_DISCOUNT_PERCENT, false, false
+                ),
+            "operator missing SET_721_DISCOUNT_PERCENT"
+        );
+    }
+
     function test_sucker_deploy() public {
         JBSuckerDeployerConfig[] memory suckerDeployerConfig = new JBSuckerDeployerConfig[](1);
 
