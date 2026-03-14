@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "./ForkTestBase.sol";
 
 /// @notice Fork tests for REVLoans.reallocateCollateralFromLoan() with real Uniswap V4 buyback hook.

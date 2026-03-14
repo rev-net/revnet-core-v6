@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {IJB721TokenUriResolver} from "@bananapus/721-hook-v6/src/interfaces/IJB721TokenUriResolver.sol";
+// forge-lint: disable-next-line(unused-import)
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JB721InitTiersConfig} from "@bananapus/721-hook-v6/src/structs/JB721InitTiersConfig.sol";
 import {JB721TierConfig} from "@bananapus/721-hook-v6/src/structs/JB721TierConfig.sol";

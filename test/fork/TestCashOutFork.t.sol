@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "./ForkTestBase.sol";
-import {JBCashOuts} from "@bananapus/core-v6/src/libraries/JBCashOuts.sol";
 import {REVEmpty721Config} from "../helpers/REVEmpty721Config.sol";
 
 /// @notice Fork tests for revnet cash-out scenarios with real Uniswap V4 buyback hook.

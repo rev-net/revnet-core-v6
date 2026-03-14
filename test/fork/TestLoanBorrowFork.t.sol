@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "./ForkTestBase.sol";
 import {JBFees} from "@bananapus/core-v6/src/libraries/JBFees.sol";
 

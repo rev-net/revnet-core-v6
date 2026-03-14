@@ -1,22 +1,30 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "forge-std/Test.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import /* {*} from */ "@bananapus/core-v6/test/helpers/TestBaseWorkflow.sol";
-import /* {*} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
+// import /* {*} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import /* {*} from */ "./../src/REVDeployer.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@croptop/core-v6/src/CTPublisher.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/721-hook-v6/script/helpers/Hook721DeploymentLib.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/suckers-v6/script/helpers/SuckerDeploymentLib.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@croptop/core-v6/script/helpers/CroptopDeploymentLib.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/router-terminal-v6/script/helpers/RouterTerminalDeploymentLib.sol";
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
@@ -29,9 +37,7 @@ import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/
 import {JBBeforePayRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforePayRecordedContext.sol";
 import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
 import {JBTokenAmount} from "@bananapus/core-v6/src/structs/JBTokenAmount.sol";
-import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
-import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 
 /// @notice Tests for PR #22: fix/c2-hook-array-oob
 /// Verifies that the fix for the hook array out-of-bounds bug works correctly.
@@ -39,21 +45,33 @@ import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 /// when there is no tiered 721 hook (array size is 1, not 2).
 /// The fix: `hookSpecifications[usesTiered721Hook ? 1 : 0] = buybackHookSpecifications[0]`.
 contract TestHookArrayOOB is TestBaseWorkflow {
+    // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
 
+    // forge-lint: disable-next-line(mixed-case-variable)
     REVDeployer REV_DEPLOYER;
+    // forge-lint: disable-next-line(mixed-case-variable)
     JB721TiersHook EXAMPLE_HOOK;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IJB721TiersHookDeployer HOOK_DEPLOYER;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IJB721TiersHookStore HOOK_STORE;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IJBAddressRegistry ADDRESS_REGISTRY;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IREVLoans LOANS_CONTRACT;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IJBSuckerRegistry SUCKER_REGISTRY;
+    // forge-lint: disable-next-line(mixed-case-variable)
     CTPublisher PUBLISHER;
+    // forge-lint: disable-next-line(mixed-case-variable)
     MockBuybackDataHook MOCK_BUYBACK;
 
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 FEE_PROJECT_ID;
 
     address private constant TRUSTED_FORWARDER = 0xB2b5841DBeF766d4b521221732F9B618fCf34A87;
+    // forge-lint: disable-next-line(mixed-case-variable)
     address USER = makeAddr("user");
 
     function setUp() public override {
@@ -120,6 +138,7 @@ contract TestHookArrayOOB is TestBaseWorkflow {
         });
 
         cfg = REVConfig({
+            // forge-lint: disable-next-line(named-struct-fields)
             description: REVDescription("Test", "TST", "ipfs://test", "TEST_SALT"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
@@ -151,6 +170,7 @@ contract TestHookArrayOOB is TestBaseWorkflow {
         (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
             _buildMinimalConfig();
         // Use a different salt so the ERC20 deploy doesn't clash
+        // forge-lint: disable-next-line(named-struct-fields)
         cfg.description = REVDescription("Test2", "TS2", "ipfs://test2", "TEST_SALT_2");
 
         (revnetId,) = REV_DEPLOYER.deployFor({

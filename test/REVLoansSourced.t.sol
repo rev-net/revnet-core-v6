@@ -1,17 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "forge-std/Test.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import /* {*} from */ "@bananapus/core-v6/test/helpers/TestBaseWorkflow.sol";
-import /* {*} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
+// import /* {*} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import /* {*} from */ "./../src/REVDeployer.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@croptop/core-v6/src/CTPublisher.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
 
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/721-hook-v6/script/helpers/Hook721DeploymentLib.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/suckers-v6/script/helpers/SuckerDeploymentLib.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@croptop/core-v6/script/helpers/CroptopDeploymentLib.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/router-terminal-v6/script/helpers/RouterTerminalDeploymentLib.sol";
 
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
@@ -32,7 +41,6 @@ import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStor
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
-import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 
 struct FeeProjectConfig {
     REVConfig configuration;
@@ -42,30 +50,45 @@ struct FeeProjectConfig {
 
 contract REVLoansSourcedTests is TestBaseWorkflow {
     /// @notice the salts that are used to deploy the contracts.
+    // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
+    // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 ERC20_SALT = "REV_TOKEN";
 
+    // forge-lint: disable-next-line(mixed-case-variable)
     REVDeployer REV_DEPLOYER;
+    // forge-lint: disable-next-line(mixed-case-variable)
     JB721TiersHook EXAMPLE_HOOK;
 
     /// @notice Deploys tiered ERC-721 hooks for revnets.
+    // forge-lint: disable-next-line(mixed-case-variable)
     IJB721TiersHookDeployer HOOK_DEPLOYER;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IJB721TiersHookStore HOOK_STORE;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IJBAddressRegistry ADDRESS_REGISTRY;
 
+    // forge-lint: disable-next-line(mixed-case-variable)
     IREVLoans LOANS_CONTRACT;
 
+    // forge-lint: disable-next-line(mixed-case-variable)
     MockERC20 TOKEN;
 
     /// @notice Deploys and tracks suckers for revnets.
+    // forge-lint: disable-next-line(mixed-case-variable)
     IJBSuckerRegistry SUCKER_REGISTRY;
 
+    // forge-lint: disable-next-line(mixed-case-variable)
     CTPublisher PUBLISHER;
+    // forge-lint: disable-next-line(mixed-case-variable)
     MockBuybackDataHook MOCK_BUYBACK;
 
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 FEE_PROJECT_ID;
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 REVNET_ID;
 
+    // forge-lint: disable-next-line(mixed-case-variable)
     address USER = makeAddr("user");
 
     /// @notice The address that is allowed to forward calls.
@@ -107,6 +130,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         {
             REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
             issuanceConfs[0] = REVAutoIssuance({
+                // forge-lint: disable-next-line(unsafe-typecast)
                 chainId: uint32(block.chainid), count: uint104(70_000 * decimalMultiplier), beneficiary: multisig()
             });
 
@@ -115,6 +139,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
                 autoIssuances: issuanceConfs,
                 splitPercent: 2000, // 20%
                 splits: splits,
+                // forge-lint: disable-next-line(unsafe-typecast)
                 initialIssuance: uint112(1000 * decimalMultiplier),
                 issuanceCutFrequency: 90 days,
                 issuanceCutPercent: JBConstants.MAX_WEIGHT_CUT_PERCENT / 2,
@@ -149,6 +174,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
 
         // The project's revnet configuration
         REVConfig memory revnetConfiguration = REVConfig({
+            // forge-lint: disable-next-line(named-struct-fields)
             description: REVDescription(name, symbol, projectUri, ERC20_SALT),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
@@ -198,6 +224,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         {
             REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
             issuanceConfs[0] = REVAutoIssuance({
+                // forge-lint: disable-next-line(unsafe-typecast)
                 chainId: uint32(block.chainid), count: uint104(70_000 * decimalMultiplier), beneficiary: multisig()
             });
 
@@ -206,6 +233,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
                 autoIssuances: issuanceConfs,
                 splitPercent: 2000, // 20%
                 splits: splits,
+                // forge-lint: disable-next-line(unsafe-typecast)
                 initialIssuance: uint112(1000 * decimalMultiplier),
                 issuanceCutFrequency: 90 days,
                 issuanceCutPercent: JBConstants.MAX_WEIGHT_CUT_PERCENT / 2,
@@ -240,6 +268,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
 
         // The project's revnet configuration
         REVConfig memory revnetConfiguration = REVConfig({
+            // forge-lint: disable-next-line(named-struct-fields)
             description: REVDescription(name, symbol, projectUri, "NANA_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
@@ -517,6 +546,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         uint256 amountPaid = balanceBefore - TOKEN.balanceOf(USER);
 
         // We expect the fee to be 100% for the min prepaid with the max duration.
+        // forge-lint: disable-next-line(divide-before-multiply)
         uint256 expectedFee = (loan.amount * (1000 - prepaidFee) / 1000) * expectedFeePercent / 1000;
 
         // The fee may deviate 1%.
@@ -574,11 +604,14 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         assertEq(TOKEN.balanceOf(address(LOANS_CONTRACT)), 0);
 
         // The fees to be paid to NANA.
+        // forge-lint: disable-next-line(mixed-case-variable)
         uint256 allowance_fees = JBFees.feeAmountFrom({amountBeforeFee: loanable, feePercent: jbMultiTerminal().FEE()});
         // The fees to be paid to REV.
+        // forge-lint: disable-next-line(mixed-case-variable)
         uint256 rev_fees =
             JBFees.feeAmountFrom({amountBeforeFee: loanable, feePercent: LOANS_CONTRACT.REV_PREPAID_FEE_PERCENT()});
         // The fees to be paid to the Project we are taking a loan from.
+        // forge-lint: disable-next-line(mixed-case-variable)
         uint256 source_fees = JBFees.feeAmountFrom({amountBeforeFee: loanable, feePercent: prepaidFee});
         uint256 fees = allowance_fees + rev_fees + source_fees;
 
@@ -670,6 +703,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
 
         // Check what a borrow would result in more.
         uint256 loanable = LOANS_CONTRACT.borrowableAmountFrom(
+            // forge-lint: disable-next-line(unsafe-typecast)
             revnetProjectId, tokensToCashout, useNative ? 18 : 6, uint32(uint160(token))
         );
 
@@ -1126,6 +1160,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             if (premint > 0) {
                 issuanceConfs = new REVAutoIssuance[](1);
                 issuanceConfs[0] =
+                    // forge-lint: disable-next-line(unsafe-typecast)
                     REVAutoIssuance({chainId: uint32(block.chainid), count: uint104(premint), beneficiary: multisig()});
             }
 
@@ -1176,6 +1211,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             permissionIds[0] = JBPermissionIds.BURN_TOKENS;
 
             JBPermissionsData memory permissionsData = JBPermissionsData({
+                // forge-lint: disable-next-line(unsafe-typecast)
                 operator: address(LOANS_CONTRACT), projectId: uint56(revnetProjectId), permissionIds: permissionIds
             });
 

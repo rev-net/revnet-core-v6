@@ -1,21 +1,29 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "forge-std/Test.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import /* {*} from */ "@bananapus/core-v6/test/helpers/TestBaseWorkflow.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import /* {*} from */ "./../src/REVDeployer.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@croptop/core-v6/src/CTPublisher.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/721-hook-v6/script/helpers/Hook721DeploymentLib.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/suckers-v6/script/helpers/SuckerDeploymentLib.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@croptop/core-v6/script/helpers/CroptopDeploymentLib.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/router-terminal-v6/script/helpers/RouterTerminalDeploymentLib.sol";
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
@@ -26,27 +34,39 @@ import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStor
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
-import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 
 /// @notice Documents and verifies that stage transitions change the borrowable amount for the same collateral.
 /// This is by design: loan value tracks the current bonding curve parameters (cashOutTaxRate),
 /// just as cash-out value does.
 contract TestStageTransitionBorrowable is TestBaseWorkflow {
+    // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
 
+    // forge-lint: disable-next-line(mixed-case-variable)
     REVDeployer REV_DEPLOYER;
+    // forge-lint: disable-next-line(mixed-case-variable)
     JB721TiersHook EXAMPLE_HOOK;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IJB721TiersHookDeployer HOOK_DEPLOYER;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IJB721TiersHookStore HOOK_STORE;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IJBAddressRegistry ADDRESS_REGISTRY;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IREVLoans LOANS_CONTRACT;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IJBSuckerRegistry SUCKER_REGISTRY;
+    // forge-lint: disable-next-line(mixed-case-variable)
     CTPublisher PUBLISHER;
+    // forge-lint: disable-next-line(mixed-case-variable)
     MockBuybackDataHook MOCK_BUYBACK;
 
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 FEE_PROJECT_ID;
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 REVNET_ID;
 
+    // forge-lint: disable-next-line(mixed-case-variable)
     address USER = makeAddr("user");
 
     address private constant TRUSTED_FORWARDER = 0xB2b5841DBeF766d4b521221732F9B618fCf34A87;
@@ -96,6 +116,7 @@ contract TestStageTransitionBorrowable is TestBaseWorkflow {
         });
 
         cfg = REVConfig({
+            // forge-lint: disable-next-line(named-struct-fields)
             description: REVDescription("StageTest", "STG", "ipfs://test", "STG_SALT"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
@@ -155,6 +176,7 @@ contract TestStageTransitionBorrowable is TestBaseWorkflow {
 
         // Deploy the test revnet.
         (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) = _buildConfig();
+        // forge-lint: disable-next-line(named-struct-fields)
         cfg.description = REVDescription("StageTest2", "ST2", "ipfs://test2", "STG_SALT_2");
         (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0,

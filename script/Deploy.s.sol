@@ -1,11 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/721-hook-v6/script/helpers/Hook721DeploymentLib.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/buyback-hook-v6/script/helpers/BuybackDeploymentLib.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/suckers-v6/script/helpers/SuckerDeploymentLib.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/router-terminal-v6/script/helpers/RouterTerminalDeploymentLib.sol";
+// forge-lint: disable-next-line(unaliased-plain-import)
 import "@croptop/core-v6/script/helpers/CroptopDeploymentLib.sol";
 
 import {Sphinx} from "@sphinx-labs/contracts/contracts/foundry/SphinxPlugin.sol";
@@ -20,7 +26,6 @@ import {JBTokenMapping} from "@bananapus/suckers-v6/src/structs/JBTokenMapping.s
 import {IPermit2} from "@uniswap/permit2/src/interfaces/IPermit2.sol";
 import {IJBSplitHook} from "@bananapus/core-v6/src/interfaces/IJBSplitHook.sol";
 import {IJBTerminal} from "@bananapus/core-v6/src/interfaces/IJBTerminal.sol";
-import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDataHook.sol";
 import {IJBBuybackHookRegistry} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHookRegistry.sol";
 import {JBSplit} from "@bananapus/core-v6/src/structs/JBSplit.sol";
 
@@ -30,11 +35,9 @@ import {REVConfig} from "../src/structs/REVConfig.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {REVStageConfig} from "../src/structs/REVStageConfig.sol";
 import {REVSuckerDeploymentConfig} from "../src/structs/REVSuckerDeploymentConfig.sol";
-import {REVLoans, IREVLoans} from "./../src/REVLoans.sol";
-import {REVDeploy721TiersHookConfig} from "../src/structs/REVDeploy721TiersHookConfig.sol";
+import {REVLoans} from "./../src/REVLoans.sol";import {REVDeploy721TiersHookConfig} from "../src/structs/REVDeploy721TiersHookConfig.sol";
 import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 import {IJB721TokenUriResolver} from "@bananapus/721-hook-v6/src/interfaces/IJB721TokenUriResolver.sol";
-import {IJBPrices} from "@bananapus/core-v6/src/interfaces/IJBPrices.sol";
 import {JB721InitTiersConfig} from "@bananapus/721-hook-v6/src/structs/JB721InitTiersConfig.sol";
 import {JB721TierConfig} from "@bananapus/721-hook-v6/src/structs/JB721TierConfig.sol";
 import {REVBaseline721HookConfig} from "../src/structs/REVBaseline721HookConfig.sol";
@@ -62,26 +65,47 @@ contract DeployScript is Script, Sphinx {
     /// @notice tracks the deployment of the router terminal.
     RouterTerminalDeployment routerTerminal;
 
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint32 PREMINT_CHAIN_ID = 1;
+    // forge-lint: disable-next-line(mixed-case-variable)
     string NAME = "Revnet";
+    // forge-lint: disable-next-line(mixed-case-variable)
     string SYMBOL = "REV";
+    // forge-lint: disable-next-line(mixed-case-variable)
     string PROJECT_URI = "ipfs://QmcCBD5fM927LjkLDSJWtNEU9FohcbiPSfqtGRHXFHzJ4W";
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint32 NATIVE_CURRENCY = uint32(uint160(JBConstants.NATIVE_TOKEN));
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint32 ETH_CURRENCY = JBCurrencyIds.ETH;
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint8 DECIMALS = 18;
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint256 DECIMAL_MULTIPLIER = 10 ** DECIMALS;
+    // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 ERC20_SALT = "_REV_ERC20_SALT_V6_";
+    // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 SUCKER_SALT = "_REV_SUCKER_SALT_V6_";
+    // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 DEPLOYER_SALT = "_REV_DEPLOYER_SALT_V6_";
+    // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REVLOANS_SALT = "_REV_LOANS_SALT_V6_";
+    // forge-lint: disable-next-line(mixed-case-variable)
     address LOANS_OWNER;
+    // forge-lint: disable-next-line(mixed-case-variable)
     address OPERATOR;
+    // forge-lint: disable-next-line(mixed-case-variable)
     address TRUSTED_FORWARDER;
+    // forge-lint: disable-next-line(mixed-case-variable)
     IPermit2 PERMIT2;
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint48 REV_START_TIME = 1_740_089_444;
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint104 REV_MAINNET_AUTO_ISSUANCE_ = 1_050_482_341_387_116_262_330_122;
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint104 REV_BASE_AUTO_ISSUANCE_ = 38_544_322_230_437_559_731_228;
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint104 REV_OP_AUTO_ISSUANCE_ = 32_069_388_242_375_817_844;
+    // forge-lint: disable-next-line(mixed-case-variable)
     uint104 REV_ARB_AUTO_ISSUANCE_ = 3_479_431_776_906_850_000_000;
 
     function configureSphinx() public override {
@@ -190,6 +214,7 @@ contract DeployScript is Script, Sphinx {
                 autoIssuances: issuanceConfs,
                 splitPercent: 3800, // 38%
                 splits: splits,
+                // forge-lint: disable-next-line(unsafe-typecast)
                 initialIssuance: uint112(10_000 * DECIMAL_MULTIPLIER),
                 issuanceCutFrequency: 90 days,
                 issuanceCutPercent: 380_000_000, // 38%
@@ -201,6 +226,7 @@ contract DeployScript is Script, Sphinx {
         {
             REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
             issuanceConfs[0] = REVAutoIssuance({
+                // forge-lint: disable-next-line(unsafe-typecast)
                 chainId: PREMINT_CHAIN_ID, count: uint104(1_550_000 * DECIMAL_MULTIPLIER), beneficiary: OPERATOR
             });
 
@@ -314,6 +340,7 @@ contract DeployScript is Script, Sphinx {
 
     function deploy() public sphinx {
         // TODO figure out how to reference project ID if the contracts are already deployed.
+        // forge-lint: disable-next-line(mixed-case-variable)
         uint256 FEE_PROJECT_ID = core.projects.createFor(safeAddress());
 
         // Deploy REVLoans first — it only depends on the controller.

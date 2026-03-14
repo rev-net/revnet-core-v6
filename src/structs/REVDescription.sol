@@ -6,6 +6,7 @@ pragma solidity ^0.8.0;
 /// @custom:member uri The metadata URI containing revnet's info.
 /// @custom:member salt Revnets deployed across chains by the same address with the same salt will have the same
 /// address.
+// forge-lint: disable-next-line(pascal-case-struct)
 struct REVDescription {
     string name;
     string ticker;

@@ -13,6 +13,7 @@ import {REVBaseline721HookConfig} from "./REVBaseline721HookConfig.sol";
 /// minting 721's from tiers that allow it.
 /// @custom:member preventSplitOperatorIncreasingDiscountPercent A flag indicating if the revnet's split operator should
 /// be prevented from increasing the discount of a tier.
+// forge-lint: disable-next-line(pascal-case-struct)
 struct REVDeploy721TiersHookConfig {
     REVBaseline721HookConfig baseline721HookConfiguration;
     bytes32 salt;
