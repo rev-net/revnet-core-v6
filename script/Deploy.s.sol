@@ -229,6 +229,7 @@ contract DeployScript is Script, Sphinx {
             issuanceConfs[0] = REVAutoIssuance({
                 // forge-lint: disable-next-line(unsafe-typecast)
                 chainId: PREMINT_CHAIN_ID,
+                // forge-lint: disable-next-line(unsafe-typecast)
                 count: uint104(1_550_000 * DECIMAL_MULTIPLIER),
                 beneficiary: OPERATOR
             });

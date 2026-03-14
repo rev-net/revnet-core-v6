@@ -162,6 +162,7 @@ contract LiquidityHelper is IUnlockCallback {
         BalanceDelta delta = poolManager.swap(
             // forge-lint: disable-next-line(named-struct-fields)
             params.key,
+            // forge-lint: disable-next-line(named-struct-fields)
             SwapParams(params.zeroForOne, params.amountSpecified, params.sqrtPriceLimitX96),
             ""
         );

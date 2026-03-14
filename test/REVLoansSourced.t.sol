@@ -132,6 +132,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             issuanceConfs[0] = REVAutoIssuance({
                 // forge-lint: disable-next-line(unsafe-typecast)
                 chainId: uint32(block.chainid),
+                // forge-lint: disable-next-line(unsafe-typecast)
                 count: uint104(70_000 * decimalMultiplier),
                 beneficiary: multisig()
             });
@@ -228,6 +229,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             issuanceConfs[0] = REVAutoIssuance({
                 // forge-lint: disable-next-line(unsafe-typecast)
                 chainId: uint32(block.chainid),
+                // forge-lint: disable-next-line(unsafe-typecast)
                 count: uint104(70_000 * decimalMultiplier),
                 beneficiary: multisig()
             });
@@ -711,6 +713,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             revnetProjectId,
             tokensToCashout,
             useNative ? 18 : 6,
+            // forge-lint: disable-next-line(unsafe-typecast)
             uint32(uint160(token))
         );
 
@@ -1220,6 +1223,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             JBPermissionsData memory permissionsData = JBPermissionsData({
                 // forge-lint: disable-next-line(unsafe-typecast)
                 operator: address(LOANS_CONTRACT),
+                // forge-lint: disable-next-line(unsafe-typecast)
                 projectId: uint56(revnetProjectId),
                 permissionIds: permissionIds
             });

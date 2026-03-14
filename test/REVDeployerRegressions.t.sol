@@ -254,6 +254,7 @@ contract REVDeployerRegressions is TestBaseWorkflow {
             issuanceConfs[0] = REVAutoIssuance({
                 // forge-lint: disable-next-line(unsafe-typecast)
                 chainId: uint32(block.chainid),
+                // forge-lint: disable-next-line(unsafe-typecast)
                 count: uint104(50_000 * decimalMultiplier),
                 beneficiary: multisig()
             });
@@ -278,6 +279,7 @@ contract REVDeployerRegressions is TestBaseWorkflow {
             issuanceConfs[0] = REVAutoIssuance({
                 // forge-lint: disable-next-line(unsafe-typecast)
                 chainId: uint32(block.chainid),
+                // forge-lint: disable-next-line(unsafe-typecast)
                 count: uint104(30_000 * decimalMultiplier),
                 beneficiary: multisig()
             });

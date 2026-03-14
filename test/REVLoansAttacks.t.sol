@@ -251,6 +251,7 @@ contract REVLoansAttacks is TestBaseWorkflow {
         issuanceConfs[0] = REVAutoIssuance({
             // forge-lint: disable-next-line(unsafe-typecast)
             chainId: uint32(block.chainid),
+            // forge-lint: disable-next-line(unsafe-typecast)
             count: uint104(70_000 * decimalMultiplier),
             beneficiary: multisig()
         });
@@ -312,6 +313,7 @@ contract REVLoansAttacks is TestBaseWorkflow {
         issuanceConfs[0] = REVAutoIssuance({
             // forge-lint: disable-next-line(unsafe-typecast)
             chainId: uint32(block.chainid),
+            // forge-lint: disable-next-line(unsafe-typecast)
             count: uint104(70_000 * decimalMultiplier),
             beneficiary: multisig()
         });
