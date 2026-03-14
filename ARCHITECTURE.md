@@ -28,7 +28,7 @@ Deployer → REVDeployer.deployFor()
   → Set REVDeployer as data hook (controls pay + cashout behavior)
   → Initialize buyback pools at 1:1 price, configure buyback hook
   → Deploy suckers for cross-chain operation
-  → Deploy 721 tiers if specified
+  → Deploy tiered ERC-721 hook (always — empty by default, pre-configured if specified)
   → Compute matching hash for cross-chain deployment verification
 ```
 

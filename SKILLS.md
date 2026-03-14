@@ -17,8 +17,8 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 
 | Function | What it does |
 |----------|-------------|
-| `REVDeployer.deployFor(revnetId, config, terminals, suckerConfig)` | Deploy a new revnet (`revnetId=0`) or convert an existing Juicebox project. Encodes stage configs into rulesets, deploys ERC-20 token, initializes buyback pool at 1:1 price, sets up split operator, suckers, and loans permissions. |
-| `REVDeployer.deployFor(revnetId, config, terminals, suckerConfig, hookConfig, allowedPosts)` | Same as `deployFor` but also deploys a tiered ERC-721 hook. Optionally configures Croptop posting criteria and grants publisher permission to add tiers. |
+| `REVDeployer.deployFor(revnetId, config, terminals, suckerConfig)` | Deploy a new revnet (`revnetId=0`) or convert an existing Juicebox project. Encodes stage configs into rulesets, deploys ERC-20 token, initializes buyback pool at 1:1 price, sets up split operator, suckers, loans permissions, and deploys a default empty tiered ERC-721 hook. |
+| `REVDeployer.deployFor(revnetId, config, terminals, suckerConfig, hookConfig, allowedPosts)` | Same as `deployFor` but deploys a tiered ERC-721 hook with pre-configured tiers. Optionally configures Croptop posting criteria and grants publisher permission to add tiers. |
 | `REVDeployer.deploySuckersFor(revnetId, suckerConfig)` | Deploy new cross-chain suckers post-launch. Split operator only. Validates ruleset allows sucker deployment (bit 2 of `extraMetadata`). Uses stored config hash for cross-chain matching. |
 
 ### Data Hooks

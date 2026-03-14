@@ -565,7 +565,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         uint256[] memory customSplitOperatorPermissionIndexes = _extraOperatorPermissions[revnetId];
 
         // Make the array that merges the default and custom operator permissions.
-        allOperatorPermissions = new uint256[](8 + customSplitOperatorPermissionIndexes.length);
+        allOperatorPermissions = new uint256[](9 + customSplitOperatorPermissionIndexes.length);
         allOperatorPermissions[0] = JBPermissionIds.SET_SPLIT_GROUPS;
         allOperatorPermissions[1] = JBPermissionIds.SET_BUYBACK_POOL;
         allOperatorPermissions[2] = JBPermissionIds.SET_BUYBACK_TWAP;
@@ -574,10 +574,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         allOperatorPermissions[5] = JBPermissionIds.SUCKER_SAFETY;
         allOperatorPermissions[6] = JBPermissionIds.SET_BUYBACK_HOOK;
         allOperatorPermissions[7] = JBPermissionIds.SET_ROUTER_TERMINAL;
+        allOperatorPermissions[8] = JBPermissionIds.SET_TOKEN_METADATA;
 
         // Copy the custom permissions into the array.
         for (uint256 i; i < customSplitOperatorPermissionIndexes.length; i++) {
-            allOperatorPermissions[8 + i] = customSplitOperatorPermissionIndexes[i];
+            allOperatorPermissions[9 + i] = customSplitOperatorPermissionIndexes[i];
         }
     }
 

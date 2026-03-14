@@ -35,7 +35,7 @@ Admin privileges and their scope in revnet-core-v6. Revnets are designed to be a
 
 | Function | Required Role | Permission ID | What It Does |
 |----------|--------------|---------------|-------------|
-| `deployFor()` | Anyone (new revnet) or Juicebox project owner (existing project) | None | Deploys a new revnet or irreversibly converts an existing Juicebox project into a revnet. Overloaded: the 4-arg variant deploys a basic revnet; the 6-arg variant also deploys a tiered ERC-721 hook and optional croptop posting rules. |
+| `deployFor()` | Anyone (new revnet) or Juicebox project owner (existing project) | None | Deploys a new revnet or irreversibly converts an existing Juicebox project into a revnet. Both variants deploy a tiered ERC-721 hook: the 4-arg variant deploys a default empty hook; the 6-arg variant deploys a hook with pre-configured tiers and optional croptop posting rules. |
 | `deploySuckersFor()` | Split Operator | Checked via `_checkIfIsSplitOperatorOf()` | Deploys new cross-chain suckers for an existing revnet. Also requires the current ruleset's `extraMetadata` bit 2 to be set (allows deploying suckers). |
 | `setSplitOperatorOf()` | Split Operator | Checked via `_checkIfIsSplitOperatorOf()` | Replaces the current split operator with a new address. Revokes all operator permissions from the caller and grants them to the new address. |
 | `autoIssueFor()` | Anyone | None | Mints pre-configured auto-issuance tokens for a beneficiary once the relevant stage has started. Amounts are set at deployment and can only be claimed once. |
@@ -56,6 +56,7 @@ The split operator receives the following Juicebox permission IDs, scoped to its
 | `SUCKER_SAFETY` | Manage sucker safety settings (e.g., emergency hatch). |
 | `SET_BUYBACK_HOOK` | Configure the buyback hook. |
 | `SET_ROUTER_TERMINAL` | Set the router terminal. |
+| `SET_TOKEN_METADATA` | Update the revnet token's name and symbol. |
 
 Optional 721 permissions (granted only if enabled at deployment via `REVDeploy721TiersHookConfig`):
 

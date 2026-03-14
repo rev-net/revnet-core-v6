@@ -54,8 +54,10 @@ Revnets are autonomous Juicebox projects with predetermined economic stages. Eac
 
 ### Deployer Variants
 
-- **Basic revnet** -- `deployFor` with stage configurations mapped to Juicebox rulesets.
-- **Tiered 721 revnet** -- `deployFor` adds a tiered 721 pay hook that mints NFTs as people pay.
+Every revnet gets a tiered ERC-721 hook deployed automatically — even if no tiers are configured at launch. This lets the split operator add and sell NFTs later without migration.
+
+- **Basic revnet** -- `deployFor` with stage configurations mapped to Juicebox rulesets and an empty 721 hook.
+- **Tiered 721 revnet** -- `deployFor` adds a tiered 721 pay hook with pre-configured tiers that mint NFTs as people pay.
 - **Croptop revnet** -- A tiered 721 revnet with Croptop posting criteria, allowing the public to post content.
 
 ## Architecture
@@ -159,6 +161,7 @@ The split operator has these default permissions:
 | `SUCKER_SAFETY` | Emergency sucker functions |
 | `SET_BUYBACK_HOOK` | Swap buyback hook |
 | `SET_ROUTER_TERMINAL` | Swap terminal |
+| `SET_TOKEN_METADATA` | Update token name and symbol |
 
 Plus optional from 721 hook config: `ADJUST_721_TIERS`, `SET_721_METADATA`, `MINT_721`, `SET_721_DISCOUNT_PERCENT`.
 
