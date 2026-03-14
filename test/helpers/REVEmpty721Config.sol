@@ -23,8 +23,7 @@ library REVEmpty721Config {
                 tiersConfig: JB721InitTiersConfig({
                     tiers: new JB721TierConfig[](0),
                     currency: 0,
-                    decimals: 18,
-                    prices: IJBPrices(address(0))
+                    decimals: 18
                 }),
                 reserveBeneficiary: address(0),
                 flags: REV721TiersHookFlags({
