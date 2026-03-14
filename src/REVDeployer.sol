@@ -737,12 +737,13 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     )
         external
         override
-        returns (uint256)
+        returns (uint256, IJB721TiersHook hook)
     {
         bool shouldDeployNewRevnet = revnetId == 0;
         if (shouldDeployNewRevnet) revnetId = _nextProjectId();
 
-        _deployRevnetFor({
+        // Deploy the revnet (project, rulesets, ERC-20, suckers, etc.).
+        bytes32 encodedConfigurationHash = _deployRevnetFor({
             revnetId: revnetId,
             shouldDeployNewRevnet: shouldDeployNewRevnet,
             configuration: configuration,
@@ -750,7 +751,29 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             suckerDeploymentConfiguration: suckerDeploymentConfiguration
         });
 
-        return revnetId;
+        // Deploy a default empty 721 hook for the revnet.
+        {
+            JBDeploy721TiersHookConfig memory deployConfig;
+            deployConfig.tiersConfig.currency = configuration.baseCurrency;
+            deployConfig.tiersConfig.decimals = 18;
+
+            hook = HOOK_DEPLOYER.deployHookFor({
+                projectId: revnetId,
+                deployTiersHookConfig: deployConfig,
+                salt: keccak256(abi.encode(bytes32(0), encodedConfigurationHash, _msgSender()))
+            });
+        }
+
+        // Store the tiered ERC-721 hook.
+        tiered721HookOf[revnetId] = hook;
+
+        // Grant the split operator all 721 permissions (no prevent* flags for default config).
+        _extraOperatorPermissions[revnetId].push(JBPermissionIds.ADJUST_721_TIERS);
+        _extraOperatorPermissions[revnetId].push(JBPermissionIds.SET_721_METADATA);
+        _extraOperatorPermissions[revnetId].push(JBPermissionIds.MINT_721);
+        _extraOperatorPermissions[revnetId].push(JBPermissionIds.SET_721_DISCOUNT_PERCENT);
+
+        return (revnetId, hook);
     }
 
     /// @notice Burn any of a revnet's tokens held by this contract.
@@ -843,8 +866,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         REVConfig calldata configuration,
         JBTerminalConfig[] calldata terminalConfigurations,
         REVSuckerDeploymentConfig calldata suckerDeploymentConfiguration,
-        REVDeploy721TiersHookConfig calldata tiered721HookConfiguration,
-        REVCroptopAllowedPost[] calldata allowedPosts
+        REVDeploy721TiersHookConfig memory tiered721HookConfiguration,
+        REVCroptopAllowedPost[] memory allowedPosts
     )
         internal
         returns (IJB721TiersHook hook)
@@ -917,7 +940,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             // Iterate through each post to add it to the formatted list.
             for (uint256 i; i < allowedPosts.length; i++) {
                 // Set the post being iterated on.
-                REVCroptopAllowedPost calldata post = allowedPosts[i];
+                REVCroptopAllowedPost memory post = allowedPosts[i];
 
                 // Set the formatted post.
                 formattedAllowedPosts[i] = CTAllowedPost({

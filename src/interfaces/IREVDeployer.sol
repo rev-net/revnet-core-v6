@@ -203,12 +203,14 @@ interface IREVDeployer {
         external
         returns (uint256, IJB721TiersHook hook);
 
-    /// @notice Deploy a revnet without a tiered ERC-721 hook.
+    /// @notice Deploy a revnet with a default empty tiered ERC-721 hook.
+    /// @dev Convenience overload — constructs an empty 721 config internally and delegates to the 6-arg version.
     /// @param revnetId The ID of the Juicebox project to initialize. Send 0 to deploy a new revnet.
     /// @param configuration Core revnet configuration.
     /// @param terminalConfigurations The terminals to set up for the revnet.
     /// @param suckerDeploymentConfiguration The suckers to set up for cross-chain token transfers.
     /// @return The ID of the newly created or initialized revnet.
+    /// @return hook The tiered ERC-721 hook that was deployed for the revnet.
     function deployFor(
         uint256 revnetId,
         REVConfig memory configuration,
@@ -216,7 +218,7 @@ interface IREVDeployer {
         REVSuckerDeploymentConfig memory suckerDeploymentConfiguration
     )
         external
-        returns (uint256);
+        returns (uint256, IJB721TiersHook hook);
 
     /// @notice Deploy new suckers for an existing revnet.
     /// @param revnetId The ID of the revnet to deploy suckers for.
