@@ -773,6 +773,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         _extraOperatorPermissions[revnetId].push(JBPermissionIds.MINT_721);
         _extraOperatorPermissions[revnetId].push(JBPermissionIds.SET_721_DISCOUNT_PERCENT);
 
+        // Give the split operator their permissions (base + 721 extras).
+        _setSplitOperatorOf({revnetId: revnetId, operator: configuration.splitOperator});
+
         return (revnetId, hook);
     }
 
@@ -932,6 +935,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             _extraOperatorPermissions[revnetId].push(JBPermissionIds.SET_721_DISCOUNT_PERCENT);
         }
 
+        // Give the split operator their permissions (base + 721 extras).
+        _setSplitOperatorOf({revnetId: revnetId, operator: configuration.splitOperator});
+
         // If there are posts to allow, configure them.
         if (allowedPosts.length != 0) {
             // Keep a reference to the formatted allowed posts.
@@ -1055,9 +1061,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
                 });
             }
         }
-
-        // Give the split operator their permissions.
-        _setSplitOperatorOf({revnetId: revnetId, operator: configuration.splitOperator});
 
         // Deploy the suckers (if applicable).
         if (suckerDeploymentConfiguration.salt != bytes32(0)) {

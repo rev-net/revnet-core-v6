@@ -21,9 +21,7 @@ library REVEmpty721Config {
                 tokenUriResolver: IJB721TokenUriResolver(address(0)),
                 contractUri: "",
                 tiersConfig: JB721InitTiersConfig({
-                    tiers: new JB721TierConfig[](0),
-                    currency: baseCurrency,
-                    decimals: 18
+                    tiers: new JB721TierConfig[](0), currency: baseCurrency, decimals: 18
                 }),
                 reserveBeneficiary: address(0),
                 flags: REV721TiersHookFlags({
