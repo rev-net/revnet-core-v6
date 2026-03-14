@@ -34,6 +34,8 @@ import {JB721TiersHook} from "@bananapus/721-hook-v6/src/JB721TiersHook.sol";
 import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStore.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
+import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
+import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 
 /// @notice A fake terminal that returns garbage accounting contexts.
 /// Used to test unvalidated loan source terminal rejection.
@@ -162,8 +164,9 @@ contract REVLoansFindings is TestBaseWorkflow {
 
         SUCKER_REGISTRY = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
         HOOK_STORE = new JB721TiersHookStore();
-        EXAMPLE_HOOK =
-            new JB721TiersHook(jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, jbSplits(), multisig());
+        EXAMPLE_HOOK = new JB721TiersHook(
+            jbDirectory(), jbPermissions(), jbPrices(), jbRulesets(), HOOK_STORE, jbSplits(), multisig()
+        );
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
@@ -247,7 +250,9 @@ contract REVLoansFindings is TestBaseWorkflow {
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("REV"))
-            })
+            }),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
     }
 
@@ -285,13 +290,15 @@ contract REVLoansFindings is TestBaseWorkflow {
             stageConfigurations: stageConfigurations
         });
 
-        REVNET_ID = REV_DEPLOYER.deployFor({
+        (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("BRW"))
-            })
+            }),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
     }
 
@@ -519,13 +526,15 @@ contract REVLoansFindings is TestBaseWorkflow {
         // Record the deploy timestamp -- this is used for stage ID calculation.
         uint256 deployTimestamp = block.timestamp;
 
-        uint256 fp1RevnetId = REV_DEPLOYER.deployFor({
+        (uint256 fp1RevnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: config,
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FP1")
-            })
+            }),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         // Step 2: Verify the second ruleset ID matches deployTimestamp + 1.

@@ -276,7 +276,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         }
 
         // Get a reference to the number of tokens being used to pay the fee (out of the total being cashed out).
-        uint256 feeCashOutCount = mulDiv(context.cashOutCount, FEE, JBConstants.MAX_FEE);
+        uint256 feeCashOutCount = mulDiv({x: context.cashOutCount, y: FEE, denominator: JBConstants.MAX_FEE});
         uint256 nonFeeCashOutCount = context.cashOutCount - feeCashOutCount;
 
         // Keep a reference to the amount claimable with non-fee tokens.
@@ -353,7 +353,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         if (projectAmount == 0) {
             weight = 0;
         } else if (projectAmount < context.amount.value) {
-            weight = mulDiv(weight, projectAmount, context.amount.value);
+            weight = mulDiv({x: weight, y: projectAmount, denominator: context.amount.value});
         }
 
         // Merge hook specifications: 721 hook spec first, then buyback hook spec.
@@ -565,7 +565,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         uint256[] memory customSplitOperatorPermissionIndexes = _extraOperatorPermissions[revnetId];
 
         // Make the array that merges the default and custom operator permissions.
-        allOperatorPermissions = new uint256[](8 + customSplitOperatorPermissionIndexes.length);
+        allOperatorPermissions = new uint256[](9 + customSplitOperatorPermissionIndexes.length);
         allOperatorPermissions[0] = JBPermissionIds.SET_SPLIT_GROUPS;
         allOperatorPermissions[1] = JBPermissionIds.SET_BUYBACK_POOL;
         allOperatorPermissions[2] = JBPermissionIds.SET_BUYBACK_TWAP;
@@ -574,10 +574,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         allOperatorPermissions[5] = JBPermissionIds.SUCKER_SAFETY;
         allOperatorPermissions[6] = JBPermissionIds.SET_BUYBACK_HOOK;
         allOperatorPermissions[7] = JBPermissionIds.SET_ROUTER_TERMINAL;
+        allOperatorPermissions[8] = JBPermissionIds.SET_TOKEN_METADATA;
 
         // Copy the custom permissions into the array.
         for (uint256 i; i < customSplitOperatorPermissionIndexes.length; i++) {
-            allOperatorPermissions[8 + i] = customSplitOperatorPermissionIndexes[i];
+            allOperatorPermissions[9 + i] = customSplitOperatorPermissionIndexes[i];
         }
     }
 
@@ -691,16 +692,21 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
     /// @param suckerDeploymentConfiguration The suckers to set up for the revnet. Suckers facilitate cross-chain
     /// token transfers between peer revnets on different networks.
+    /// @param tiered721HookConfiguration How to set up the tiered ERC-721 hook for the revnet.
+    /// @param allowedPosts Restrictions on which croptop posts are allowed on the revnet's ERC-721 tiers.
     /// @return revnetId The ID of the newly created revnet.
+    /// @return hook The address of the tiered ERC-721 hook that was deployed for the revnet.
     function deployFor(
         uint256 revnetId,
         REVConfig calldata configuration,
         JBTerminalConfig[] calldata terminalConfigurations,
-        REVSuckerDeploymentConfig calldata suckerDeploymentConfiguration
+        REVSuckerDeploymentConfig calldata suckerDeploymentConfiguration,
+        REVDeploy721TiersHookConfig calldata tiered721HookConfiguration,
+        REVCroptopAllowedPost[] calldata allowedPosts
     )
         external
         override
-        returns (uint256)
+        returns (uint256, IJB721TiersHook hook)
     {
         // Keep a reference to the revnet ID which was passed in.
         bool shouldDeployNewRevnet = revnetId == 0;
@@ -709,23 +715,69 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         // (which will be 1 greater than the current count).
         if (shouldDeployNewRevnet) revnetId = _nextProjectId();
 
-        // Normalize and encode the configurations.
-        (JBRulesetConfig[] memory rulesetConfigurations, bytes32 encodedConfigurationHash) = _makeRulesetConfigurations({
-            revnetId: revnetId, configuration: configuration, terminalConfigurations: terminalConfigurations
-        });
-
-        // Deploy the revnet.
-        _deployRevnetFor({
+        // Deploy the revnet with the specified tiered ERC-721 hook and croptop posting criteria.
+        hook = _deploy721RevnetFor({
             revnetId: revnetId,
             shouldDeployNewRevnet: shouldDeployNewRevnet,
             configuration: configuration,
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: suckerDeploymentConfiguration,
-            rulesetConfigurations: rulesetConfigurations,
-            encodedConfigurationHash: encodedConfigurationHash
+            tiered721HookConfiguration: tiered721HookConfiguration,
+            allowedPosts: allowedPosts
         });
 
-        return revnetId;
+        return (revnetId, hook);
+    }
+
+    /// @inheritdoc IREVDeployer
+    function deployFor(
+        uint256 revnetId,
+        REVConfig calldata configuration,
+        JBTerminalConfig[] calldata terminalConfigurations,
+        REVSuckerDeploymentConfig calldata suckerDeploymentConfiguration
+    )
+        external
+        override
+        returns (uint256, IJB721TiersHook hook)
+    {
+        bool shouldDeployNewRevnet = revnetId == 0;
+        if (shouldDeployNewRevnet) revnetId = _nextProjectId();
+
+        // Deploy the revnet (project, rulesets, ERC-20, suckers, etc.).
+        bytes32 encodedConfigurationHash = _deployRevnetFor({
+            revnetId: revnetId,
+            shouldDeployNewRevnet: shouldDeployNewRevnet,
+            configuration: configuration,
+            terminalConfigurations: terminalConfigurations,
+            suckerDeploymentConfiguration: suckerDeploymentConfiguration
+        });
+
+        // Deploy a default empty 721 hook for the revnet.
+        {
+            JBDeploy721TiersHookConfig memory deployConfig;
+            deployConfig.tiersConfig.currency = configuration.baseCurrency;
+            deployConfig.tiersConfig.decimals = 18;
+
+            hook = HOOK_DEPLOYER.deployHookFor({
+                projectId: revnetId,
+                deployTiersHookConfig: deployConfig,
+                salt: keccak256(abi.encode(bytes32(0), encodedConfigurationHash, _msgSender()))
+            });
+        }
+
+        // Store the tiered ERC-721 hook.
+        tiered721HookOf[revnetId] = hook;
+
+        // Grant the split operator all 721 permissions (no prevent* flags for default config).
+        _extraOperatorPermissions[revnetId].push(JBPermissionIds.ADJUST_721_TIERS);
+        _extraOperatorPermissions[revnetId].push(JBPermissionIds.SET_721_METADATA);
+        _extraOperatorPermissions[revnetId].push(JBPermissionIds.MINT_721);
+        _extraOperatorPermissions[revnetId].push(JBPermissionIds.SET_721_DISCOUNT_PERCENT);
+
+        // Give the split operator their permissions (base + 721 extras).
+        _setSplitOperatorOf({revnetId: revnetId, operator: configuration.splitOperator});
+
+        return (revnetId, hook);
     }
 
     /// @notice Burn any of a revnet's tokens held by this contract.
@@ -775,51 +827,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         });
     }
 
-    /// @notice Launch a revnet which sells tiered ERC-721s and (optionally) allows croptop posts to its ERC-721 tiers.
-    /// @dev When initializing an existing project (revnetId != 0), the project must be blank (no controller or
-    /// rulesets). The initialization is irreversible. See `deployFor` documentation for full details.
-    /// @param revnetId The ID of the Juicebox project to initialize as a revnet. Send 0 to deploy a new revnet.
-    /// @param configuration Core revnet configuration. See `REVConfig`.
-    /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
-    /// @param suckerDeploymentConfiguration The suckers to set up for the revnet. Suckers facilitate cross-chain
-    /// token transfers between peer revnets on different networks.
-    /// @param tiered721HookConfiguration How to set up the tiered ERC-721 hook for the revnet.
-    /// @param allowedPosts Restrictions on which croptop posts are allowed on the revnet's ERC-721 tiers.
-    /// @return revnetId The ID of the newly created revnet.
-    /// @return hook The address of the tiered ERC-721 hook that was deployed for the revnet.
-    function deployWith721sFor(
-        uint256 revnetId,
-        REVConfig calldata configuration,
-        JBTerminalConfig[] calldata terminalConfigurations,
-        REVSuckerDeploymentConfig calldata suckerDeploymentConfiguration,
-        REVDeploy721TiersHookConfig calldata tiered721HookConfiguration,
-        REVCroptopAllowedPost[] calldata allowedPosts
-    )
-        external
-        override
-        returns (uint256, IJB721TiersHook hook)
-    {
-        // Keep a reference to the revnet ID which was passed in.
-        bool shouldDeployNewRevnet = revnetId == 0;
-
-        // If the caller is deploying a new revnet, calculate its ID
-        // (which will be 1 greater than the current count).
-        if (shouldDeployNewRevnet) revnetId = _nextProjectId();
-
-        // Deploy the revnet with the specified tiered ERC-721 hook and croptop posting criteria.
-        hook = _deploy721RevnetFor({
-            revnetId: revnetId,
-            shouldDeployNewRevnet: shouldDeployNewRevnet,
-            configuration: configuration,
-            terminalConfigurations: terminalConfigurations,
-            suckerDeploymentConfiguration: suckerDeploymentConfiguration,
-            tiered721HookConfiguration: tiered721HookConfiguration,
-            allowedPosts: allowedPosts
-        });
-
-        return (revnetId, hook);
-    }
-
     /// @notice Change a revnet's split operator.
     /// @dev Only a revnet's current split operator can set a new split operator.
     /// @param revnetId The ID of the revnet to set the split operator of.
@@ -852,90 +859,85 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     function _beforeTransferTo(address to, address token, uint256 amount) internal returns (uint256) {
         // If the token is the native token, no allowance needed.
         if (token == JBConstants.NATIVE_TOKEN) return amount;
-        IERC20(token).safeIncreaseAllowance(to, amount);
+        IERC20(token).safeIncreaseAllowance({spender: to, value: amount});
         return 0;
     }
 
     /// @notice Deploy a revnet which sells tiered ERC-721s and (optionally) allows croptop posts to its ERC-721 tiers.
-    /// @param revnetId The ID of the Juicebox project to turn into a revnet. Send 0 to deploy a new revnet.
-    /// @param shouldDeployNewRevnet Whether to deploy a new revnet or convert an existing Juicebox project into a
-    /// revnet.
-    /// @param configuration Core revnet configuration. See `REVConfig`.
-    /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
-    /// @param suckerDeploymentConfiguration The suckers to set up for the revnet. Suckers facilitate cross-chain
-    /// token transfers between peer revnets on different networks.
-    /// @param tiered721HookConfiguration How to set up the tiered ERC-721 hook for the revnet.
-    /// @param allowedPosts Restrictions on which croptop posts are allowed on the revnet's ERC-721 tiers.
-    /// @return hook The address of the tiered ERC-721 hook that was deployed for the revnet.
     function _deploy721RevnetFor(
         uint256 revnetId,
         bool shouldDeployNewRevnet,
         REVConfig calldata configuration,
         JBTerminalConfig[] calldata terminalConfigurations,
         REVSuckerDeploymentConfig calldata suckerDeploymentConfiguration,
-        REVDeploy721TiersHookConfig calldata tiered721HookConfiguration,
-        REVCroptopAllowedPost[] calldata allowedPosts
+        REVDeploy721TiersHookConfig memory tiered721HookConfiguration,
+        REVCroptopAllowedPost[] memory allowedPosts
     )
         internal
         returns (IJB721TiersHook hook)
     {
-        // Normalize and encode the configurations.
-        (JBRulesetConfig[] memory rulesetConfigurations, bytes32 encodedConfigurationHash) = _makeRulesetConfigurations({
-            revnetId: revnetId, configuration: configuration, terminalConfigurations: terminalConfigurations
+        // Deploy the revnet (project, rulesets, ERC-20, suckers, etc.).
+        bytes32 encodedConfigurationHash = _deployRevnetFor({
+            revnetId: revnetId,
+            shouldDeployNewRevnet: shouldDeployNewRevnet,
+            configuration: configuration,
+            terminalConfigurations: terminalConfigurations,
+            suckerDeploymentConfiguration: suckerDeploymentConfiguration
         });
 
         // Convert the REVBaseline721HookConfig to JBDeploy721TiersHookConfig, forcing issueTokensForSplits to false.
         // Revnets do their own weight adjustment for splits, so the 721 hook must not also adjust.
-        JBDeploy721TiersHookConfig memory hookConfig = JBDeploy721TiersHookConfig({
-            name: tiered721HookConfiguration.baseline721HookConfiguration.name,
-            symbol: tiered721HookConfiguration.baseline721HookConfiguration.symbol,
-            baseUri: tiered721HookConfiguration.baseline721HookConfiguration.baseUri,
-            tokenUriResolver: tiered721HookConfiguration.baseline721HookConfiguration.tokenUriResolver,
-            contractUri: tiered721HookConfiguration.baseline721HookConfiguration.contractUri,
-            tiersConfig: tiered721HookConfiguration.baseline721HookConfiguration.tiersConfig,
-            reserveBeneficiary: tiered721HookConfiguration.baseline721HookConfiguration.reserveBeneficiary,
-            flags: JB721TiersHookFlags({
-                noNewTiersWithReserves: tiered721HookConfiguration.baseline721HookConfiguration.flags
-                .noNewTiersWithReserves,
-                noNewTiersWithVotes: tiered721HookConfiguration.baseline721HookConfiguration.flags.noNewTiersWithVotes,
-                noNewTiersWithOwnerMinting: tiered721HookConfiguration.baseline721HookConfiguration.flags
-                .noNewTiersWithOwnerMinting,
-                preventOverspending: tiered721HookConfiguration.baseline721HookConfiguration.flags.preventOverspending,
-                issueTokensForSplits: false
-            })
-        });
-
-        // Deploy the tiered ERC-721 hook contract.
-        // slither-disable-next-line reentrancy-benign
         hook = HOOK_DEPLOYER.deployHookFor({
             projectId: revnetId,
-            deployTiersHookConfig: hookConfig,
+            deployTiersHookConfig: JBDeploy721TiersHookConfig({
+                name: tiered721HookConfiguration.baseline721HookConfiguration.name,
+                symbol: tiered721HookConfiguration.baseline721HookConfiguration.symbol,
+                baseUri: tiered721HookConfiguration.baseline721HookConfiguration.baseUri,
+                tokenUriResolver: tiered721HookConfiguration.baseline721HookConfiguration.tokenUriResolver,
+                contractUri: tiered721HookConfiguration.baseline721HookConfiguration.contractUri,
+                tiersConfig: tiered721HookConfiguration.baseline721HookConfiguration.tiersConfig,
+                reserveBeneficiary: tiered721HookConfiguration.baseline721HookConfiguration.reserveBeneficiary,
+                flags: JB721TiersHookFlags({
+                    noNewTiersWithReserves: tiered721HookConfiguration.baseline721HookConfiguration.flags
+                    .noNewTiersWithReserves,
+                    noNewTiersWithVotes: tiered721HookConfiguration.baseline721HookConfiguration.flags
+                        .noNewTiersWithVotes,
+                    noNewTiersWithOwnerMinting: tiered721HookConfiguration.baseline721HookConfiguration.flags
+                        .noNewTiersWithOwnerMinting,
+                    preventOverspending: tiered721HookConfiguration.baseline721HookConfiguration.flags
+                        .preventOverspending,
+                    issueTokensForSplits: false
+                })
+            }),
             salt: keccak256(abi.encode(tiered721HookConfiguration.salt, encodedConfigurationHash, _msgSender()))
         });
 
         // Store the tiered ERC-721 hook.
         tiered721HookOf[revnetId] = hook;
 
-        // If specified, give the split operator permission to add and remove tiers.
-        if (tiered721HookConfiguration.splitOperatorCanAdjustTiers) {
+        // Give the split operator permission to add and remove tiers unless prevented.
+        if (!tiered721HookConfiguration.preventSplitOperatorAdjustingTiers) {
             _extraOperatorPermissions[revnetId].push(JBPermissionIds.ADJUST_721_TIERS);
         }
 
-        // If specified, give the split operator permission to set ERC-721 tier metadata.
-        if (tiered721HookConfiguration.splitOperatorCanUpdateMetadata) {
+        // Give the split operator permission to set ERC-721 tier metadata unless prevented.
+        if (!tiered721HookConfiguration.preventSplitOperatorUpdatingMetadata) {
             _extraOperatorPermissions[revnetId].push(JBPermissionIds.SET_721_METADATA);
         }
 
-        // If specified, give the split operator permission to mint ERC-721s (without a payment)
-        // from tiers with `allowOwnerMint` set to true.
-        if (tiered721HookConfiguration.splitOperatorCanMint) {
+        // Give the split operator permission to mint ERC-721s (without a payment)
+        // from tiers with `allowOwnerMint` set to true, unless prevented.
+        if (!tiered721HookConfiguration.preventSplitOperatorMinting) {
             _extraOperatorPermissions[revnetId].push(JBPermissionIds.MINT_721);
         }
 
-        // If specified, give the split operator permission to increase the discount of a tier.
-        if (tiered721HookConfiguration.splitOperatorCanIncreaseDiscountPercent) {
+        // Give the split operator permission to increase the discount of a tier unless prevented.
+        if (!tiered721HookConfiguration.preventSplitOperatorIncreasingDiscountPercent) {
             _extraOperatorPermissions[revnetId].push(JBPermissionIds.SET_721_DISCOUNT_PERCENT);
         }
+
+        // Give the split operator their permissions (base + 721 extras).
+        _setSplitOperatorOf({revnetId: revnetId, operator: configuration.splitOperator});
 
         // If there are posts to allow, configure them.
         if (allowedPosts.length != 0) {
@@ -945,7 +947,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             // Iterate through each post to add it to the formatted list.
             for (uint256 i; i < allowedPosts.length; i++) {
                 // Set the post being iterated on.
-                REVCroptopAllowedPost calldata post = allowedPosts[i];
+                REVCroptopAllowedPost memory post = allowedPosts[i];
 
                 // Set the formatted post.
                 formattedAllowedPosts[i] = CTAllowedPost({
@@ -967,16 +969,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
                 operator: address(PUBLISHER), revnetId: revnetId, permissionId: JBPermissionIds.ADJUST_721_TIERS
             });
         }
-
-        _deployRevnetFor({
-            revnetId: revnetId,
-            shouldDeployNewRevnet: shouldDeployNewRevnet,
-            configuration: configuration,
-            terminalConfigurations: terminalConfigurations,
-            suckerDeploymentConfiguration: suckerDeploymentConfiguration,
-            rulesetConfigurations: rulesetConfigurations,
-            encodedConfigurationHash: encodedConfigurationHash
-        });
     }
 
     /// @notice Deploy a revnet, or initialize an existing Juicebox project as a revnet.
@@ -993,21 +985,22 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
     /// @param suckerDeploymentConfiguration The suckers to set up for the revnet. Suckers facilitate cross-chain
     /// token transfers between peer revnets on different networks.
-    /// @param rulesetConfigurations The rulesets to set up for the revnet.
-    /// @param encodedConfigurationHash A hash that represents the revnet's configuration.
-    /// See `_makeRulesetConfigurations(…)` for encoding details. Clients can read the encoded configuration
-    /// from the `DeployRevnet` event emitted by this contract.
+    /// @return encodedConfigurationHash A hash that represents the revnet's configuration.
     function _deployRevnetFor(
         uint256 revnetId,
         bool shouldDeployNewRevnet,
         REVConfig calldata configuration,
         JBTerminalConfig[] calldata terminalConfigurations,
-        REVSuckerDeploymentConfig calldata suckerDeploymentConfiguration,
-        JBRulesetConfig[] memory rulesetConfigurations,
-        bytes32 encodedConfigurationHash
+        REVSuckerDeploymentConfig calldata suckerDeploymentConfiguration
     )
         internal
+        returns (bytes32 encodedConfigurationHash)
     {
+        // Normalize and encode the configurations.
+        JBRulesetConfig[] memory rulesetConfigurations;
+        (rulesetConfigurations, encodedConfigurationHash) = _makeRulesetConfigurations({
+            revnetId: revnetId, configuration: configuration, terminalConfigurations: terminalConfigurations
+        });
         if (shouldDeployNewRevnet) {
             // If we're deploying a new revnet, launch a Juicebox project for it.
             // Sanity check that we deployed the `revnetId` that we expected to deploy.
@@ -1064,12 +1057,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             JBTerminalConfig calldata terminalConfiguration = terminalConfigurations[i];
             for (uint256 j; j < terminalConfiguration.accountingContextsToAccept.length; j++) {
                 // slither-disable-next-line calls-loop
-                _tryInitializeBuybackPoolFor(revnetId, terminalConfiguration.accountingContextsToAccept[j].token);
+                _tryInitializeBuybackPoolFor({
+                    revnetId: revnetId, terminalToken: terminalConfiguration.accountingContextsToAccept[j].token
+                });
             }
         }
-
-        // Give the split operator their permissions.
-        _setSplitOperatorOf({revnetId: revnetId, operator: configuration.splitOperator});
 
         // Deploy the suckers (if applicable).
         if (suckerDeploymentConfiguration.salt != bytes32(0)) {

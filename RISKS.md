@@ -44,6 +44,6 @@ When a revnet expands to a chain where the native token is not ETH (e.g., Celo),
 
 | Function | Protection | Risk |
 |----------|-----------|------|
-| `REVLoans.borrowFrom` | Collateral locked BEFORE funds transferred | LOW |
-| `REVLoans.repayLoan` | Loan state cleared BEFORE collateral returned | LOW |
+| `REVLoans.borrowFrom` | Collateral burned BEFORE funds transferred | LOW |
+| `REVLoans.repayLoan` | Loan state cleared BEFORE collateral re-minted | LOW |
 | `REVDeployer.beforePayRecordedWith` | View function, no state changes | NONE |

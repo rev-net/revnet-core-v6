@@ -255,7 +255,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     /// @param amount The amount being paid off.
     /// @return sourceFeeAmount The source fee amount for the loan.
     function determineSourceFeeAmount(REVLoan memory loan, uint256 amount) public view returns (uint256) {
-        return _determineSourceFeeAmount(loan, amount);
+        return _determineSourceFeeAmount({loan: loan, amount: amount});
     }
 
     /// @notice The revnet ID for the loan with the provided loan ID.
@@ -426,15 +426,15 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
 
         uint256 fullSourceFeeAmount = JBFees.feeAmountFrom({
             amountBeforeFee: loan.amount - prepaid,
-            feePercent: mulDiv(
-                timeSinceLoanCreated - loan.prepaidDuration,
-                JBConstants.MAX_FEE,
-                LOAN_LIQUIDATION_DURATION - loan.prepaidDuration
-            )
+            feePercent: mulDiv({
+                x: timeSinceLoanCreated - loan.prepaidDuration,
+                y: JBConstants.MAX_FEE,
+                denominator: LOAN_LIQUIDATION_DURATION - loan.prepaidDuration
+            })
         });
 
         // Calculate the source fee amount for the amount being paid off.
-        return mulDiv(fullSourceFeeAmount, amount, loan.amount);
+        return mulDiv({x: fullSourceFeeAmount, y: amount, denominator: loan.amount});
     }
 
     /// @notice Generate a ID for a loan given a revnet ID and a loan number within that revnet.
@@ -519,7 +519,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
                     decimals: decimals
                 });
 
-                borrowedAmount += mulDiv(normalizedTokens, 10 ** decimals, pricePerUnit);
+                borrowedAmount += mulDiv({x: normalizedTokens, y: 10 ** decimals, denominator: pricePerUnit});
             }
         }
     }
@@ -558,7 +558,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         if (collateralCount == 0) revert REVLoans_ZeroCollateralLoanIsInvalid();
 
         // Make sure the source terminal is registered in the directory for this revnet.
-        if (!DIRECTORY.isTerminalOf(revnetId, IJBTerminal(address(source.terminal)))) {
+        if (!DIRECTORY.isTerminalOf({projectId: revnetId, terminal: IJBTerminal(address(source.terminal))})) {
             revert REVLoans_InvalidTerminal(address(source.terminal), revnetId);
         }
 
@@ -581,7 +581,8 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         loan.source = source;
         loan.createdAt = uint40(block.timestamp);
         loan.prepaidFeePercent = uint16(prepaidFeePercent);
-        loan.prepaidDuration = uint32(mulDiv(prepaidFeePercent, LOAN_LIQUIDATION_DURATION, MAX_PREPAID_FEE_PERCENT));
+        loan.prepaidDuration =
+            uint32(mulDiv({x: prepaidFeePercent, y: LOAN_LIQUIDATION_DURATION, denominator: MAX_PREPAID_FEE_PERCENT}));
 
         // Get the amount of the loan.
         uint256 borrowAmount = _borrowAmountFrom({loan: loan, revnetId: revnetId, collateralCount: collateralCount});
@@ -794,7 +795,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         if (repayBorrowAmount == 0 && collateralCountToReturn == 0) revert REVLoans_NothingToRepay();
 
         // Keep a reference to the fee that'll be taken.
-        uint256 sourceFeeAmount = _determineSourceFeeAmount(loan, repayBorrowAmount);
+        uint256 sourceFeeAmount = _determineSourceFeeAmount({loan: loan, amount: repayBorrowAmount});
 
         // Add the fee to the repay amount.
         repayBorrowAmount += sourceFeeAmount;
@@ -1093,7 +1094,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     function _beforeTransferTo(address to, address token, uint256 amount) internal returns (uint256) {
         // If the token is the native token, no allowance needed.
         if (token == JBConstants.NATIVE_TOKEN) return amount;
-        IERC20(token).safeIncreaseAllowance(to, amount);
+        IERC20(token).safeIncreaseAllowance({spender: to, value: amount});
         return 0;
     }
 
@@ -1342,7 +1343,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         }
 
         // If there's sufficient approval, transfer normally.
-        if (IERC20(token).allowance(address(from), address(this)) >= amount) {
+        if (IERC20(token).allowance({owner: address(from), spender: address(this)}) >= amount) {
             return IERC20(token).safeTransferFrom({from: from, to: to, value: amount});
         }
 

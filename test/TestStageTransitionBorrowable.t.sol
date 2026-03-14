@@ -25,6 +25,8 @@ import {JB721TiersHook} from "@bananapus/721-hook-v6/src/JB721TiersHook.sol";
 import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStore.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
+import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
+import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 
 /// @notice Documents and verifies that stage transitions change the borrowable amount for the same collateral.
 /// This is by design: loan value tracks the current bonding curve parameters (cashOutTaxRate),
@@ -110,8 +112,9 @@ contract TestStageTransitionBorrowable is TestBaseWorkflow {
         FEE_PROJECT_ID = jbProjects().createFor(multisig());
         SUCKER_REGISTRY = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
         HOOK_STORE = new JB721TiersHookStore();
-        EXAMPLE_HOOK =
-            new JB721TiersHook(jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, jbSplits(), multisig());
+        EXAMPLE_HOOK = new JB721TiersHook(
+            jbDirectory(), jbPermissions(), jbPrices(), jbRulesets(), HOOK_STORE, jbSplits(), multisig()
+        );
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
@@ -145,14 +148,21 @@ contract TestStageTransitionBorrowable is TestBaseWorkflow {
             revnetId: FEE_PROJECT_ID,
             configuration: feeCfg,
             terminalConfigurations: feeTc,
-            suckerDeploymentConfiguration: feeSdc
+            suckerDeploymentConfiguration: feeSdc,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         // Deploy the test revnet.
         (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) = _buildConfig();
         cfg.description = REVDescription("StageTest2", "ST2", "ipfs://test2", "STG_SALT_2");
-        REVNET_ID = REV_DEPLOYER.deployFor({
-            revnetId: 0, configuration: cfg, terminalConfigurations: tc, suckerDeploymentConfiguration: sdc
+        (REVNET_ID,) = REV_DEPLOYER.deployFor({
+            revnetId: 0,
+            configuration: cfg,
+            terminalConfigurations: tc,
+            suckerDeploymentConfiguration: sdc,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         vm.deal(USER, 100 ether);

@@ -38,6 +38,7 @@ import {REVDeploy721TiersHookConfig} from "../src/structs/REVDeploy721TiersHookC
 import {REVBaseline721HookConfig} from "../src/structs/REVBaseline721HookConfig.sol";
 import {REV721TiersHookFlags} from "../src/structs/REV721TiersHookFlags.sol";
 import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
+import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
 
 /// @notice E2E tests verifying that the split weight adjustment in REVDeployer produces correct token counts
 /// when payments flow through the full terminal → store → dataHook → mint pipeline.
@@ -75,8 +76,9 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
 
         SUCKER_REGISTRY = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
         HOOK_STORE = new JB721TiersHookStore();
-        EXAMPLE_HOOK =
-            new JB721TiersHook(jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, jbSplits(), multisig());
+        EXAMPLE_HOOK = new JB721TiersHook(
+            jbDirectory(), jbPermissions(), jbPrices(), jbRulesets(), HOOK_STORE, jbSplits(), multisig()
+        );
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
@@ -192,10 +194,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
                 tokenUriResolver: IJB721TokenUriResolver(address(0)),
                 contractUri: "ipfs://contract",
                 tiersConfig: JB721InitTiersConfig({
-                    tiers: tiers,
-                    currency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-                    decimals: 18,
-                    prices: IJBPrices(address(0))
+                    tiers: tiers, currency: uint32(uint160(JBConstants.NATIVE_TOKEN)), decimals: 18
                 }),
                 reserveBeneficiary: address(0),
                 flags: REV721TiersHookFlags({
@@ -206,10 +205,10 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
                 })
             }),
             salt: bytes32("E2E_721"),
-            splitOperatorCanAdjustTiers: false,
-            splitOperatorCanUpdateMetadata: false,
-            splitOperatorCanMint: false,
-            splitOperatorCanIncreaseDiscountPercent: false
+            preventSplitOperatorAdjustingTiers: false,
+            preventSplitOperatorUpdatingMetadata: false,
+            preventSplitOperatorMinting: false,
+            preventSplitOperatorIncreasingDiscountPercent: false
         });
     }
 
@@ -225,7 +224,9 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
             revnetId: FEE_PROJECT_ID,
             configuration: feeCfg,
             terminalConfigurations: feeTc,
-            suckerDeploymentConfiguration: feeSdc
+            suckerDeploymentConfiguration: feeSdc,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         // Deploy the revnet with 721 hook.
@@ -233,7 +234,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
             _buildMinimalConfig();
         REVDeploy721TiersHookConfig memory hookConfig = _build721Config();
 
-        (revnetId, hook) = REV_DEPLOYER.deployWith721sFor({
+        (revnetId, hook) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
             terminalConfigurations: tc,
@@ -405,7 +406,9 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
             revnetId: FEE_PROJECT_ID,
             configuration: feeCfg,
             terminalConfigurations: feeTc,
-            suckerDeploymentConfiguration: feeSdc
+            suckerDeploymentConfiguration: feeSdc,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         // Deploy revnet with 721 hook.
@@ -414,7 +417,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
         cfg.description = REVDescription("AMM E2E", "AMME", "ipfs://amme2e", "AMME_SALT");
         REVDeploy721TiersHookConfig memory hookConfig = _build721Config();
 
-        (uint256 revnetId, IJB721TiersHook hook) = ammDeployer.deployWith721sFor({
+        (uint256 revnetId, IJB721TiersHook hook) = ammDeployer.deployFor({
             revnetId: 0,
             configuration: cfg,
             terminalConfigurations: tc,
@@ -499,8 +502,13 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
             _buildMinimalConfig();
         cfg2.description = REVDescription("NoSplit", "NS", "ipfs://nosplit", "NOSPLIT_SALT");
 
-        uint256 revnetId2 = REV_DEPLOYER.deployFor({
-            revnetId: 0, configuration: cfg2, terminalConfigurations: tc2, suckerDeploymentConfiguration: sdc2
+        (uint256 revnetId2,) = REV_DEPLOYER.deployFor({
+            revnetId: 0,
+            configuration: cfg2,
+            terminalConfigurations: tc2,
+            suckerDeploymentConfiguration: sdc2,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         vm.prank(PAYER);

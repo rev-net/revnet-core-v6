@@ -29,6 +29,8 @@ import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/
 import {JBBeforePayRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforePayRecordedContext.sol";
 import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
 import {JBTokenAmount} from "@bananapus/core-v6/src/structs/JBTokenAmount.sol";
+import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
+import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 
 /// @notice Regression tests for the empty buyback hook specifications fix.
 /// When JBBuybackHook determines minting is cheaper than swapping, it returns an empty
@@ -57,8 +59,9 @@ contract TestEmptyBuybackSpecs is TestBaseWorkflow {
         FEE_PROJECT_ID = jbProjects().createFor(multisig());
         SUCKER_REGISTRY = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
         HOOK_STORE = new JB721TiersHookStore();
-        EXAMPLE_HOOK =
-            new JB721TiersHook(jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, jbSplits(), multisig());
+        EXAMPLE_HOOK = new JB721TiersHook(
+            jbDirectory(), jbPermissions(), jbPrices(), jbRulesets(), HOOK_STORE, jbSplits(), multisig()
+        );
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
@@ -134,15 +137,22 @@ contract TestEmptyBuybackSpecs is TestBaseWorkflow {
             revnetId: FEE_PROJECT_ID,
             configuration: feeCfg,
             terminalConfigurations: feeTc,
-            suckerDeploymentConfiguration: feeSdc
+            suckerDeploymentConfiguration: feeSdc,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
             _buildMinimalConfig();
         cfg.description = REVDescription("Test2", "TS2", "ipfs://test2", "TEST_SALT_2");
 
-        revnetId = REV_DEPLOYER.deployFor({
-            revnetId: 0, configuration: cfg, terminalConfigurations: tc, suckerDeploymentConfiguration: sdc
+        (revnetId,) = REV_DEPLOYER.deployFor({
+            revnetId: 0,
+            configuration: cfg,
+            terminalConfigurations: tc,
+            suckerDeploymentConfiguration: sdc,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
     }
 
@@ -209,8 +219,8 @@ contract TestEmptyBuybackSpecs is TestBaseWorkflow {
         }
     }
 
-    /// @notice Verify beforePayRecordedWith returns empty hookSpecifications when buyback returns empty.
-    function test_beforePayRecordedWith_emptyBuybackSpecs_returnsEmptyArray() public {
+    /// @notice Verify beforePayRecordedWith returns only the 721 hook spec when buyback returns empty.
+    function test_beforePayRecordedWith_emptyBuybackSpecs_returnsOnly721Hook() public {
         uint256 revnetId = _deployFeeAndRevnet();
 
         JBBeforePayRecordedContext memory context = JBBeforePayRecordedContext({
@@ -233,6 +243,11 @@ contract TestEmptyBuybackSpecs is TestBaseWorkflow {
         (uint256 weight, JBPayHookSpecification[] memory specs) = REV_DEPLOYER.beforePayRecordedWith(context);
 
         assertEq(weight, context.weight, "Weight should pass through from buyback hook");
-        assertEq(specs.length, 0, "Should return empty specs when buyback hook returns empty and no 721 hook");
+        assertEq(specs.length, 1, "Should return only the 721 hook spec when buyback hook returns empty");
+        assertEq(
+            address(specs[0].hook),
+            address(REV_DEPLOYER.tiered721HookOf(revnetId)),
+            "Spec hook should be the revnet's 721 hook"
+        );
     }
 }

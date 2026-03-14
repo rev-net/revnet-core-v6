@@ -40,6 +40,8 @@ import {mulDiv} from "@prb/math/src/Common.sol";
 
 import {REVInvincibilityHandler} from "./REVInvincibilityHandler.sol";
 import {BrokenFeeTerminal} from "./helpers/MaliciousContracts.sol";
+import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
+import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 
 // =========================================================================
 // Shared config struct
@@ -202,8 +204,9 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
 
         SUCKER_REGISTRY = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
         HOOK_STORE = new JB721TiersHookStore();
-        EXAMPLE_HOOK =
-            new JB721TiersHook(jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, jbSplits(), multisig());
+        EXAMPLE_HOOK = new JB721TiersHook(
+            jbDirectory(), jbPermissions(), jbPrices(), jbRulesets(), HOOK_STORE, jbSplits(), multisig()
+        );
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
@@ -240,16 +243,20 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
             revnetId: FEE_PROJECT_ID,
             configuration: feeConfig.configuration,
             terminalConfigurations: feeConfig.terminalConfigurations,
-            suckerDeploymentConfiguration: feeConfig.suckerDeploymentConfiguration
+            suckerDeploymentConfiguration: feeConfig.suckerDeploymentConfiguration,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         // Deploy second revnet with loans
         InvincibilityProjectConfig memory revConfig = _getRevnetConfig();
-        REVNET_ID = REV_DEPLOYER.deployFor({
+        (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: revConfig.configuration,
             terminalConfigurations: revConfig.terminalConfigurations,
-            suckerDeploymentConfiguration: revConfig.suckerDeploymentConfiguration
+            suckerDeploymentConfiguration: revConfig.suckerDeploymentConfiguration,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         vm.deal(USER, 10_000e18);
@@ -480,7 +487,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
         });
 
         vm.prank(multisig());
-        uint256 h5RevnetId = REV_DEPLOYER.deployFor({
+        (uint256 h5RevnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: REVConfig({
                 description: REVDescription("H5Test", "H5T", "ipfs://h5", "H5_TOKEN"),
@@ -491,7 +498,9 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
             terminalConfigurations: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("H5_INVINCIBILITY")
-            })
+            }),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         // Stage 0 auto-issuance stored at block.timestamp
@@ -953,8 +962,9 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
 
         SUCKER_REGISTRY = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
         HOOK_STORE = new JB721TiersHookStore();
-        EXAMPLE_HOOK =
-            new JB721TiersHook(jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, jbSplits(), multisig());
+        EXAMPLE_HOOK = new JB721TiersHook(
+            jbDirectory(), jbPermissions(), jbPrices(), jbRulesets(), HOOK_STORE, jbSplits(), multisig()
+        );
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
@@ -1026,7 +1036,9 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
                 terminalConfigurations: tc,
                 suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                     deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("REV_INV")
-                })
+                }),
+                tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+                allowedPosts: REVEmpty721Config.emptyAllowedPosts()
             });
         }
 
@@ -1087,7 +1099,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
                 extraMetadata: 0
             });
 
-            REVNET_ID = REV_DEPLOYER.deployFor({
+            (REVNET_ID,) = REV_DEPLOYER.deployFor({
                 revnetId: 0,
                 configuration: REVConfig({
                     description: REVDescription("NANA", "$NANA", "ipfs://nana", "NANA_TOKEN_INV"),
@@ -1098,7 +1110,9 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
                 terminalConfigurations: tc,
                 suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                     deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NANA_INV")
-                })
+                }),
+                tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+                allowedPosts: REVEmpty721Config.emptyAllowedPosts()
             });
         }
 

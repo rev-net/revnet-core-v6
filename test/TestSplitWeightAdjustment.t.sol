@@ -32,6 +32,8 @@ import {IJBPayHook} from "@bananapus/core-v6/src/interfaces/IJBPayHook.sol";
 import {JBBeforePayRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforePayRecordedContext.sol";
 import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
 import {JBTokenAmount} from "@bananapus/core-v6/src/structs/JBTokenAmount.sol";
+import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
+import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 
 /// @notice Tests for the split weight adjustment in REVDeployer.beforePayRecordedWith.
 contract TestSplitWeightAdjustment is TestBaseWorkflow {
@@ -57,8 +59,9 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
         FEE_PROJECT_ID = jbProjects().createFor(multisig());
         SUCKER_REGISTRY = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
         HOOK_STORE = new JB721TiersHookStore();
-        EXAMPLE_HOOK =
-            new JB721TiersHook(jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, jbSplits(), multisig());
+        EXAMPLE_HOOK = new JB721TiersHook(
+            jbDirectory(), jbPermissions(), jbPrices(), jbRulesets(), HOOK_STORE, jbSplits(), multisig()
+        );
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
@@ -134,20 +137,27 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
             revnetId: FEE_PROJECT_ID,
             configuration: feeCfg,
             terminalConfigurations: feeTc,
-            suckerDeploymentConfiguration: feeSdc
+            suckerDeploymentConfiguration: feeSdc,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         // Deploy the revnet.
         (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
             _buildMinimalConfig();
         cfg.description = REVDescription("Test2", "TS2", "ipfs://test2", "TEST_SALT_2");
-        revnetId = REV_DEPLOYER.deployFor({
-            revnetId: 0, configuration: cfg, terminalConfigurations: tc, suckerDeploymentConfiguration: sdc
+        (revnetId,) = REV_DEPLOYER.deployFor({
+            revnetId: 0,
+            configuration: cfg,
+            terminalConfigurations: tc,
+            suckerDeploymentConfiguration: sdc,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
     }
 
-    /// @notice No 721 hook = no split adjustment, weight from buyback passes through.
-    function test_beforePay_no721_noAdjustment() public {
+    /// @notice Empty 721 hook (no tiers) = no split adjustment, weight passes through.
+    function test_beforePay_empty721_noAdjustment() public {
         uint256 revnetId = _deployRevnet();
 
         JBBeforePayRecordedContext memory context = JBBeforePayRecordedContext({
@@ -167,11 +177,11 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
             metadata: ""
         });
 
-        // No 721 hook deployed, buyback returns context.weight with empty specs.
+        // 721 hook is deployed but has no tiers, buyback returns context.weight.
         (uint256 weight, JBPayHookSpecification[] memory specs) = REV_DEPLOYER.beforePayRecordedWith(context);
 
         assertEq(weight, context.weight, "weight should pass through unchanged");
-        assertEq(specs.length, 0, "no specs when no 721 hook and empty buyback");
+        assertEq(specs.length, 1, "should have 721 hook spec even with no tiers");
     }
 
     /// @notice When 721 hook returns splits, weight is adjusted proportionally.
@@ -294,14 +304,21 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
             revnetId: FEE_PROJECT_ID,
             configuration: feeCfg,
             terminalConfigurations: feeTc,
-            suckerDeploymentConfiguration: feeSdc
+            suckerDeploymentConfiguration: feeSdc,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
             _buildMinimalConfig();
         cfg.description = REVDescription("AMM", "AMM", "ipfs://amm", "AMM_SALT");
-        uint256 revnetId = ammDeployer.deployFor({
-            revnetId: 0, configuration: cfg, terminalConfigurations: tc, suckerDeploymentConfiguration: sdc
+        (uint256 revnetId,) = ammDeployer.deployFor({
+            revnetId: 0,
+            configuration: cfg,
+            terminalConfigurations: tc,
+            suckerDeploymentConfiguration: sdc,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         // Mock a 721 hook for this project.

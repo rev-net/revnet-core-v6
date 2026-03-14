@@ -31,11 +31,21 @@ import {REVDescription} from "../src/structs/REVDescription.sol";
 import {REVStageConfig} from "../src/structs/REVStageConfig.sol";
 import {REVSuckerDeploymentConfig} from "../src/structs/REVSuckerDeploymentConfig.sol";
 import {REVLoans, IREVLoans} from "./../src/REVLoans.sol";
+import {REVDeploy721TiersHookConfig} from "../src/structs/REVDeploy721TiersHookConfig.sol";
+import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
+import {IJB721TokenUriResolver} from "@bananapus/721-hook-v6/src/interfaces/IJB721TokenUriResolver.sol";
+import {IJBPrices} from "@bananapus/core-v6/src/interfaces/IJBPrices.sol";
+import {JB721InitTiersConfig} from "@bananapus/721-hook-v6/src/structs/JB721InitTiersConfig.sol";
+import {JB721TierConfig} from "@bananapus/721-hook-v6/src/structs/JB721TierConfig.sol";
+import {REVBaseline721HookConfig} from "../src/structs/REVBaseline721HookConfig.sol";
+import {REV721TiersHookFlags} from "../src/structs/REV721TiersHookFlags.sol";
 
 struct FeeProjectConfig {
     REVConfig configuration;
     JBTerminalConfig[] terminalConfigurations;
     REVSuckerDeploymentConfig suckerDeploymentConfiguration;
+    REVDeploy721TiersHookConfig tiered721HookConfiguration;
+    REVCroptopAllowedPost[] allowedPosts;
 }
 
 contract DeployScript is Script, Sphinx {
@@ -90,32 +100,43 @@ contract DeployScript is Script, Sphinx {
         // Get the deployment addresses for the nana CORE for this chain.
         // We want to do this outside of the `sphinx` modifier.
         core = CoreDeploymentLib.getDeployment(
-            vm.envOr("NANA_CORE_DEPLOYMENT_PATH", string("node_modules/@bananapus/core-v6/deployments/"))
+            vm.envOr({
+                name: "NANA_CORE_DEPLOYMENT_PATH", defaultValue: string("node_modules/@bananapus/core-v6/deployments/")
+            })
         );
         // Get the deployment addresses for the suckers contracts for this chain.
         suckers = SuckerDeploymentLib.getDeployment(
-            vm.envOr("NANA_SUCKERS_DEPLOYMENT_PATH", string("node_modules/@bananapus/suckers-v6/deployments/"))
+            vm.envOr({
+                name: "NANA_SUCKERS_DEPLOYMENT_PATH",
+                defaultValue: string("node_modules/@bananapus/suckers-v6/deployments/")
+            })
         );
         // Get the deployment addresses for the 721 hook contracts for this chain.
         croptop = CroptopDeploymentLib.getDeployment(
-            vm.envOr("CROPTOP_CORE_DEPLOYMENT_PATH", string("node_modules/@croptop/core-v6/deployments/"))
+            vm.envOr({
+                name: "CROPTOP_CORE_DEPLOYMENT_PATH", defaultValue: string("node_modules/@croptop/core-v6/deployments/")
+            })
         );
         // Get the deployment addresses for the 721 hook contracts for this chain.
         hook = Hook721DeploymentLib.getDeployment(
-            vm.envOr("NANA_721_DEPLOYMENT_PATH", string("node_modules/@bananapus/721-hook-v6/deployments/"))
+            vm.envOr({
+                name: "NANA_721_DEPLOYMENT_PATH",
+                defaultValue: string("node_modules/@bananapus/721-hook-v6/deployments/")
+            })
         );
         // Get the deployment addresses for the router terminal contracts for this chain.
         routerTerminal = RouterTerminalDeploymentLib.getDeployment(
-            vm.envOr(
-                "NANA_ROUTER_TERMINAL_DEPLOYMENT_PATH",
-                string("node_modules/@bananapus/router-terminal-v6/deployments/")
-            )
+            vm.envOr({
+                name: "NANA_ROUTER_TERMINAL_DEPLOYMENT_PATH",
+                defaultValue: string("node_modules/@bananapus/router-terminal-v6/deployments/")
+            })
         );
         // Get the deployment addresses for the 721 hook contracts for this chain.
         buybackHook = BuybackDeploymentLib.getDeployment(
-            vm.envOr(
-                "NANA_BUYBACK_HOOK_DEPLOYMENT_PATH", string("node_modules/@bananapus/buyback-hook-v6/deployments/")
-            )
+            vm.envOr({
+                name: "NANA_BUYBACK_HOOK_DEPLOYMENT_PATH",
+                defaultValue: string("node_modules/@bananapus/buyback-hook-v6/deployments/")
+            })
         );
 
         // We use the same trusted forwarder and permit2 as the core deployment.
@@ -210,7 +231,7 @@ contract DeployScript is Script, Sphinx {
 
         // The project's revnet configuration
         REVConfig memory revnetConfiguration = REVConfig({
-            description: REVDescription(NAME, SYMBOL, PROJECT_URI, ERC20_SALT),
+            description: REVDescription({name: NAME, ticker: SYMBOL, uri: PROJECT_URI, salt: ERC20_SALT}),
             baseCurrency: ETH_CURRENCY,
             splitOperator: OPERATOR,
             stageConfigurations: stageConfigurations
@@ -262,7 +283,32 @@ contract DeployScript is Script, Sphinx {
         return FeeProjectConfig({
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
-            suckerDeploymentConfiguration: suckerDeploymentConfiguration
+            suckerDeploymentConfiguration: suckerDeploymentConfiguration,
+            tiered721HookConfiguration: REVDeploy721TiersHookConfig({
+                baseline721HookConfiguration: REVBaseline721HookConfig({
+                    name: "",
+                    symbol: "",
+                    baseUri: "",
+                    tokenUriResolver: IJB721TokenUriResolver(address(0)),
+                    contractUri: "",
+                    tiersConfig: JB721InitTiersConfig({
+                        tiers: new JB721TierConfig[](0), currency: ETH_CURRENCY, decimals: 18
+                    }),
+                    reserveBeneficiary: address(0),
+                    flags: REV721TiersHookFlags({
+                        noNewTiersWithReserves: false,
+                        noNewTiersWithVotes: false,
+                        noNewTiersWithOwnerMinting: false,
+                        preventOverspending: false
+                    })
+                }),
+                salt: bytes32(0),
+                preventSplitOperatorAdjustingTiers: false,
+                preventSplitOperatorUpdatingMetadata: false,
+                preventSplitOperatorMinting: false,
+                preventSplitOperatorIncreasingDiscountPercent: false
+            }),
+            allowedPosts: new REVCroptopAllowedPost[](0)
         });
     }
 
@@ -271,11 +317,13 @@ contract DeployScript is Script, Sphinx {
         uint256 FEE_PROJECT_ID = core.projects.createFor(safeAddress());
 
         // Deploy REVLoans first — it only depends on the controller.
-        (address _revloansAddr, bool _revloansIsDeployed) = _isDeployed(
-            REVLOANS_SALT,
-            type(REVLoans).creationCode,
-            abi.encode(core.controller, core.projects, FEE_PROJECT_ID, LOANS_OWNER, PERMIT2, TRUSTED_FORWARDER)
-        );
+        (address _revloansAddr, bool _revloansIsDeployed) = _isDeployed({
+            salt: REVLOANS_SALT,
+            creationCode: type(REVLoans).creationCode,
+            arguments: abi.encode(
+                core.controller, core.projects, FEE_PROJECT_ID, LOANS_OWNER, PERMIT2, TRUSTED_FORWARDER
+            )
+        });
         REVLoans revloans = _revloansIsDeployed
             ? REVLoans(payable(_revloansAddr))
             : new REVLoans{salt: REVLOANS_SALT}({
@@ -288,10 +336,10 @@ contract DeployScript is Script, Sphinx {
             });
 
         // Deploy REVDeployer with the REVLoans and buyback hook addresses.
-        (address _deployerAddr, bool _deployerIsDeployed) = _isDeployed(
-            DEPLOYER_SALT,
-            type(REVDeployer).creationCode,
-            abi.encode(
+        (address _deployerAddr, bool _deployerIsDeployed) = _isDeployed({
+            salt: DEPLOYER_SALT,
+            creationCode: type(REVDeployer).creationCode,
+            arguments: abi.encode(
                 core.controller,
                 suckers.registry,
                 FEE_PROJECT_ID,
@@ -301,22 +349,22 @@ contract DeployScript is Script, Sphinx {
                 address(revloans),
                 TRUSTED_FORWARDER
             )
-        );
+        });
         REVDeployer _basicDeployer = _deployerIsDeployed
             ? REVDeployer(payable(_deployerAddr))
-            : new REVDeployer{salt: DEPLOYER_SALT}(
-                core.controller,
-                suckers.registry,
-                FEE_PROJECT_ID,
-                hook.hook_deployer,
-                croptop.publisher,
-                IJBBuybackHookRegistry(address(buybackHook.registry)),
-                address(revloans),
-                TRUSTED_FORWARDER
-            );
+            : new REVDeployer{salt: DEPLOYER_SALT}({
+                controller: core.controller,
+                suckerRegistry: suckers.registry,
+                feeRevnetId: FEE_PROJECT_ID,
+                hookDeployer: hook.hook_deployer,
+                publisher: croptop.publisher,
+                buybackHook: IJBBuybackHookRegistry(address(buybackHook.registry)),
+                loans: address(revloans),
+                trustedForwarder: TRUSTED_FORWARDER
+            });
 
         // Approve the basic deployer to configure the project.
-        core.projects.approve(address(_basicDeployer), FEE_PROJECT_ID);
+        core.projects.approve({to: address(_basicDeployer), tokenId: FEE_PROJECT_ID});
 
         // Build the config.
         FeeProjectConfig memory feeProjectConfig = getFeeProjectConfig();
@@ -326,7 +374,9 @@ contract DeployScript is Script, Sphinx {
             revnetId: FEE_PROJECT_ID,
             configuration: feeProjectConfig.configuration,
             terminalConfigurations: feeProjectConfig.terminalConfigurations,
-            suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration
+            suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration,
+            tiered721HookConfiguration: feeProjectConfig.tiered721HookConfiguration,
+            allowedPosts: feeProjectConfig.allowedPosts
         });
     }
 

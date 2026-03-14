@@ -31,6 +31,8 @@ import {JB721TiersHook} from "@bananapus/721-hook-v6/src/JB721TiersHook.sol";
 import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStore.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
+import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
+import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 
 struct FeeProjectConfig {
     REVConfig configuration;
@@ -262,8 +264,9 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
 
         HOOK_STORE = new JB721TiersHookStore();
 
-        EXAMPLE_HOOK =
-            new JB721TiersHook(jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, jbSplits(), multisig());
+        EXAMPLE_HOOK = new JB721TiersHook(
+            jbDirectory(), jbPermissions(), jbPrices(), jbRulesets(), HOOK_STORE, jbSplits(), multisig()
+        );
 
         ADDRESS_REGISTRY = new JBAddressRegistry();
 
@@ -317,18 +320,22 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             revnetId: FEE_PROJECT_ID, // Zero to deploy a new revnet
             configuration: feeProjectConfig.configuration,
             terminalConfigurations: feeProjectConfig.terminalConfigurations,
-            suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration
+            suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         // Configure second revnet
         FeeProjectConfig memory fee2Config = getSecondProjectConfig();
 
         // Configure the project.
-        REVNET_ID = REV_DEPLOYER.deployFor({
+        (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0, // Zero to deploy a new revnet
             configuration: fee2Config.configuration,
             terminalConfigurations: fee2Config.terminalConfigurations,
-            suckerDeploymentConfiguration: fee2Config.suckerDeploymentConfiguration
+            suckerDeploymentConfiguration: fee2Config.suckerDeploymentConfiguration,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         // Give Eth for the user experience
@@ -631,11 +638,13 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             projectConfig.configuration.stageConfigurations = stageConfigurations;
             projectConfig.configuration.description.salt = "FeeChange";
 
-            revnetProjectId = REV_DEPLOYER.deployFor({
+            (revnetProjectId,) = REV_DEPLOYER.deployFor({
                 revnetId: 0, // Zero to deploy a new revnet
                 configuration: projectConfig.configuration,
                 terminalConfigurations: projectConfig.terminalConfigurations,
-                suckerDeploymentConfiguration: projectConfig.suckerDeploymentConfiguration
+                suckerDeploymentConfiguration: projectConfig.suckerDeploymentConfiguration,
+                tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+                allowedPosts: REVEmpty721Config.emptyAllowedPosts()
             });
         }
 
@@ -1141,11 +1150,13 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             projectConfig.configuration.stageConfigurations = stageConfigurations;
             projectConfig.configuration.description.salt = "FeeChange";
 
-            revnetProjectId = REV_DEPLOYER.deployFor({
+            (revnetProjectId,) = REV_DEPLOYER.deployFor({
                 revnetId: 0, // Zero to deploy a new revnet
                 configuration: projectConfig.configuration,
                 terminalConfigurations: projectConfig.terminalConfigurations,
-                suckerDeploymentConfiguration: projectConfig.suckerDeploymentConfiguration
+                suckerDeploymentConfiguration: projectConfig.suckerDeploymentConfiguration,
+                tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+                allowedPosts: REVEmpty721Config.emptyAllowedPosts()
             });
         }
 
@@ -1237,11 +1248,13 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         projectConfig.configuration.stageConfigurations = stageConfigurations;
         projectConfig.configuration.description.salt = "FeeChange";
 
-        uint256 revnetProjectId = REV_DEPLOYER.deployFor({
+        (uint256 revnetProjectId,) = REV_DEPLOYER.deployFor({
             revnetId: 0, // Zero to deploy a new revnet
             configuration: projectConfig.configuration,
             terminalConfigurations: projectConfig.terminalConfigurations,
-            suckerDeploymentConfiguration: projectConfig.suckerDeploymentConfiguration
+            suckerDeploymentConfiguration: projectConfig.suckerDeploymentConfiguration,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         vm.startPrank(USER);

@@ -7,6 +7,8 @@ import /* {*} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
 import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v6/src/CTPublisher.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
+import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
+import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 
 import "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
 import "@bananapus/721-hook-v6/script/helpers/Hook721DeploymentLib.sol";
@@ -147,13 +149,15 @@ contract TestBurnHeldTokens is TestBaseWorkflow {
             stageConfigurations: stageConfigurations
         });
 
-        revnetId = REV_DEPLOYER.deployFor({
+        (revnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("PRT"))
-            })
+            }),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
     }
 
@@ -163,8 +167,9 @@ contract TestBurnHeldTokens is TestBaseWorkflow {
         FEE_PROJECT_ID = jbProjects().createFor(multisig());
         SUCKER_REGISTRY = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
         HOOK_STORE = new JB721TiersHookStore();
-        EXAMPLE_HOOK =
-            new JB721TiersHook(jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, jbSplits(), multisig());
+        EXAMPLE_HOOK = new JB721TiersHook(
+            jbDirectory(), jbPermissions(), jbPrices(), jbRulesets(), HOOK_STORE, jbSplits(), multisig()
+        );
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
@@ -201,7 +206,9 @@ contract TestBurnHeldTokens is TestBaseWorkflow {
             revnetId: FEE_PROJECT_ID,
             configuration: feeProjectConfig.configuration,
             terminalConfigurations: feeProjectConfig.terminalConfigurations,
-            suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration
+            suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         // Deploy revnet with partial splits.
@@ -290,7 +297,7 @@ contract TestBurnHeldTokens is TestBaseWorkflow {
             extraMetadata: 0
         });
 
-        uint256 fullSplitRevnetId = REV_DEPLOYER.deployFor({
+        (uint256 fullSplitRevnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: REVConfig({
                 description: REVDescription("Full", "$FUL", "ipfs://test", "FUL_TOKEN"),
@@ -301,7 +308,9 @@ contract TestBurnHeldTokens is TestBaseWorkflow {
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("FUL"))
-            })
+            }),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         // REVDeployer should have no tokens for this revnet.

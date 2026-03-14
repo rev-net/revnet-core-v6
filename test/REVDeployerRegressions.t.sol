@@ -7,6 +7,8 @@ import /* {*} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
 import /* {*} from */ "./../src/REVDeployer.sol";
 import "@croptop/core-v6/src/CTPublisher.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
+import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
+import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 
 import "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
 import "@bananapus/721-hook-v6/script/helpers/Hook721DeploymentLib.sol";
@@ -56,8 +58,9 @@ contract REVDeployerRegressions is TestBaseWorkflow {
 
         SUCKER_REGISTRY = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
         HOOK_STORE = new JB721TiersHookStore();
-        EXAMPLE_HOOK =
-            new JB721TiersHook(jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, jbSplits(), multisig());
+        EXAMPLE_HOOK = new JB721TiersHook(
+            jbDirectory(), jbPermissions(), jbPrices(), jbRulesets(), HOOK_STORE, jbSplits(), multisig()
+        );
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
@@ -174,13 +177,15 @@ contract REVDeployerRegressions is TestBaseWorkflow {
         });
 
         vm.prank(multisig());
-        uint256 revnetId = REV_DEPLOYER.deployFor({
+        (uint256 revnetId,) = REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("C4_TEST")
-            })
+            }),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         // hasMintPermissionFor should return false for random addresses
@@ -283,13 +288,15 @@ contract REVDeployerRegressions is TestBaseWorkflow {
         });
 
         vm.prank(multisig());
-        uint256 revnetId = REV_DEPLOYER.deployFor({
+        (uint256 revnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("H5_TEST")
-            })
+            }),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         // Verify the revnet was deployed

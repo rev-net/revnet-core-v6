@@ -9,7 +9,7 @@ Autonomous revenue networks ("revnets") built on Juicebox V6. REVDeployer create
 ```
 src/
 ├── REVDeployer.sol  — Deploys revnets: stages → rulesets, data hook, buyback, suckers, 721 tiers
-├── REVLoans.sol     — Borrow against locked revnet tokens (10-year max, gradual liquidation)
+├── REVLoans.sol     — Borrow against burned revnet tokens (10-year max, permissionless liquidation)
 ├── interfaces/
 │   ├── IREVDeployer.sol
 │   └── IREVLoans.sol
@@ -28,7 +28,7 @@ Deployer → REVDeployer.deployFor()
   → Set REVDeployer as data hook (controls pay + cashout behavior)
   → Initialize buyback pools at 1:1 price, configure buyback hook
   → Deploy suckers for cross-chain operation
-  → Deploy 721 tiers if specified
+  → Deploy tiered ERC-721 hook (always — empty by default, pre-configured if specified)
   → Compute matching hash for cross-chain deployment verification
 ```
 
@@ -47,18 +47,18 @@ Cash Out → REVDeployer.beforeCashOutRecordedWith()
 ### Loan Flow
 ```
 Borrower → REVLoans.borrowFrom()
-  → Lock borrower's revnet tokens as collateral
+  → Burn borrower's revnet tokens as collateral
   → Calculate max borrow based on bonding curve value
-  → Transfer borrowed funds to borrower
-  → Create loan with 10-year max term
+  → Pull funds from treasury via USE_ALLOWANCE
+  → Mint loan ERC-721 NFT to borrower
 
 Repay → REVLoans.repayLoan()
-  → Accept repayment (principal + prepay fee)
-  → Return locked collateral tokens to borrower
+  → Accept repayment (principal + prepaid fee)
+  → Re-mint collateral tokens to borrower
 
-Liquidate → REVLoans.liquidateLoan()
-  → After loan term, gradually release collateral
-  → Liquidation schedule spreads over time
+Liquidate → REVLoans.liquidateExpiredLoansFrom()
+  → After 10-year term, anyone can liquidate
+  → Collateral permanently destroyed (was burned at borrow time)
 ```
 
 ## Extension Points
@@ -84,4 +84,4 @@ Liquidate → REVLoans.liquidateLoan()
 - Stages are immutable after deployment — no owner can change ruleset parameters
 - Matching hash ensures cross-chain deployments have identical economic parameters
 - REVDeployer is the data hook for all revnets it deploys — centralizes behavioral control
-- Loans use bonding curve value, not market price — immune to external price manipulation
+- Loans use bonding curve value, not market price — independent of external DEX pricing

@@ -37,6 +37,7 @@ import {REVDeploy721TiersHookConfig} from "../../src/structs/REVDeploy721TiersHo
 import {REVBaseline721HookConfig} from "../../src/structs/REVBaseline721HookConfig.sol";
 import {REV721TiersHookFlags} from "../../src/structs/REV721TiersHookFlags.sol";
 import {REVCroptopAllowedPost} from "../../src/structs/REVCroptopAllowedPost.sol";
+import {REVEmpty721Config} from "../helpers/REVEmpty721Config.sol";
 
 // Buyback hook
 import {JBBuybackHook} from "@bananapus/buyback-hook-v6/src/JBBuybackHook.sol";
@@ -256,8 +257,9 @@ abstract contract ForkTestBase is TestBaseWorkflow {
 
         SUCKER_REGISTRY = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
         HOOK_STORE = new JB721TiersHookStore();
-        EXAMPLE_HOOK =
-            new JB721TiersHook(jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, jbSplits(), multisig());
+        EXAMPLE_HOOK = new JB721TiersHook(
+            jbDirectory(), jbPermissions(), jbPrices(), jbRulesets(), HOOK_STORE, jbSplits(), multisig()
+        );
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
@@ -393,10 +395,7 @@ abstract contract ForkTestBase is TestBaseWorkflow {
                 tokenUriResolver: IJB721TokenUriResolver(address(0)),
                 contractUri: "ipfs://contract",
                 tiersConfig: JB721InitTiersConfig({
-                    tiers: tiers,
-                    currency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-                    decimals: 18,
-                    prices: IJBPrices(address(0))
+                    tiers: tiers, currency: uint32(uint160(JBConstants.NATIVE_TOKEN)), decimals: 18
                 }),
                 reserveBeneficiary: address(0),
                 flags: REV721TiersHookFlags({
@@ -407,10 +406,10 @@ abstract contract ForkTestBase is TestBaseWorkflow {
                 })
             }),
             salt: bytes32("FORK_721"),
-            splitOperatorCanAdjustTiers: false,
-            splitOperatorCanUpdateMetadata: false,
-            splitOperatorCanMint: false,
-            splitOperatorCanIncreaseDiscountPercent: false
+            preventSplitOperatorAdjustingTiers: false,
+            preventSplitOperatorUpdatingMetadata: false,
+            preventSplitOperatorMinting: false,
+            preventSplitOperatorIncreasingDiscountPercent: false
         });
     }
 
@@ -428,7 +427,9 @@ abstract contract ForkTestBase is TestBaseWorkflow {
             revnetId: FEE_PROJECT_ID,
             configuration: feeCfg,
             terminalConfigurations: feeTc,
-            suckerDeploymentConfiguration: feeSdc
+            suckerDeploymentConfiguration: feeSdc,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
     }
 
@@ -437,8 +438,13 @@ abstract contract ForkTestBase is TestBaseWorkflow {
         (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
             _buildMinimalConfig(cashOutTaxRate);
 
-        revnetId = REV_DEPLOYER.deployFor({
-            revnetId: 0, configuration: cfg, terminalConfigurations: tc, suckerDeploymentConfiguration: sdc
+        (revnetId,) = REV_DEPLOYER.deployFor({
+            revnetId: 0,
+            configuration: cfg,
+            terminalConfigurations: tc,
+            suckerDeploymentConfiguration: sdc,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
     }
 
@@ -450,7 +456,7 @@ abstract contract ForkTestBase is TestBaseWorkflow {
         cfg.description.salt = "FORK_721_SALT";
         REVDeploy721TiersHookConfig memory hookConfig = _build721Config();
 
-        (revnetId, hook) = REV_DEPLOYER.deployWith721sFor({
+        (revnetId, hook) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
             terminalConfigurations: tc,

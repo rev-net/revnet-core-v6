@@ -3,6 +3,7 @@ pragma solidity 0.8.26;
 
 import "./ForkTestBase.sol";
 import {JBCashOuts} from "@bananapus/core-v6/src/libraries/JBCashOuts.sol";
+import {REVEmpty721Config} from "../helpers/REVEmpty721Config.sol";
 
 /// @notice Fork tests for revnet cash-out scenarios with real Uniswap V4 buyback hook.
 ///
@@ -203,8 +204,13 @@ contract TestCashOutFork is ForkTestBase {
         (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
             _buildMinimalConfig(5000);
         cfg.stageConfigurations[0].startsAtOrAfter = uint40(block.timestamp - 1);
-        uint256 delayRevnet = REV_DEPLOYER.deployFor({
-            revnetId: 0, configuration: cfg, terminalConfigurations: tc, suckerDeploymentConfiguration: sdc
+        (uint256 delayRevnet,) = REV_DEPLOYER.deployFor({
+            revnetId: 0,
+            configuration: cfg,
+            terminalConfigurations: tc,
+            suckerDeploymentConfiguration: sdc,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
         _setupPool(delayRevnet, 10_000 ether);
         _payRevnet(delayRevnet, PAYER, 1 ether);

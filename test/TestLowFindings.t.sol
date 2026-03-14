@@ -30,6 +30,8 @@ import {JB721TiersHook} from "@bananapus/721-hook-v6/src/JB721TiersHook.sol";
 import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStore.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
+import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
+import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 
 struct FeeProjectConfig {
     REVConfig configuration;
@@ -166,13 +168,15 @@ contract TestLowFindings is TestBaseWorkflow {
             stageConfigurations: stageConfigurations
         });
 
-        revnetId = REV_DEPLOYER.deployFor({
+        (revnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("TWO"))
-            })
+            }),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
     }
 
@@ -219,13 +223,15 @@ contract TestLowFindings is TestBaseWorkflow {
             stageConfigurations: stageConfigurations
         });
 
-        revnetId = REV_DEPLOYER.deployFor({
+        (revnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: revnetConfiguration,
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("SGL"))
-            })
+            }),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
     }
 
@@ -235,8 +241,9 @@ contract TestLowFindings is TestBaseWorkflow {
         FEE_PROJECT_ID = jbProjects().createFor(multisig());
         SUCKER_REGISTRY = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
         HOOK_STORE = new JB721TiersHookStore();
-        EXAMPLE_HOOK =
-            new JB721TiersHook(jbDirectory(), jbPermissions(), jbRulesets(), HOOK_STORE, jbSplits(), multisig());
+        EXAMPLE_HOOK = new JB721TiersHook(
+            jbDirectory(), jbPermissions(), jbPrices(), jbRulesets(), HOOK_STORE, jbSplits(), multisig()
+        );
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
@@ -278,7 +285,9 @@ contract TestLowFindings is TestBaseWorkflow {
             revnetId: FEE_PROJECT_ID,
             configuration: feeProjectConfig.configuration,
             terminalConfigurations: feeProjectConfig.terminalConfigurations,
-            suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration
+            suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         vm.deal(USER, 1000 ether);

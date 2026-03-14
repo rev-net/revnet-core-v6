@@ -35,8 +35,7 @@ Admin privileges and their scope in revnet-core-v6. Revnets are designed to be a
 
 | Function | Required Role | Permission ID | What It Does |
 |----------|--------------|---------------|-------------|
-| `deployFor()` | Anyone (new revnet) or Juicebox project owner (existing project) | None | Deploys a new revnet or irreversibly converts an existing Juicebox project into a revnet. |
-| `deployWith721sFor()` | Anyone (new revnet) or Juicebox project owner (existing project) | None | Same as `deployFor()` but also deploys a tiered ERC-721 hook and optional croptop posting rules. |
+| `deployFor()` | Anyone (new revnet) or Juicebox project owner (existing project) | None | Deploys a new revnet or irreversibly converts an existing Juicebox project into a revnet. Both variants deploy a tiered ERC-721 hook: the 4-arg variant deploys a default empty hook; the 6-arg variant deploys a hook with pre-configured tiers and optional croptop posting rules. |
 | `deploySuckersFor()` | Split Operator | Checked via `_checkIfIsSplitOperatorOf()` | Deploys new cross-chain suckers for an existing revnet. Also requires the current ruleset's `extraMetadata` bit 2 to be set (allows deploying suckers). |
 | `setSplitOperatorOf()` | Split Operator | Checked via `_checkIfIsSplitOperatorOf()` | Replaces the current split operator with a new address. Revokes all operator permissions from the caller and grants them to the new address. |
 | `autoIssueFor()` | Anyone | None | Mints pre-configured auto-issuance tokens for a beneficiary once the relevant stage has started. Amounts are set at deployment and can only be claimed once. |
@@ -57,15 +56,16 @@ The split operator receives the following Juicebox permission IDs, scoped to its
 | `SUCKER_SAFETY` | Manage sucker safety settings (e.g., emergency hatch). |
 | `SET_BUYBACK_HOOK` | Configure the buyback hook. |
 | `SET_ROUTER_TERMINAL` | Set the router terminal. |
+| `SET_TOKEN_METADATA` | Update the revnet token's name and symbol. |
 
 Optional 721 permissions (granted only if enabled at deployment via `REVDeploy721TiersHookConfig`):
 
 | Permission ID | Deployment Flag | What It Allows |
 |---------------|----------------|----------------|
-| `ADJUST_721_TIERS` | `splitOperatorCanAdjustTiers` | Add or remove ERC-721 tiers. |
-| `SET_721_METADATA` | `splitOperatorCanUpdateMetadata` | Update ERC-721 tier metadata. |
-| `MINT_721` | `splitOperatorCanMint` | Mint ERC-721s without payment from tiers with `allowOwnerMint`. |
-| `SET_721_DISCOUNT_PERCENT` | `splitOperatorCanIncreaseDiscountPercent` | Increase the discount percentage of a tier. |
+| `ADJUST_721_TIERS` | `preventSplitOperatorAdjustingTiers` | Add or remove ERC-721 tiers. Allowed unless prevented. |
+| `SET_721_METADATA` | `preventSplitOperatorUpdatingMetadata` | Update ERC-721 tier metadata. Allowed unless prevented. |
+| `MINT_721` | `preventSplitOperatorMinting` | Mint ERC-721s without payment from tiers with `allowOwnerMint`. Allowed unless prevented. |
+| `SET_721_DISCOUNT_PERCENT` | `preventSplitOperatorIncreasingDiscountPercent` | Increase the discount percentage of a tier. Allowed unless prevented. |
 
 ### REVLoans
 
@@ -112,7 +112,7 @@ The `REVLoans` contract has minimal admin surface by design:
 
 The following parameters are set at deployment and can never be changed:
 
-### REVDeployer (per-revnet, set at `deployFor` / `deployWith721sFor` time)
+### REVDeployer (per-revnet, set at `deployFor` time)
 - Stage schedule (start times, issuance rates, cut frequencies, cut percentages)
 - Cash-out tax rates per stage
 - Split percentages per stage
