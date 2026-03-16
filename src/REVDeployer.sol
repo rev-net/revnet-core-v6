@@ -481,26 +481,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         }
     }
 
-    /// @notice Try to initialize a Uniswap V4 buyback pool for a terminal token at a generic 1:1 price.
-    /// @dev Called after the ERC-20 token is deployed so the pool can be initialized in the PoolManager.
-    /// Silently catches failures (e.g., if the pool is already initialized).
-    /// @param revnetId The ID of the revnet.
-    /// @param terminalToken The terminal token to initialize a buyback pool for.
-    function _tryInitializeBuybackPoolFor(uint256 revnetId, address terminalToken) internal {
-        // Try to initialize the pool at a generic 1:1 sqrtPriceX96 and configure the buyback hook.
-        // The buyback hook constructs the PoolKey internally from the project token, terminal token, and pool params.
-        // slither-disable-next-line calls-loop
-        try BUYBACK_HOOK.initializePoolFor({
-            projectId: revnetId,
-            fee: DEFAULT_BUYBACK_POOL_FEE,
-            tickSpacing: DEFAULT_BUYBACK_TICK_SPACING,
-            twapWindow: DEFAULT_BUYBACK_TWAP_WINDOW,
-            terminalToken: terminalToken,
-            sqrtPriceX96: uint160(1 << 96)
-        }) {}
-            catch {} // Pool may already be initialized — that's OK.
-    }
-
     /// @notice Make a ruleset configuration for a revnet's stage.
     /// @param baseCurrency The base currency of the revnet.
     /// @param stageConfiguration The stage configuration to make a ruleset for.
@@ -578,6 +558,26 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         for (uint256 i; i < customSplitOperatorPermissionIndexes.length; i++) {
             allOperatorPermissions[9 + i] = customSplitOperatorPermissionIndexes[i];
         }
+    }
+
+    /// @notice Try to initialize a Uniswap V4 buyback pool for a terminal token at a generic 1:1 price.
+    /// @dev Called after the ERC-20 token is deployed so the pool can be initialized in the PoolManager.
+    /// Silently catches failures (e.g., if the pool is already initialized).
+    /// @param revnetId The ID of the revnet.
+    /// @param terminalToken The terminal token to initialize a buyback pool for.
+    function _tryInitializeBuybackPoolFor(uint256 revnetId, address terminalToken) internal {
+        // Try to initialize the pool at a generic 1:1 sqrtPriceX96 and configure the buyback hook.
+        // The buyback hook constructs the PoolKey internally from the project token, terminal token, and pool params.
+        // slither-disable-next-line calls-loop
+        try BUYBACK_HOOK.initializePoolFor({
+            projectId: revnetId,
+            fee: DEFAULT_BUYBACK_POOL_FEE,
+            tickSpacing: DEFAULT_BUYBACK_TICK_SPACING,
+            twapWindow: DEFAULT_BUYBACK_TWAP_WINDOW,
+            terminalToken: terminalToken,
+            sqrtPriceX96: uint160(1 << 96)
+        }) {}
+            catch {} // Pool may already be initialized — that's OK.
     }
 
     //*********************************************************************//
@@ -682,6 +682,17 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         });
     }
 
+    /// @notice Burn any of a revnet's tokens held by this contract.
+    /// @dev Project tokens can end up here from reserved token distribution when splits don't sum to 100%.
+    /// @param revnetId The ID of the revnet whose tokens should be burned.
+    function burnHeldTokensOf(uint256 revnetId) external override {
+        uint256 balance = CONTROLLER.TOKENS().totalBalanceOf({holder: address(this), projectId: revnetId});
+        if (balance == 0) revert REVDeployer_NothingToBurn();
+        CONTROLLER.burnTokensOf({holder: address(this), projectId: revnetId, tokenCount: balance, memo: ""});
+        // slither-disable-next-line reentrancy-events
+        emit BurnHeldTokens(revnetId, balance, _msgSender());
+    }
+
     /// @notice Launch a revnet, or initialize an existing Juicebox project as a revnet.
     /// @dev When initializing an existing project (revnetId != 0):
     /// - The project must not yet have a controller or rulesets. `JBController.launchRulesetsFor` enforces this —
@@ -782,17 +793,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         _setSplitOperatorOf({revnetId: revnetId, operator: configuration.splitOperator});
 
         return (revnetId, hook);
-    }
-
-    /// @notice Burn any of a revnet's tokens held by this contract.
-    /// @dev Project tokens can end up here from reserved token distribution when splits don't sum to 100%.
-    /// @param revnetId The ID of the revnet whose tokens should be burned.
-    function burnHeldTokensOf(uint256 revnetId) external override {
-        uint256 balance = CONTROLLER.TOKENS().totalBalanceOf({holder: address(this), projectId: revnetId});
-        if (balance == 0) revert REVDeployer_NothingToBurn();
-        CONTROLLER.burnTokensOf({holder: address(this), projectId: revnetId, tokenCount: balance, memo: ""});
-        // slither-disable-next-line reentrancy-events
-        emit BurnHeldTokens(revnetId, balance, _msgSender());
     }
 
     /// @notice Deploy new suckers for an existing revnet.
