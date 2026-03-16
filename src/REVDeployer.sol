@@ -645,7 +645,13 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @param stageId The ID of the stage auto-mint tokens are available from.
     /// @param beneficiary The address to auto-mint tokens to.
     function autoIssueFor(uint256 revnetId, uint256 stageId, address beneficiary) external override {
-        // Get a reference to the ruleset for the stage.
+        // Get the ruleset for the stage to check if it has started.
+        // Stage IDs are `block.timestamp + i` where `i` is the stage index. These match real JB ruleset IDs
+        // because JBRulesets assigns IDs the same way: `latestId >= block.timestamp ? latestId + 1 : block.timestamp`
+        // (see JBRulesets.sol L172). When all stages are queued in a single deployFor() call, the sequential
+        // IDs `block.timestamp`, `block.timestamp + 1`, ... exactly correspond to the JB-assigned ruleset IDs.
+        // The returned `ruleset.start` contains the derived start time (from `deriveStartFrom` using the stage's
+        // `mustStartAtOrAfter`), NOT the queue timestamp — so the timing guard correctly blocks early claims.
         // slither-disable-next-line unused-return
         (JBRuleset memory ruleset,) = CONTROLLER.getRulesetOf({projectId: revnetId, rulesetId: stageId});
 
@@ -1225,8 +1231,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
                 });
 
                 // Store the amount of tokens that can be auto-minted on this chain during this stage.
-                // The first stage ID is stored at this block's timestamp,
-                // and further stage IDs have incrementally increasing IDs
+                // The stage ID is `block.timestamp + i`. This matches the ruleset ID that JBRulesets assigns
+                // because JBRulesets uses `latestId >= block.timestamp ? latestId + 1 : block.timestamp`
+                // (JBRulesets.sol L172), producing the same sequential IDs when all stages are queued in one tx.
+                // `autoIssueFor` later calls `getRulesetOf(revnetId, stageId)` — the returned `ruleset.start`
+                // is the derived start time (not the queue time), so the timing guard works correctly.
                 // slither-disable-next-line reentrancy-benign
                 amountToAutoIssue[revnetId][block.timestamp + i][autoIssuance.beneficiary] += autoIssuance.count;
             }
