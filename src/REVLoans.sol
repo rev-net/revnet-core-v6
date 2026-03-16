@@ -70,6 +70,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     error REVLoans_SourceMismatch();
     error REVLoans_Unauthorized(address caller, address owner);
     error REVLoans_UnderMinBorrowAmount(uint256 minBorrowAmount, uint256 borrowAmount);
+    error REVLoans_ZeroBorrowAmount();
     error REVLoans_ZeroCollateralLoanIsInvalid();
 
     //*********************************************************************//
@@ -590,6 +591,9 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
 
         // Get the amount of the loan.
         uint256 borrowAmount = _borrowAmountFrom({loan: loan, revnetId: revnetId, collateralCount: collateralCount});
+
+        // Revert if the bonding curve returns zero to prevent creating zero-amount loans.
+        if (borrowAmount == 0) revert REVLoans_ZeroBorrowAmount();
 
         // Make sure the minimum borrow amount is met.
         if (borrowAmount < minBorrowAmount) revert REVLoans_UnderMinBorrowAmount(minBorrowAmount, borrowAmount);
