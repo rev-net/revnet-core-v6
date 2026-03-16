@@ -1,133 +1,187 @@
-# revnet-core-v6 -- Risks
+# revnet-core-v6 -- Active Risk Vectors
 
-Known security properties, trust assumptions, and vulnerability vectors for auditors of the Revnet + Loans system.
+Forward-looking risk assessment for auditors. Covers trust assumptions, economic risks, loan system risks, data hook proxy concerns, access control, DoS vectors, and invariants.
 
-Read [ARCHITECTURE.md](./ARCHITECTURE.md) and [SKILLS.md](./SKILLS.md) for protocol context. Read [AUDIT_INSTRUCTIONS.md](./AUDIT_INSTRUCTIONS.md) for auditing guidance. Then come back here.
+Read [ARCHITECTURE.md](./ARCHITECTURE.md) and [SKILLS.md](./SKILLS.md) for protocol context first.
 
-## Trust Model
+---
 
-### What You Trust
+## 1. Trust Assumptions
 
-1. **REVDeployer as singleton data hook.** REVDeployer is the data hook for every revnet it deploys. A bug in `beforePayRecordedWith` or `beforeCashOutRecordedWith` affects all revnets simultaneously. There is no per-project isolation.
+### What the system assumes to be correct
 
-2. **Immutable stages.** Once deployed, stage parameters (issuance, cashOutTaxRate, splits, auto-issuances) cannot be changed. There is no owner, no governance, no upgrade path. A misconfigured deployment is permanent. This IS the trust model.
+- **REVDeployer is a singleton data hook.** Every revnet shares one `beforePayRecordedWith` and `beforeCashOutRecordedWith` implementation. A bug in either function affects ALL revnets deployed by that deployer simultaneously. There is no per-project isolation and no circuit breaker.
+- **Stage immutability is the trust model.** Once `deployFor()` completes, stage parameters (issuance, `cashOutTaxRate`, splits, auto-issuances) are locked forever. No owner, no governance, no upgrade path. A misconfigured deployment is permanent. This is intentional -- the absence of admin keys IS the security property.
+- **Bonding curve is the sole collateral oracle.** `REVLoans` uses `JBCashOuts.cashOutFrom` to value collateral. There is no external price oracle, no liquidation margin, and no health factor. The borrowable amount equals the cash-out value at the moment of borrowing.
+- **Juicebox core contracts are correct.** `JBController`, `JBMultiTerminal`, `JBTerminalStore`, `JBTokens`, `JBPrices` -- a bug in any of these is a bug in every revnet.
+- **Buyback hook operates correctly.** `BUYBACK_HOOK` handles swap-vs-mint routing. All revnets from the same deployer share one instance. Failure falls back to direct minting (not a revert), so the failure mode is economic inefficiency, not fund loss.
+- **Suckers are honest bridges.** Suckers get 0% cashout tax in `beforeCashOutRecordedWith`. A compromised or malicious sucker registered in `SUCKER_REGISTRY` can extract funds from any revnet at zero cost.
+- **Auto-issuance beneficiaries are set at deployment.** Beneficiary addresses are baked into the stage configuration. If a beneficiary address is a contract that becomes compromised, or an EOA whose keys are lost, those auto-issuance tokens are either captured or permanently unclaimable.
+- **REVLoans contract address is immutable per deployer.** `LOANS` is set once in the REVDeployer constructor with wildcard `USE_ALLOWANCE` permission (`projectId=0`). If the loans contract has a vulnerability, every revnet's surplus is exposed.
 
-3. **Bonding curve as collateral oracle.** REVLoans uses the Juicebox bonding curve (`JBCashOuts.cashOutFrom`) as its sole collateral valuation method. There is no external oracle, no liquidation margin, no health factor. The borrowable amount equals the cash-out value of the collateral at the moment of borrowing.
-
-4. **Juicebox core contracts.** The entire system depends on `JBController`, `JBMultiTerminal`, `JBTerminalStore`, `JBTokens`, and `JBPrices` operating correctly. A bug in any of these is a bug in every revnet.
-
-5. **Buyback hook.** REVDeployer delegates swap-vs-mint decisions to `BUYBACK_HOOK`. All revnets deployed by the same deployer share one buyback hook instance. Buyback hook failure falls back to direct minting (not a revert).
-
-6. **Suckers.** Cross-chain bridge implementations are trusted for token transport. Suckers get 0% cashout tax privilege in `beforeCashOutRecordedWith`. A compromised sucker can extract funds at zero cost.
-
-### What You Do NOT Need to Trust
+### What you do NOT need to trust
 
 - **Project owners.** There are none. REVDeployer permanently holds the project NFT.
-- **Split operators.** They can change splits and manage 721 tiers, but cannot change stage parameters, issuance rates, cashout tax rates, or access treasury funds directly.
+- **Split operators.** They can change splits, manage 721 tiers, deploy suckers, and set buyback pools, but cannot change stage parameters, issuance rates, cashout tax rates, or directly access treasury funds.
 - **Token holders.** They can only cash out proportional to the bonding curve. Borrowers can only borrow up to the bonding curve value of their burned collateral.
 
-## Loan Economics Risks
+---
 
-These are the highest-priority risks for this audit. REVLoans is a lending protocol built on top of a bonding curve with no external price oracle.
+## 2. Economic Risks
 
-| # | Risk | Severity | Description | Status |
-|---|------|----------|-------------|--------|
-| L-1 | **Surplus manipulation via `addToBalanceOf`** | Medium | `_borrowableAmountFrom` reads live surplus from all terminals. An attacker could temporarily inflate surplus to increase borrowable amount. **However:** donations via `addToBalanceOf` are permanent (no recovery), and the attacker's extra borrowable amount equals `donation * (collateral / totalSupply)`, which is always less than the donation. Attack is economically irrational. | Mitigated by design |
-| L-2 | **Stage transition changes collateral value** | Medium | Active loans use the CURRENT stage's `cashOutTaxRate` for collateral valuation (`_borrowableAmountFrom`). When a stage transition increases `cashOutTaxRate`, existing loans become effectively under-collateralized -- the collateral is worth less than when the loan was originated. Borrowers retain the original borrowed amount. | By design -- borrowers should monitor stage timelines |
-| L-3 | **100% LTV with no safety margin** | Medium | Borrowable amount equals exact bonding curve cash-out value. A `cashOutTaxRate` of 0 means true 100% LTV. Any decrease in surplus (from other cash-outs, payouts, or stage transitions) makes the loan under-collateralized. The protocol has no liquidation trigger for under-collateralized loans -- only the 10-year expiry. | By design -- `cashOutTaxRate > 0` creates implicit margin |
-| L-4 | **10-year liquidation drift** | Low | Over 10 years, the real value of locked collateral tokens can diverge significantly from the borrowed amount. Tokens that appreciated create an incentive to repay; tokens that depreciated create an incentive to abandon (free put option for the borrower). | By design |
-| L-5 | **Loans beat cash-outs above ~39% tax** | Informational | Above approximately 39.16% `cashOutTaxRate`, borrowing is more capital-efficient than cashing out because loans preserve upside while providing liquidity. Based on CryptoEconLab research. | By design |
-| L-6 | **Cross-currency borrowed amount aggregation** | Medium | `_totalBorrowedFrom` aggregates borrowed amounts across multiple (terminal, token) pairs, normalizing decimals and converting currencies via `JBPrices`. If a price feed returns zero, the source is skipped. If a price feed returns a stale or manipulated value, the total borrowed amount is miscalculated, affecting all subsequent borrow operations. | Price feed staleness checked by Chainlink feeds; project-specific feeds may lack checks |
-| L-7 | **`uint112` truncation** | Medium | `REVLoan.amount` and `REVLoan.collateral` are `uint112` (~5.19e33). The `_adjust` function checks for overflow and reverts with `REVLoans_OverflowAlert`. Verify this check is applied to all paths that set these values. | Checked in `_adjust` |
-| L-8 | **Fee terminal revert during borrow** | Medium | In `_addTo`, the REV fee payment is wrapped in try-catch (fee is zeroed on failure, borrower gets it instead). But the source fee payment at the end of `_adjust` is NOT wrapped in try-catch. If `terminal.pay` reverts for the source fee, the entire borrow reverts. | Potential DoS vector if fee terminal is unavailable |
-| L-9 | **Loan source array unbounded growth** | Low | `_loanSourcesOf[revnetId]` grows monotonically. No validation that a terminal is registered for the project at borrow time beyond `DIRECTORY.isTerminalOf` check. The number of distinct (terminal, token) pairs is practically bounded, but `_totalBorrowedFrom` iterates the full array. | Bounded in practice (< 10 sources typical) |
+### Loan economics
 
-## Data Hook Proxy Pattern Risks
+- **100% LTV with no safety margin.** Borrowable amount equals exact bonding curve cash-out value. When `cashOutTaxRate == 0`, this is true 100% LTV. Any decrease in surplus (other cash-outs, payouts, stage transitions) makes existing loans effectively under-collateralized. The protocol has no liquidation trigger for under-collateralized loans -- only the 10-year expiry.
+- **Loans beat cash-outs above ~39% tax.** Above approximately 39.16% `cashOutTaxRate`, borrowing is more capital-efficient than cashing out because loans preserve upside while providing immediate liquidity. Based on CryptoEconLab research. This is by design but creates an incentive to borrow rather than cash out at higher tax rates, concentrating risk in the loan system.
+- **10-year free put option.** Over the loan's lifetime, if the collateral's real value drops below the borrowed amount, the borrower has no incentive to repay. The borrower keeps the borrowed funds and forfeits worthless collateral. This is equivalent to a free put option with a 10-year expiry. The protocol absorbs this loss through permanent supply reduction (burned collateral never re-minted).
+- **Surplus manipulation is economically irrational.** `_borrowableAmountFrom` reads live surplus. An attacker could inflate surplus via `addToBalanceOf`, but donations are permanent (no recovery), and the extra borrowable amount is always less than the donation. `pay` increases both surplus AND supply, neutralizing the effect. With non-zero `cashOutTaxRate`, the concave bonding curve makes this even worse for attackers.
+
+### Stage transition edge cases
+
+- **`cashOutTaxRate` increase destroys loan health.** Active loans use the CURRENT stage's `cashOutTaxRate`. When a stage transition increases this rate, existing loans become under-collateralized -- the collateral's cash-out value drops but the loan amount remains unchanged. No forced repayment or margin call mechanism exists. Over 10 years with multiple stage transitions, this compounds.
+- **`cashOutTaxRate` decrease creates refinancing opportunity.** When a new stage lowers the tax rate, existing collateral becomes worth more. Borrowers can `reallocateCollateralFromLoan` to extract the surplus value. This creates a predictable, front-runnable event at every stage boundary.
+- **Weight decay approaching zero over long periods.** With `issuanceCutPercent > 0` and `issuanceCutFrequency > 0`, issuance weight decays exponentially. After 10+ years, new payments mint negligibly few tokens, meaning the token supply effectively freezes. This concentrates cash-out value among existing holders and makes the bonding curve increasingly sensitive to individual cash-outs. Verify the weight cache mechanism (`updateRulesetWeightCache`) handles the 20,000-iteration threshold correctly when many cycles have elapsed.
+- **Duration=0 stages never auto-expire.** A stage with `duration=0` (no issuance cut frequency) persists until explicitly replaced by a subsequent stage's `startsAtOrAfter`. If the next stage's `startsAtOrAfter` is far in the future, the current stage runs indefinitely at its configured parameters.
+
+### Cross-currency reclaim calculations
+
+- **`_totalBorrowedFrom` aggregates across currencies via `JBPrices`.** Each loan source may be in a different token/currency. Aggregation normalizes decimals and converts via price feeds. If a price feed returns zero, that source is skipped (prevents division-by-zero DoS). But a stale or manipulated price feed silently over- or under-counts total borrowed amount, affecting all subsequent borrow operations for the revnet.
+- **Decimal normalization truncation.** When converting from higher-decimal tokens (18) to lower-decimal targets (6), integer division truncates. For sources with large outstanding borrows in high-decimal tokens, this truncation can systematically undercount the total borrowed amount, allowing slightly more borrowing than intended.
+
+### Auto-issuance overflow potential
+
+- **`REVAutoIssuance.count` is `uint104` (~2.03e31).** Multiple auto-issuances for the same beneficiary in the same stage are summed via `+=` in `_makeRulesetConfigurations`. If cumulative auto-issuances exceed `uint256`, this wraps. In practice, `uint104` inputs limit each addition, but verify no path allows the mapping value to overflow.
+- **Auto-issuance dilutes existing holders.** Large auto-issuances at stage boundaries dilute the token supply, reducing per-token cash-out value. This is permissionless (`autoIssueFor` can be called by anyone). A griefing vector exists where someone calls `autoIssueFor` immediately before another user's cash-out to reduce their reclaim amount. However, the dilution is pre-configured and predictable.
+
+---
+
+## 3. Loan System Risks
+
+### Collateral valuation during price volatility
+
+- **Bonding curve is internal, not market-price.** Collateral is valued by the bonding curve (`JBCashOuts.cashOutFrom`) which depends on surplus, total supply, and `cashOutTaxRate`. External market price (e.g., DEX price of the revnet token) is irrelevant to collateral valuation. If the market price diverges significantly from the bonding curve value, arbitrage opportunities arise between borrowing and trading.
+- **Surplus is cross-terminal aggregate.** `_borrowableAmountFrom` calls `JBSurplus.currentSurplusOf` across all terminals. If one terminal holds tokens in a volatile asset that has crashed, the aggregate surplus drops, reducing collateral value for ALL borrowers regardless of which terminal their loan draws from.
+
+### Liquidation concerns
+
+- **No cascading liquidation mechanism.** There is no health factor, no margin call, and no keeper-triggered liquidation for under-collateralized loans. The only liquidation path is `liquidateExpiredLoansFrom` after 10 years. Under-collateralized loans persist indefinitely within that window.
+- **Liquidation iterates by loan number.** `liquidateExpiredLoansFrom` takes `startingLoanId` and `count`, iterating sequentially. Repaid and already-liquidated loans are skipped (`createdAt == 0`), but the caller pays gas for every skip. If a revnet has thousands of loans with sparse gaps (many repaid), liquidation becomes expensive. The `count` parameter bounds gas per call, but a malicious actor could create many small loans to increase cleanup costs.
+- **Liquidation permanently destroys collateral.** Collateral was burned at borrow time. Upon liquidation, `totalCollateralOf` is decremented but no tokens are minted or returned. The collateral is permanently removed from the token supply. This deflates the total supply, increasing per-token value for remaining holders -- a mild positive externality from defaults.
+
+### Loan source rotation after deployment
+
+- **Loan sources grow monotonically.** `_loanSourcesOf[revnetId]` is append-only. Each new `(terminal, token)` pair used for borrowing adds an entry. Entries are never removed, even if all loans from that source are repaid. `_totalBorrowedFrom` iterates the entire array on every borrow/repay.
+- **Removed terminals remain as loan sources.** If a terminal is de-registered from `JBDirectory` (via migration), existing loans from that terminal remain valid (the loan struct stores a direct reference to the terminal contract). New borrows against that terminal are blocked by `DIRECTORY.isTerminalOf` check in `borrowFrom`. But `_totalBorrowedFrom` still queries the de-registered terminal's `accountingContextForTokenOf` -- verify this doesn't revert.
+
+### `reallocateCollateralFromLoan` sandwich potential
+
+- **Reallocation is two operations in one transaction.** `reallocateCollateralFromLoan` first reduces collateral on the existing loan (via `_reallocateCollateralFromLoan`), then opens a new loan (via `borrowFrom`). Between these two operations, the surplus and total supply have changed (collateral was returned to the caller, changing supply). The new loan's borrowable amount is computed with the post-reallocation state.
+- **Source mismatch check.** `reallocateCollateralFromLoan` enforces that the new loan's source matches the existing loan's source (`source.token == existingSource.token && source.terminal == existingSource.terminal`). This prevents cross-source value extraction.
+- **MEV opportunity at stage boundaries.** If a borrower knows a stage transition will decrease `cashOutTaxRate`, they can wait until just after the transition and `reallocateCollateralFromLoan` to extract more borrowed funds from the same collateral. This is predictable and not preventable by design.
+
+### Borrow-repay arbitrage
+
+- **Immediate repayment within prepaid window incurs zero source fee.** A borrower who pays the prepaid fee upfront can repay at any time within the prepaid duration with no additional cost. The prepaid fee is the minimum 2.5% + REV fee 1% = 3.5%. If the bonding curve value of the collateral increases (e.g., from new payments into the revnet) during the prepaid window, the borrower can repay, recover their collateral, and cash out at the higher value.
+- **This is not profitable as a standalone strategy** because the 3.5% minimum fee exceeds the expected value gained from short-term surplus fluctuations. But for borrowers who need liquidity anyway, it provides free optionality.
+
+---
+
+## 4. Data Hook Proxy Risks
 
 REVDeployer sits between the terminal and the actual hooks (buyback hook, 721 hook). This proxy pattern creates composition risks.
 
-| # | Risk | Severity | Description |
-|---|------|----------|-------------|
-| D-1 | **Weight scaling arithmetic** | High | In `beforePayRecordedWith`, weight is scaled by `mulDiv(weight, projectAmount, context.amount.value)` to account for 721 split amounts. If `projectAmount == 0` (all funds go to splits), weight is set to 0. If `projectAmount < context.amount.value`, weight is proportionally reduced. Verify: (a) no rounding direction favors the attacker, (b) the scaling is applied consistently when the buyback hook returns weight=0 (buying back, not minting). |
-| D-2 | **721 hook spec ordering** | Medium | `beforePayRecordedWith` places the 721 hook spec first, then the buyback hook spec. The terminal processes specs in order. Verify that the ordering doesn't create a state where one hook's execution invalidates assumptions made by the other. |
-| D-3 | **Empty specs from 721 hook** | Medium | If `tiered721Hook.beforePayRecordedWith` returns an empty specs array, `totalSplitAmount` is 0 and the full payment goes to the buyback hook. If it returns a spec with amount > `context.amount.value`, `projectAmount` underflows to 0. Both paths need verification. |
-| D-4 | **Cash-out fee calculation** | High | `beforeCashOutRecordedWith` computes the fee by splitting `cashOutCount` into `feeCashOutCount` and `nonFeeCashOutCount`, then computing two separate bonding curve calculations. The second calculation uses reduced surplus and supply. Verify: (a) total reclaimed (post-fee + fee) <= what a single full calculation would return, (b) rounding doesn't allow fee evasion. |
-| D-5 | **`afterCashOutRecordedWith` caller trust** | Medium | No caller validation -- the comment says "a non-terminal caller would just be donating their own funds as fees." Verify this is true: can a crafted `context` cause the function to transfer tokens from `msg.sender` to an unintended destination? The function calls `safeTransferFrom(msg.sender, ...)` and then pays the fee terminal. |
+### Underlying hook reverts
 
-## Stage Immutability Risks
+- **721 hook revert in `beforePayRecordedWith`.** The call to `IJBRulesetDataHook(tiered721Hook).beforePayRecordedWith(context)` is NOT wrapped in try-catch. If the 721 hook reverts (e.g., due to a storage corruption or out-of-gas), the entire payment reverts. This is a single point of failure for all payments to revnets with 721 hooks.
+- **Buyback hook is more resilient.** The `BUYBACK_HOOK.beforePayRecordedWith(buybackHookContext)` call is also not try-caught, but the buyback hook is a shared singleton controlled by the protocol. If it reverts, all revnets from that deployer are affected.
+- **Cash-out fee terminal revert.** In `afterCashOutRecordedWith`, the fee payment to the fee terminal IS wrapped in try-catch with a fallback to `addToBalanceOf`. If the fallback also fails, funds could be stuck in the deployer contract. However, the deployer has no withdrawal mechanism for arbitrary tokens -- only `burnHeldTokensOf` for project tokens.
 
-| # | Risk | Severity | Description |
-|---|------|----------|-------------|
-| S-1 | **`cashOutTaxRate` cannot equal MAX** | Medium | `_makeRulesetConfigurations` enforces `cashOutTaxRate < MAX_CASH_OUT_TAX_RATE`. This means cash outs can never be fully disabled. If a revnet is designed to never allow cash outs, it cannot achieve this. |
-| S-2 | **Stage time ordering** | Medium | `startsAtOrAfter` values must strictly increase between stages. The first stage can be 0 (uses `block.timestamp`). Verify that stage transitions work correctly when `startsAtOrAfter` is in the far future and the current stage has `duration > 0` (the stage cycles until the next one starts). |
-| S-3 | **Auto-issuance stage ID assumption** | High | Stage IDs are `block.timestamp + i` during deployment. This assumes JBRulesets assigns IDs the same way. If the JBRulesets ID assignment logic changes or if there's a collision (another project queued a ruleset at the same timestamp), the stage IDs won't match and auto-issuance will fail. The code has detailed comments explaining this assumption -- verify it holds. |
-| S-4 | **Active loans during stage transition** | Medium | When a stage with low `cashOutTaxRate` transitions to one with high `cashOutTaxRate`, existing loans become less collateralized (the collateral's cash-out value drops). The protocol has no mechanism to force repayment or adjust terms. Over 10 years, multiple stage transitions could compound this effect. |
+### Sucker bypass path (0% cashout tax)
 
-## Cross-Chain / Matching Hash Risks
+- **Suckers bypass all economic protections.** `beforeCashOutRecordedWith` returns `(0, context.cashOutCount, context.totalSupply, hookSpecifications)` for suckers -- zero tax, no fee. A compromised sucker effectively has a backdoor to extract the full pro-rata surplus of any token it holds.
+- **Sucker registration is controlled by `SUCKER_REGISTRY`.** The registry has `MAP_SUCKER_TOKEN` wildcard permission from the deployer. The split operator has `SUCKER_SAFETY` permission. Verify that `deploySuckersFor` correctly checks the `extraMetadata` bit (bit 2) for sucker deployment permission per stage.
 
-| # | Risk | Severity | Description |
-|---|------|----------|-------------|
-| X-1 | **Matching hash gap** | High | `hashedEncodedConfigurationOf` covers: `baseCurrency`, `name`, `ticker`, `salt`, and per-stage: `startsAtOrAfter`, `splitPercent`, `initialIssuance`, `issuanceCutFrequency`, `issuanceCutPercent`, `cashOutTaxRate`, and auto-issuances. It does NOT cover: terminal configurations, accounting contexts, sucker token mappings, 721 hook configuration, or croptop posts. Two deployments with identical hashes can have fundamentally different terminal setups. |
-| X-2 | **NATIVE_TOKEN on non-ETH chains (INTEROP-6)** | Medium | `JBConstants.NATIVE_TOKEN` represents the chain's native token. On Celo, that's CELO, not ETH. A revnet with `baseCurrency=1` (ETH) deployed on Celo with NATIVE_TOKEN accounting creates a semantic mismatch -- CELO payments priced as ETH. The matching hash doesn't catch this. **Safe chains:** Ethereum, Optimism, Base, Arbitrum. **Affected chains:** Celo, Polygon, Avalanche, BNB Chain. |
-| X-3 | **30-day cash-out delay** | Low | When deploying an existing revnet to a new chain where `firstStageConfig.startsAtOrAfter < block.timestamp`, a 30-day cash-out delay is applied. This prevents cross-chain liquidity arbitrage but could surprise users. Verify the delay is correctly enforced in `beforeCashOutRecordedWith` and that suckers (which bypass the check) cannot be used to circumvent the delay for non-bridging cash-outs. |
+### Permission escalation through proxy
 
-## Reentrancy Analysis
+- **`hasMintPermissionFor` grants mint to four categories.** The loans contract, buyback hook, buyback hook delegates, and suckers all have unrestricted mint permission. If any of these contracts have a vulnerability that allows arbitrary calls, they can mint unlimited revnet tokens for any revnet.
+- **Wildcard permissions.** REVDeployer grants `USE_ALLOWANCE` to `LOANS` with `projectId=0` (wildcard). This means the loans contract can drain surplus from ANY revnet deployed by this deployer, constrained only by the loan logic itself. A bug in `REVLoans._addTo` that miscalculates `addedBorrowAmount` could drain treasuries.
 
-REVLoans and REVDeployer use no `ReentrancyGuard`. Both rely on CEI (Checks-Effects-Interactions) ordering.
+---
 
-| Function | State Update Timing | External Calls After | Risk |
-|----------|-------------------|---------------------|------|
-| `REVLoans._adjust` | `loan.amount` and `loan.collateral` written BEFORE external calls | `_addTo` (useAllowanceOf, pay), `_removeFrom` (addToBalanceOf), `_addCollateralTo` (burnTokensOf), `_returnCollateralFrom` (mintTokensOf), source fee `pay` | LOW -- state pre-committed; reentrant call sees updated values |
-| `REVLoans.borrowFrom` | Loan created in storage, then `_adjust` called, then `_mint` | Per `_adjust` above, plus ERC721 `_mint` (onERC721Received callback) | LOW -- mint happens last, after all state is settled |
-| `REVLoans.repayLoan` | Burns original loan NFT, then creates replacement via `_adjust` + `_mint` | Per `_adjust` above | LOW -- original loan burned before any external calls |
-| `REVLoans.reallocateCollateralFromLoan` | Burns original loan, creates replacement, then calls `borrowFrom` for new loan | `_reallocateCollateralFromLoan` + `borrowFrom` in sequence | MEDIUM -- two loan operations in sequence; verify no cross-loan manipulation possible during reallocation callback |
-| `REVDeployer.afterCashOutRecordedWith` | No state changes | `safeTransferFrom`, `feeTerminal.pay`, fallback `addToBalanceOf` | LOW -- stateless; just routes funds |
-| `REVDeployer.autoIssueFor` | `amountToAutoIssue` zeroed BEFORE `mintTokensOf` | `CONTROLLER.mintTokensOf` | LOW -- CEI pattern prevents double-claim |
+## 5. Access Control
 
-### Key reentrancy concern: `_adjust` source fee payment
+### Stage configuration immutability
 
-In `_adjust`, the source fee is paid via `loan.source.terminal.pay{value: payValue}(...)` at the end of the function. This call goes to an external terminal, which could potentially call back into REVLoans. However, by this point all loan state (`amount`, `collateral`) has been committed, and the loan NFT has not yet been minted (in the `borrowFrom` path). A reentrant `borrowFrom` would burn different collateral tokens and create a separate loan -- verify this is safe.
+- **No function modifies rulesets after deployment.** REVDeployer holds the project NFT and is the only entity that could call `CONTROLLER.queueRulesetsOf`. But REVDeployer has no function that does this. The only ruleset interaction after deployment is reading via `currentRulesetOf` and `getRulesetOf`. This is the core immutability guarantee -- verify no code path exists that calls `queueRulesetsOf` or `launchRulesetsFor` on an already-deployed revnet.
+- **Project NFT cannot be recovered.** Once transferred to REVDeployer via `safeTransferFrom` or minted by `launchProjectFor`, the NFT is permanently held. REVDeployer implements `onERC721Received` but only accepts from `PROJECTS`. It has no `transferFrom` or equivalent for project NFTs.
 
-## MEV / Front-Running Risks
+### Who can deploy and modify
 
-| Risk | Description | Mitigation |
-|------|-------------|------------|
-| **Borrow sandwich** | Attacker sees a large cash-out in the mempool, borrows first (at higher surplus), then the cash-out reduces surplus, making the attacker's collateral worth less. But the attacker still has the borrowed funds. | Not profitable: attacker's own collateral is worth less, and they owe the same amount back. The 10-year horizon makes this a losing trade. |
-| **Cash-out front-running** | Large cash-outs visible in mempool. Front-runner cashes out first, reducing surplus for the victim. | Use private mempools; `minTokensReclaimed` parameter on terminal. Not a revnet-specific risk. |
-| **Stage transition front-running** | Immediately before a stage transition that changes `cashOutTaxRate`, front-run to borrow or cash out under the old, more favorable rate. | Stage transitions are deterministic and predictable. Borrowers and cashers should plan around them. Not preventable by design. |
-| **Auto-issuance front-running** | Call `autoIssueFor` to mint tokens that dilute supply before a target user's cash-out. | Auto-issuance is permissionless and predictable. The tokens are pre-configured at deployment. Dilution is expected. |
+- **`deployFor` is permissionless for new revnets** (`revnetId == 0`). Anyone can deploy a revnet with arbitrary configuration.
+- **`deployFor` with existing project requires ownership.** The caller must be `PROJECTS.ownerOf(revnetId)` and the project must be blank (no controller, no rulesets).
+- **Split operator is singular and self-replacing.** `setSplitOperatorOf` can only be called by the current split operator. If the split operator is set to address(0) or a contract with no ability to call `setSplitOperatorOf`, the role is permanently lost.
+- **Split operator permissions are cumulative during deployment.** `_extraOperatorPermissions[revnetId]` is populated via `.push()` during deployment. If the same permission ID is pushed twice, the array has duplicates but this is harmless (the permission check uses `hasPermissions` which doesn't care about duplicates).
 
-## Privileged Roles
+### Split operator trust boundaries
 
-| Role | Capabilities | Constraints |
-|------|-------------|-------------|
-| **REVDeployer** (contract) | Holds all project NFTs. Acts as data hook. Grants permissions. | Cannot change stage parameters. Singleton -- shared across all revnets. |
-| **Split operator** (per-revnet) | Change splits, manage 721 tiers, deploy suckers, set buyback pools, set project URI. | Cannot change issuance, cashOutTaxRate, or access treasury directly. Singular -- only one address at a time. Can transfer role via `setSplitOperatorOf`. |
-| **REVLoans** (contract) | USE_ALLOWANCE permission on all revnets (wildcard projectId=0). Can burn and mint tokens. | Only exercises these permissions through loan operations with bonding curve constraints. |
-| **BUYBACK_HOOK** (contract) | SET_BUYBACK_POOL permission on all revnets. Mint permission delegated by `hasMintPermissionFor`. | Immutable per deployer instance. |
-| **SUCKER_REGISTRY** (contract) | MAP_SUCKER_TOKEN permission on all revnets. | Token mappings immutable once outbox has entries. |
-| **Auto-issuance beneficiaries** | Receive pre-minted tokens per stage. | Amounts fixed at deploy time. Permissionless claim -- anyone can call `autoIssueFor` on their behalf. |
+- **ADD_PRICE_FEED.** The split operator can add price feeds for the revnet. A malicious price feed could return manipulated values, affecting cross-currency surplus calculations and loan collateral valuations. Price feeds are immutable once added (cannot be replaced).
+- **SET_SPLIT_GROUPS.** The split operator controls where reserved tokens go. A compromised operator can redirect all reserved tokens to themselves.
+- **DEPLOY_SUCKERS (via `deploySuckersFor`).** The split operator can deploy new suckers if the current stage allows it (`extraMetadata` bit 2). A malicious sucker gets 0% cashout tax privilege. This is the highest-impact split operator action.
+- **SET_ROUTER_TERMINAL.** The split operator can configure the router terminal, potentially redirecting payments.
 
-## Operational Risks
+---
 
-| Risk | Description | Mitigation |
-|------|-------------|------------|
-| Fee revnet must have terminals | Cash-out fees and loan REV fees are paid to `FEE_REVNET_ID` / `REV_ID`. If those projects have no terminal for the token, fees fail silently (try-catch in most places). | Monitor fee project health |
-| Buyback pool initialization failure | `_tryInitializeBuybackPoolFor` is wrapped in try-catch. If pool initialization fails, payments still work (fall back to direct minting) but without DEX buyback efficiency. | Silent -- no event on failure |
-| Split gas exhaustion | No explicit cap on splits array length. Large split arrays during reserved token distribution or payouts can exceed block gas limit. | Keep split count reasonable (< 50) |
-| Loan source iteration | `_totalBorrowedFrom` iterates all loan sources. If a revnet accumulates many distinct (terminal, token) pairs, gas costs increase for every borrow/repay operation. | Practically bounded (< 10 sources typical) |
+## 6. DoS Vectors
 
-## Security Properties to Verify
+### Long stage chains
 
-These MUST hold. If you can break any of them, it's a finding:
+- **`_makeRulesetConfigurations` iterates all stages.** Deployment cost scales linearly with stage count. There is no explicit cap on the number of stages. A deployment with hundreds of stages would be expensive but is not blocked.
+- **Auto-issuance inner loop.** For each stage, the deployment iterates all `autoIssuances[]`. The combined iteration (stages x auto-issuances per stage) could hit the block gas limit for extreme configurations.
 
-1. **Collateral conservation**: `totalCollateralOf[revnetId]` == sum of `loan.collateral` for all active loans of that revnet.
-2. **Borrowed amount conservation**: `totalBorrowedFrom[revnetId][terminal][token]` == sum of `loan.amount` for all active loans from that source.
-3. **No double-mint collateral**: Repaying a loan mints collateral back exactly once. A repaid loan cannot be repaid again.
-4. **No zero-collateral loans**: Every active loan has `collateral > 0` and `amount > 0`.
-5. **Liquidation only after expiry**: Loans can only be liquidated after `LOAN_LIQUIDATION_DURATION` (3650 days).
-6. **Auto-issuance single-claim**: Each `(revnetId, stageId, beneficiary)` tuple can only be claimed once. The amount is zeroed before minting.
-7. **Stage immutability**: After deployment, no function can modify a revnet's rulesets, issuance parameters, or cashOutTaxRate.
-8. **Fee collection**: Cash-out fees and loan fees flow to the fee revnet. If fee payment fails, funds are returned to the originating project (not lost, not kept by the caller).
-9. **Sucker privilege isolation**: Only addresses registered in `SUCKER_REGISTRY` for a revnet get 0% cashout tax. The `_isSuckerOf` check cannot be bypassed.
-10. **Loan ownership**: Only the ERC-721 owner of a loan can repay it or reallocate its collateral.
+### Many auto-issuances
+
+- **`autoIssueFor` is one-per-call.** Each call processes a single `(revnetId, stageId, beneficiary)` tuple. If a stage has many beneficiaries, they must each be claimed individually. Not a DoS vector against the protocol, but a usability concern.
+
+### Loan source enumeration
+
+- **`_totalBorrowedFrom` iterates ALL sources on every borrow and repay.** Gas cost: ~20k per source (external `accountingContextForTokenOf` call + storage read + potential price feed call). With 10 sources, this adds ~200k gas per loan operation. With 50+ sources (unlikely but possible), operations become prohibitively expensive.
+- **Mitigation.** `borrowFrom` checks `DIRECTORY.isTerminalOf` before accepting a new source. The number of registered terminals per project is practically bounded. But nothing prevents a terminal from being registered, used for one loan, de-registered, and then a new terminal registered -- leaving stale entries in the source array.
+
+### Fee terminal unavailability
+
+- **Source fee payment in `_adjust` is NOT try-caught.** If `loan.source.terminal.pay` reverts when paying the source fee, the entire borrow/repay reverts. A terminal that begins reverting on `pay` can freeze all loan operations for that source.
+- **REV fee payment in `_addTo` IS try-caught.** If the REV fee terminal is unavailable, the fee is zeroed and the borrower receives it. This is graceful degradation.
+- **Cash-out fee in `afterCashOutRecordedWith` IS try-caught.** Falls back to `addToBalanceOf`. If fallback also fails, the transaction still doesn't revert (the deployer absorbs the funds, which can only be recovered via `burnHeldTokensOf` for project tokens, not arbitrary tokens).
+
+---
+
+## 7. Invariants to Verify
+
+These MUST hold. Breaking any of them is a finding.
+
+### Loan accounting
+
+- **Collateral conservation.** `totalCollateralOf[revnetId]` == sum of `loan.collateral` for all active (non-liquidated, non-repaid) loans of that revnet.
+- **Borrowed amount conservation.** `totalBorrowedFrom[revnetId][terminal][token]` == sum of `loan.amount` for all active loans from that source.
+- **No double-mint collateral.** Repaying a loan mints collateral back exactly once. A repaid loan cannot be repaid again (NFT is burned, storage is deleted).
+- **No zero-collateral loans.** Every active loan has `collateral > 0` and `amount > 0`. The `borrowFrom` function reverts on `collateralCount == 0` and `borrowAmount == 0`.
+- **Liquidation only after expiry.** `liquidateExpiredLoansFrom` skips loans where `block.timestamp <= loan.createdAt + LOAN_LIQUIDATION_DURATION`.
+- **Total loans counter monotonicity.** `totalLoansBorrowedFor[revnetId]` only increments (on borrow, repay-with-replacement, and reallocation). It never decrements. Loan IDs are unique and never reused.
+
+### Stage and deployment
+
+- **Stage immutability.** After `deployFor` completes, no function in REVDeployer calls `CONTROLLER.queueRulesetsOf` or modifies ruleset parameters.
+- **Stage progression monotonicity.** `startsAtOrAfter` values strictly increase between stages. The first stage can be 0 (mapped to `block.timestamp`).
+- **Auto-issuance single-claim.** Each `(revnetId, stageId, beneficiary)` can only be claimed once. `amountToAutoIssue` is zeroed BEFORE the external `mintTokensOf` call (CEI pattern).
+- **Split percentages.** Per-stage `splitPercent > 0` requires `splits.length > 0`. Split percentages are validated by `JBSplits` in core (must sum to <= `SPLITS_TOTAL_PERCENT`).
+
+### Fee flows
+
+- **Cash-out fees flow to fee revnet.** If the fee terminal `pay` succeeds, the fee goes to `FEE_REVNET_ID`. If it fails, the fee returns to the originating project via `addToBalanceOf`. Funds are never lost and never kept by the caller.
+- **Loan REV fees flow to REV revnet.** If `feeTerminal.pay` succeeds, the fee goes to `REV_ID`. If it fails (try-catch), the fee amount is zeroed and added to the borrower's payout. The fee is never lost -- it either reaches the REV revnet or goes to the borrower.
+
+### Privilege isolation
+
+- **Sucker privilege.** Only addresses returning `true` from `SUCKER_REGISTRY.isSuckerOf(projectId, addr)` get 0% cashout tax. No other code path grants this exemption.
+- **Loan ownership.** Only `_ownerOf(loanId)` can call `repayLoan` and `reallocateCollateralFromLoan`. The loan NFT is burned before any state changes in repayment, preventing double-use.
+- **Mint permission.** Only `LOANS`, `BUYBACK_HOOK`, buyback hook delegates (via `BUYBACK_HOOK.hasMintPermissionFor`), and suckers (via `_isSuckerOf`) can mint tokens. No other address passes the `hasMintPermissionFor` check.
