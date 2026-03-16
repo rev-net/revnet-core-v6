@@ -519,6 +519,10 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
                     decimals: decimals
                 });
 
+                // If the price feed returns zero, skip this source to avoid a division-by-zero panic
+                // that would DoS all loan operations.
+                if (pricePerUnit == 0) continue;
+
                 borrowedAmount += mulDiv({x: normalizedTokens, y: 10 ** decimals, denominator: pricePerUnit});
             }
         }
