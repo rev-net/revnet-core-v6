@@ -461,9 +461,8 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     /// @dev Each source's `totalBorrowedFrom` is stored in the source token's native decimals (e.g. 6 for USDC,
     /// 18 for ETH). Before aggregation, each amount is normalized to the target `decimals` to prevent mixed-decimal
     /// arithmetic errors. For cross-currency sources, the normalized amount is then converted via the price feed.
-    /// @dev Callers should ensure the price feed has sufficient precision for the target `decimals`. Inverse price
-    /// feeds may truncate to zero at low decimal counts (e.g. a feed returning 1e21 at 6 decimals inverts to
-    /// mulDiv(1e6, 1e6, 1e21) = 0), which would cause a division-by-zero in the price conversion.
+    /// @dev Inverse price feeds may truncate to zero at low decimal counts (e.g. a feed returning 1e21 at 6 decimals
+    /// inverts to mulDiv(1e6, 1e6, 1e21) = 0). Sources with a zero price are skipped to prevent division-by-zero.
     /// @param revnetId The ID of the revnet to check for borrowed assets from.
     /// @param decimals The decimals the resulting fixed point value will include.
     /// @param currency The currency the resulting value will be in terms of.

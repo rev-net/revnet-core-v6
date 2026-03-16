@@ -143,7 +143,7 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 3. **100% LTV by design.** Borrowable amount equals the pro-rata cash-out value. No safety margin unless the stage has `cashOutTaxRate > 0`. A tax of 20% creates ~20% effective collateral buffer.
 4. **Loan ID encoding.** `loanId = revnetId * 1_000_000_000_000 + loanNumber`. Each revnet supports ~1 trillion loans. Use `revnetIdOfLoanWith(loanId)` to decode.
 5. **uint112 truncation risk.** `REVLoan.amount` and `REVLoan.collateral` are `uint112`. Values above ~5.19e33 truncate silently.
-6. **Auto-issuance stage IDs.** Computed as `block.timestamp + i` during deployment, but actual Juicebox ruleset IDs depend on queuing logic. Stage 1+ auto-issuance may be unclaimed if IDs don't match exactly.
+6. **Auto-issuance stage IDs.** Computed as `block.timestamp + i` during deployment. These match the Juicebox ruleset IDs because `JBRulesets` assigns IDs the same way (`latestId >= block.timestamp ? latestId + 1 : block.timestamp`), producing identical sequential IDs when all stages are queued in a single `deployFor()` call.
 7. **Cash-out fee stacking.** Cash outs incur both the Juicebox terminal fee (2.5%) and the revnet cash-out fee (2.5% to fee revnet). These compound.
 8. **30-day cash-out delay.** Applied when deploying an existing revnet to a new chain where the first stage has already started. Prevents cross-chain liquidity arbitrage.
 9. **`cashOutTaxRate` cannot be MAX.** Must be strictly less than `MAX_CASH_OUT_TAX_RATE` (10,000). Revnets cannot fully disable cash outs.
