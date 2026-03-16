@@ -94,7 +94,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     uint256 public constant override MIN_PREPAID_FEE_PERCENT = 25; // 2.5%
 
     //*********************************************************************//
-    // -------------------- private constant properties ------------------ //
+    // ------------------------ private constants ------------------------ //
     //*********************************************************************//
 
     /// @notice Just a kind reminder to our readers.
