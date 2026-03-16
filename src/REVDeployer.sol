@@ -272,6 +272,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         }
 
         // Get a reference to the number of tokens being used to pay the fee (out of the total being cashed out).
+        // Micro cash outs (< 40 wei at 2.5% fee) round feeCashOutCount to zero, bypassing the fee.
+        // Economically insignificant: the gas cost of the transaction far exceeds the bypassed fee. No fix needed.
         uint256 feeCashOutCount = mulDiv({x: context.cashOutCount, y: FEE, denominator: JBConstants.MAX_FEE});
         uint256 nonFeeCashOutCount = context.cashOutCount - feeCashOutCount;
 

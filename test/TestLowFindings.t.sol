@@ -608,4 +608,37 @@ contract TestLowFindings is TestBaseWorkflow {
         assertTrue(newLoanId != loanId, "New loan should have different ID");
         assertTrue(newLoanId != reallocatedLoanId, "New loan should differ from reallocated loan");
     }
+
+    /// @notice Borrowing with a collateral count so small that the bonding curve rounds the borrow amount to zero
+    /// should revert with `REVLoans_ZeroBorrowAmount`.
+    function test_borrowFrom_revertsOnZeroBorrowAmount() public {
+        uint256 revnetId = _deploySingleStageRevnet();
+
+        // Pay ETH into revnet to create surplus and get tokens.
+        vm.prank(USER);
+        uint256 tokens =
+            jbMultiTerminal().pay{value: 10 ether}(revnetId, JBConstants.NATIVE_TOKEN, 10 ether, USER, 0, "", "");
+        assertGt(tokens, 0, "Should have received tokens");
+
+        // Confirm that 1 wei of collateral produces a zero borrowable amount.
+        // With surplus ~10e18 and totalSupply ~10_000e18, mulDiv(10e18, 1, 10_000e18) rounds to 0.
+        uint256 borrowable =
+            LOANS_CONTRACT.borrowableAmountFrom(revnetId, 1, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        assertEq(borrowable, 0, "Borrowable amount for 1 wei of collateral should be 0");
+
+        // Mock the BURN permission (permission ID 11) for the loans contract.
+        mockExpect(
+            address(jbPermissions()),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, revnetId, 11, true, true)),
+            abi.encode(true)
+        );
+
+        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        uint256 minPrepaid = LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT();
+
+        // Attempt to borrow with 1 wei of collateral -- bonding curve returns 0, should revert.
+        vm.prank(USER);
+        vm.expectRevert(REVLoans.REVLoans_ZeroBorrowAmount.selector);
+        LOANS_CONTRACT.borrowFrom(revnetId, source, 0, 1, payable(USER), minPrepaid);
+    }
 }
