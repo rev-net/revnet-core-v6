@@ -227,9 +227,8 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
         // Set up a price feed so the TOKEN is recognized.
         MockPriceFeed priceFeed = new MockPriceFeed(2000e18, 18); // 1 ETH = 2000 TOKEN
         vm.prank(multisig());
-        jbPrices().addPriceFeedFor(
-            0, uint32(uint160(JBConstants.NATIVE_TOKEN)), uint32(uint160(address(TOKEN))), priceFeed
-        );
+        jbPrices()
+            .addPriceFeedFor(0, uint32(uint160(JBConstants.NATIVE_TOKEN)), uint32(uint160(address(TOKEN))), priceFeed);
 
         _deployFeeProject();
         REVNET_ID = _deployEthBasedRevnet(5000); // 50% cash out tax
@@ -241,15 +240,16 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
 
         // Cash out all tokens.
         vm.prank(USER1);
-        uint256 reclaimed = jbMultiTerminal().cashOutTokensOf({
-            holder: USER1,
-            projectId: REVNET_ID,
-            cashOutCount: tokens,
-            tokenToReclaim: JBConstants.NATIVE_TOKEN,
-            minTokensReclaimed: 0,
-            beneficiary: payable(USER1),
-            metadata: ""
-        });
+        uint256 reclaimed = jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: USER1,
+                projectId: REVNET_ID,
+                cashOutCount: tokens,
+                tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                minTokensReclaimed: 0,
+                beneficiary: payable(USER1),
+                metadata: ""
+            });
 
         assertGt(reclaimed, 0, "should reclaim some ETH");
         // With 50% tax and single holder cashing out everything, the bonding curve returns the full surplus.
@@ -263,9 +263,8 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
         // Price feed: 1 TOKEN (6 dec) = 0.0005 ETH (18 dec). Meaning 2000 TOKEN = 1 ETH.
         MockPriceFeed priceFeed = new MockPriceFeed(5e14, 18); // 0.0005 ETH per TOKEN unit
         vm.prank(multisig());
-        jbPrices().addPriceFeedFor(
-            0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed
-        );
+        jbPrices()
+            .addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
 
         _deployFeeProject();
         REVNET_ID = _deployEthBasedRevnet(5000); // 50% cash out tax
@@ -283,15 +282,16 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
 
         // Cash out in TOKEN.
         vm.prank(USER1);
-        uint256 reclaimedToken = jbMultiTerminal().cashOutTokensOf({
-            holder: USER1,
-            projectId: REVNET_ID,
-            cashOutCount: revTokens,
-            tokenToReclaim: address(TOKEN),
-            minTokensReclaimed: 0,
-            beneficiary: payable(USER1),
-            metadata: ""
-        });
+        uint256 reclaimedToken = jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: USER1,
+                projectId: REVNET_ID,
+                cashOutCount: revTokens,
+                tokenToReclaim: address(TOKEN),
+                minTokensReclaimed: 0,
+                beneficiary: payable(USER1),
+                metadata: ""
+            });
 
         assertGt(reclaimedToken, 0, "should reclaim some TOKEN");
         assertLe(reclaimedToken, tokenAmount, "should not exceed total TOKEN paid in");
@@ -305,9 +305,8 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
         // Price feed: 1 ETH = 2000 TOKEN (6 dec units).
         MockPriceFeed priceFeed = new MockPriceFeed(2000e6, 6); // 2000 TOKEN per ETH
         vm.prank(multisig());
-        jbPrices().addPriceFeedFor(
-            0, uint32(uint160(JBConstants.NATIVE_TOKEN)), uint32(uint160(address(TOKEN))), priceFeed
-        );
+        jbPrices()
+            .addPriceFeedFor(0, uint32(uint160(JBConstants.NATIVE_TOKEN)), uint32(uint160(address(TOKEN))), priceFeed);
 
         _deployFeeProject();
         REVNET_ID = _deployEthBasedRevnet(5000); // 50% cash out tax
@@ -331,15 +330,16 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
         // (based on cross-currency total surplus) exceeds the actual TOKEN balance.
         vm.prank(USER1);
         vm.expectRevert();
-        jbMultiTerminal().cashOutTokensOf({
-            holder: USER1,
-            projectId: REVNET_ID,
-            cashOutCount: revTokens,
-            tokenToReclaim: address(TOKEN),
-            minTokensReclaimed: 0,
-            beneficiary: payable(USER1),
-            metadata: ""
-        });
+        jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: USER1,
+                projectId: REVNET_ID,
+                cashOutCount: revTokens,
+                tokenToReclaim: address(TOKEN),
+                minTokensReclaimed: 0,
+                beneficiary: payable(USER1),
+                metadata: ""
+            });
     }
 
     /// @notice Pay with TOKEN (so the surplus is in TOKEN), then pay with ETH too.
@@ -349,9 +349,8 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
         // Price feed: TOKEN -> ETH. 1 TOKEN (6 dec) = 0.0005 ETH. So 2000 TOKEN = 1 ETH.
         MockPriceFeed priceFeed = new MockPriceFeed(5e14, 18);
         vm.prank(multisig());
-        jbPrices().addPriceFeedFor(
-            0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed
-        );
+        jbPrices()
+            .addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
 
         _deployFeeProject();
         REVNET_ID = _deployEthBasedRevnet(5000); // 50% cash out tax
@@ -368,15 +367,16 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
         // Cash out a small portion in TOKEN. Since the TOKEN was paid in, the terminal has the balance.
         uint256 cashOutCount = revTokens / 10; // Only cash out 10% to ensure balance sufficiency.
         vm.prank(USER1);
-        uint256 reclaimedToken = jbMultiTerminal().cashOutTokensOf({
-            holder: USER1,
-            projectId: REVNET_ID,
-            cashOutCount: cashOutCount,
-            tokenToReclaim: address(TOKEN),
-            minTokensReclaimed: 0,
-            beneficiary: payable(USER1),
-            metadata: ""
-        });
+        uint256 reclaimedToken = jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: USER1,
+                projectId: REVNET_ID,
+                cashOutCount: cashOutCount,
+                tokenToReclaim: address(TOKEN),
+                minTokensReclaimed: 0,
+                beneficiary: payable(USER1),
+                metadata: ""
+            });
 
         assertGt(reclaimedToken, 0, "should reclaim some TOKEN");
         assertLe(reclaimedToken, tokenPayment, "should not exceed total TOKEN paid in");
@@ -389,9 +389,8 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
         // 1 TOKEN (6 dec) = 0.0005 ETH (18 dec). So 2000 TOKEN = 1 ETH.
         MockPriceFeed priceFeed = new MockPriceFeed(5e14, 18);
         vm.prank(multisig());
-        jbPrices().addPriceFeedFor(
-            0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed
-        );
+        jbPrices()
+            .addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
 
         _deployFeeProject();
         REVNET_ID = _deployEthBasedRevnet(5000); // 50% cash out tax
@@ -415,15 +414,16 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
         // When User1 cashes out in ETH, the reclaimed amount should reflect the total surplus
         // including the TOKEN contribution (converted via price feed).
         vm.prank(USER1);
-        uint256 reclaimed = jbMultiTerminal().cashOutTokensOf({
-            holder: USER1,
-            projectId: REVNET_ID,
-            cashOutCount: tokens1,
-            tokenToReclaim: JBConstants.NATIVE_TOKEN,
-            minTokensReclaimed: 0,
-            beneficiary: payable(USER1),
-            metadata: ""
-        });
+        uint256 reclaimed = jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: USER1,
+                projectId: REVNET_ID,
+                cashOutCount: tokens1,
+                tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                minTokensReclaimed: 0,
+                beneficiary: payable(USER1),
+                metadata: ""
+            });
         assertGt(reclaimed, 0, "should reclaim ETH from mixed-currency surplus");
 
         // The reclaimed amount should be less than the original payment (due to bonding curve tax).
@@ -435,9 +435,8 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
         // Price feed: TOKEN -> ETH.
         MockPriceFeed priceFeed = new MockPriceFeed(5e14, 18);
         vm.prank(multisig());
-        jbPrices().addPriceFeedFor(
-            0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed
-        );
+        jbPrices()
+            .addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
 
         _deployFeeProject();
         REVNET_ID = _deployEthBasedRevnet(5000); // 50% tax
@@ -453,15 +452,16 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
 
         // Cash out should not return more than 1 wei.
         vm.prank(USER1);
-        uint256 reclaimed = jbMultiTerminal().cashOutTokensOf({
-            holder: USER1,
-            projectId: REVNET_ID,
-            cashOutCount: tokens,
-            tokenToReclaim: JBConstants.NATIVE_TOKEN,
-            minTokensReclaimed: 0,
-            beneficiary: payable(USER1),
-            metadata: ""
-        });
+        uint256 reclaimed = jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: USER1,
+                projectId: REVNET_ID,
+                cashOutCount: tokens,
+                tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                minTokensReclaimed: 0,
+                beneficiary: payable(USER1),
+                metadata: ""
+            });
 
         assertLe(reclaimed, 1, "tiny payment should not yield more than original amount");
     }
@@ -472,9 +472,8 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
         // 1 TOKEN unit (6 dec) = 1,000,000 ETH (18 dec). This is an extreme price.
         MockPriceFeed priceFeed = new MockPriceFeed(1_000_000e18, 18);
         vm.prank(multisig());
-        jbPrices().addPriceFeedFor(
-            0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed
-        );
+        jbPrices()
+            .addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
 
         _deployFeeProject();
         REVNET_ID = _deployEthBasedRevnet(5000);
@@ -490,15 +489,16 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
 
         // Cash out in TOKEN.
         vm.prank(USER1);
-        uint256 reclaimed = jbMultiTerminal().cashOutTokensOf({
-            holder: USER1,
-            projectId: REVNET_ID,
-            cashOutCount: revTokens,
-            tokenToReclaim: address(TOKEN),
-            minTokensReclaimed: 0,
-            beneficiary: payable(USER1),
-            metadata: ""
-        });
+        uint256 reclaimed = jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: USER1,
+                projectId: REVNET_ID,
+                cashOutCount: revTokens,
+                tokenToReclaim: address(TOKEN),
+                minTokensReclaimed: 0,
+                beneficiary: payable(USER1),
+                metadata: ""
+            });
 
         // Should reclaim some TOKEN (bounded by the original payment amount).
         assertLe(reclaimed, tokenAmount, "should not exceed original TOKEN payment");
@@ -510,9 +510,8 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
         // 1 TOKEN unit (6 dec) = 0.000001 ETH (1e12 wei). Low value token.
         MockPriceFeed priceFeed = new MockPriceFeed(1e12, 18);
         vm.prank(multisig());
-        jbPrices().addPriceFeedFor(
-            0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed
-        );
+        jbPrices()
+            .addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
 
         _deployFeeProject();
         REVNET_ID = _deployEthBasedRevnet(3000); // 30% cash out tax
@@ -532,15 +531,16 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
 
         // Cash out in TOKEN.
         vm.prank(USER1);
-        uint256 reclaimed = jbMultiTerminal().cashOutTokensOf({
-            holder: USER1,
-            projectId: REVNET_ID,
-            cashOutCount: revTokens,
-            tokenToReclaim: address(TOKEN),
-            minTokensReclaimed: 0,
-            beneficiary: payable(USER1),
-            metadata: ""
-        });
+        uint256 reclaimed = jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: USER1,
+                projectId: REVNET_ID,
+                cashOutCount: revTokens,
+                tokenToReclaim: address(TOKEN),
+                minTokensReclaimed: 0,
+                beneficiary: payable(USER1),
+                metadata: ""
+            });
 
         assertLe(reclaimed, tokenAmount, "should not exceed total TOKEN paid");
     }
@@ -550,9 +550,8 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
         // Price feed: TOKEN -> ETH.
         MockPriceFeed priceFeed = new MockPriceFeed(5e14, 18); // 0.0005 ETH per TOKEN
         vm.prank(multisig());
-        jbPrices().addPriceFeedFor(
-            0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed
-        );
+        jbPrices()
+            .addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
 
         _deployFeeProject();
         REVNET_ID = _deployEthBasedRevnet(0); // 0% cash out tax
@@ -568,15 +567,16 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
 
         // Cash out all tokens. With 0% tax + sole holder, the bonding curve returns full surplus.
         vm.prank(USER1);
-        uint256 reclaimed = jbMultiTerminal().cashOutTokensOf({
-            holder: USER1,
-            projectId: REVNET_ID,
-            cashOutCount: tokens,
-            tokenToReclaim: JBConstants.NATIVE_TOKEN,
-            minTokensReclaimed: 0,
-            beneficiary: payable(USER1),
-            metadata: ""
-        });
+        uint256 reclaimed = jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: USER1,
+                projectId: REVNET_ID,
+                cashOutCount: tokens,
+                tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                minTokensReclaimed: 0,
+                beneficiary: payable(USER1),
+                metadata: ""
+            });
 
         // With 0% cash out tax, no fee is charged on cash outs (per REVDeployer.beforeCashOutRecordedWith).
         assertEq(reclaimed, balanceBefore, "0% tax, single holder should reclaim full balance");

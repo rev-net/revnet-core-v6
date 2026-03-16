@@ -99,9 +99,8 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
         // Price feed: TOKEN -> ETH. 1 TOKEN (6 dec) = 0.0005 ETH.
         MockPriceFeed priceFeed = new MockPriceFeed(5e14, 18);
         vm.prank(multisig());
-        jbPrices().addPriceFeedFor(
-            0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed
-        );
+        jbPrices()
+            .addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
@@ -246,9 +245,7 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
             jbMultiTerminal().pay{value: ethAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, ethAmount, user, 0, "", "");
 
         // Check borrowable amount for the given source.
-        borrowAmount = LOANS_CONTRACT.borrowableAmountFrom(
-            REVNET_ID, tokenCount, 18, uint32(uint160(source.token))
-        );
+        borrowAmount = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokenCount, 18, uint32(uint160(source.token)));
         if (borrowAmount == 0) return (0, tokenCount, 0);
 
         // Mock permission for burn.
@@ -259,8 +256,7 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
         );
 
         vm.prank(user);
-        (loanId,) =
-            LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), 25);
+        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), 25);
     }
 
     //*********************************************************************//
@@ -299,9 +295,8 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
             jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, user2, 0, "", "");
 
         REVLoanSource memory tokenSource = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
-        uint256 tokenBorrowable = LOANS_CONTRACT.borrowableAmountFrom(
-            REVNET_ID, user2Tokens, 6, uint32(uint160(address(TOKEN)))
-        );
+        uint256 tokenBorrowable =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, user2Tokens, 6, uint32(uint160(address(TOKEN))));
 
         if (tokenBorrowable > 0) {
             mockExpect(
@@ -313,8 +308,7 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
             );
 
             vm.prank(user2);
-            (uint256 loanId2,) =
-                LOANS_CONTRACT.borrowFrom(REVNET_ID, tokenSource, 0, user2Tokens, payable(user2), 25);
+            (uint256 loanId2,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, tokenSource, 0, user2Tokens, payable(user2), 25);
             assertGt(loanId2, 0, "TOKEN loan should be created");
 
             // Both sources should now be registered.
@@ -393,9 +387,8 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
         vm.prank(user2);
         uint256 user2Tokens =
             jbMultiTerminal().pay{value: 5e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 5e18, user2, 0, "", "");
-        uint256 user2Borrowable = LOANS_CONTRACT.borrowableAmountFrom(
-            REVNET_ID, user2Tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        uint256 user2Borrowable =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, user2Tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         if (user2Borrowable > 0) {
             mockExpect(
@@ -407,17 +400,14 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
             );
 
             vm.prank(user2);
-            (uint256 loanId2,) =
-                LOANS_CONTRACT.borrowFrom(REVNET_ID, ethSource2, 0, user2Tokens, payable(user2), 25);
+            (uint256 loanId2,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, ethSource2, 0, user2Tokens, payable(user2), 25);
             assertGt(loanId2, 0, "second loan should be created");
 
             // First loan should be unaffected.
             REVLoan memory loan1After = LOANS_CONTRACT.loanOf(loanId1);
             assertEq(loan1After.amount, loan1Before.amount, "first loan amount should be unchanged");
             assertEq(loan1After.collateral, loan1Before.collateral, "first loan collateral should be unchanged");
-            assertEq(
-                loan1After.source.token, loan1Before.source.token, "first loan source token should be unchanged"
-            );
+            assertEq(loan1After.source.token, loan1Before.source.token, "first loan source token should be unchanged");
             assertEq(
                 address(loan1After.source.terminal),
                 address(loan1Before.source.terminal),
@@ -451,8 +441,8 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
 
         // Verify the prepaid duration is consistent with the fee percent.
         // prepaidDuration = prepaidFeePercent * LOAN_LIQUIDATION_DURATION / MAX_PREPAID_FEE_PERCENT.
-        uint256 expectedDuration = (25 * LOANS_CONTRACT.LOAN_LIQUIDATION_DURATION())
-            / LOANS_CONTRACT.MAX_PREPAID_FEE_PERCENT();
+        uint256 expectedDuration =
+            (25 * LOANS_CONTRACT.LOAN_LIQUIDATION_DURATION()) / LOANS_CONTRACT.MAX_PREPAID_FEE_PERCENT();
         assertEq(ethLoan.prepaidDuration, expectedDuration, "prepaid duration should match formula");
 
         // Verify source fee amount is nonzero for a nonzero loan.
@@ -485,8 +475,7 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
         assertGt(totalBorrowedEth, 0, "should have nonzero total borrowed from ETH");
 
         // TOKEN source should have zero total borrowed.
-        uint256 totalBorrowedToken =
-            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), address(TOKEN));
+        uint256 totalBorrowedToken = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), address(TOKEN));
         assertEq(totalBorrowedToken, 0, "TOKEN source should have zero total borrowed");
     }
 
@@ -512,11 +501,9 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
         vm.deal(user2, 100e18);
 
         vm.prank(user2);
-        uint256 tokens =
-            jbMultiTerminal().pay{value: 5e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 5e18, user2, 0, "", "");
-        uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(
-            REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        uint256 tokens = jbMultiTerminal().pay{value: 5e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 5e18, user2, 0, "", "");
+        uint256 borrowable =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         if (borrowable > 0) {
             mockExpect(

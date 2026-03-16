@@ -335,15 +335,16 @@ contract TestLongTailEconomics is TestBaseWorkflow {
         uint256 totalReclaimed;
         for (uint256 i; i < 3; i++) {
             vm.prank(users[i]);
-            uint256 reclaimed = jbMultiTerminal().cashOutTokensOf({
-                holder: users[i],
-                projectId: REVNET_ID,
-                cashOutCount: userTokens[i],
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(users[i]),
-                metadata: ""
-            });
+            uint256 reclaimed = jbMultiTerminal()
+                .cashOutTokensOf({
+                    holder: users[i],
+                    projectId: REVNET_ID,
+                    cashOutCount: userTokens[i],
+                    tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                    minTokensReclaimed: 0,
+                    beneficiary: payable(users[i]),
+                    metadata: ""
+                });
             totalReclaimed += reclaimed;
         }
 
@@ -377,27 +378,28 @@ contract TestLongTailEconomics is TestBaseWorkflow {
 
         // Pay 50 ETH.
         vm.prank(payer);
-        uint256 totalTokens = jbMultiTerminal().pay{value: 50e18}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, 50e18, payer, 0, "", ""
-        );
+        uint256 totalTokens =
+            jbMultiTerminal().pay{value: 50e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 50e18, payer, 0, "", "");
 
         // Cash out half the tokens.
         uint256 halfTokens = totalTokens / 2;
         vm.prank(payer);
-        uint256 reclaimedHalf = jbMultiTerminal().cashOutTokensOf({
-            holder: payer,
-            projectId: REVNET_ID,
-            cashOutCount: halfTokens,
-            tokenToReclaim: JBConstants.NATIVE_TOKEN,
-            minTokensReclaimed: 0,
-            beneficiary: payable(payer),
-            metadata: ""
-        });
+        uint256 reclaimedHalf = jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: payer,
+                projectId: REVNET_ID,
+                cashOutCount: halfTokens,
+                tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                minTokensReclaimed: 0,
+                beneficiary: payable(payer),
+                metadata: ""
+            });
 
         // With a 50% tax rate and being the only holder, cashing out half the tokens
         // should return less than half the surplus (bonding curve subproportional behavior).
         // The terminal balance before cash out is 50 ETH (minus any reserved token splits).
-        uint256 terminalBalanceBefore = 50e18; // Approximate -- the actual might differ slightly due to reserved splits.
+        uint256 terminalBalanceBefore = 50e18; // Approximate -- the actual might differ slightly due to reserved
+        // splits.
         assertLt(
             reclaimedHalf,
             terminalBalanceBefore / 2,
@@ -422,15 +424,16 @@ contract TestLongTailEconomics is TestBaseWorkflow {
             uint256 userBalance = jbTokens().totalBalanceOf(users[i], REVNET_ID);
             if (userBalance > 0) {
                 vm.prank(users[i]);
-                jbMultiTerminal().cashOutTokensOf({
-                    holder: users[i],
-                    projectId: REVNET_ID,
-                    cashOutCount: userBalance / 2,
-                    tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                    minTokensReclaimed: 0,
-                    beneficiary: payable(users[i]),
-                    metadata: ""
-                });
+                jbMultiTerminal()
+                    .cashOutTokensOf({
+                        holder: users[i],
+                        projectId: REVNET_ID,
+                        cashOutCount: userBalance / 2,
+                        tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                        minTokensReclaimed: 0,
+                        beneficiary: payable(users[i]),
+                        metadata: ""
+                    });
             }
         }
 
@@ -448,15 +451,16 @@ contract TestLongTailEconomics is TestBaseWorkflow {
             uint256 user3Balance = jbTokens().totalBalanceOf(users[3], REVNET_ID);
             if (user3Balance > 0) {
                 vm.prank(users[3]);
-                jbMultiTerminal().cashOutTokensOf({
-                    holder: users[3],
-                    projectId: REVNET_ID,
-                    cashOutCount: user3Balance,
-                    tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                    minTokensReclaimed: 0,
-                    beneficiary: payable(users[3]),
-                    metadata: ""
-                });
+                jbMultiTerminal()
+                    .cashOutTokensOf({
+                        holder: users[3],
+                        projectId: REVNET_ID,
+                        cashOutCount: user3Balance,
+                        tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                        minTokensReclaimed: 0,
+                        beneficiary: payable(users[3]),
+                        metadata: ""
+                    });
             }
         }
 
@@ -485,9 +489,8 @@ contract TestLongTailEconomics is TestBaseWorkflow {
 
         // Pay 1 ETH now.
         vm.prank(user);
-        uint256 tokensBefore = jbMultiTerminal().pay{value: 1e18}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, 1e18, user, 0, "", ""
-        );
+        uint256 tokensBefore =
+            jbMultiTerminal().pay{value: 1e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 1e18, user, 0, "", "");
 
         // Warp 180 days (2 cut periods of 90 days each).
         vm.warp(block.timestamp + 180 days);
@@ -496,9 +499,8 @@ contract TestLongTailEconomics is TestBaseWorkflow {
         address user2 = makeAddr("decay_user2");
         vm.deal(user2, 100e18);
         vm.prank(user2);
-        uint256 tokensAfter = jbMultiTerminal().pay{value: 1e18}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, 1e18, user2, 0, "", ""
-        );
+        uint256 tokensAfter =
+            jbMultiTerminal().pay{value: 1e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 1e18, user2, 0, "", "");
 
         // Stage 0 has 50% cut per 90-day cycle. After 2 cycles, issuance should be ~25% of original.
         assertGt(tokensBefore, tokensAfter, "earlier payment should receive more tokens due to issuance decay");
@@ -511,9 +513,7 @@ contract TestLongTailEconomics is TestBaseWorkflow {
         // Early users pay 10 ETH each.
         for (uint256 i; i < 5; i++) {
             vm.prank(earlyUsers[i]);
-            jbMultiTerminal().pay{value: 10e18}(
-                REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, earlyUsers[i], 0, "", ""
-            );
+            jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, earlyUsers[i], 0, "", "");
         }
 
         // Warp to stage 1 to change the cash out tax rate.
@@ -523,21 +523,21 @@ contract TestLongTailEconomics is TestBaseWorkflow {
         address lateUser = makeAddr("late_user");
         vm.deal(lateUser, 100e18);
         vm.prank(lateUser);
-        uint256 lateTokens = jbMultiTerminal().pay{value: 10e18}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, lateUser, 0, "", ""
-        );
+        uint256 lateTokens =
+            jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, lateUser, 0, "", "");
 
         // Late entrant immediately tries to cash out everything.
         vm.prank(lateUser);
-        uint256 reclaimed = jbMultiTerminal().cashOutTokensOf({
-            holder: lateUser,
-            projectId: REVNET_ID,
-            cashOutCount: lateTokens,
-            tokenToReclaim: JBConstants.NATIVE_TOKEN,
-            minTokensReclaimed: 0,
-            beneficiary: payable(lateUser),
-            metadata: ""
-        });
+        uint256 reclaimed = jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: lateUser,
+                projectId: REVNET_ID,
+                cashOutCount: lateTokens,
+                tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                minTokensReclaimed: 0,
+                beneficiary: payable(lateUser),
+                metadata: ""
+            });
 
         // The late entrant should not extract more than they put in.
         assertLe(reclaimed, 10e18, "late entrant should not extract more than they paid");
@@ -571,15 +571,16 @@ contract TestLongTailEconomics is TestBaseWorkflow {
             uint256 balance0 = jbTokens().totalBalanceOf(users[0], REVNET_ID);
             if (balance0 > 0) {
                 vm.prank(users[0]);
-                jbMultiTerminal().cashOutTokensOf({
-                    holder: users[0],
-                    projectId: REVNET_ID,
-                    cashOutCount: balance0 / 3,
-                    tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                    minTokensReclaimed: 0,
-                    beneficiary: payable(users[0]),
-                    metadata: ""
-                });
+                jbMultiTerminal()
+                    .cashOutTokensOf({
+                        holder: users[0],
+                        projectId: REVNET_ID,
+                        cashOutCount: balance0 / 3,
+                        tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                        minTokensReclaimed: 0,
+                        beneficiary: payable(users[0]),
+                        metadata: ""
+                    });
             }
         }
 
@@ -601,11 +602,7 @@ contract TestLongTailEconomics is TestBaseWorkflow {
         uint256 terminalEth = address(jbMultiTerminal()).balance;
 
         assertGt(recordedBalance, 0, "recorded balance should be positive");
-        assertLe(
-            recordedBalance,
-            terminalEth,
-            "recorded balance should not exceed terminal's actual ETH"
-        );
+        assertLe(recordedBalance, terminalEth, "recorded balance should not exceed terminal's actual ETH");
     }
 
     /// @notice Monotonically increasing fee project balance: every cash out with nonzero tax should increase
@@ -616,9 +613,8 @@ contract TestLongTailEconomics is TestBaseWorkflow {
 
         // Pay 100 ETH.
         vm.prank(user);
-        uint256 tokens = jbMultiTerminal().pay{value: 100e18}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, 100e18, user, 0, "", ""
-        );
+        uint256 tokens =
+            jbMultiTerminal().pay{value: 100e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 100e18, user, 0, "", "");
 
         uint256 feeBalanceBefore =
             jbTerminalStore().balanceOf(address(jbMultiTerminal()), FEE_PROJECT_ID, JBConstants.NATIVE_TOKEN);
@@ -630,25 +626,22 @@ contract TestLongTailEconomics is TestBaseWorkflow {
                 jbTerminalStore().balanceOf(address(jbMultiTerminal()), FEE_PROJECT_ID, JBConstants.NATIVE_TOKEN);
 
             vm.prank(user);
-            jbMultiTerminal().cashOutTokensOf({
-                holder: user,
-                projectId: REVNET_ID,
-                cashOutCount: portion,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(user),
-                metadata: ""
-            });
+            jbMultiTerminal()
+                .cashOutTokensOf({
+                    holder: user,
+                    projectId: REVNET_ID,
+                    cashOutCount: portion,
+                    tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                    minTokensReclaimed: 0,
+                    beneficiary: payable(user),
+                    metadata: ""
+                });
 
             uint256 feeBalanceAfterRound =
                 jbTerminalStore().balanceOf(address(jbMultiTerminal()), FEE_PROJECT_ID, JBConstants.NATIVE_TOKEN);
 
             // Fee balance should increase (or at least not decrease) after each cash out.
-            assertGe(
-                feeBalanceAfterRound,
-                feeBalanceBeforeRound,
-                "fee project balance should monotonically increase"
-            );
+            assertGe(feeBalanceAfterRound, feeBalanceBeforeRound, "fee project balance should monotonically increase");
         }
 
         uint256 feeBalanceAfter =
