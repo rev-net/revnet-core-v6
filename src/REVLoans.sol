@@ -417,8 +417,10 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         // If the loan period has passed the prepaid time frame, take a fee.
         if (timeSinceLoanCreated <= loan.prepaidDuration) return 0;
 
-        // If the loan period has reached or passed the liquidation time frame, do not allow loan management.
-        if (timeSinceLoanCreated >= LOAN_LIQUIDATION_DURATION) {
+        // If the loan period has passed the liquidation time frame, do not allow loan management.
+        // Uses `>` (not `>=`) so the exact boundary second is still repayable — the liquidation path
+        // uses `<=`, and matching `>=` here would create a 1-second window where neither path is available.
+        if (timeSinceLoanCreated > LOAN_LIQUIDATION_DURATION) {
             revert REVLoans_LoanExpired(timeSinceLoanCreated, LOAN_LIQUIDATION_DURATION);
         }
 
@@ -520,7 +522,8 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
                 });
 
                 // If the price feed returns zero, skip this source to avoid a division-by-zero panic
-                // that would DoS all loan operations.
+                // that would DoS all loan operations. This intentionally understates total debt for
+                // the affected source — an acceptable tradeoff vs. blocking every borrow/repay.
                 if (pricePerUnit == 0) continue;
 
                 borrowedAmount += mulDiv({x: normalizedTokens, y: 10 ** decimals, denominator: pricePerUnit});
@@ -583,7 +586,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
 
         // Set the loan's values.
         loan.source = source;
-        loan.createdAt = uint40(block.timestamp);
+        loan.createdAt = uint48(block.timestamp);
         // forge-lint: disable-next-line(unsafe-typecast)
         loan.prepaidFeePercent = uint16(prepaidFeePercent);
         loan.prepaidDuration =
@@ -599,6 +602,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         if (borrowAmount < minBorrowAmount) revert REVLoans_UnderMinBorrowAmount(minBorrowAmount, borrowAmount);
 
         // Get the amount of additional fee to take for the revnet issuing the loan.
+        // Fee rounding may leave a few wei of dust — economically insignificant relative to gas costs.
         uint256 sourceFeeAmount = JBFees.feeAmountFrom({amountBeforeFee: borrowAmount, feePercent: prepaidFeePercent});
 
         // Borrow the amount.
@@ -936,8 +940,8 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         internal
     {
         // Register the source if this is the first time its being used for this revnet.
-        // Note: Sources are only appended, never removed. This is acceptable because the number of distinct
-        // (terminal, token) pairs per revnet is practically bounded.
+        // Note: Sources are only appended, never removed. Gas accumulation from iteration is bounded
+        // because the number of distinct (terminal, token) pairs per revnet is practically small (~5-20).
         if (!isLoanSourceOf[revnetId][loan.source.terminal][loan.source.token]) {
             isLoanSourceOf[revnetId][loan.source.terminal][loan.source.token] = true;
             _loanSourcesOf[revnetId].push(REVLoanSource({token: loan.source.token, terminal: loan.source.terminal}));
@@ -1003,6 +1007,9 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         }
 
         // Transfer the remaining balance to the borrower.
+        // Note: In extreme fee configurations the subtraction could theoretically underflow, but the
+        // protocol fee (2.5%) and source fee (capped at prepaidFeePercent) are both small fractions of
+        // the borrowed amount, so `netAmountPaidOut` will always exceed their sum in practice.
         _transferFrom({
             from: address(this),
             to: beneficiary,
@@ -1074,16 +1081,17 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
             });
         }
 
-        // If there is a source fee, pay it.
+        // If there is a source fee, pay it. Wrapped in try-catch so a reverting source terminal
+        // cannot block all loan operations (matching the REV fee pattern above).
         if (sourceFeeAmount > 0) {
-            // Increase the allowance for the beneficiary.
+            // Increase the allowance for the source terminal.
             uint256 payValue = _beforeTransferTo({
                 to: address(loan.source.terminal), token: loan.source.token, amount: sourceFeeAmount
             });
 
-            // Pay the fee.
-            // slither-disable-next-line unused-return
-            loan.source.terminal.pay{value: payValue}({
+            // Pay the fee. If it fails, reclaim the allowance and give the amount back to the borrower.
+            // slither-disable-next-line unused-return,arbitrary-send-eth
+            try loan.source.terminal.pay{value: payValue}({
                 projectId: revnetId,
                 token: loan.source.token,
                 amount: sourceFeeAmount,
@@ -1091,7 +1099,23 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
                 minReturnedTokens: 0,
                 memo: "Fee from loan",
                 metadata: bytes(abi.encodePacked(REV_ID))
-            });
+            }) {}
+            catch (bytes memory) {
+                // If the fee can't be processed, decrease the ERC-20 allowance and return the amount
+                // to the beneficiary instead.
+                if (loan.source.token != JBConstants.NATIVE_TOKEN) {
+                    IERC20(loan.source.token).safeDecreaseAllowance({
+                        spender: address(loan.source.terminal),
+                        requestedDecrease: sourceFeeAmount
+                    });
+                }
+                _transferFrom({
+                    from: address(this),
+                    to: beneficiary,
+                    token: loan.source.token,
+                    amount: sourceFeeAmount
+                });
+            }
         }
     }
 
