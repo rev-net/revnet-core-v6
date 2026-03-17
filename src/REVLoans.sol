@@ -1104,17 +1104,12 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
                 // If the fee can't be processed, decrease the ERC-20 allowance and return the amount
                 // to the beneficiary instead.
                 if (loan.source.token != JBConstants.NATIVE_TOKEN) {
-                    IERC20(loan.source.token).safeDecreaseAllowance({
-                        spender: address(loan.source.terminal),
-                        requestedDecrease: sourceFeeAmount
-                    });
+                    IERC20(loan.source.token)
+                        .safeDecreaseAllowance({
+                            spender: address(loan.source.terminal), requestedDecrease: sourceFeeAmount
+                        });
                 }
-                _transferFrom({
-                    from: address(this),
-                    to: beneficiary,
-                    token: loan.source.token,
-                    amount: sourceFeeAmount
-                });
+                _transferFrom({from: address(this), to: beneficiary, token: loan.source.token, amount: sourceFeeAmount});
             }
         }
     }
