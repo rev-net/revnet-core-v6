@@ -23,7 +23,6 @@ import "@croptop/core-v6/script/helpers/CroptopDeploymentLib.sol";
 import "@bananapus/router-terminal-v6/script/helpers/RouterTerminalDeploymentLib.sol";
 
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
-import {JBFees} from "@bananapus/core-v6/src/libraries/JBFees.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVLoan} from "../src/structs/REVLoan.sol";
@@ -318,9 +317,7 @@ contract REVLoansSourceFeeRecovery is TestBaseWorkflow {
         // Step 4: Mock the source terminal's pay() to revert.
         // This affects only `pay` calls, not `addToBalanceOf` (used by _removeFrom).
         vm.mockCallRevert(
-            address(jbMultiTerminal()),
-            abi.encodeWithSelector(IJBTerminal.pay.selector),
-            "Source fee terminal failed"
+            address(jbMultiTerminal()), abi.encodeWithSelector(IJBTerminal.pay.selector), "Source fee terminal failed"
         );
 
         // Step 5: Repay the full loan. The source fee try-catch should handle the reverting terminal.
@@ -413,9 +410,7 @@ contract REVLoansSourceFeeRecovery is TestBaseWorkflow {
         vm.revertToState(snap);
 
         vm.mockCallRevert(
-            address(jbMultiTerminal()),
-            abi.encodeWithSelector(IJBTerminal.pay.selector),
-            "Source fee terminal failed"
+            address(jbMultiTerminal()), abi.encodeWithSelector(IJBTerminal.pay.selector), "Source fee terminal failed"
         );
 
         vm.deal(USER, repayAmount);
@@ -477,9 +472,7 @@ contract REVLoansSourceFeeRecovery is TestBaseWorkflow {
         // Now mock the source terminal's pay to revert (for source fee payment).
         // This will also cause the REV fee payment to fail (same terminal), but both are try-caught.
         vm.mockCallRevert(
-            address(jbMultiTerminal()),
-            abi.encodeWithSelector(IJBTerminal.pay.selector),
-            "Terminal pay failed"
+            address(jbMultiTerminal()), abi.encodeWithSelector(IJBTerminal.pay.selector), "Terminal pay failed"
         );
 
         _mockLoanPermission(USER);
