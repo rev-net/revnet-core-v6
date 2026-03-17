@@ -149,7 +149,7 @@ REVDeployer sits between the terminal and the actual hooks (buyback hook, 721 ho
 
 ### Fee terminal unavailability
 
-- **Source fee payment in `_adjust` is NOT try-caught.** If `loan.source.terminal.pay` reverts when paying the source fee, the entire borrow/repay reverts. A terminal that begins reverting on `pay` can freeze all loan operations for that source.
+- **Source fee payment in `_adjust` IS try-caught.** If `loan.source.terminal.pay` reverts when paying the source fee, the fee amount is returned to the borrower instead. This prevents a reverting terminal from blocking all loan operations.
 - **REV fee payment in `_addTo` IS try-caught.** If the REV fee terminal is unavailable, the fee is zeroed and the borrower receives it. This is graceful degradation.
 - **Cash-out fee in `afterCashOutRecordedWith` IS try-caught.** Falls back to `addToBalanceOf`. If fallback also fails, the transaction still doesn't revert (the deployer absorbs the funds, which can only be recovered via `burnHeldTokensOf` for project tokens, not arbitrary tokens).
 

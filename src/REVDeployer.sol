@@ -220,6 +220,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         });
 
         // Give the loan contract permission to use the surplus allowance of all revnets.
+        // Uses wildcard revnetId=0 intentionally — the loan contract is a singleton shared by all revnets,
+        // and each revnet's surplus allowance limits already constrain how much can be drawn.
         _setPermission({operator: LOANS, revnetId: 0, permissionId: JBPermissionIds.USE_ALLOWANCE});
 
         // Give the buyback hook (registry) permission to configure pools on all revnets.
@@ -251,6 +253,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         )
     {
         // If the cash out is from a sucker, return the full cash out amount without taxes or fees.
+        // This relies on the sucker registry to only contain trusted sucker contracts deployed via
+        // the registry's own deploySuckersFor flow — external addresses cannot register as suckers.
         if (_isSuckerOf({revnetId: context.projectId, addr: context.holder})) {
             return (0, context.cashOutCount, context.totalSupply, hookSpecifications);
         }
@@ -1126,6 +1130,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// of collateral) or lower issuance weight (reducing the surplus-per-token ratio). Borrowers should monitor
     /// upcoming stage transitions and adjust their positions accordingly, as loans that fall below their required
     /// collateralization may become eligible for liquidation.
+    /// @dev `cashOutTaxRate` changes at stage boundaries may allow users to cash out just before a rate increase.
+    /// This is accepted behavior — the arbitrage window is bounded by the ruleset design, and all stages are
+    /// configured immutably at deployment time.
     /// @param revnetId The ID of the revnet to make rulesets for.
     /// @param configuration The configuration containing the revnet's stages.
     /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
