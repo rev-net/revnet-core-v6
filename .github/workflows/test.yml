@@ -30,6 +30,7 @@ jobs:
       - name: Run tests
         run: forge test --fail-fast --summary --detailed --skip "*/script/**"
         env:
+          FOUNDRY_PROFILE: ci
           RPC_ETHEREUM_MAINNET: ${{ secrets.RPC_ETHEREUM_MAINNET }}
       - name: Check contract sizes
         run: forge build --sizes --skip "*/test/**" --skip "*/script/**" --skip SphinxUtils
