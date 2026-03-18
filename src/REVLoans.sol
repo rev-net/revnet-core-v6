@@ -59,6 +59,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     error REVLoans_InvalidPrepaidFeePercent(uint256 prepaidFeePercent, uint256 min, uint256 max);
     error REVLoans_InvalidTerminal(address terminal, uint256 revnetId);
     error REVLoans_LoanExpired(uint256 timeSinceLoanCreated, uint256 loanLiquidationDuration);
+    error REVLoans_LoanIdOverflow();
     error REVLoans_NewBorrowAmountGreaterThanLoanAmount(uint256 newBorrowAmount, uint256 loanAmount);
     error REVLoans_NoMsgValueAllowed();
     error REVLoans_NotEnoughCollateral();
@@ -70,7 +71,6 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     error REVLoans_SourceMismatch();
     error REVLoans_Unauthorized(address caller, address owner);
     error REVLoans_UnderMinBorrowAmount(uint256 minBorrowAmount, uint256 borrowAmount);
-    error REVLoans_LoanIdOverflow();
     error REVLoans_ZeroBorrowAmount();
     error REVLoans_ZeroCollateralLoanIsInvalid();
 
