@@ -39,6 +39,7 @@ import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressReg
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 import {REVEmpty721Config} from "../helpers/REVEmpty721Config.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
+import {JBPermissioned} from "@bananapus/core-v6/src/abstract/JBPermissioned.sol";
 
 /// @notice Validates that borrowFrom() reverts with a clear error when the caller hasn't granted BURN_TOKENS
 /// permission to the REVLoans contract.
@@ -221,7 +222,15 @@ contract TestBurnPermissionRequired is TestBaseWorkflow {
         // Attempt to borrow WITHOUT granting BURN_TOKENS permission → should revert.
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
         vm.prank(user);
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                JBPermissioned.JBPermissioned_Unauthorized.selector,
+                user, // account (the token holder)
+                address(LOANS_CONTRACT), // sender (the contract trying to burn)
+                REVNET_ID, // projectId
+                JBPermissionIds.BURN_TOKENS // permissionId
+            )
+        );
         LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), 25);
     }
 

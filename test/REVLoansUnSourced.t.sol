@@ -31,6 +31,8 @@ import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol
 import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
+import {JBPermissioned} from "@bananapus/core-v6/src/abstract/JBPermissioned.sol";
+import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
 import {JBSuckerRegistry} from "@bananapus/suckers-v6/src/JBSuckerRegistry.sol";
 import {JB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
@@ -363,7 +365,15 @@ contract REVLoansUnsourcedTests is TestBaseWorkflow {
 
         // Loan fund access limits are now auto-derived from terminal configs, so the surplus allowance exists.
         // The borrow still fails because USER hasn't approved LOANS to burn their tokens as collateral.
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                JBPermissioned.JBPermissioned_Unauthorized.selector,
+                USER, // account (the token holder)
+                address(LOANS_CONTRACT), // sender (the contract trying to burn)
+                REVNET_ID, // projectId
+                JBPermissionIds.BURN_TOKENS // permissionId
+            )
+        );
 
         REVLoanSource memory sauce = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 
