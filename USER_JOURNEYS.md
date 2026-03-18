@@ -146,6 +146,10 @@ This is a standard Juicebox payment, but REVDeployer intervenes as the data hook
 
 **Entry point:** `REVLoans.borrowFrom(revnetId, source, minBorrowAmount, collateralCount, beneficiary, prepaidFeePercent)`
 
+**Prerequisites:**
+- Caller must hold `collateralCount` revnet ERC-20 tokens
+- Caller must grant `BURN_TOKENS` permission to the REVLoans contract for the revnet's project ID via `JBPermissions.setPermissionsFor()`. Without this, the transaction reverts in `JBController.burnTokensOf` with `JBPermissioned_Unauthorized`.
+
 **Key parameters:**
 
 | Parameter | Type | Description |
@@ -187,7 +191,7 @@ This is a standard Juicebox payment, but REVDeployer intervenes as the data hook
 **Events:** `Borrow(loanId, revnetId, loan, source, borrowAmount, collateralCount, sourceFeeAmount, beneficiary, caller)`
 
 **Edge cases:**
-- The borrower must hold `collateralCount` revnet tokens (ERC-20 or credits). Credits are burned first by `burnTokensOf`.
+- Revnets always deploy an ERC-20 at creation, so collateral is always ERC-20 tokens (never credits).
 - The `minBorrowAmount` check is against the raw bonding curve output, BEFORE fees are deducted. The actual amount received is less.
 - `prepaidDuration` at minimum (25): `25 * 3650 days / 500 = 182.5 days`. At maximum (500): `500 * 3650 days / 500 = 3650 days`.
 - The REV fee payment failure is non-fatal (borrower gets the fee amount instead). The source fee payment failure IS fatal (entire transaction reverts).
@@ -474,7 +478,7 @@ When a stage transition changes `cashOutTaxRate`:
 | Project owner | `REVDeployer.deployFor(existingId, ...)` | Must own project NFT |
 | Anyone | `JBMultiTerminal.pay(...)` | None |
 | Token holder | `JBMultiTerminal.cashOutTokensOf(...)` | Must hold tokens |
-| Token holder | `REVLoans.borrowFrom(...)` | Must hold tokens (burned as collateral) |
+| Token holder | `REVLoans.borrowFrom(...)` | Must hold tokens + grant `BURN_TOKENS` permission to REVLoans |
 | Loan owner | `REVLoans.repayLoan(...)` | Must own loan NFT |
 | Loan owner | `REVLoans.reallocateCollateralFromLoan(...)` | Must own loan NFT |
 | Anyone | `REVLoans.liquidateExpiredLoansFrom(...)` | None (permissionless after 10 years) |
