@@ -47,7 +47,7 @@ Revnets are autonomous Juicebox projects with predetermined economic stages. Eac
 
 `REVLoans` lets participants borrow against their revnet tokens. Unlike traditional lending:
 
-- **Collateral is burned, not held.** Tokens are destroyed on borrow and re-minted on repay. This keeps the token supply accurate -- collateral tokens don't exist during the loan.
+- **Collateral is burned, not held.** Tokens are destroyed on borrow and re-minted on repay. This keeps the token supply accurate -- collateral tokens don't exist during the loan. Callers must first grant `BURN_TOKENS` permission to the loans contract via `JBPermissions.setPermissionsFor()`.
 - **Borrowable amount = cash-out value.** The bonding curve determines how much you can borrow for a given amount of collateral.
 - **Prepaid fee model.** Borrowers choose a prepaid fee (2.5%-50%) that buys an interest-free window. After that window, a time-proportional source fee accrues.
 - **Each loan is an ERC-721 NFT.** Loans can be transferred, and expired loans (10 years) can be liquidated by anyone.
