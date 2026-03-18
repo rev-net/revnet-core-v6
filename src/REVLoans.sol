@@ -577,16 +577,15 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         }
 
         // The caller must have granted this contract BURN_TOKENS permission so collateral can be posted.
-        if (
-            !IJBPermissioned(address(CONTROLLER)).PERMISSIONS().hasPermission({
-                operator: address(this),
-                account: _msgSender(),
-                projectId: revnetId,
-                permissionId: JBPermissionIds.BURN_TOKENS,
-                includeRoot: true,
-                includeWildcardProjectId: true
-            })
-        ) revert REVLoans_BurnPermissionRequired();
+        if (!IJBPermissioned(address(CONTROLLER)).PERMISSIONS()
+                .hasPermission({
+                    operator: address(this),
+                    account: _msgSender(),
+                    projectId: revnetId,
+                    permissionId: JBPermissionIds.BURN_TOKENS,
+                    includeRoot: true,
+                    includeWildcardProjectId: true
+                })) revert REVLoans_BurnPermissionRequired();
 
         // Make sure the prepaid fee percent is between `MIN_PREPAID_FEE_PERCENT` and `MAX_PREPAID_FEE_PERCENT`. Meaning
         // an 16 year loan can be paid upfront with a

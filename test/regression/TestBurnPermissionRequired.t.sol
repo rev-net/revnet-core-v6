@@ -236,14 +236,13 @@ contract TestBurnPermissionRequired is TestBaseWorkflow {
         uint8[] memory permissionIds = new uint8[](1);
         permissionIds[0] = JBPermissionIds.BURN_TOKENS;
         vm.prank(user);
-        jbPermissions().setPermissionsFor({
-            account: user,
-            permissionsData: JBPermissionsData({
-                operator: address(LOANS_CONTRACT),
-                projectId: uint64(REVNET_ID),
-                permissionIds: permissionIds
-            })
-        });
+        jbPermissions()
+            .setPermissionsFor({
+                account: user,
+                permissionsData: JBPermissionsData({
+                    operator: address(LOANS_CONTRACT), projectId: uint64(REVNET_ID), permissionIds: permissionIds
+                })
+            });
 
         // Borrow should now succeed.
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
