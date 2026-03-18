@@ -70,6 +70,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     error REVLoans_SourceMismatch();
     error REVLoans_Unauthorized(address caller, address owner);
     error REVLoans_UnderMinBorrowAmount(uint256 minBorrowAmount, uint256 borrowAmount);
+    error REVLoans_LoanIdOverflow();
     error REVLoans_ZeroBorrowAmount();
     error REVLoans_ZeroCollateralLoanIsInvalid();
 
@@ -647,6 +648,9 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     /// @param startingLoanId The ID of the loan to start iterating from.
     /// @param count The amount of loans iterate over since the last liquidated loan.
     function liquidateExpiredLoansFrom(uint256 revnetId, uint256 startingLoanId, uint256 count) external override {
+        // Prevent cross-revnet accounting corruption: loan numbers must stay within the revnet's ID namespace.
+        if (startingLoanId + count > _ONE_TRILLION) revert REVLoans_LoanIdOverflow();
+
         // Iterate over the desired number of loans to check for liquidation.
         for (uint256 i; i < count; i++) {
             // Get a reference to the next loan ID.
