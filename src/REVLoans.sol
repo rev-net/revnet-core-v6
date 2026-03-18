@@ -17,7 +17,10 @@ import {IJBPayoutTerminal} from "@bananapus/core-v6/src/interfaces/IJBPayoutTerm
 import {IJBPrices} from "@bananapus/core-v6/src/interfaces/IJBPrices.sol";
 import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
 import {IJBTerminal} from "@bananapus/core-v6/src/interfaces/IJBTerminal.sol";
+import {IJBPermissioned} from "@bananapus/core-v6/src/interfaces/IJBPermissioned.sol";
+import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
 import {IJBTokenUriResolver} from "@bananapus/core-v6/src/interfaces/IJBTokenUriResolver.sol";
+import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {JBCashOuts} from "@bananapus/core-v6/src/libraries/JBCashOuts.sol";
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBFees} from "@bananapus/core-v6/src/libraries/JBFees.sol";
@@ -55,6 +58,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     // --------------------------- custom errors ------------------------- //
     //*********************************************************************//
 
+    error REVLoans_BurnPermissionRequired();
     error REVLoans_CollateralExceedsLoan(uint256 collateralToReturn, uint256 loanCollateral);
     error REVLoans_InvalidPrepaidFeePercent(uint256 prepaidFeePercent, uint256 min, uint256 max);
     error REVLoans_InvalidTerminal(address terminal, uint256 revnetId);
@@ -537,6 +541,8 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     //*********************************************************************//
 
     /// @notice Open a loan by borrowing from a revnet.
+    /// @dev The caller must first grant BURN_TOKENS permission to this contract via JBPermissions.setPermissionsFor().
+    /// This is required because collateral posting burns the caller's tokens through the controller.
     /// @dev Collateral tokens are permanently burned when the loan is created. They are re-minted to the borrower
     /// only upon repayment. If the loan expires (after LOAN_LIQUIDATION_DURATION), the collateral is permanently
     /// lost and cannot be recovered.
@@ -569,6 +575,18 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         if (!DIRECTORY.isTerminalOf({projectId: revnetId, terminal: IJBTerminal(address(source.terminal))})) {
             revert REVLoans_InvalidTerminal(address(source.terminal), revnetId);
         }
+
+        // The caller must have granted this contract BURN_TOKENS permission so collateral can be posted.
+        if (
+            !IJBPermissioned(address(CONTROLLER)).PERMISSIONS().hasPermission({
+                operator: address(this),
+                account: _msgSender(),
+                projectId: revnetId,
+                permissionId: JBPermissionIds.BURN_TOKENS,
+                includeRoot: true,
+                includeWildcardProjectId: true
+            })
+        ) revert REVLoans_BurnPermissionRequired();
 
         // Make sure the prepaid fee percent is between `MIN_PREPAID_FEE_PERCENT` and `MAX_PREPAID_FEE_PERCENT`. Meaning
         // an 16 year loan can be paid upfront with a
