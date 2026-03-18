@@ -35,7 +35,7 @@ import {JBTokenMapping} from "@bananapus/suckers-v6/src/structs/JBTokenMapping.s
 import {JB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
 import {JBArbitrumSuckerDeployer} from "@bananapus/suckers-v6/src/deployers/JBArbitrumSuckerDeployer.sol";
 import {JBArbitrumSucker, JBLayer, IArbGatewayRouter, IInbox} from "@bananapus/suckers-v6/src/JBArbitrumSucker.sol";
-import {JBAddToBalanceMode} from "@bananapus/suckers-v6/src/enums/JBAddToBalanceMode.sol";
+
 import {JB721TiersHook} from "@bananapus/721-hook-v6/src/JB721TiersHook.sol";
 import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStore.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
@@ -236,9 +236,8 @@ contract REVnet_Integrations is TestBaseWorkflow {
         ARB_SUCKER_DEPLOYER = IJBSuckerDeployer(address(_deployer));
 
         // Deploy the ARB sucker singleton.
-        JBArbitrumSucker _singleton = new JBArbitrumSucker(
-            _deployer, jbDirectory(), jbPermissions(), jbTokens(), JBAddToBalanceMode.MANUAL, address(0)
-        );
+        JBArbitrumSucker _singleton =
+            new JBArbitrumSucker(_deployer, jbDirectory(), jbPermissions(), jbTokens(), 1, SUCKER_REGISTRY, address(0));
 
         // Set the layer specific confguration.
         _deployer.setChainSpecificConstants(JBLayer.L1, IInbox(address(1)), IArbGatewayRouter(address(1)));
@@ -415,10 +414,7 @@ contract REVnet_Integrations is TestBaseWorkflow {
 
         address token = makeAddr("someToken");
         tokenMapping[0] = JBTokenMapping({
-            localToken: token,
-            minGas: 200_000,
-            remoteToken: bytes32(uint256(uint160(makeAddr("someOtherToken")))),
-            minBridgeAmount: 100 // emoji
+            localToken: token, minGas: 200_000, remoteToken: bytes32(uint256(uint160(makeAddr("someOtherToken"))))
         });
 
         suckerDeployerConfig[0] = JBSuckerDeployerConfig({deployer: ARB_SUCKER_DEPLOYER, mappings: tokenMapping});

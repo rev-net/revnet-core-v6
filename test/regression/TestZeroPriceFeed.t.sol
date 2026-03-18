@@ -256,9 +256,8 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
         pure
         returns (bytes32)
     {
-        return keccak256(
-            abi.encode(token, keccak256(abi.encode(projectId, keccak256(abi.encode(terminal, uint256(0))))))
-        );
+        return
+            keccak256(abi.encode(token, keccak256(abi.encode(projectId, keccak256(abi.encode(terminal, uint256(0)))))));
     }
 
     //*********************************************************************//
@@ -332,11 +331,7 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
         // Step 6: Mock the price feed to return 0 for the TOKEN -> ETH conversion.
         // This simulates an inverse price feed truncation scenario where the conversion
         // rounds down to zero (e.g., a feed returning 1e21 at 6 decimals inverts to 0).
-        vm.mockCall(
-            address(priceFeed),
-            abi.encodeWithSignature("currentUnitPrice(uint256)"),
-            abi.encode(uint256(0))
-        );
+        vm.mockCall(address(priceFeed), abi.encodeWithSignature("currentUnitPrice(uint256)"), abi.encode(uint256(0)));
 
         // Step 7: Verify borrowableAmountFrom still works (no revert).
         uint256 borrowableWithZeroPrice =
@@ -386,11 +381,7 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
 
         // Step 4: Mock the price feed to return 0 -- this should not affect anything
         // since the only loan source is ETH (same currency, no cross-currency conversion).
-        vm.mockCall(
-            address(priceFeed),
-            abi.encodeWithSignature("currentUnitPrice(uint256)"),
-            abi.encode(uint256(0))
-        );
+        vm.mockCall(address(priceFeed), abi.encodeWithSignature("currentUnitPrice(uint256)"), abi.encode(uint256(0)));
 
         uint256 borrowableAfter =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, freshTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
