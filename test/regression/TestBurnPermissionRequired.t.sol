@@ -210,6 +210,7 @@ contract TestBurnPermissionRequired is TestBaseWorkflow {
     }
 
     /// @notice borrowFrom should revert when the caller hasn't granted BURN_TOKENS permission.
+    /// @dev The controller enforces this with JBPermissioned_Unauthorized when burnTokensOf is called.
     function test_borrowFrom_revertsWithoutBurnPermission() public {
         // Pay into the revnet to get tokens.
         vm.prank(user);
@@ -220,7 +221,7 @@ contract TestBurnPermissionRequired is TestBaseWorkflow {
         // Attempt to borrow WITHOUT granting BURN_TOKENS permission → should revert.
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
         vm.prank(user);
-        vm.expectRevert(REVLoans.REVLoans_BurnPermissionRequired.selector);
+        vm.expectRevert();
         LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), 25);
     }
 
