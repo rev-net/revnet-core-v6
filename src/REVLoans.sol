@@ -537,6 +537,8 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     //*********************************************************************//
 
     /// @notice Open a loan by borrowing from a revnet.
+    /// @dev The caller must first grant BURN_TOKENS permission to this contract via JBPermissions.setPermissionsFor().
+    /// This is required because collateral posting burns the caller's tokens through the controller.
     /// @dev Collateral tokens are permanently burned when the loan is created. They are re-minted to the borrower
     /// only upon repayment. If the loan expires (after LOAN_LIQUIDATION_DURATION), the collateral is permanently
     /// lost and cannot be recovered.

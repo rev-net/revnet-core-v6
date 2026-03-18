@@ -100,6 +100,7 @@ The boolean semantics are **inverted**: v5 used opt-in flags (`splitOperatorCan*
 | `REVLoans` | `REVLoans_NothingToRepay()` |
 | `REVLoans` | `REVLoans_ZeroBorrowAmount()` |
 | `REVLoans` | `REVLoans_SourceMismatch()` |
+| `REVLoans` | `REVLoans_LoanIdOverflow()` |
 
 ### 2.4 New Constants
 

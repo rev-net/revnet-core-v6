@@ -92,6 +92,7 @@ User cashes out via terminal
 
 ```
 Borrower calls REVLoans.borrowFrom()
+  -> Prerequisite: caller must have granted BURN_TOKENS permission to REVLoans via JBPermissions
   -> Validate: collateral > 0, terminal registered, prepaidFeePercent in range
   -> Generate loan ID: revnetId * 1T + loanNumber
   -> Create loan in storage

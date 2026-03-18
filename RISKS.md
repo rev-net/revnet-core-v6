@@ -65,7 +65,7 @@ Read [ARCHITECTURE.md](./ARCHITECTURE.md) and [SKILLS.md](./SKILLS.md) for proto
 ### Liquidation concerns
 
 - **No cascading liquidation mechanism.** There is no health factor, no margin call, and no keeper-triggered liquidation for under-collateralized loans. The only liquidation path is `liquidateExpiredLoansFrom` after 10 years. Under-collateralized loans persist indefinitely within that window.
-- **Liquidation iterates by loan number.** `liquidateExpiredLoansFrom` takes `startingLoanId` and `count`, iterating sequentially. Repaid and already-liquidated loans are skipped (`createdAt == 0`), but the caller pays gas for every skip. If a revnet has thousands of loans with sparse gaps (many repaid), liquidation becomes expensive. The `count` parameter bounds gas per call, but a malicious actor could create many small loans to increase cleanup costs.
+- **Liquidation iterates by loan number.** `liquidateExpiredLoansFrom` takes `startingLoanId` and `count`, iterating sequentially. Repaid and already-liquidated loans are skipped (`createdAt == 0`), but the caller pays gas for every skip. If a revnet has thousands of loans with sparse gaps (many repaid), liquidation becomes expensive. The `count` parameter bounds gas per call, but a malicious actor could create many small loans to increase cleanup costs. **Mitigated:** `startingLoanId + count` is now bounded to `_ONE_TRILLION` to prevent cross-revnet accounting corruption (reverts with `REVLoans_LoanIdOverflow`).
 - **Liquidation permanently destroys collateral.** Collateral was burned at borrow time. Upon liquidation, `totalCollateralOf` is decremented but no tokens are minted or returned. The collateral is permanently removed from the token supply. This deflates the total supply, increasing per-token value for remaining holders -- a mild positive externality from defaults.
 
 ### Loan source rotation after deployment
@@ -78,6 +78,10 @@ Read [ARCHITECTURE.md](./ARCHITECTURE.md) and [SKILLS.md](./SKILLS.md) for proto
 - **Reallocation is two operations in one transaction.** `reallocateCollateralFromLoan` first reduces collateral on the existing loan (via `_reallocateCollateralFromLoan`), then opens a new loan (via `borrowFrom`). Between these two operations, the surplus and total supply have changed (collateral was returned to the caller, changing supply). The new loan's borrowable amount is computed with the post-reallocation state.
 - **Source mismatch check.** `reallocateCollateralFromLoan` enforces that the new loan's source matches the existing loan's source (`source.token == existingSource.token && source.terminal == existingSource.terminal`). This prevents cross-source value extraction.
 - **MEV opportunity at stage boundaries.** If a borrower knows a stage transition will decrease `cashOutTaxRate`, they can wait until just after the transition and `reallocateCollateralFromLoan` to extract more borrowed funds from the same collateral. This is predictable and not preventable by design.
+
+### BURN_TOKENS permission prerequisite
+
+- **Borrowers must grant BURN_TOKENS permission before calling `borrowFrom`.** The loans contract burns the caller's tokens as collateral via `JBController.burnTokensOf`, which requires the caller to have granted `BURN_TOKENS` permission to the loans contract for the revnet's project ID. Without this, the transaction reverts deep in `JBController` with `JBPermissioned_Unauthorized`. The prerequisite is documented in `borrowFrom`'s NatSpec.
 
 ### Borrow-repay arbitrage
 
