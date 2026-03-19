@@ -31,9 +31,7 @@ contract TestLoanERC20Fork is ForkTestBase {
         // pricingCurrency = USDC, unitCurrency = NATIVE_TOKEN -> price per USDC unit in ETH = 0.0005e18 = 5e14.
         MockPriceFeed priceFeed = new MockPriceFeed(5e14, 18);
         vm.prank(multisig());
-        jbPrices().addPriceFeedFor(
-            0, uint32(uint160(USDC)), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed
-        );
+        jbPrices().addPriceFeedFor(0, uint32(uint160(USDC)), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
 
         // Deploy fee project with both native and USDC terminals.
         _deployFeeProjectWithUsdc(5000);
@@ -49,7 +47,7 @@ contract TestLoanERC20Fork is ForkTestBase {
 
         // Pay with USDC to build USDC-denominated surplus.
         _payRevnetUsdc(revnetId, PAYER, 10_000e6);
-        _payRevnetUsdc(revnetId, BORROWER, 5_000e6);
+        _payRevnetUsdc(revnetId, BORROWER, 5000e6);
     }
 
     // ───────────────────────── USDC Config Helpers
@@ -143,15 +141,16 @@ contract TestLoanERC20Fork is ForkTestBase {
         IERC20(USDC).approve(address(jbMultiTerminal()), amount);
 
         vm.prank(payer);
-        tokensReceived = jbMultiTerminal().pay({
-            projectId: id,
-            token: USDC,
-            amount: amount,
-            beneficiary: payer,
-            minReturnedTokens: 0,
-            memo: "",
-            metadata: ""
-        });
+        tokensReceived = jbMultiTerminal()
+            .pay({
+                projectId: id,
+                token: USDC,
+                amount: amount,
+                beneficiary: payer,
+                minReturnedTokens: 0,
+                memo: "",
+                metadata: ""
+            });
     }
 
     // ───────────────────────── USDC Loan Helpers
@@ -173,8 +172,7 @@ contract TestLoanERC20Fork is ForkTestBase {
         returns (uint256 loanId, REVLoan memory loan)
     {
         REVLoanSource memory source = _usdcLoanSource();
-        uint256 borrowable =
-            LOANS_CONTRACT.borrowableAmountFrom(id, collateral, USDC_DECIMALS, uint32(uint160(USDC)));
+        uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(id, collateral, USDC_DECIMALS, uint32(uint160(USDC)));
         require(borrowable > 0, "no borrowable amount in USDC");
 
         _grantBurnPermission(borrower, id);
@@ -447,8 +445,7 @@ contract TestLoanERC20Fork is ForkTestBase {
             JBFees.feeAmountFrom({amountBeforeFee: borrowable, feePercent: jbMultiTerminal().FEE()});
         uint256 expectedRevFee =
             JBFees.feeAmountFrom({amountBeforeFee: borrowable, feePercent: LOANS_CONTRACT.REV_PREPAID_FEE_PERCENT()});
-        uint256 expectedSourceFee =
-            JBFees.feeAmountFrom({amountBeforeFee: borrowable, feePercent: prepaidFeePercent});
+        uint256 expectedSourceFee = JBFees.feeAmountFrom({amountBeforeFee: borrowable, feePercent: prepaidFeePercent});
 
         // Each fee should be non-zero for a meaningful USDC borrow amount.
         assertGt(expectedAllowanceFee, 0, "allowance fee should be non-zero");
