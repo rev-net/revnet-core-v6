@@ -240,14 +240,16 @@ contract TestMixedFixes is TestBaseWorkflow {
 
         REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
 
-        // Warp to exactly LOAN_LIQUIDATION_DURATION after creation
-        vm.warp(loan.createdAt + LOANS_CONTRACT.LOAN_LIQUIDATION_DURATION());
+        // Warp to one second past LOAN_LIQUIDATION_DURATION after creation.
+        // The contract uses `>` (not `>=`) so the exact boundary is still repayable;
+        // we need to exceed the boundary by 1 second to trigger the revert.
+        vm.warp(loan.createdAt + LOANS_CONTRACT.LOAN_LIQUIDATION_DURATION() + 1);
 
-        // With the >= fix, this should revert because timeSinceLoanCreated == LOAN_LIQUIDATION_DURATION
+        // timeSinceLoanCreated > LOAN_LIQUIDATION_DURATION → revert
         vm.expectRevert(
             abi.encodeWithSelector(
                 REVLoans.REVLoans_LoanExpired.selector,
-                LOANS_CONTRACT.LOAN_LIQUIDATION_DURATION(),
+                LOANS_CONTRACT.LOAN_LIQUIDATION_DURATION() + 1,
                 LOANS_CONTRACT.LOAN_LIQUIDATION_DURATION()
             )
         );

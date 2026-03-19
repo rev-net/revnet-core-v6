@@ -38,11 +38,8 @@ contract TestAutoIssuanceFork is ForkTestBase {
 
         // Configure auto-issuance for this chain.
         REVAutoIssuance[] memory autoIssuances = new REVAutoIssuance[](1);
-        autoIssuances[0] = REVAutoIssuance({
-            chainId: uint32(block.chainid),
-            count: AUTO_ISSUE_COUNT,
-            beneficiary: AUTO_BENEFICIARY
-        });
+        autoIssuances[0] =
+            REVAutoIssuance({chainId: uint32(block.chainid), count: AUTO_ISSUE_COUNT, beneficiary: AUTO_BENEFICIARY});
 
         REVStageConfig[] memory stages = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
@@ -71,8 +68,7 @@ contract TestAutoIssuanceFork is ForkTestBase {
         });
 
         REVSuckerDeploymentConfig memory sdc = REVSuckerDeploymentConfig({
-            deployerConfigurations: new JBSuckerDeployerConfig[](0),
-            salt: keccak256(abi.encodePacked("AUTO_TEST"))
+            deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("AUTO_TEST"))
         });
 
         // The stageId is block.timestamp + 0 (first stage index is 0).
@@ -133,8 +129,7 @@ contract TestAutoIssuanceFork is ForkTestBase {
     /// @notice Auto-issued tokens bypass the reserved percent — 100% goes to the beneficiary.
     function testFork_AutoIssueBypassesReservedPercent() public {
         // Deploy with 50% splitPercent (reserved percent).
-        (uint256 revnetId, uint256 stageId) =
-            _deployRevnetWithAutoIssuance({splitPercent: 5000, startsInFuture: false});
+        (uint256 revnetId, uint256 stageId) = _deployRevnetWithAutoIssuance({splitPercent: 5000, startsInFuture: false});
 
         // Auto-issue tokens.
         REV_DEPLOYER.autoIssueFor(revnetId, stageId, AUTO_BENEFICIARY);

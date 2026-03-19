@@ -627,7 +627,9 @@ contract TestLowFindings is TestBaseWorkflow {
         assertEq(borrowable, 0, "Borrowable amount for 1 wei of collateral should be 0");
 
         // Mock the BURN permission (permission ID 11) for the loans contract.
-        mockExpect(
+        // Use vm.mockCall only (not mockExpect which also adds vm.expectCall) because
+        // borrowFrom reverts with REVLoans_ZeroBorrowAmount before the permission check is reached.
+        vm.mockCall(
             address(jbPermissions()),
             abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, revnetId, 11, true, true)),
             abi.encode(true)

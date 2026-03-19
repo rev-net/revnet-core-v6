@@ -57,8 +57,7 @@ contract TestIssuanceDecayFork is ForkTestBase {
         });
 
         REVSuckerDeploymentConfig memory sdc = REVSuckerDeploymentConfig({
-            deployerConfigurations: new JBSuckerDeployerConfig[](0),
-            salt: keccak256(abi.encodePacked("DECAY_TEST"))
+            deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("DECAY_TEST"))
         });
 
         (revnetId,) = REV_DEPLOYER.deployFor({
@@ -111,9 +110,7 @@ contract TestIssuanceDecayFork is ForkTestBase {
     function testFork_IssuanceDecaysMultipleCycles() public {
         // 10% cut per cycle, 1-day cycles.
         uint256 revnetId = _deployRevnetWithDecay({
-            issuanceCutFrequency: 86_400,
-            issuanceCutPercent: 100_000_000,
-            cashOutTaxRate: 5000
+            issuanceCutFrequency: 86_400, issuanceCutPercent: 100_000_000, cashOutTaxRate: 5000
         });
 
         _setupPool(revnetId, 10_000 ether);
@@ -139,11 +136,8 @@ contract TestIssuanceDecayFork is ForkTestBase {
     /// @notice With 0% issuance cut, weight never changes and T0 == T1.
     function testFork_IssuanceDecayZeroPercent() public {
         // 0% cut per cycle, 1-day cycles.
-        uint256 revnetId = _deployRevnetWithDecay({
-            issuanceCutFrequency: 86_400,
-            issuanceCutPercent: 0,
-            cashOutTaxRate: 5000
-        });
+        uint256 revnetId =
+            _deployRevnetWithDecay({issuanceCutFrequency: 86_400, issuanceCutPercent: 0, cashOutTaxRate: 5000});
 
         _setupPool(revnetId, 10_000 ether);
 
