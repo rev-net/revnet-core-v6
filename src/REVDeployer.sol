@@ -309,19 +309,20 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         // If the fee rounds down to zero, return the buyback hook's response directly.
         if (feeAmount == 0) return (cashOutTaxRate, cashOutCount, totalSupply, buybackHookSpecifications);
 
-        // Append a fee-processing hook specification after any buyback hook specifications.
-        hookSpecifications = new JBCashOutHookSpecification[](buybackHookSpecifications.length + 1);
-
-        for (uint256 i; i < buybackHookSpecifications.length; i++) {
-            hookSpecifications[i] = buybackHookSpecifications[i];
-        }
-
-        hookSpecifications[buybackHookSpecifications.length] = JBCashOutHookSpecification({
-            hook: IJBCashOutHook(address(this)),
-            noop: false,
-            amount: feeAmount,
-            metadata: abi.encode(feeTerminal)
+        // Build the fee-processing spec.
+        JBCashOutHookSpecification memory feeSpec = JBCashOutHookSpecification({
+            hook: IJBCashOutHook(address(this)), noop: false, amount: feeAmount, metadata: abi.encode(feeTerminal)
         });
+
+        // If the buyback hook returned a spec, compose it with the fee spec. Otherwise just return the fee spec.
+        if (buybackHookSpecifications.length > 0) {
+            hookSpecifications = new JBCashOutHookSpecification[](2);
+            hookSpecifications[0] = buybackHookSpecifications[0];
+            hookSpecifications[1] = feeSpec;
+        } else {
+            hookSpecifications = new JBCashOutHookSpecification[](1);
+            hookSpecifications[0] = feeSpec;
+        }
 
         return (cashOutTaxRate, cashOutCount, totalSupply, hookSpecifications);
     }

@@ -133,7 +133,13 @@ contract FakeTerminal is ERC165, IJBPayoutTerminal {
         return 0;
     }
 
-    function previewPayFor(uint256, address, uint256, address, bytes calldata)
+    function previewPayFor(
+        uint256,
+        address,
+        uint256,
+        address,
+        bytes calldata
+    )
         external
         pure
         override

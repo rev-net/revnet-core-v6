@@ -225,7 +225,8 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
 
         // Mock 721 hook returning 0.3 ETH split on 1 ETH payment.
         JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
-        hookSpecs[0] = JBPayHookSpecification({hook: IJBPayHook(mock721), noop: false, amount: 0.3 ether, metadata: bytes("")});
+        hookSpecs[0] =
+            JBPayHookSpecification({hook: IJBPayHook(mock721), noop: false, amount: 0.3 ether, metadata: bytes("")});
         vm.mockCall(
             mock721,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
@@ -267,7 +268,8 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
 
         // Mock 721 hook returning full 1 ETH split.
         JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
-        hookSpecs[0] = JBPayHookSpecification({hook: IJBPayHook(mock721), noop: false, amount: 1 ether, metadata: bytes("")});
+        hookSpecs[0] =
+            JBPayHookSpecification({hook: IJBPayHook(mock721), noop: false, amount: 1 ether, metadata: bytes("")});
         vm.mockCall(
             mock721,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
@@ -351,7 +353,8 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
 
         // Mock 721 hook returning 0.4 ETH split on 1 ETH payment.
         JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
-        hookSpecs[0] = JBPayHookSpecification({hook: IJBPayHook(mock721), noop: false, amount: 0.4 ether, metadata: bytes("")});
+        hookSpecs[0] =
+            JBPayHookSpecification({hook: IJBPayHook(mock721), noop: false, amount: 0.4 ether, metadata: bytes("")});
         vm.mockCall(
             mock721,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
@@ -400,7 +403,8 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
 
         // Mock 721 hook returning 0.2 ETH split.
         JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
-        hookSpecs[0] = JBPayHookSpecification({hook: IJBPayHook(mock721), noop: false, amount: 0.2 ether, metadata: bytes("")});
+        hookSpecs[0] =
+            JBPayHookSpecification({hook: IJBPayHook(mock721), noop: false, amount: 0.2 ether, metadata: bytes("")});
         vm.mockCall(
             mock721,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),
@@ -449,7 +453,8 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
         // Mock 721 hook returning split amount with metadata.
         bytes memory splitMeta = abi.encode(uint256(42));
         JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
-        hookSpecs[0] = JBPayHookSpecification({hook: IJBPayHook(mock721), noop: false, amount: 0.5 ether, metadata: splitMeta});
+        hookSpecs[0] =
+            JBPayHookSpecification({hook: IJBPayHook(mock721), noop: false, amount: 0.5 ether, metadata: splitMeta});
         vm.mockCall(
             mock721,
             abi.encodeWithSelector(IJBRulesetDataHook.beforePayRecordedWith.selector),

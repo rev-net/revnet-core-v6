@@ -32,7 +32,8 @@ contract MockBuybackDataHook is IJBRulesetDataHook, IJBPayHook {
     {
         weight = context.weight;
         hookSpecifications = new JBPayHookSpecification[](1);
-        hookSpecifications[0] = JBPayHookSpecification({hook: IJBPayHook(address(this)), noop: false, amount: 0, metadata: ""});
+        hookSpecifications[0] =
+            JBPayHookSpecification({hook: IJBPayHook(address(this)), noop: false, amount: 0, metadata: ""});
     }
 
     function beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext calldata context)
@@ -57,10 +58,7 @@ contract MockBuybackDataHook is IJBRulesetDataHook, IJBPayHook {
 
         hookSpecifications = new JBCashOutHookSpecification[](1);
         hookSpecifications[0] = JBCashOutHookSpecification({
-            hook: IJBCashOutHook(address(this)),
-            noop: false,
-            amount: cashOutHookAmount,
-            metadata: cashOutHookMetadata
+            hook: IJBCashOutHook(address(this)), noop: false, amount: cashOutHookAmount, metadata: cashOutHookMetadata
         });
     }
 

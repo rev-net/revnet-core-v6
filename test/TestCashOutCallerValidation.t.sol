@@ -363,9 +363,7 @@ contract TestCashOutCallerValidation is TestBaseWorkflow {
         assertEq(totalSupply, context.totalSupply, "Total supply should pass through");
         assertEq(hookSpecifications.length, 2, "Buyback spec and revnet fee spec should both be returned");
 
-        assertEq(
-            address(hookSpecifications[0].hook), address(MOCK_BUYBACK), "First hook spec should come from buyback"
-        );
+        assertEq(address(hookSpecifications[0].hook), address(MOCK_BUYBACK), "First hook spec should come from buyback");
         assertEq(hookSpecifications[0].amount, 0, "Buyback sell-side spec should preserve its forwarded amount");
         assertEq(hookSpecifications[0].metadata, buybackMetadata, "Buyback metadata should be preserved");
 
