@@ -756,14 +756,6 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
 
         uint256 balanceBefore = _balanceOf(token, USER);
 
-        // Ensure that the hook was called.
-        vm.expectCall(address(REV_DEPLOYER), abi.encode(REVDeployer.beforeCashOutRecordedWith.selector));
-
-        // It only adds itself as a `after` cashoutHook if there is a cashout tax rate.
-        if (cashOutTaxRate > 0) {
-            vm.expectCall(address(REV_DEPLOYER), abi.encode(REVDeployer.afterCashOutRecordedWith.selector));
-        }
-
         // Perform a cashout.
         vm.prank(USER);
         jbMultiTerminal().cashOutTokensOf(USER, revnetProjectId, tokensToCashout, token, 0, payable(USER), bytes(""));

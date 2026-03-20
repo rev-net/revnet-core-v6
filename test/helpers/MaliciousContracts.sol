@@ -7,6 +7,8 @@ import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
 import {IJBTerminal} from "@bananapus/core-v6/src/interfaces/IJBTerminal.sol";
 import {IJBPayoutTerminal} from "@bananapus/core-v6/src/interfaces/IJBPayoutTerminal.sol";
+import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
+import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
 import {IREVLoans} from "../../src/interfaces/IREVLoans.sol";
 import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
 
@@ -108,6 +110,16 @@ contract BrokenFeeTerminal is ERC165, IJBPayoutTerminal {
         returns (uint256)
     {
         return 0;
+    }
+
+    function previewPayFor(uint256, address, uint256, address, bytes calldata)
+        external
+        pure
+        override
+        returns (JBRuleset memory, uint256, uint256, JBPayHookSpecification[] memory)
+    {
+        JBRuleset memory ruleset;
+        return (ruleset, 0, 0, new JBPayHookSpecification[](0));
     }
 
     function supportsInterface(bytes4 interfaceId) public view override(ERC165, IERC165) returns (bool) {
@@ -222,6 +234,16 @@ contract SurplusInflator is ERC165, IJBPayoutTerminal {
         returns (uint256)
     {
         return 0;
+    }
+
+    function previewPayFor(uint256, address, uint256, address, bytes calldata)
+        external
+        pure
+        override
+        returns (JBRuleset memory, uint256, uint256, JBPayHookSpecification[] memory)
+    {
+        JBRuleset memory ruleset;
+        return (ruleset, 0, 0, new JBPayHookSpecification[](0));
     }
 
     function supportsInterface(bytes4 interfaceId) public view override(ERC165, IERC165) returns (bool) {

@@ -10,7 +10,7 @@
         "node": ">=20.0.0"
     },
     "scripts": {
-        "postinstall": "find node_modules -name '*.sol' -type f | xargs grep -l 'pragma solidity 0.8.23;' 2>/dev/null | xargs sed -i '' 's/pragma solidity 0.8.23;/pragma solidity 0.8.26;/g' 2>/dev/null || true",
+        "postinstall": "find node_modules -name '*.sol' -type f | xargs grep -l 'pragma solidity 0.8.23;' 2>/dev/null | xargs sed -i '' 's/pragma solidity 0.8.23;/pragma solidity 0.8.26;/g' 2>/dev/null || true; sed -i '' 's/{hook: this, amount:/{hook: this, noop: false, amount:/g' node_modules/@bananapus/721-hook-v6/src/abstract/JB721Hook.sol node_modules/@bananapus/721-hook-v6/src/JB721TiersHook.sol 2>/dev/null || true",
         "test": "forge test",
         "coverage": "forge coverage --match-path \"./src/*.sol\" --report lcov --report summary",
         "deploy:mainnets": "source ./.env && export START_TIME=$(date +%s) && npx sphinx propose ./script/Deploy.s.sol --networks mainnets",
@@ -20,12 +20,12 @@
         "artifacts": "source ./.env && npx sphinx artifacts --org-id 'ea165b21-7cdc-4d7b-be59-ecdd4c26bee4' --project-name 'revnet-core-v6'"
     },
     "dependencies": {
-        "@bananapus/721-hook-v6": "^0.0.17",
-        "@bananapus/buyback-hook-v6": "^0.0.13",
-        "@bananapus/core-v6": "^0.0.17",
+        "@bananapus/721-hook-v6": "^0.0.18",
+        "@bananapus/buyback-hook-v6": "^0.0.15",
+        "@bananapus/core-v6": "^0.0.20",
         "@bananapus/ownable-v6": "^0.0.10",
         "@bananapus/permission-ids-v6": "^0.0.10",
-        "@bananapus/router-terminal-v6": "^0.0.13",
+        "@bananapus/router-terminal-v6": "^0.0.14",
         "@bananapus/suckers-v6": "^0.0.11",
         "@croptop/core-v6": "^0.0.18",
         "@openzeppelin/contracts": "^5.6.1",

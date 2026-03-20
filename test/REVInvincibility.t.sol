@@ -368,7 +368,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
 
         // Verify safe write
         JBPayHookSpecification[] memory specs = new JBPayHookSpecification[](arraySize);
-        specs[correctIndex] = JBPayHookSpecification({hook: IJBPayHook(address(0xbeef)), amount: 1 ether, metadata: ""});
+        specs[correctIndex] = JBPayHookSpecification({hook: IJBPayHook(address(0xbeef)), noop: false, amount: 1 ether, metadata: ""});
     }
 
     /// @notice Reentrancy — _adjust calls terminal.pay() BEFORE writing loan state.

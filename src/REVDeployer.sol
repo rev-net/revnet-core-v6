@@ -318,6 +318,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
 
         hookSpecifications[buybackHookSpecifications.length] = JBCashOutHookSpecification({
             hook: IJBCashOutHook(address(this)),
+            noop: false,
             amount: feeAmount,
             metadata: abi.encode(feeTerminal)
         });
