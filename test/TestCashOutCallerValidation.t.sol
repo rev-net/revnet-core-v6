@@ -22,8 +22,12 @@ import "@bananapus/suckers-v6/script/helpers/SuckerDeploymentLib.sol";
 import "@croptop/core-v6/script/helpers/CroptopDeploymentLib.sol";
 // forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/router-terminal-v6/script/helpers/RouterTerminalDeploymentLib.sol";
+import {JBCashOuts} from "@bananapus/core-v6/src/libraries/JBCashOuts.sol";
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
+import {JBBeforeCashOutRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforeCashOutRecordedContext.sol";
+import {JBCashOutHookSpecification} from "@bananapus/core-v6/src/structs/JBCashOutHookSpecification.sol";
+import {JBTokenAmount} from "@bananapus/core-v6/src/structs/JBTokenAmount.sol";
 import {MockERC20} from "@bananapus/core-v6/test/mock/MockERC20.sol";
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
@@ -300,6 +304,78 @@ contract TestCashOutCallerValidation is TestBaseWorkflow {
         uint256 feeBalanceAfter =
             jbTerminalStore().balanceOf(address(jbMultiTerminal()), FEE_PROJECT_ID, JBConstants.NATIVE_TOKEN);
         assertGt(feeBalanceAfter, feeBalanceBefore, "Fee project balance should increase from cash out fee");
+    }
+
+    /// @notice Revnet cash-out fees and buyback sell-side specs are composed together.
+    function test_beforeCashOutRecordedWith_proxiesIntoBuybackAndAppendsFeeSpec() public {
+        bytes memory buybackMetadata = abi.encode(uint256(123));
+        MOCK_BUYBACK.configureCashOutResult({
+            cashOutTaxRate: JBConstants.MAX_CASH_OUT_TAX_RATE,
+            cashOutCount: 0,
+            totalSupply: 0,
+            hookAmount: 0,
+            hookMetadata: buybackMetadata
+        });
+
+        JBBeforeCashOutRecordedContext memory context = JBBeforeCashOutRecordedContext({
+            terminal: address(jbMultiTerminal()),
+            holder: USER,
+            projectId: REVNET_ID,
+            rulesetId: 0,
+            cashOutCount: 1000,
+            totalSupply: 10_000,
+            surplus: JBTokenAmount({
+                token: JBConstants.NATIVE_TOKEN,
+                value: 100 ether,
+                decimals: 18,
+                currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            }),
+            useTotalSurplus: true,
+            cashOutTaxRate: 3000,
+            beneficiaryIsFeeless: false,
+            metadata: ""
+        });
+
+        (
+            uint256 cashOutTaxRate,
+            uint256 cashOutCount,
+            uint256 totalSupply,
+            JBCashOutHookSpecification[] memory hookSpecifications
+        ) = REV_DEPLOYER.beforeCashOutRecordedWith(context);
+
+        uint256 feeCashOutCount = context.cashOutCount * REV_DEPLOYER.FEE() / JBConstants.MAX_FEE;
+        uint256 nonFeeCashOutCount = context.cashOutCount - feeCashOutCount;
+        uint256 postFeeReclaimedAmount = JBCashOuts.cashOutFrom({
+            surplus: context.surplus.value,
+            cashOutCount: nonFeeCashOutCount,
+            totalSupply: context.totalSupply,
+            cashOutTaxRate: context.cashOutTaxRate
+        });
+        uint256 feeAmount = JBCashOuts.cashOutFrom({
+            surplus: context.surplus.value - postFeeReclaimedAmount,
+            cashOutCount: feeCashOutCount,
+            totalSupply: context.totalSupply - nonFeeCashOutCount,
+            cashOutTaxRate: context.cashOutTaxRate
+        });
+
+        assertEq(cashOutTaxRate, JBConstants.MAX_CASH_OUT_TAX_RATE, "Buyback cash out tax rate should be forwarded");
+        assertEq(cashOutCount, nonFeeCashOutCount, "Buyback should receive the non-fee cash out count");
+        assertEq(totalSupply, context.totalSupply, "Total supply should pass through");
+        assertEq(hookSpecifications.length, 2, "Buyback spec and revnet fee spec should both be returned");
+
+        assertEq(
+            address(hookSpecifications[0].hook), address(MOCK_BUYBACK), "First hook spec should come from buyback"
+        );
+        assertEq(hookSpecifications[0].amount, 0, "Buyback sell-side spec should preserve its forwarded amount");
+        assertEq(hookSpecifications[0].metadata, buybackMetadata, "Buyback metadata should be preserved");
+
+        assertEq(address(hookSpecifications[1].hook), address(REV_DEPLOYER), "Second hook spec should charge fee");
+        assertEq(hookSpecifications[1].amount, feeAmount, "Fee spec amount should match the revnet fee math");
+        assertEq(
+            hookSpecifications[1].metadata,
+            abi.encode(jbMultiTerminal()),
+            "Fee spec metadata should encode the fee terminal"
+        );
     }
 
     /// @notice Test that afterCashOutRecordedWith has no access control — anyone can call it.

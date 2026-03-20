@@ -271,9 +271,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         IJBTerminal feeTerminal = DIRECTORY.primaryTerminalOf({projectId: FEE_REVNET_ID, token: context.surplus.token});
 
         // If there's no cash out tax (100% cash out tax rate), if there's no fee terminal, or if the beneficiary is
-        // feeless (e.g. the router terminal routing value between projects), do not charge a fee.
+        // feeless (e.g. the router terminal routing value between projects), proxy directly to the buyback hook.
         if (context.cashOutTaxRate == 0 || address(feeTerminal) == address(0) || context.beneficiaryIsFeeless) {
-            return (context.cashOutTaxRate, context.cashOutCount, context.totalSupply, hookSpecifications);
+            return BUYBACK_HOOK.beforeCashOutRecordedWith(context);
         }
 
         // Get a reference to the number of tokens being used to pay the fee (out of the total being cashed out).
@@ -298,15 +298,31 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             cashOutTaxRate: context.cashOutTaxRate
         });
 
-        // Assemble a cash out hook specification to invoke `afterCashOutRecordedWith(…)` with, to process the fee.
-        hookSpecifications = new JBCashOutHookSpecification[](1);
-        hookSpecifications[0] = JBCashOutHookSpecification({
-            hook: IJBCashOutHook(address(this)), amount: feeAmount, metadata: abi.encode(feeTerminal)
+        // Proxy the non-fee portion into the buyback hook, just like the pay path proxies the project share.
+        JBBeforeCashOutRecordedContext memory buybackHookContext = context;
+        buybackHookContext.cashOutCount = nonFeeCashOutCount;
+
+        JBCashOutHookSpecification[] memory buybackHookSpecifications;
+        (cashOutTaxRate, cashOutCount, totalSupply, buybackHookSpecifications) =
+            BUYBACK_HOOK.beforeCashOutRecordedWith(buybackHookContext);
+
+        // If the fee rounds down to zero, return the buyback hook's response directly.
+        if (feeAmount == 0) return (cashOutTaxRate, cashOutCount, totalSupply, buybackHookSpecifications);
+
+        // Append a fee-processing hook specification after any buyback hook specifications.
+        hookSpecifications = new JBCashOutHookSpecification[](buybackHookSpecifications.length + 1);
+
+        for (uint256 i; i < buybackHookSpecifications.length; i++) {
+            hookSpecifications[i] = buybackHookSpecifications[i];
+        }
+
+        hookSpecifications[buybackHookSpecifications.length] = JBCashOutHookSpecification({
+            hook: IJBCashOutHook(address(this)),
+            amount: feeAmount,
+            metadata: abi.encode(feeTerminal)
         });
 
-        // Return the cash out rate and the number of revnet tokens to cash out, minus the tokens being used to pay the
-        // fee.
-        return (context.cashOutTaxRate, nonFeeCashOutCount, context.totalSupply, hookSpecifications);
+        return (cashOutTaxRate, cashOutCount, totalSupply, hookSpecifications);
     }
 
     /// @notice Before a revnet processes an incoming payment, determine the weight and pay hooks to use.
