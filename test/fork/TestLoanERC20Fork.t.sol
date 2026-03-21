@@ -433,7 +433,7 @@ contract TestLoanERC20Fork is ForkTestBase {
     }
 
     /// @notice Fee amounts should match expected values calculated from JBFees in 6-decimal precision.
-    function test_fork_borrow_usdc_feeAmountsMatch() public {
+    function test_fork_borrow_usdc_feeAmountsMatch() public view {
         uint256 borrowerTokens = jbTokens().totalBalanceOf(BORROWER, revnetId);
         uint256 prepaidFeePercent = LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT();
 

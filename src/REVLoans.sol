@@ -339,11 +339,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
 
         // Get the surplus of all the revnet's terminals in terms of the native currency.
         uint256 totalSurplus = JBSurplus.currentSurplusOf({
-            projectId: revnetId,
-            terminals: terminals,
-            accountingContexts: new JBAccountingContext[](0),
-            decimals: decimals,
-            currency: currency
+            projectId: revnetId, terminals: terminals, tokens: new address[](0), decimals: decimals, currency: currency
         });
 
         // Get the total amount the revnet currently has loaned out, in terms of the native currency with 18

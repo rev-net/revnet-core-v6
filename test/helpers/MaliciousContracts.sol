@@ -72,17 +72,7 @@ contract BrokenFeeTerminal is ERC165, IJBPayoutTerminal {
 
     function addAccountingContextsFor(uint256, JBAccountingContext[] calldata) external override {}
 
-    function currentSurplusOf(
-        uint256,
-        JBAccountingContext[] memory,
-        uint256,
-        uint256
-    )
-        external
-        pure
-        override
-        returns (uint256)
-    {
+    function currentSurplusOf(uint256, address[] calldata, uint256, uint256) external pure override returns (uint256) {
         return 0;
     }
 
@@ -202,17 +192,7 @@ contract SurplusInflator is ERC165, IJBPayoutTerminal {
 
     function addAccountingContextsFor(uint256, JBAccountingContext[] calldata) external override {}
 
-    function currentSurplusOf(
-        uint256,
-        JBAccountingContext[] memory,
-        uint256,
-        uint256
-    )
-        external
-        pure
-        override
-        returns (uint256)
-    {
+    function currentSurplusOf(uint256, address[] calldata, uint256, uint256) external pure override returns (uint256) {
         return 0;
     }
 
