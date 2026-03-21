@@ -277,13 +277,13 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             return BUYBACK_HOOK.beforeCashOutRecordedWith(context);
         }
 
-        // Get a reference to the number of tokens being used to pay the fee (out of the total being cashed out).
+        // Split the cashed-out tokens into a fee portion and a non-fee portion.
         // Micro cash outs (< 40 wei at 2.5% fee) round feeCashOutCount to zero, bypassing the fee.
         // Economically insignificant: the gas cost of the transaction far exceeds the bypassed fee. No fix needed.
         uint256 feeCashOutCount = mulDiv({x: context.cashOutCount, y: FEE, denominator: JBConstants.MAX_FEE});
         uint256 nonFeeCashOutCount = context.cashOutCount - feeCashOutCount;
 
-        // Keep a reference to the amount claimable with non-fee tokens.
+        // Calculate how much surplus the non-fee tokens can reclaim via the bonding curve.
         uint256 postFeeReclaimedAmount = JBCashOuts.cashOutFrom({
             surplus: context.surplus.value,
             cashOutCount: nonFeeCashOutCount,
@@ -291,7 +291,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             cashOutTaxRate: context.cashOutTaxRate
         });
 
-        // Keep a reference to the fee amount after the reclaimed amount is subtracted.
+        // Calculate how much the fee tokens reclaim from the remaining surplus after the non-fee reclaim.
         uint256 feeAmount = JBCashOuts.cashOutFrom({
             surplus: context.surplus.value - postFeeReclaimedAmount,
             cashOutCount: feeCashOutCount,
@@ -299,28 +299,31 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             cashOutTaxRate: context.cashOutTaxRate
         });
 
-        // Proxy the non-fee portion into the buyback hook, just like the pay path proxies the project share.
+        // Build a context for the buyback hook using only the non-fee token count.
         JBBeforeCashOutRecordedContext memory buybackHookContext = context;
         buybackHookContext.cashOutCount = nonFeeCashOutCount;
 
+        // Let the buyback hook adjust the cash out parameters and optionally return a hook specification.
         JBCashOutHookSpecification[] memory buybackHookSpecifications;
         (cashOutTaxRate, cashOutCount, totalSupply, buybackHookSpecifications) =
             BUYBACK_HOOK.beforeCashOutRecordedWith(buybackHookContext);
 
-        // If the fee rounds down to zero, return the buyback hook's response directly.
+        // If the fee rounds down to zero, return the buyback hook's response directly — no fee to process.
         if (feeAmount == 0) return (cashOutTaxRate, cashOutCount, totalSupply, buybackHookSpecifications);
 
-        // Build the fee-processing spec.
+        // Build a hook spec that routes the fee amount to this contract's `afterCashOutRecordedWith` for processing.
         JBCashOutHookSpecification memory feeSpec = JBCashOutHookSpecification({
             hook: IJBCashOutHook(address(this)), noop: false, amount: feeAmount, metadata: abi.encode(feeTerminal)
         });
 
-        // If the buyback hook returned a spec, compose it with the fee spec. Otherwise just return the fee spec.
+        // Compose the final hook specifications: buyback spec (if any) + fee spec.
         if (buybackHookSpecifications.length > 0) {
+            // The buyback hook returned a spec — include it before the fee spec.
             hookSpecifications = new JBCashOutHookSpecification[](2);
             hookSpecifications[0] = buybackHookSpecifications[0];
             hookSpecifications[1] = feeSpec;
         } else {
+            // No buyback spec — only the fee spec.
             hookSpecifications = new JBCashOutHookSpecification[](1);
             hookSpecifications[0] = feeSpec;
         }
