@@ -2,6 +2,7 @@
 pragma solidity 0.8.26;
 
 import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDataHook.sol";
+import {IJBCashOutHook} from "@bananapus/core-v6/src/interfaces/IJBCashOutHook.sol";
 import {IJBPayHook} from "@bananapus/core-v6/src/interfaces/IJBPayHook.sol";
 // forge-lint: disable-next-line(unused-import)
 import {IJBBuybackHook} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHook.sol";
@@ -16,6 +17,13 @@ import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 
 /// @notice A minimal mock buyback data hook for tests. Returns the default weight and a no-op pay hook specification.
 contract MockBuybackDataHook is IJBRulesetDataHook, IJBPayHook {
+    bool public shouldReturnCashOutHookSpec;
+    uint256 public cashOutCountToReturn;
+    bytes public cashOutHookMetadata;
+    uint256 public cashOutHookAmount;
+    uint256 public cashOutTaxRateToReturn;
+    uint256 public totalSupplyToReturn;
+
     function beforePayRecordedWith(JBBeforePayRecordedContext calldata context)
         external
         view
@@ -24,12 +32,13 @@ contract MockBuybackDataHook is IJBRulesetDataHook, IJBPayHook {
     {
         weight = context.weight;
         hookSpecifications = new JBPayHookSpecification[](1);
-        hookSpecifications[0] = JBPayHookSpecification({hook: IJBPayHook(address(this)), amount: 0, metadata: ""});
+        hookSpecifications[0] =
+            JBPayHookSpecification({hook: IJBPayHook(address(this)), noop: false, amount: 0, metadata: ""});
     }
 
     function beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext calldata context)
         external
-        pure
+        view
         override
         returns (
             uint256 cashOutTaxRate,
@@ -38,10 +47,45 @@ contract MockBuybackDataHook is IJBRulesetDataHook, IJBPayHook {
             JBCashOutHookSpecification[] memory hookSpecifications
         )
     {
-        cashOutTaxRate = context.cashOutTaxRate;
-        cashOutCount = context.cashOutCount;
-        totalSupply = context.totalSupply;
-        hookSpecifications = new JBCashOutHookSpecification[](0);
+        cashOutTaxRate = cashOutTaxRateToReturn == 0 ? context.cashOutTaxRate : cashOutTaxRateToReturn;
+        cashOutCount = cashOutCountToReturn == 0 ? context.cashOutCount : cashOutCountToReturn;
+        totalSupply = totalSupplyToReturn == 0 ? context.totalSupply : totalSupplyToReturn;
+
+        if (!shouldReturnCashOutHookSpec) {
+            hookSpecifications = new JBCashOutHookSpecification[](0);
+            return (cashOutTaxRate, cashOutCount, totalSupply, hookSpecifications);
+        }
+
+        hookSpecifications = new JBCashOutHookSpecification[](1);
+        hookSpecifications[0] = JBCashOutHookSpecification({
+            hook: IJBCashOutHook(address(this)), noop: false, amount: cashOutHookAmount, metadata: cashOutHookMetadata
+        });
+    }
+
+    function configureCashOutResult(
+        uint256 cashOutTaxRate,
+        uint256 cashOutCount,
+        uint256 totalSupply,
+        uint256 hookAmount,
+        bytes calldata hookMetadata
+    )
+        external
+    {
+        shouldReturnCashOutHookSpec = true;
+        cashOutTaxRateToReturn = cashOutTaxRate;
+        cashOutCountToReturn = cashOutCount;
+        totalSupplyToReturn = totalSupply;
+        cashOutHookAmount = hookAmount;
+        cashOutHookMetadata = hookMetadata;
+    }
+
+    function resetCashOutResult() external {
+        shouldReturnCashOutHookSpec = false;
+        cashOutTaxRateToReturn = 0;
+        cashOutCountToReturn = 0;
+        totalSupplyToReturn = 0;
+        cashOutHookAmount = 0;
+        cashOutHookMetadata = "";
     }
 
     function hasMintPermissionFor(uint256, JBRuleset calldata, address) external pure override returns (bool) {

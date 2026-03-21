@@ -42,6 +42,8 @@ import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStor
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
+import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
 
 /// @notice A terminal mock that always reverts on pay(), used to simulate fee payment failure.
@@ -87,17 +89,7 @@ contract RevertingFeeTerminal is ERC165, IJBPayoutTerminal {
         override
     {}
 
-    function currentSurplusOf(
-        uint256,
-        JBAccountingContext[] memory,
-        uint256,
-        uint256
-    )
-        external
-        pure
-        override
-        returns (uint256)
-    {
+    function currentSurplusOf(uint256, address[] calldata, uint256, uint256) external pure override returns (uint256) {
         return 0;
     }
 
@@ -125,6 +117,22 @@ contract RevertingFeeTerminal is ERC165, IJBPayoutTerminal {
         returns (uint256)
     {
         return 0;
+    }
+
+    function previewPayFor(
+        uint256,
+        address,
+        uint256,
+        address,
+        bytes calldata
+    )
+        external
+        pure
+        override
+        returns (JBRuleset memory, uint256, uint256, JBPayHookSpecification[] memory)
+    {
+        JBRuleset memory ruleset;
+        return (ruleset, 0, 0, new JBPayHookSpecification[](0));
     }
 
     function supportsInterface(bytes4 interfaceId) public view override(ERC165, IERC165) returns (bool) {

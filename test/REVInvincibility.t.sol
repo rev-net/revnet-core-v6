@@ -368,7 +368,8 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
 
         // Verify safe write
         JBPayHookSpecification[] memory specs = new JBPayHookSpecification[](arraySize);
-        specs[correctIndex] = JBPayHookSpecification({hook: IJBPayHook(address(0xbeef)), amount: 1 ether, metadata: ""});
+        specs[correctIndex] =
+            JBPayHookSpecification({hook: IJBPayHook(address(0xbeef)), noop: false, amount: 1 ether, metadata: ""});
     }
 
     /// @notice Reentrancy — _adjust calls terminal.pay() BEFORE writing loan state.
@@ -909,12 +910,8 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
         // Record fee project balance before cash-out
         uint256 feeBalanceBefore;
         {
-            JBAccountingContext[] memory feeCtx = new JBAccountingContext[](1);
-            feeCtx[0] = JBAccountingContext({
-                token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
-            });
             feeBalanceBefore = jbMultiTerminal()
-                .currentSurplusOf(FEE_PROJECT_ID, feeCtx, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+                .currentSurplusOf(FEE_PROJECT_ID, new address[](0), 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         }
 
         // Cash out
@@ -935,12 +932,8 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
             // because both the terminal fee AND the revnet fee route to it
             uint256 feeBalanceAfter;
             {
-                JBAccountingContext[] memory feeCtx = new JBAccountingContext[](1);
-                feeCtx[0] = JBAccountingContext({
-                    token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
-                });
                 feeBalanceAfter = jbMultiTerminal()
-                    .currentSurplusOf(FEE_PROJECT_ID, feeCtx, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+                    .currentSurplusOf(FEE_PROJECT_ID, new address[](0), 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
             }
 
             // Fee project should have received fees from the cash-out
@@ -1206,13 +1199,8 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
     function invariant_REV_1_surplusCoversLoans() public {
         uint256 totalBorrowed = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
 
-        JBAccountingContext[] memory ctxArray = new JBAccountingContext[](1);
-        ctxArray[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
-        });
-
-        uint256 storeBalance =
-            jbMultiTerminal().currentSurplusOf(REVNET_ID, ctxArray, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        uint256 storeBalance = jbMultiTerminal()
+            .currentSurplusOf(REVNET_ID, new address[](0), 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // Note: storeBalance is surplus (after payout limits), but the terminal holds at least this much
         // The total borrowed should not exceed what the terminal can cover

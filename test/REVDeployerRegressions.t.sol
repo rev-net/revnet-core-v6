@@ -138,7 +138,8 @@ contract REVDeployerRegressions is TestBaseWorkflow {
         assertEq(correctIndex, 0, "buyback hook should use index 0 when no tiered hook");
 
         // Write to the correct index (no revert)
-        specs[correctIndex] = JBPayHookSpecification({hook: IJBPayHook(address(0xbeef)), amount: 1 ether, metadata: ""});
+        specs[correctIndex] =
+            JBPayHookSpecification({hook: IJBPayHook(address(0xbeef)), noop: false, amount: 1 ether, metadata: ""});
     }
 
     /// @notice Verify both hooks present works fine (no OOB).
@@ -150,8 +151,10 @@ contract REVDeployerRegressions is TestBaseWorkflow {
         assertEq(arraySize, 2, "array should be size 2");
 
         JBPayHookSpecification[] memory specs = new JBPayHookSpecification[](arraySize);
-        specs[0] = JBPayHookSpecification({hook: IJBPayHook(address(0xdead)), amount: 1 ether, metadata: ""});
-        specs[1] = JBPayHookSpecification({hook: IJBPayHook(address(0xbeef)), amount: 2 ether, metadata: ""});
+        specs[0] =
+            JBPayHookSpecification({hook: IJBPayHook(address(0xdead)), noop: false, amount: 1 ether, metadata: ""});
+        specs[1] =
+            JBPayHookSpecification({hook: IJBPayHook(address(0xbeef)), noop: false, amount: 2 ether, metadata: ""});
     }
 
     //*********************************************************************//

@@ -168,8 +168,8 @@ contract TestLoanRepayFork is ForkTestBase {
 
     /// @notice Repay after 10 years should revert (loan expired).
     function test_fork_repay_expiredReverts() public {
-        // Warp past the 10-year liquidation duration.
-        vm.warp(block.timestamp + LOANS_CONTRACT.LOAN_LIQUIDATION_DURATION());
+        // Warp past the 10-year liquidation duration (strict > check, so need +1).
+        vm.warp(block.timestamp + LOANS_CONTRACT.LOAN_LIQUIDATION_DURATION() + 1);
 
         vm.deal(BORROWER, 100 ether);
 

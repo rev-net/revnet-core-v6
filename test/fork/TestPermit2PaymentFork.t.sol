@@ -5,6 +5,7 @@ pragma solidity 0.8.26;
 import "./ForkTestBase.sol";
 import {REVEmpty721Config} from "../helpers/REVEmpty721Config.sol";
 import {MockERC20} from "@bananapus/core-v6/test/mock/MockERC20.sol";
+import {MockPriceFeed} from "@bananapus/core-v6/test/mock/MockPriceFeed.sol";
 import {JBSingleAllowance} from "@bananapus/core-v6/src/structs/JBSingleAllowance.sol";
 import {IAllowanceTransfer} from "@uniswap/permit2/src/interfaces/IAllowanceTransfer.sol";
 import {IPermit2} from "@uniswap/permit2/src/interfaces/IPermit2.sol";
@@ -48,6 +49,15 @@ contract TestPermit2PaymentFork is ForkTestBase {
 
         // Deploy a mock ERC-20 for testing.
         testToken = new MockERC20("Test Token", "TEST");
+
+        // Add a price feed: testToken → NATIVE_TOKEN so the buyback hook can quote.
+        // 1 testToken (6 dec) = 0.0005 ETH (i.e. 1 ETH = 2000 testTokens).
+        MockPriceFeed priceFeed = new MockPriceFeed(5e14, 18);
+        vm.prank(multisig());
+        jbPrices()
+            .addPriceFeedFor(
+                0, uint32(uint160(address(testToken))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed
+            );
 
         // Deploy a revnet that accepts both native token and the test ERC-20.
         revnetId = _deployRevnetWithERC20(5000);
@@ -139,11 +149,14 @@ contract TestPermit2PaymentFork is ForkTestBase {
             sigDeadline: sigDeadline, amount: amount, expiration: expiration, nonce: nonce, signature: sig
         });
 
-        // Encode as metadata with the "permit2" key targeting the terminal.
-        bytes4[] memory ids = new bytes4[](1);
-        bytes[] memory datas = new bytes[](1);
+        // Encode as metadata with the "permit2" key targeting the terminal, plus a zero "quote"
+        // so the buyback hook skips the TWAP pool lookup (no pool exists for testToken).
+        bytes4[] memory ids = new bytes4[](2);
+        bytes[] memory datas = new bytes[](2);
         ids[0] = JBMetadataResolver.getId("permit2", address(jbMultiTerminal()));
         datas[0] = abi.encode(allowance);
+        ids[1] = JBMetadataResolver.getId("quote", address(BUYBACK_HOOK));
+        datas[1] = abi.encode(uint256(0), uint256(0));
         metadata = JBMetadataResolver.createMetadata(ids, datas);
     }
 
