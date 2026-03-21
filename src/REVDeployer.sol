@@ -273,6 +273,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         // If there's no cash out tax (100% cash out tax rate), if there's no fee terminal, or if the beneficiary is
         // feeless (e.g. the router terminal routing value between projects), proxy directly to the buyback hook.
         if (context.cashOutTaxRate == 0 || address(feeTerminal) == address(0) || context.beneficiaryIsFeeless) {
+            // slither-disable-next-line unused-return
             return BUYBACK_HOOK.beforeCashOutRecordedWith(context);
         }
 
