@@ -74,6 +74,12 @@ Or: `REVDeployer.deployFor(revnetId=0, configuration, terminalConfigurations, su
 5. Cash-out delay applied if first stage has already started
 6. Same remaining steps as new deployment (ERC-20, buyback pools, suckers, 721 hook)
 
+**Events:**
+- `DeployRevnet(revnetId, configuration, terminalConfigurations, suckerDeploymentConfiguration, rulesetConfigurations, encodedConfigurationHash, caller)`
+- `StoreAutoIssuanceAmount(revnetId, stageId, beneficiary, count, caller)` for each auto-issuance on this chain
+- `DeploySuckers(...)` if suckers are deployed
+- `SetCashOutDelay(revnetId, cashOutDelay, caller)` if applicable
+
 **Edge cases:**
 - This is a **one-way operation**. The project NFT is permanently locked in REVDeployer.
 - `launchRulesetsFor` reverts if rulesets already exist. `setControllerOf` reverts if a controller is already set.
@@ -103,6 +109,8 @@ This is a standard Juicebox payment, but REVDeployer intervenes as the data hook
    - Buyback hook processes swap (if applicable)
 
 **Preview**: Call `JBMultiTerminal.previewPayFor(revnetId, token, amount, beneficiary, metadata)` to simulate the full payment including REVDeployer's data hook effects (buyback routing, 721 tier splits, weight adjustment). Returns the expected token count and hook specifications. When the buyback hook is active, noop specs may carry routing diagnostics (TWAP tick, liquidity, pool ID) even when the protocol mint path wins.
+
+**Events:** No revnet-specific events. The payment is handled by `JBMultiTerminal` and `JBController` (see nana-core-v6). REVDeployer's `beforePayRecordedWith` is a `view` function and emits nothing.
 
 **Edge cases:**
 - If the buyback hook determines a DEX swap is better, weight = 0 and the buyback hook spec receives the full project amount. The buyback hook buys tokens on the DEX and mints them to the payer.
@@ -136,6 +144,8 @@ This is a standard Juicebox payment, but REVDeployer intervenes as the data hook
    - On failure: returns funds to the originating project via `addToBalanceOf`
 
 **Preview**: Call `JBMultiTerminal.previewCashOutFrom(holder, revnetId, cashOutCount, tokenToReclaim, beneficiary, metadata)` to simulate the full cash out including REVDeployer's data hook effects (fee splitting, tax rate). Returns the expected reclaim amount and hook specifications. For a simpler estimate without data hook effects, use `JBTerminalStore.currentTotalReclaimableSurplusOf(revnetId, cashOutCount, decimals, currency)`.
+
+**Events:** No revnet-specific events. Cash-out events are emitted by `JBMultiTerminal` and `JBController`. REVDeployer's `beforeCashOutRecordedWith` is a `view` function. The `afterCashOutRecordedWith` hook processes fees but does not emit events.
 
 **Edge cases:**
 - Suckers bypass both the cash-out fee AND the cash-out delay. The `_isSuckerOf` check is the only gate.
@@ -382,7 +392,7 @@ This is a standard Juicebox payment, but REVDeployer intervenes as the data hook
 2. Reverts with `REVDeployer_NothingToBurn` if balance is 0
 3. Burns all held tokens via `CONTROLLER.burnTokensOf`
 
-**Events:** `BurnHeldTokens(revnetId, balance, caller)`
+**Events:** `BurnHeldTokens(revnetId, count, caller)`
 
 ---
 
