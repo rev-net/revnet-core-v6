@@ -10,10 +10,10 @@ Read [RISKS.md](./RISKS.md) for the trust model and known risks. Read [ARCHITECT
 
 | Contract | Lines | Role |
 |----------|-------|------|
-| `src/REVDeployer.sol` | ~1,287 | Deploys revnets. Acts as data hook and cash-out hook for all revnets. Manages stages, splits, auto-issuance, buyback hook delegation, 721 hook deployment, suckers, and split operator permissions. |
+| `src/REVDeployer.sol` | ~1,373 | Deploys revnets. Acts as data hook and cash-out hook for all revnets. Manages stages, splits, auto-issuance, buyback hook delegation, 721 hook deployment, suckers, and split operator permissions. |
 | `src/REVLoans.sol` | ~1,359 | Token-collateralized lending. Burns collateral on borrow, re-mints on repay. ERC-721 loan NFTs. Three-layer fee model. Permit2 integration. |
 | `src/interfaces/` | ~525 | Interface definitions for both contracts |
-| `src/structs/` | ~150 | All struct definitions |
+| `src/structs/` | ~200 | All struct definitions |
 
 **Dependencies (assumed correct, but verify integration points):**
 - `@bananapus/core-v6` -- JBController, JBMultiTerminal, JBTerminalStore, JBTokens, JBPrices, JBRulesets
@@ -260,8 +260,18 @@ sourceFeeAmount = mulDiv(fullSourceFeeAmount, amount, loan.amount);
 
 Verify:
 - The `prepaidDuration` calculation: `mulDiv(prepaidFeePercent, LOAN_LIQUIDATION_DURATION, MAX_PREPAID_FEE_PERCENT)`. At 2.5% (25), this is `25 * 3650 days / 500 = 182.5 days`. At 50% (500), it's `500 * 3650 days / 500 = 3650 days` (full duration). Is this the intended mapping?
-- The linear accrual formula: at `timeSinceLoanCreated = LOAN_LIQUIDATION_DURATION`, the fee percent approaches MAX_FEE (100%). Is this correct? The borrower would owe the full remaining loan amount as a fee, making repayment impossible.
-- Actually, at liquidation time, `_determineSourceFeeAmount` reverts with `REVLoans_LoanExpired`. So the fee approaches but never reaches 100%. Verify the revert boundary is correct: `>=` vs `>`.
+- The linear accrual formula: at `timeSinceLoanCreated = LOAN_LIQUIDATION_DURATION`, the fee percent approaches MAX_FEE (100%). The borrower would owe the full remaining loan amount as a fee, making repayment impossible.
+- At the boundary, `_determineSourceFeeAmount` reverts with `REVLoans_LoanExpired` before the fee reaches 100%. The revert uses `>` (not `>=`) so the exact boundary second is still repayable -- verify this matches the liquidation path which uses `<=`.
+
+## Invariants
+
+Fuzzable properties that should hold for all valid inputs:
+
+1. **Collateral accounting**: `totalCollateralOf[revnetId]` equals the sum of `_loanOf[loanId].collateral` for all active loans belonging to that revnet.
+2. **Borrowed amount accounting**: `totalBorrowedFrom[revnetId][terminal][token]` equals the sum of `_loanOf[loanId].amount` for all active loans with that source.
+3. **Loan NFT ownership**: The ERC-721 owner of a loan NFT is the only address authorized to repay, reallocate, or manage that loan (absent ROOT or explicit permission grants).
+4. **No flash-loan profit**: Borrowing and repaying in the same block (zero time elapsed) should never yield a net profit to the borrower after all fees.
+5. **Stage monotonicity**: Stage transitions are monotonically increasing in time -- a later stage's `startsAtOrAfter` is always strictly greater than the previous stage's.
 
 ## How to Run Tests
 
@@ -286,7 +296,7 @@ forge test --gas-report
 | Pattern | Where | Why |
 |---------|-------|-----|
 | `mulDiv` rounding direction | `beforePayRecordedWith` weight scaling, `_determineSourceFeeAmount`, `_borrowableAmountFrom` | Rounding in borrower's favor compounds over many loans |
-| Source fee `pay` without try-catch | `_adjust` line 1086 | If source fee terminal reverts, entire borrow/repay reverts (DoS) |
+| Source fee `pay` silently caught on revert | `_adjust` line 1086 | The catch block silently returns funds to the borrower instead of paying the fee, which could allow borrowers to intentionally cause fee payment reverts to avoid paying the source fee |
 | `delete _loanOf[loanId]` after external calls | `_repayLoan`, `_reallocateCollateralFromLoan` | Verify delete happens after all references to the loan are resolved |
 | Loan storage read after `_adjust` mutates it | `_repayLoan` partial repay path | `_adjust` modifies `loan` via storage pointer; subsequent reads see mutated values |
 | Unbounded loop in `_totalBorrowedFrom` | Called during every borrow operation | Gas griefing if many distinct loan sources accumulate |
