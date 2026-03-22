@@ -48,9 +48,10 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 | Function | What it does |
 |----------|-------------|
 | `REVLoans.borrowFrom(revnetId, source, minBorrowAmount, collateralCount, beneficiary, prepaidFeePercent)` | Open a loan: burn collateral tokens, pull funds from revnet via `useAllowanceOf`, pay REV fee (1%) + terminal fee (2.5%), transfer remainder to beneficiary, mint loan NFT. |
-| `REVLoans.repayLoan(loanId, maxRepayAmount, collateralToReturn, beneficiary, allowance)` | Repay fully or partially. Returns funds to revnet via `addToBalanceOf`, re-mints collateral tokens, burns/replaces the loan NFT. Supports permit2 signatures. |
-| `REVLoans.reallocateCollateralFromLoan(loanId, collateralToRemove, source, minBorrowAmount, collateralToAdd, beneficiary, prepaidFeePercent)` | Refinance: remove excess collateral from an existing loan and open a new loan with the freed collateral. Burns original, mints two replacements. |
+| `REVLoans.repayLoan(loanId, maxRepayBorrowAmount, collateralCountToReturn, beneficiary, allowance)` | Repay fully or partially. Returns funds to revnet via `addToBalanceOf`, re-mints collateral tokens, burns/replaces the loan NFT. Supports permit2 signatures. |
+| `REVLoans.reallocateCollateralFromLoan(loanId, collateralCountToTransfer, source, minBorrowAmount, collateralCountToAdd, beneficiary, prepaidFeePercent)` | Refinance: remove excess collateral from an existing loan and open a new loan with the freed collateral. Burns original, mints two replacements. |
 | `REVLoans.liquidateExpiredLoansFrom(revnetId, startingLoanId, count)` | **Permissionless.** Clean up loans past the 10-year liquidation duration. Burns NFTs and decrements accounting totals. Collateral is permanently lost. |
+| `REVLoans.setTokenUriResolver(resolver)` | Set the `IJBTokenUriResolver` used for loan NFT token URIs. Owner only. |
 
 ### Loans -- Views
 
@@ -68,7 +69,7 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 |------------|--------|----------|
 | `@bananapus/core-v6` | `IJBController`, `IJBDirectory`, `IJBPermissions`, `IJBProjects`, `IJBTerminal`, `IJBPrices`, `JBConstants`, `JBCashOuts`, `JBSurplus` | Project lifecycle, rulesets, token minting/burning, fund access, terminal payments, price feeds, bonding curve |
 | `@bananapus/721-hook-v6` | `IJB721TiersHook`, `IJB721TiersHookDeployer` | Deploying and registering tiered ERC-721 pay hooks |
-| `@bananapus/buyback-hook-v6` | `IJBBuybackHook` | Configuring Uniswap buyback pools per revnet |
+| `@bananapus/buyback-hook-v6` | `IJBBuybackHookRegistry` | Configuring Uniswap buyback pools per revnet |
 | `@bananapus/suckers-v6` | `IJBSuckerRegistry` | Deploying cross-chain suckers, checking sucker status for fee exemption |
 | `@croptop/core-v6` | `CTPublisher` | Configuring Croptop posting criteria for 721 tiers |
 | `@bananapus/permission-ids-v6` | `JBPermissionIds` | Permission ID constants (SET_SPLIT_GROUPS, USE_ALLOWANCE, etc.) |
@@ -91,6 +92,71 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 | `REV721TiersHookFlags` | `noNewTiersWithReserves`, `noNewTiersWithVotes`, `noNewTiersWithOwnerMinting`, `preventOverspending` | Same as `JB721TiersHookFlags` minus `issueTokensForSplits`. Revnets do their own weight adjustment for splits. |
 | `REVCroptopAllowedPost` | `category` (uint24), `minimumPrice` (uint104), `minimumTotalSupply` (uint32), `maximumTotalSupply` (uint32), `allowedAddresses[]` | Croptop posting criteria |
 | `REVSuckerDeploymentConfig` | `deployerConfigurations[]`, `salt` | Cross-chain sucker deployment |
+
+## Events
+
+### REVDeployer
+
+| Event | When It Fires |
+|-------|---------------|
+| `AutoIssue(revnetId, stageId, beneficiary, count, caller)` | When tokens are auto-issued for a beneficiary during a stage via `autoIssueFor`. |
+| `BurnHeldTokens(revnetId, count, caller)` | When held tokens are burned from the deployer contract via `burnHeldTokensOf`. |
+| `DeployRevnet(revnetId, configuration, terminalConfigurations, suckerDeploymentConfiguration, rulesetConfigurations, encodedConfigurationHash, caller)` | When a new revnet is deployed via `deployFor`. |
+| `DeploySuckers(revnetId, encodedConfigurationHash, suckerDeploymentConfiguration, caller)` | When suckers are deployed for a revnet via `deploySuckersFor`. |
+| `ReplaceSplitOperator(revnetId, newSplitOperator, caller)` | When the split operator of a revnet is replaced via `setSplitOperatorOf`. |
+| `SetCashOutDelay(revnetId, cashOutDelay, caller)` | When the cash out delay is set for a revnet during deployment to a new chain. |
+| `StoreAutoIssuanceAmount(revnetId, stageId, beneficiary, count, caller)` | When an auto-issuance amount is stored for a beneficiary during deployment. |
+
+### REVLoans
+
+| Event | When It Fires |
+|-------|---------------|
+| `Borrow(loanId, revnetId, loan, source, borrowAmount, collateralCount, sourceFeeAmount, beneficiary, caller)` | When a loan is created by borrowing from a revnet via `borrowFrom`. |
+| `Liquidate(loanId, revnetId, loan, caller)` | When a loan is liquidated after exceeding the 10-year liquidation duration via `liquidateExpiredLoansFrom`. |
+| `ReallocateCollateral(loanId, revnetId, reallocatedLoanId, reallocatedLoan, removedCollateralCount, caller)` | When collateral is reallocated from one loan to a new loan via `reallocateCollateralFromLoan`. |
+| `RepayLoan(loanId, revnetId, paidOffLoanId, loan, paidOffLoan, repayBorrowAmount, sourceFeeAmount, collateralCountToReturn, beneficiary, caller)` | When a loan is repaid via `repayLoan`. |
+| `SetTokenUriResolver(resolver, caller)` | When the token URI resolver is changed via `setTokenUriResolver`. |
+
+## Errors
+
+### REVDeployer
+
+| Error | When It Fires |
+|-------|---------------|
+| `REVDeployer_AutoIssuanceBeneficiaryZeroAddress()` | When an auto-issuance config has a zero-address beneficiary. |
+| `REVDeployer_CashOutDelayNotFinished(cashOutDelay, blockTimestamp)` | When a cash out is attempted before the 30-day delay has elapsed. |
+| `REVDeployer_CashOutsCantBeTurnedOffCompletely(cashOutTaxRate, maxCashOutTaxRate)` | When `cashOutTaxRate` equals `MAX_CASH_OUT_TAX_RATE` (10,000). Must be strictly less. |
+| `REVDeployer_MustHaveSplits()` | When a stage with `splitPercent > 0` has no splits configured. |
+| `REVDeployer_NothingToAutoIssue()` | When `autoIssueFor` is called but no tokens are available for auto-issuance. |
+| `REVDeployer_NothingToBurn()` | When `burnHeldTokensOf` is called but the deployer holds no tokens. |
+| `REVDeployer_RulesetDoesNotAllowDeployingSuckers()` | When `deploySuckersFor` is called but the current ruleset's `extraMetadata` bit 2 is not set. |
+| `REVDeployer_StageNotStarted(stageId)` | When `autoIssueFor` is called for a stage that hasn't started yet. |
+| `REVDeployer_StagesRequired()` | When `deployFor` is called with zero stage configurations. |
+| `REVDeployer_StageTimesMustIncrease()` | When stage `startsAtOrAfter` values are not strictly increasing. |
+| `REVDeployer_Unauthorized(revnetId, caller)` | When a non-split-operator calls a split-operator-only function. |
+
+### REVLoans
+
+| Error | When It Fires |
+|-------|---------------|
+| `REVLoans_CollateralExceedsLoan(collateralToReturn, loanCollateral)` | When trying to return more collateral than the loan holds. |
+| `REVLoans_InvalidPrepaidFeePercent(prepaidFeePercent, min, max)` | When `prepaidFeePercent` is outside the allowed range (2.5%--50%). |
+| `REVLoans_InvalidTerminal(terminal, revnetId)` | When the specified terminal is not registered for the revnet. |
+| `REVLoans_LoanExpired(timeSinceLoanCreated, loanLiquidationDuration)` | When trying to repay or reallocate an expired loan. |
+| `REVLoans_LoanIdOverflow()` | When the loan ID counter exceeds the per-revnet trillion-ID namespace. |
+| `REVLoans_NewBorrowAmountGreaterThanLoanAmount(newBorrowAmount, loanAmount)` | When a reallocation would produce a reduced loan with a larger borrow amount than the original. |
+| `REVLoans_NoMsgValueAllowed()` | When `msg.value > 0` on a non-native-token repayment. |
+| `REVLoans_NotEnoughCollateral()` | When the caller does not have enough tokens for the requested collateral. |
+| `REVLoans_NothingToRepay()` | When `repayLoan` is called with zero repay amount and zero collateral to return. |
+| `REVLoans_OverMaxRepayBorrowAmount(maxRepayBorrowAmount, repayBorrowAmount)` | When the actual repay cost exceeds the caller's `maxRepayBorrowAmount`. |
+| `REVLoans_OverflowAlert(value, limit)` | When a value would overflow `uint112` storage. |
+| `REVLoans_PermitAllowanceNotEnough(allowanceAmount, requiredAmount)` | When the permit2 allowance is insufficient for the repayment. |
+| `REVLoans_ReallocatingMoreCollateralThanBorrowedAmountAllows(newBorrowAmount, loanAmount)` | When the collateral being transferred out would leave the original loan undercollateralized. |
+| `REVLoans_SourceMismatch()` | When `reallocateCollateralFromLoan` specifies a source that doesn't match the existing loan's source. |
+| `REVLoans_Unauthorized(caller, owner)` | When a non-owner tries to repay or reallocate someone else's loan. |
+| `REVLoans_UnderMinBorrowAmount(minBorrowAmount, borrowAmount)` | When the actual borrow amount is less than the caller's `minBorrowAmount`. |
+| `REVLoans_ZeroBorrowAmount()` | When a borrow or reallocation would result in zero borrowed funds. |
+| `REVLoans_ZeroCollateralLoanIsInvalid()` | When a loan would end up with zero collateral. |
 
 ## Constants
 
@@ -136,6 +202,7 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 | `totalCollateralOf` | `revnetId => uint256` | Sum of all burned collateral |
 | `_loanOf` | `loanId => REVLoan` | Per-loan state |
 | `_loanSourcesOf` | `revnetId => REVLoanSource[]` | Array of all loan sources used |
+| `tokenUriResolver` | `IJBTokenUriResolver` | Resolver for loan NFT token URIs |
 
 ## Gotchas
 
@@ -259,9 +326,9 @@ loans.borrowFrom({
 
 loans.repayLoan({
     loanId: loanId,
-    maxRepayAmount: type(uint256).max,     // Repay in full
-    collateralToReturn: loan.collateral,   // Return all collateral
-    beneficiary: msg.sender,               // Receive re-minted tokens
-    allowance: IAllowanceTransfer.PermitSingle({ ... }) // Optional permit2
+    maxRepayBorrowAmount: type(uint256).max,     // Repay in full
+    collateralCountToReturn: loan.collateral,    // Return all collateral
+    beneficiary: msg.sender,                     // Receive re-minted tokens
+    allowance: JBSingleAllowance({ ... })        // Optional permit2
 });
 ```
