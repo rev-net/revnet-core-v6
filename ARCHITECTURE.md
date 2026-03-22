@@ -26,7 +26,7 @@ Deployer → REVDeployer.deployFor()
     → Each stage: duration, weight, cashOutTaxRate, splits
     → Auto-issuance: record per-beneficiary token counts for later claiming
   → Set REVDeployer as data hook (controls pay + cashout behavior)
-  → Initialize buyback pools at 1:1 price, configure buyback hook
+  → Initialize buyback pools at fair issuance price (derived from initialIssuance)
   → Deploy suckers for cross-chain operation
   → Deploy tiered ERC-721 hook (always — empty by default, pre-configured if specified)
   → Compute matching hash and store it for cross-chain sucker deployment
@@ -58,20 +58,26 @@ Stage IDs are assigned as `block.timestamp + i` (where `i` is the stage index), 
 ### Data Hook Behavior
 ```
 Payment → REVDeployer.beforePayRecordedWith()
-  → Delegate to buyback hook for swap-vs-mint decision
-  → Return pay hook specifications
+  → Query 721 tier hook for tier split specs (if configured)
+  → Delegate remaining amount to buyback hook for swap-vs-mint decision
+  → Scale weight so tokens are only minted for the project's share (after tier splits)
+  → Return merged hook specifications (721 hook + buyback hook)
 
 Cash Out → REVDeployer.beforeCashOutRecordedWith()
-  → If caller is a sucker: 0% cash out tax (bridging privilege)
-  → Otherwise: apply configured cashOutTaxRate
-  → Return cash out hook specifications
+  → If caller is a sucker: 0% cash out tax, full reclaim (bridging privilege)
+  → Enforce cash out delay (for cross-chain deployments of existing revnets)
+  → If no tax, no fee terminal, or feeless beneficiary: delegate directly to buyback hook
+  → Otherwise: split tokens into fee/non-fee portions via bonding curve
+  → Delegate non-fee portion to buyback hook
+  → Build fee hook spec routing fee amount to afterCashOutRecordedWith for processing
+  → Return merged hook specifications (buyback hook + fee hook)
 ```
 
 ### Loan Flow
 ```
 Borrower → REVLoans.borrowFrom()
   → Burn borrower's revnet tokens as collateral
-  → Calculate max borrow based on bonding curve value
+  → Calculate borrow amount from bonding curve value of collateral
   → Pull funds from treasury via USE_ALLOWANCE
   → Mint loan ERC-721 NFT to borrower
 
@@ -127,6 +133,8 @@ Fields set automatically by the deployer (not configurable per stage):
 - `@bananapus/permission-ids-v6` — Permission constants
 - `@croptop/core-v6` — Croptop integration
 - `@openzeppelin/contracts` — Standard utilities
+- `@prb/math` — Fixed-point math (`mulDiv`, `sqrt`)
+- `@uniswap/permit2` — Permit2 token allowances (REVLoans)
 
 ## Key Design Decisions
 - Stages are immutable after deployment — no owner can change ruleset parameters
