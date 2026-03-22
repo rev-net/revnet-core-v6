@@ -102,6 +102,7 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 | `FEE` | 25 (of MAX_FEE=1000) | 2.5% cash-out fee paid to fee revnet |
 | `DEFAULT_BUYBACK_POOL_FEE` | 10,000 | 1% Uniswap fee tier for default buyback pools |
 | `DEFAULT_BUYBACK_TWAP_WINDOW` | 2 days | TWAP observation window for buyback price |
+| `DEFAULT_BUYBACK_TICK_SPACING` | 200 | Tick spacing for default buyback V4 pools |
 
 ### REVLoans
 
