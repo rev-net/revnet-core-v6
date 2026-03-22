@@ -192,3 +192,19 @@ These MUST hold. Breaking any of them is a finding.
 - **Sucker privilege.** Only addresses returning `true` from `SUCKER_REGISTRY.isSuckerOf(projectId, addr)` get 0% cashout tax. No other code path grants this exemption.
 - **Loan ownership.** Only `_ownerOf(loanId)` can call `repayLoan` and `reallocateCollateralFromLoan`. The loan NFT is burned before any state changes in repayment, preventing double-use.
 - **Mint permission.** Only `LOANS`, `BUYBACK_HOOK`, buyback hook delegates (via `BUYBACK_HOOK.hasMintPermissionFor`), and suckers (via `_isSuckerOf`) can mint tokens. No other address passes the `hasMintPermissionFor` check.
+
+---
+
+## 8. Accepted Behaviors
+
+### 8.1 Suckers receive 0% cashout tax (by design)
+
+`beforeCashOutRecordedWith` returns `cashOutTaxRate = 0` for any address where `SUCKER_REGISTRY.isSuckerOf(projectId, addr)` returns true. This grants suckers the full pro-rata reclaim with no tax retention. This is intentional: suckers burn tokens on the source chain and mint equivalent tokens on the destination chain. The zero-tax path ensures bridged tokens preserve their full economic value across chains. The security boundary is the sucker registry — only addresses registered by authorized deployers (gated by `DEPLOY_SUCKERS` permission and per-stage `extraMetadata` bit 2) receive this privilege.
+
+### 8.2 No liquidation trigger for under-collateralized loans (by design)
+
+`REVLoans` has no health factor, no margin call, and no keeper-triggered liquidation. The only liquidation path is `liquidateExpiredLoansFrom` after 10 years. This is a conscious design choice: the protocol treats under-collateralized loans as free put options where the borrower forfeits worthless collateral and keeps the borrowed funds. The protocol absorbs this "loss" through permanent supply reduction (burned collateral), which is deflationary for remaining holders. A liquidation mechanism would add complexity, require oracles, and introduce MEV extraction opportunities at liquidation boundaries — all of which conflict with the revnet's minimal-trust design philosophy.
+
+### 8.3 Auto-issuance dilution is permissionless but predictable
+
+`autoIssueFor` can be called by anyone, diluting existing holders by minting pre-configured token amounts to beneficiaries. This is accepted because: (1) auto-issuance amounts are set immutably at deployment, so dilution is fully predictable, (2) the dilution only occurs once per `(revnetId, stageId, beneficiary)` tuple (single-claim guarantee), and (3) delaying the call only delays the inevitable — the configured amounts will eventually be minted. A griefing vector exists where someone calls `autoIssueFor` immediately before another user's cash-out, but the dilution magnitude is deterministic and can be priced in.
