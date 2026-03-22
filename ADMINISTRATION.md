@@ -85,6 +85,7 @@ These permissions are granted in the `REVDeployer` constructor and apply globall
 |---------|---------------|---------|
 | `SUCKER_REGISTRY` | `MAP_SUCKER_TOKEN` | Allows the sucker registry to map tokens for all revnets. |
 | `LOANS` | `USE_ALLOWANCE` | Allows the loans contract to use surplus allowance from all revnets to fund loans. |
+| `BUYBACK_HOOK` | `SET_BUYBACK_POOL` | Allows the buyback hook registry to configure pools for all revnets. |
 
 ## Autonomous Design
 
@@ -134,6 +135,9 @@ The following parameters are set at deployment and can never be changed:
 - `FEE_REVNET_ID` -- the project ID that receives cash-out fees
 - `FEE` -- the cash-out fee (2.5%)
 - `CASH_OUT_DELAY` -- 30 days for cross-chain deployments
+- `DEFAULT_BUYBACK_POOL_FEE` -- 10,000 (1% Uniswap V4 fee tier)
+- `DEFAULT_BUYBACK_TICK_SPACING` -- 200
+- `DEFAULT_BUYBACK_TWAP_WINDOW` -- 2 days
 
 ### REVLoans (global, set at contract deployment)
 - `CONTROLLER`, `DIRECTORY`, `PRICES`, `PROJECTS` -- protocol infrastructure
