@@ -41,7 +41,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import {mulDiv} from "@prb/math/src/Common.sol";
+import {mulDiv, sqrt} from "@prb/math/src/Common.sol";
 
 import {IREVDeployer} from "./interfaces/IREVDeployer.sol";
 import {REVAutoIssuance} from "./structs/REVAutoIssuance.sol";
@@ -587,14 +587,33 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         }
     }
 
-    /// @notice Try to initialize a Uniswap V4 buyback pool for a terminal token at a generic 1:1 price.
+    /// @notice Try to initialize a Uniswap V4 buyback pool for a terminal token at its fair issuance price.
     /// @dev Called after the ERC-20 token is deployed so the pool can be initialized in the PoolManager.
+    /// Computes `sqrtPriceX96` from `initialIssuance` so the pool starts at the same price as the bonding curve.
     /// Silently catches failures (e.g., if the pool is already initialized).
     /// @param revnetId The ID of the revnet.
     /// @param terminalToken The terminal token to initialize a buyback pool for.
-    function _tryInitializeBuybackPoolFor(uint256 revnetId, address terminalToken) internal {
-        // Try to initialize the pool at a generic 1:1 sqrtPriceX96 and configure the buyback hook.
-        // The buyback hook constructs the PoolKey internally from the project token, terminal token, and pool params.
+    /// @param initialIssuance The initial issuance rate (project tokens per terminal token, 18 decimals).
+    function _tryInitializeBuybackPoolFor(uint256 revnetId, address terminalToken, uint112 initialIssuance) internal {
+        uint160 sqrtPriceX96;
+
+        if (initialIssuance == 0) {
+            sqrtPriceX96 = uint160(1 << 96);
+        } else {
+            address normalizedTerminalToken = terminalToken == JBConstants.NATIVE_TOKEN ? address(0) : terminalToken;
+            address projectToken = address(CONTROLLER.TOKENS().tokenOf(revnetId));
+
+            if (projectToken == address(0) || projectToken == normalizedTerminalToken) {
+                sqrtPriceX96 = uint160(1 << 96);
+            } else if (normalizedTerminalToken < projectToken) {
+                // token0 = terminal, token1 = project → price = issuance / 1e18
+                sqrtPriceX96 = uint160(sqrt(mulDiv(uint256(initialIssuance), 1 << 192, 1e18)));
+            } else {
+                // token0 = project, token1 = terminal → price = 1e18 / issuance
+                sqrtPriceX96 = uint160(sqrt(mulDiv(1e18, 1 << 192, uint256(initialIssuance))));
+            }
+        }
+
         // slither-disable-next-line calls-loop
         try BUYBACK_HOOK.initializePoolFor({
             projectId: revnetId,
@@ -602,7 +621,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             tickSpacing: DEFAULT_BUYBACK_TICK_SPACING,
             twapWindow: DEFAULT_BUYBACK_TWAP_WINDOW,
             terminalToken: terminalToken,
-            sqrtPriceX96: uint160(1 << 96)
+            sqrtPriceX96: sqrtPriceX96
         }) {}
             catch {} // Pool may already be initialized — that's OK.
     }
@@ -1089,7 +1108,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             for (uint256 j; j < terminalConfiguration.accountingContextsToAccept.length; j++) {
                 // slither-disable-next-line calls-loop
                 _tryInitializeBuybackPoolFor({
-                    revnetId: revnetId, terminalToken: terminalConfiguration.accountingContextsToAccept[j].token
+                    revnetId: revnetId,
+                    terminalToken: terminalConfiguration.accountingContextsToAccept[j].token,
+                    initialIssuance: configuration.stageConfigurations[0].initialIssuance
                 });
             }
         }
