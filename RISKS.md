@@ -101,7 +101,7 @@ REVDeployer sits between the terminal and the actual hooks (buyback hook, 721 ho
 
 - **721 hook revert in `beforePayRecordedWith`.** The call to `IJBRulesetDataHook(tiered721Hook).beforePayRecordedWith(context)` is NOT wrapped in try-catch. If the 721 hook reverts (e.g., due to a storage corruption or out-of-gas), the entire payment reverts. This is a single point of failure for all payments to revnets with 721 hooks.
 - **Buyback hook is more resilient.** The `BUYBACK_HOOK.beforePayRecordedWith(buybackHookContext)` call is also not try-caught, but the buyback hook is a shared singleton controlled by the protocol. If it reverts, all revnets from that deployer are affected.
-- **Cash-out fee terminal revert.** In `afterCashOutRecordedWith`, the fee payment to the fee terminal IS wrapped in try-catch with a fallback to `addToBalanceOf`. If the fallback also fails, funds could be stuck in the deployer contract. However, the deployer has no withdrawal mechanism for arbitrary tokens -- only `burnHeldTokensOf` for project tokens.
+- **Cash-out fee terminal revert.** In `afterCashOutRecordedWith`, the fee payment to the fee terminal IS wrapped in try-catch with a fallback to `addToBalanceOf`. If the fallback also reverts, the entire cashout transaction reverts — no funds are stuck, but the cashout is blocked until the terminal is available.
 
 ### Sucker bypass path (0% cashout tax)
 
@@ -158,7 +158,7 @@ REVDeployer sits between the terminal and the actual hooks (buyback hook, 721 ho
 
 - **Source fee payment in `_adjust` IS try-caught.** If `loan.source.terminal.pay` reverts when paying the source fee, the fee amount is returned to the borrower instead. This prevents a reverting terminal from blocking all loan operations.
 - **REV fee payment in `_addTo` IS try-caught.** If the REV fee terminal is unavailable, the fee is zeroed and the borrower receives it. This is graceful degradation.
-- **Cash-out fee in `afterCashOutRecordedWith` IS try-caught.** Falls back to `addToBalanceOf`. If fallback also fails, the transaction still doesn't revert (the deployer absorbs the funds, which can only be recovered via `burnHeldTokensOf` for project tokens, not arbitrary tokens).
+- **Cash-out fee in `afterCashOutRecordedWith` IS try-caught.** Falls back to `addToBalanceOf`. The fallback itself is NOT try-caught -- if it also reverts, the entire cashout transaction reverts. No funds are absorbed by the deployer.
 
 ---
 
