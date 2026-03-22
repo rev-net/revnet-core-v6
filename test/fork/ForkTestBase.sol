@@ -524,15 +524,11 @@ abstract contract ForkTestBase is TestBaseWorkflow {
             hooks: IHooks(address(0))
         });
 
-        // Pool is already initialized at 1:1 price by REVDeployer during deployment.
-        // Just add liquidity and mock the oracle.
-
-        // At 1:1 price, full-range liquidity needs equal amounts of both tokens.
-        uint256 projectTokenAmount = liquidityTokenAmount;
-
-        // Fund LiquidityHelper with project tokens via JBTokens.mintFor (not deal).
+        // Pool is already initialized at fair issuance price by REVDeployer during deployment.
+        // At high tick (~69078 for 1000 tokens/ETH), full-range liquidity needs ~32x more project tokens than ETH.
+        // Mint 50x project tokens and use a smaller liquidity delta to stay within budget.
         vm.prank(address(jbController()));
-        jbTokens().mintFor(address(liqHelper), revnetId, projectTokenAmount);
+        jbTokens().mintFor(address(liqHelper), revnetId, liquidityTokenAmount * 50);
         // Fund with ETH for the native currency side.
         vm.deal(address(liqHelper), liquidityTokenAmount);
 
@@ -541,11 +537,12 @@ abstract contract ForkTestBase is TestBaseWorkflow {
         vm.stopPrank();
 
         // forge-lint: disable-next-line(unsafe-typecast)
-        int256 liquidityDelta = int256(liquidityTokenAmount / 2);
+        int256 liquidityDelta = int256(liquidityTokenAmount / 50);
         vm.prank(address(liqHelper));
         liqHelper.addLiquidity{value: liquidityTokenAmount}(key, TICK_LOWER, TICK_UPPER, liquidityDelta);
 
-        _mockOracle(liquidityDelta, 0, uint32(REV_DEPLOYER.DEFAULT_BUYBACK_TWAP_WINDOW()));
+        // Mock geomean oracle at tick 69078 (~1000 tokens/ETH, matching INITIAL_ISSUANCE).
+        _mockOracle(liquidityDelta, 69_078, uint32(REV_DEPLOYER.DEFAULT_BUYBACK_TWAP_WINDOW()));
     }
 
     /// @notice Mock the IGeomeanOracle at address(0) for hookless pools.

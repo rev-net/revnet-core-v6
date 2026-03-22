@@ -200,7 +200,7 @@ feeAmount = JBCashOuts.cashOutFrom(surplus - postFeeReclaimedAmount, feeCashOutC
 Verify:
 - `postFeeReclaimedAmount + feeAmount <= directReclaim` (total <= what you'd get without fee splitting)
 - Micro cash-outs (< 40 wei at 2.5%) round `feeCashOutCount` to zero, bypassing the fee. This is documented as economically insignificant. Verify.
-- The `cashOutCount` returned to the terminal is `nonFeeCashOutCount`, but the terminal still burns the full `cashOutCount` tokens. **Wait, is this correct?** Trace through the terminal to verify how many tokens are actually burned.
+- The `cashOutCount` returned to the terminal is `nonFeeCashOutCount`, but the terminal still burns the full `cashOutCount` tokens. **Open question**: Does the terminal burn the full original `cashOutCount` or only the `nonFeeCashOutCount`? Trace through `JBMultiTerminal.cashOutTokensOf()` to verify. If the full count is burned, the fee tokens are effectively destroyed -- this may be intentional (fee is taken from the surplus).
 
 ### 5. Permission model
 
@@ -293,3 +293,76 @@ forge test --gas-report
 | `uint112` truncation | `_adjust` explicit check | Verify all paths that set `loan.amount` or `loan.collateral` go through `_adjust` |
 | Permit2 try-catch swallowing | `_acceptFundsFor` | If permit fails, fall through to regular transfer. Is the state consistent? |
 | ERC-721 `_mint` callback | `borrowFrom`, `_repayLoan`, `_reallocateCollateralFromLoan` | `onERC721Received` can re-enter. Verify all state is settled before mint. |
+
+## Previous Audit Findings
+
+No prior formal audit with finding IDs has been conducted on this codebase. All risk analysis is internal. See [RISKS.md](./RISKS.md) for the trust model and known risks.
+
+## Coverage Gaps
+
+- **Stage transition during active loans**: No test for borrowing under one stage's tax rate and the stage transitioning before repayment.
+- **Multi-source loan aggregation**: `_totalBorrowedFrom` iterates all sources, but no test with >3 active sources testing gas and precision.
+- **Concurrent borrow + cash out**: No test for a borrow and cash out on the same revnet in the same block.
+- **Auto-issuance with sucker deployment**: No test for claiming auto-issuance on a cross-chain revnet during the cashOutDelay window.
+- **Partial repay + reallocation**: No test for `reallocateCollateralFromLoan` with a partial repay in the same transaction.
+- **Loan fee approaching 100%**: No test for repayment at `LOAN_LIQUIDATION_DURATION - 1 second` where the fee should be just under 100%.
+
+## Error Reference
+
+| Error | Contract | Trigger |
+|-------|----------|---------|
+| `REVDeployer_AutoIssuanceBeneficiaryZeroAddress` | REVDeployer | Auto-issuance configured with `beneficiary == address(0)` |
+| `REVDeployer_CashOutDelayNotFinished` | REVDeployer | Cash-out attempted before `cashOutDelayOf[revnetId]` timestamp has passed |
+| `REVDeployer_CashOutsCantBeTurnedOffCompletely` | REVDeployer | Stage configured with `cashOutTaxRate >= MAX_CASH_OUT_TAX_RATE` (10,000) |
+| `REVDeployer_MustHaveSplits` | REVDeployer | Stage has `splitPercent > 0` but empty `splits` array |
+| `REVDeployer_NothingToAutoIssue` | REVDeployer | `autoIssueFor` called but `amountToAutoIssue` is zero for the given beneficiary and stage |
+| `REVDeployer_NothingToBurn` | REVDeployer | `burnFrom` called but REVDeployer holds zero tokens for the revnet |
+| `REVDeployer_RulesetDoesNotAllowDeployingSuckers` | REVDeployer | `deploySuckersFor` called but current ruleset metadata disallows sucker deployment |
+| `REVDeployer_StageNotStarted` | REVDeployer | `autoIssueFor` called for a stage whose `ruleset.start > block.timestamp` |
+| `REVDeployer_StagesRequired` | REVDeployer | `deployFor` / `launchChainsFor` called with empty `stageConfigurations` array |
+| `REVDeployer_StageTimesMustIncrease` | REVDeployer | Stage `startsAtOrAfter` timestamps are not strictly increasing |
+| `REVDeployer_Unauthorized` | REVDeployer | Caller is not the split operator (for operator-gated functions) or not the project owner (for `launchChainsFor`) |
+| `REVLoans_CollateralExceedsLoan` | REVLoans | `reallocateCollateralFromLoan` called with `collateralCountToReturn > loan.collateral` |
+| `REVLoans_InvalidPrepaidFeePercent` | REVLoans | `prepaidFeePercent` outside `[MIN_PREPAID_FEE_PERCENT, MAX_PREPAID_FEE_PERCENT]` range (25-500) |
+| `REVLoans_InvalidTerminal` | REVLoans | Loan source references a terminal not registered in `JBDirectory` for the revnet |
+| `REVLoans_LoanExpired` | REVLoans | Repay/reallocation attempted after `LOAN_LIQUIDATION_DURATION` has elapsed since loan creation |
+| `REVLoans_LoanIdOverflow` | REVLoans | Loan counter for a revnet exceeds 1 trillion (namespace collision with next revnet ID) |
+| `REVLoans_NewBorrowAmountGreaterThanLoanAmount` | REVLoans | Partial repay would increase the loan's borrow amount above the original |
+| `REVLoans_NoMsgValueAllowed` | REVLoans | `msg.value > 0` sent when the loan source token is not the native token |
+| `REVLoans_NotEnoughCollateral` | REVLoans | `_reallocateCollateralFromLoan` attempts to remove more collateral than the loan holds |
+| `REVLoans_NothingToRepay` | REVLoans | `repayLoan` called with both `repayBorrowAmount == 0` and `collateralCountToReturn == 0` |
+| `REVLoans_OverMaxRepayBorrowAmount` | REVLoans | Actual repay cost (principal + accrued fee) exceeds caller's `maxRepayBorrowAmount` |
+| `REVLoans_OverflowAlert` | REVLoans | Loan amount or collateral exceeds `uint112` max, or Permit2 amount exceeds `uint160` max |
+| `REVLoans_PermitAllowanceNotEnough` | REVLoans | Permit2 allowance is less than the required transfer amount |
+| `REVLoans_ReallocatingMoreCollateralThanBorrowedAmountAllows` | REVLoans | After reallocation, the remaining collateral's bonding curve value is less than the remaining borrow amount |
+| `REVLoans_SourceMismatch` | REVLoans | Repay/reallocation called with a source (token, terminal) that does not match the loan's original source |
+| `REVLoans_Unauthorized` | REVLoans | Caller is not the ERC-721 owner of the loan being managed |
+| `REVLoans_UnderMinBorrowAmount` | REVLoans | Bonding curve returns a borrow amount below the caller's `minBorrowAmount` (slippage protection) |
+| `REVLoans_ZeroBorrowAmount` | REVLoans | Bonding curve returns zero for the given collateral (e.g., zero surplus) |
+| `REVLoans_ZeroCollateralLoanIsInvalid` | REVLoans | `borrowFrom` called with `collateralCount == 0` |
+
+## Compiler and Version Info
+
+- **Solidity**: 0.8.26
+- **EVM target**: Cancun
+- **Optimizer**: via-IR, 100 runs
+- **Dependencies**: OpenZeppelin 5.x, PRBMath, Permit2, nana-core-v6, nana-721-hook-v6, nana-buyback-hook-v6, nana-suckers-v6
+- **Build**: `forge build` (Foundry)
+
+## How to Report Findings
+
+For each finding:
+
+1. **Title** -- one line, starts with severity (CRITICAL/HIGH/MEDIUM/LOW)
+2. **Affected contract(s)** -- exact file path and line numbers
+3. **Description** -- what is wrong, in plain language
+4. **Trigger sequence** -- step-by-step, minimal steps to reproduce
+5. **Impact** -- what an attacker gains, what a user loses (with numbers if possible)
+6. **Proof** -- code trace showing the exact execution path, or a Foundry test
+7. **Fix** -- minimal code change that resolves the issue
+
+**Severity guide:**
+- **CRITICAL**: Direct fund loss, collateral manipulation enabling undercollateralized loans, or permanent DoS.
+- **HIGH**: Conditional fund loss, loan fee bypass, or broken invariant.
+- **MEDIUM**: Value leakage, fee calculation inaccuracy, griefing.
+- **LOW**: Informational, edge-case-only with no material impact.
