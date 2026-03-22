@@ -102,6 +102,8 @@ This is a standard Juicebox payment, but REVDeployer intervenes as the data hook
    - 721 hook processes tier purchases
    - Buyback hook processes swap (if applicable)
 
+**Preview**: Call `JBMultiTerminal.previewPayFor(revnetId, token, amount, beneficiary, metadata)` to simulate the full payment including REVDeployer's data hook effects (buyback routing, 721 tier splits, weight adjustment). Returns the expected token count and hook specifications. When the buyback hook is active, noop specs may carry routing diagnostics (TWAP tick, liquidity, pool ID) even when the protocol mint path wins.
+
 **Edge cases:**
 - If the buyback hook determines a DEX swap is better, weight = 0 and the buyback hook spec receives the full project amount. The buyback hook buys tokens on the DEX and mints them to the payer.
 - If `totalSplitAmount >= context.amount.value`, `projectAmount = 0`, weight = 0, and no tokens are minted by the terminal. All funds go to 721 tier splits.
@@ -132,6 +134,8 @@ This is a standard Juicebox payment, but REVDeployer intervenes as the data hook
    - Transfers fee amount from terminal to this contract
    - Pays fee to fee revnet's terminal via `feeTerminal.pay`
    - On failure: returns funds to the originating project via `addToBalanceOf`
+
+**Preview**: Call `JBMultiTerminal.previewCashOutFrom(holder, revnetId, cashOutCount, tokenToReclaim, beneficiary, metadata)` to simulate the full cash out including REVDeployer's data hook effects (fee splitting, tax rate). Returns the expected reclaim amount and hook specifications. For a simpler estimate without data hook effects, use `JBTerminalStore.currentTotalReclaimableSurplusOf(revnetId, cashOutCount, decimals, currency)`.
 
 **Edge cases:**
 - Suckers bypass both the cash-out fee AND the cash-out delay. The `_isSuckerOf` check is the only gate.
