@@ -149,10 +149,10 @@ This is a standard Juicebox payment, but REVDeployer intervenes as the data hook
 
 **Edge cases:**
 - Suckers bypass both the cash-out fee AND the cash-out delay. The `_isSuckerOf` check is the only gate.
-- `cashOutTaxRate == 0` means no tax and no revnet fee (but the terminal's 2.5% protocol fee still applies).
+- `cashOutTaxRate == 0` means no tax and no revnet fee. The terminal's 2.5% protocol fee only applies up to the `feeFreeSurplusOf` amount (round-trip prevention), not the full reclaim.
 - Micro cash-outs (< 40 wei at 2.5%) round `feeCashOutCount` to 0, bypassing the fee. Gas cost far exceeds the bypassed fee.
 - The fee is paid to `FEE_REVNET_ID`, not `REV_ID`. These may be different projects.
-- Cash-out fees stack: the terminal takes its 2.5% protocol fee, THEN the revnet takes its 2.5% fee from the remaining amount.
+- Both the revnet fee and the terminal protocol fee apply. The revnet fee is computed first (at the data hook level, by splitting the cashout token count into fee and non-fee portions), then the terminal's 2.5% protocol fee is applied to all outbound fund amounts (both the beneficiary's reclaim and the hook-forwarded fee amount).
 
 ---
 
@@ -199,7 +199,7 @@ This is a standard Juicebox payment, but REVDeployer intervenes as the data hook
      - Pays REV fee (1%) to `REV_ID` via `feeTerminal.pay` (try-catch; zeroed on failure)
      - Transfers remaining: `netAmountPaidOut - revFeeAmount - sourceFeeAmount` to beneficiary
    - `_addCollateralTo`: increments `totalCollateralOf`, burns collateral via `CONTROLLER.burnTokensOf`
-   - Pays source fee to revnet via `terminal.pay` (NOT try-catch -- reverts on failure)
+   - Pays source fee to revnet via `terminal.pay` (try-catch — on failure, returns fee amount to beneficiary)
 8. **Mint loan ERC-721** to `_msgSender()`
 
 **Events:** `Borrow(loanId, revnetId, loan, source, borrowAmount, collateralCount, sourceFeeAmount, beneficiary, caller)`
@@ -208,7 +208,7 @@ This is a standard Juicebox payment, but REVDeployer intervenes as the data hook
 - Revnets always deploy an ERC-20 at creation, so collateral is always ERC-20 tokens (never credits).
 - The `minBorrowAmount` check is against the raw bonding curve output, BEFORE fees are deducted. The actual amount received is less.
 - `prepaidDuration` at minimum (25): `25 * 3650 days / 500 = 182.5 days`. At maximum (500): `500 * 3650 days / 500 = 3650 days`.
-- The REV fee payment failure is non-fatal (borrower gets the fee amount instead). The source fee payment failure IS fatal (entire transaction reverts).
+- Both the REV fee payment and the source fee payment failures are non-fatal. If either `feeTerminal.pay` or `source.terminal.pay` reverts, the fee amount is transferred to the beneficiary instead.
 - Loan NFT is minted to `_msgSender()`, not `beneficiary`. The caller owns the loan; the beneficiary receives the funds.
 
 ---
