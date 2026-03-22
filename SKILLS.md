@@ -258,8 +258,8 @@ Quick-reference for common read operations. All functions are `view`/`pure` and 
 | What | Call | Returns |
 |------|------|---------|
 | Current ruleset (stage) | `IJBController(CONTROLLER).currentRulesetOf(revnetId)` | `(JBRuleset, JBRulesetMetadata)` -- the active stage's parameters |
-| All queued rulesets | `IJBController(CONTROLLER).allRulesetsOf(revnetId)` | Array of all stages ever queued |
-| Specific stage by ID | `IJBController(CONTROLLER).getRulesetOf(revnetId, stageId)` | `JBRuleset` for that stage |
+| All queued rulesets | `IJBController(CONTROLLER).allRulesetsOf(revnetId, startingId, size)` | `JBRulesetWithMetadata[]` -- paginated list of stages |
+| Specific stage by ID | `IJBController(CONTROLLER).getRulesetOf(revnetId, stageId)` | `(JBRuleset, JBRulesetMetadata)` for that stage |
 
 ### Split Operator
 
