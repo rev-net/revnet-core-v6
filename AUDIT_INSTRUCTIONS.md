@@ -13,7 +13,7 @@ Read [RISKS.md](./RISKS.md) for the trust model and known risks. Read [ARCHITECT
 | `src/REVDeployer.sol` | ~1,373 | Deploys revnets. Acts as data hook and cash-out hook for all revnets. Manages stages, splits, auto-issuance, buyback hook delegation, 721 hook deployment, suckers, and split operator permissions. |
 | `src/REVLoans.sol` | ~1,359 | Token-collateralized lending. Burns collateral on borrow, re-mints on repay. ERC-721 loan NFTs. Three-layer fee model. Permit2 integration. |
 | `src/interfaces/` | ~525 | Interface definitions for both contracts |
-| `src/structs/` | ~200 | All struct definitions |
+| `src/structs/` | ~212 | All struct definitions |
 
 **Dependencies (assumed correct, but verify integration points):**
 - `@bananapus/core-v6` -- JBController, JBMultiTerminal, JBTerminalStore, JBTokens, JBPrices, JBRulesets
@@ -244,7 +244,7 @@ Three layers of fees on borrow:
 
 1. **Protocol fee (2.5%)** -- charged by `useAllowanceOf` (JBMultiTerminal takes it automatically)
 2. **REV fee (1%)** -- `JBFees.feeAmountFrom(borrowAmount, REV_PREPAID_FEE_PERCENT=10)` paid to REV revnet. Try-catch; zeroed on failure.
-3. **Source prepaid fee (2.5%-50%)** -- `JBFees.feeAmountFrom(borrowAmount, prepaidFeePercent)` paid back to the revnet via `terminal.pay`. NOT try-catch; reverts on failure.
+3. **Source prepaid fee (2.5%-50%)** -- `JBFees.feeAmountFrom(borrowAmount, prepaidFeePercent)` paid back to the revnet via `terminal.pay`. Try-catch; on failure the fee is refunded to the borrower instead of being paid to the revnet.
 
 On repay, the source fee is time-proportional:
 
