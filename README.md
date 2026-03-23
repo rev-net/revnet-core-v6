@@ -123,15 +123,15 @@ If `forge install` has issues, try `git submodule update --init --recursive`.
 | Command | Description |
 |---------|-------------|
 | `forge build` | Compile contracts |
-| `forge test` | Run tests (20+ test files covering deployment, lifecycle, loans, attacks, invariants) |
+| `forge test` | Run tests (55 test files covering deployment, lifecycle, loans, attacks, invariants, fork tests, regressions) |
 | `forge test -vvvv` | Run tests with full traces |
 
 ## Repository Layout
 
 ```
 src/
-  REVDeployer.sol                                # Revnet deployer + data hook (~1,287 lines)
-  REVLoans.sol                                   # Token-collateralized lending (~1,359 lines)
+  REVDeployer.sol                                # Revnet deployer + data hook (~1,373 lines)
+  REVLoans.sol                                   # Token-collateralized lending (~1,391 lines)
   interfaces/
     IREVDeployer.sol                             # Deployer interface + events
     IREVLoans.sol                                # Loans interface + events
@@ -160,7 +160,6 @@ test/
   REVLoansAttacks.t.sol                          # Flash loan, reentrancy scenarios
   REVLoans.invariants.t.sol                      # Loan fuzzing invariants
   REVLoansRegressions.t.sol                      # Loan regressions
-  TestPR09-32_*.t.sol                            # Per-PR regression tests
   helpers/
     MaliciousContracts.sol                       # Attack contract mocks
   mock/
