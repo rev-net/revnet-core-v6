@@ -235,14 +235,10 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @notice Determine how a cash out from a revnet should be processed.
     /// @dev This function is part of `IJBRulesetDataHook`, and gets called before the revnet processes a cash out.
     /// @dev If a sucker is cashing out, no taxes or fees are imposed.
-    /// @dev Known imprecision: REVDeployer is not registered as a feeless address, so the fee hook spec
-    /// amount sent to `afterCashOutRecordedWith` will have a 2.5% protocol fee deducted by the terminal before
-    /// reaching this contract. The fee is therefore slightly less than the exact bonding-curve amount. Registering
-    /// REVDeployer as feeless in the deploy script would eliminate this imprecision.
-    /// @dev Known imprecision: When the buyback hook overrides the cashOutTaxRate, a small fee imprecision
-    /// arises because the fee tokens' reclaim value (feeAmount) was computed using the original cashOutTaxRate from
-    /// context, but the terminal ultimately applies the buyback hook's overridden rate. The delta is bounded by the
-    /// difference between the two rates applied to the fee portion, which is small in practice.
+    /// @dev REVDeployer is intentionally not registered as a feeless address. The protocol fee (2.5%) applies on top
+    /// of the rev fee — this is by design. The fee hook spec amount sent to `afterCashOutRecordedWith` will have the
+    /// protocol fee deducted by the terminal before reaching this contract, so the rev fee is computed on the
+    /// post-protocol-fee amount.
     /// @param context Standard Juicebox cash out context. See `JBBeforeCashOutRecordedContext`.
     /// @return cashOutTaxRate The cash out tax rate, which influences the amount of terminal tokens which get cashed
     /// out.
