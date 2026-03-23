@@ -2,6 +2,14 @@
 
 This document describes all changes between `revnet-core` (v5, Solidity 0.8.23) and `revnet-core-v6` (v6, Solidity 0.8.26).
 
+## Summary
+
+- **Buyback hook centralized**: Per-revnet `buybackHookOf` mapping replaced by a single immutable `BUYBACK_HOOK` registry — pools auto-initialized with default parameters during deployment.
+- **Loans simplified**: Per-revnet `loansOf` mapping replaced by a single immutable `LOANS` address; fund access limits derived automatically from terminal configurations.
+- **Every revnet gets a 721 hook**: The 4-arg `deployFor` overload auto-deploys an empty-tier 721 hook. `deployWith721sFor` merged into a 6-arg `deployFor` overload.
+- **Permission flags inverted**: `splitOperatorCan*` (opt-in) → `preventSplitOperator*` (opt-out) — permissions granted by default unless explicitly prevented.
+- **Weight scaling for tier splits**: `beforePayRecordedWith` now reduces minting weight proportionally when 721 tier splits consume part of the payment, preventing double-counting.
+
 ---
 
 ## 1. Breaking Changes
@@ -245,6 +253,9 @@ The following structs are identical between v5 and v6 (only `forge-lint` comment
 | **Every revnet gets a 721 hook** | The 4-arg `deployFor` overload auto-deploys a default empty 721 hook with all split operator permissions granted. In v5, the simple `deployFor` did not deploy any 721 hook. |
 | **721 permission semantics inverted** | v5 used opt-in flags (`splitOperatorCanAdjustTiers` etc.) that conditionally pushed permissions. v6 uses opt-out flags (`preventSplitOperatorAdjustingTiers` etc.) that grant permissions by default unless prevented. |
 | **`beforePayRecordedWith` rewrite** | v5 fetched the buyback hook from `buybackHookOf[revnetId]` and the 721 hook separately, passing the 721 hook as a zero-amount `JBPayHookSpecification`. v6 queries the 721 hook first as a data hook to determine its tier split amount, reduces the payment context amount for the buyback hook query, and scales the buyback weight proportionally (`weight * projectAmount / totalAmount`) to prevent minting tokens for the split portion of payments. |
+
+> **Why weight scaling matters**: Without proportional scaling, a payment of 1 ETH where 0.3 ETH goes to tier splits would still mint tokens as if the full 1 ETH entered the treasury. The `mulDiv(weight, projectAmount, totalAmount)` formula ensures tokens are only minted for the 0.7 ETH that actually enters the project, preventing dilution of existing token holders.
+
 | **`hasMintPermissionFor` updated** | v5 checked `loansOf[revnetId]`, `buybackHookOf[revnetId]`, and suckers. v6 checks the immutable `LOANS`, the immutable `BUYBACK_HOOK`, and delegates to `BUYBACK_HOOK.hasMintPermissionFor` for buyback delegates. |
 | **Loan fund access limits simplified** | v5 derived fund access limits from `configuration.loanSources` and validated them against terminal configurations via `_matchingCurrencyOf`. v6 derives them from all terminal configurations directly (one unlimited surplus allowance per terminal+token pair). The `_matchingCurrencyOf` helper is removed. |
 | **`burnHeldTokensOf` added** | New function to burn any project tokens held by the deployer. Reverts with `REVDeployer_NothingToBurn` if the balance is zero. |
@@ -319,3 +330,5 @@ Throughout the codebase, function calls were updated to use named argument synta
 | `REVLoanSource` | `REVLoanSource` | Identical (lint comment added) |
 | `REVStageConfig` | `REVStageConfig` | Identical (lint comment added) |
 | `REVSuckerDeploymentConfig` | `REVSuckerDeploymentConfig` | Identical (lint comment added) |
+
+> **Cross-repo impact**: Uses `nana-721-hook-v6` tier splits system for NFT payment routing. Uses `nana-buyback-hook-v6` registry for automatic pool configuration. `nana-omnichain-deployers-v6` implements a similar dual-hook composition pattern. `nana-fee-project-deployer-v6` removed its buyback/loan configuration in favor of the centralized approach here.

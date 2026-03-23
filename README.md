@@ -52,13 +52,39 @@ Revnets are autonomous Juicebox projects with predetermined economic stages. Eac
 - **Prepaid fee model.** Borrowers choose a prepaid fee (2.5%-50%) that buys an interest-free window. After that window, a time-proportional source fee accrues.
 - **Each loan is an ERC-721 NFT.** Loans can be transferred, and expired loans (10 years) can be liquidated by anyone.
 
+#### Loan Flow
+
+```mermaid
+sequenceDiagram
+    participant Borrower
+    participant REVLoans
+    participant JBController
+    participant JBMultiTerminal
+    participant Beneficiary
+
+    Note over Borrower,Beneficiary: Borrow
+    Borrower->>REVLoans: borrowFrom(revnetId, source, collateral, ...)
+    REVLoans->>JBController: burnTokensOf(borrower, collateral)
+    REVLoans->>JBMultiTerminal: useAllowanceOf(revnetId, borrowAmount)
+    JBMultiTerminal-->>REVLoans: net funds (minus protocol fee)
+    REVLoans-->>Beneficiary: borrowed funds (minus prepaid fee)
+    REVLoans-->>Borrower: mint loan ERC-721 NFT
+
+    Note over Borrower,Beneficiary: Repay
+    Borrower->>REVLoans: repayLoan(loanId, collateralToReturn, ...)
+    REVLoans->>REVLoans: burn loan ERC-721 NFT
+    REVLoans->>JBMultiTerminal: addToBalanceOf(revnetId, repayAmount)
+    REVLoans->>JBController: mintTokensOf(beneficiary, collateral)
+    Note right of Beneficiary: Collateral tokens re-minted
+```
+
 ### Deployer Variants
 
 Every revnet gets a tiered ERC-721 hook deployed automatically — even if no tiers are configured at launch. This lets the split operator add and sell NFTs later without migration.
 
-- **Basic revnet** -- `deployFor` with stage configurations mapped to Juicebox rulesets and an empty 721 hook.
-- **Tiered 721 revnet** -- `deployFor` adds a tiered 721 pay hook with pre-configured tiers that mint NFTs as people pay.
-- **Croptop revnet** -- A tiered 721 revnet with Croptop posting criteria, allowing the public to post content.
+- **Basic revnet** -- `deployFor` with stage configurations mapped to Juicebox rulesets and an empty 721 hook. Choose this when the revnet only needs fungible token issuance and the split operator may optionally add NFT tiers later.
+- **Tiered 721 revnet** -- `deployFor` adds a tiered 721 pay hook with pre-configured tiers that mint NFTs as people pay. Choose this when the revnet should sell specific NFT tiers from day one, such as membership passes or limited editions.
+- **Croptop revnet** -- A tiered 721 revnet with Croptop posting criteria, allowing the public to post content. Choose this when the revnet should function as an open publishing platform where anyone can submit content that gets minted as NFTs according to the configured posting rules.
 
 ## Architecture
 

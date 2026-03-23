@@ -15,43 +15,43 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 
 ### Deployment
 
-| Function | What it does |
-|----------|-------------|
-| `REVDeployer.deployFor(revnetId, config, terminals, suckerConfig)` | Deploy a new revnet (`revnetId=0`) or convert an existing Juicebox project. Encodes stage configs into rulesets, deploys ERC-20 token, initializes buyback pool at 1:1 price, sets up split operator, suckers, loans permissions, and deploys a default empty tiered ERC-721 hook. |
-| `REVDeployer.deployFor(revnetId, config, terminals, suckerConfig, hookConfig, allowedPosts)` | Same as `deployFor` but deploys a tiered ERC-721 hook with pre-configured tiers. Optionally configures Croptop posting criteria and grants publisher permission to add tiers. |
-| `REVDeployer.deploySuckersFor(revnetId, suckerConfig)` | Deploy new cross-chain suckers post-launch. Split operator only. Validates ruleset allows sucker deployment (bit 2 of `extraMetadata`). Uses stored config hash for cross-chain matching. |
+| Function | Permissions | What it does |
+|----------|------------|-------------|
+| `REVDeployer.deployFor(revnetId, config, terminals, suckerConfig)` | Permissionless | Deploy a new revnet (`revnetId=0`) or convert an existing Juicebox project. Encodes stage configs into rulesets, deploys ERC-20 token, initializes buyback pool at 1:1 price, sets up split operator, suckers, loans permissions, and deploys a default empty tiered ERC-721 hook. |
+| `REVDeployer.deployFor(revnetId, config, terminals, suckerConfig, hookConfig, allowedPosts)` | Permissionless | Same as `deployFor` but deploys a tiered ERC-721 hook with pre-configured tiers. Optionally configures Croptop posting criteria and grants publisher permission to add tiers. |
+| `REVDeployer.deploySuckersFor(revnetId, suckerConfig)` | Split operator | Deploy new cross-chain suckers post-launch. Validates ruleset allows sucker deployment (bit 2 of `extraMetadata`). Uses stored config hash for cross-chain matching. |
 
 ### Data Hooks
 
-| Function | What it does |
-|----------|-------------|
-| `REVDeployer.beforePayRecordedWith(context)` | Calls the 721 hook first for split specs, then calls the buyback hook with a reduced amount context (payment minus split amount). Adjusts the returned weight proportionally for splits (`weight = mulDiv(weight, amount - splitAmount, amount)`) so the terminal only mints tokens for the amount entering the project. Assembles pay hook specs (721 hook specs first, then buyback spec). |
-| `REVDeployer.beforeCashOutRecordedWith(context)` | If sucker: returns full amount with 0 tax (fee exempt). Otherwise: calculates 2.5% fee, enforces 30-day cash-out delay, returns modified count + fee hook spec. |
-| `REVDeployer.afterCashOutRecordedWith(context)` | Cash-out hook callback. Receives fee amount and pays it to the fee revnet's terminal. Falls back to returning funds if fee payment fails. |
-| `REVDeployer.hasMintPermissionFor(revnetId, ruleset, addr)` | Returns `true` for: loans contract, buyback hook, buyback hook delegates, or suckers. |
+| Function | Permissions | What it does |
+|----------|------------|-------------|
+| `REVDeployer.beforePayRecordedWith(context)` | Terminal callback | Calls the 721 hook first for split specs, then calls the buyback hook with a reduced amount context (payment minus split amount). Adjusts the returned weight proportionally for splits (`weight = mulDiv(weight, amount - splitAmount, amount)`) so the terminal only mints tokens for the amount entering the project. Assembles pay hook specs (721 hook specs first, then buyback spec). |
+| `REVDeployer.beforeCashOutRecordedWith(context)` | Terminal callback | If sucker: returns full amount with 0 tax (fee exempt). Otherwise: calculates 2.5% fee, enforces 30-day cash-out delay, returns modified count + fee hook spec. |
+| `REVDeployer.afterCashOutRecordedWith(context)` | Permissionless | Cash-out hook callback. Receives fee amount and pays it to the fee revnet's terminal. Falls back to returning funds if fee payment fails. |
+| `REVDeployer.hasMintPermissionFor(revnetId, ruleset, addr)` | View | Returns `true` for: loans contract, buyback hook, buyback hook delegates, or suckers. |
 
 ### Split Operator
 
-| Function | What it does |
-|----------|-------------|
-| `REVDeployer.setSplitOperatorOf(revnetId, newOperator)` | Replace the current split operator. Only callable by the current split operator. Revokes old permissions, grants new ones. |
+| Function | Permissions | What it does |
+|----------|------------|-------------|
+| `REVDeployer.setSplitOperatorOf(revnetId, newOperator)` | Split operator | Replace the current split operator. Revokes old permissions, grants new ones. |
 
 ### Auto-Issuance
 
-| Function | What it does |
-|----------|-------------|
-| `REVDeployer.autoIssueFor(revnetId, stageId, beneficiary)` | **Permissionless.** Mint pre-configured auto-issuance tokens for a beneficiary once a stage has started. One-time per stage per beneficiary. |
-| `REVDeployer.burnHeldTokensOf(revnetId)` | **Permissionless.** Burn any reserved tokens held by the deployer (when splits < 100%). |
+| Function | Permissions | What it does |
+|----------|------------|-------------|
+| `REVDeployer.autoIssueFor(revnetId, stageId, beneficiary)` | Permissionless | Mint pre-configured auto-issuance tokens for a beneficiary once a stage has started. One-time per stage per beneficiary. |
+| `REVDeployer.burnHeldTokensOf(revnetId)` | Permissionless | Burn any reserved tokens held by the deployer (when splits < 100%). |
 
 ### Loans -- Borrowing
 
-| Function | What it does |
-|----------|-------------|
-| `REVLoans.borrowFrom(revnetId, source, minBorrowAmount, collateralCount, beneficiary, prepaidFeePercent)` | Open a loan: burn collateral tokens, pull funds from revnet via `useAllowanceOf`, pay REV fee (1%) + terminal fee (2.5%), transfer remainder to beneficiary, mint loan NFT. |
-| `REVLoans.repayLoan(loanId, maxRepayBorrowAmount, collateralCountToReturn, beneficiary, allowance)` | Repay fully or partially. Returns funds to revnet via `addToBalanceOf`, re-mints collateral tokens, burns/replaces the loan NFT. Supports permit2 signatures. |
-| `REVLoans.reallocateCollateralFromLoan(loanId, collateralCountToTransfer, source, minBorrowAmount, collateralCountToAdd, beneficiary, prepaidFeePercent)` | Refinance: remove excess collateral from an existing loan and open a new loan with the freed collateral. Burns original, mints two replacements. |
-| `REVLoans.liquidateExpiredLoansFrom(revnetId, startingLoanId, count)` | **Permissionless.** Clean up loans past the 10-year liquidation duration. Burns NFTs and decrements accounting totals. Collateral is permanently lost. |
-| `REVLoans.setTokenUriResolver(resolver)` | Set the `IJBTokenUriResolver` used for loan NFT token URIs. Owner only. |
+| Function | Permissions | What it does |
+|----------|------------|-------------|
+| `REVLoans.borrowFrom(revnetId, source, minBorrowAmount, collateralCount, beneficiary, prepaidFeePercent)` | Permissionless (caller must grant BURN_TOKENS to REVLoans) | Open a loan: burn collateral tokens, pull funds from revnet via `useAllowanceOf`, pay REV fee (1%) + terminal fee (2.5%), transfer remainder to beneficiary, mint loan NFT. |
+| `REVLoans.repayLoan(loanId, maxRepayBorrowAmount, collateralCountToReturn, beneficiary, allowance)` | Loan NFT owner | Repay fully or partially. Returns funds to revnet via `addToBalanceOf`, re-mints collateral tokens, burns/replaces the loan NFT. Supports permit2 signatures. |
+| `REVLoans.reallocateCollateralFromLoan(loanId, collateralCountToTransfer, source, minBorrowAmount, collateralCountToAdd, beneficiary, prepaidFeePercent)` | Loan NFT owner | Refinance: remove excess collateral from an existing loan and open a new loan with the freed collateral. Burns original, mints two replacements. |
+| `REVLoans.liquidateExpiredLoansFrom(revnetId, startingLoanId, count)` | Permissionless | Clean up loans past the 10-year liquidation duration. Burns NFTs and decrements accounting totals. Collateral is permanently lost. |
+| `REVLoans.setTokenUriResolver(resolver)` | Contract owner (`onlyOwner`) | Set the `IJBTokenUriResolver` used for loan NFT token URIs. |
 
 ### Loans -- Views
 
@@ -184,25 +184,25 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 
 ### REVDeployer
 
-| Mapping | Type | Purpose |
-|---------|------|---------|
-| `amountToAutoIssue` | `revnetId => stageId => beneficiary => uint256` | Premint tokens per stage per beneficiary |
-| `cashOutDelayOf` | `revnetId => uint256` | Timestamp when cash outs unlock (0 = no delay) |
-| `hashedEncodedConfigurationOf` | `revnetId => bytes32` | Config hash for cross-chain sucker validation |
-| `tiered721HookOf` | `revnetId => address` | Deployed 721 hook address (if any) |
-| `_extraOperatorPermissions` | `revnetId => uint256[]` | Custom permissions for split operator |
+| Mapping | Visibility | Type | Purpose |
+|---------|-----------|------|---------|
+| `amountToAutoIssue` | `public` | `revnetId => stageId => beneficiary => uint256` | Premint tokens per stage per beneficiary |
+| `cashOutDelayOf` | `public` | `revnetId => uint256` | Timestamp when cash outs unlock (0 = no delay) |
+| `hashedEncodedConfigurationOf` | `public` | `revnetId => bytes32` | Config hash for cross-chain sucker validation |
+| `tiered721HookOf` | `public` | `revnetId => address` | Deployed 721 hook address (if any) |
+| `_extraOperatorPermissions` | `internal` | `revnetId => uint256[]` | Custom permissions for split operator (no auto-getter) |
 
 ### REVLoans
 
-| Mapping | Type | Purpose |
-|---------|------|---------|
-| `isLoanSourceOf` | `revnetId => terminal => token => bool` | Is this (terminal, token) pair used for loans? |
-| `totalLoansBorrowedFor` | `revnetId => uint256` | Counter for loan numbering |
-| `totalBorrowedFrom` | `revnetId => terminal => token => uint256` | Tracks debt per loan source |
-| `totalCollateralOf` | `revnetId => uint256` | Sum of all burned collateral |
-| `_loanOf` | `loanId => REVLoan` | Per-loan state |
-| `_loanSourcesOf` | `revnetId => REVLoanSource[]` | Array of all loan sources used |
-| `tokenUriResolver` | `IJBTokenUriResolver` | Resolver for loan NFT token URIs |
+| Mapping | Visibility | Type | Purpose |
+|---------|-----------|------|---------|
+| `isLoanSourceOf` | `public` | `revnetId => terminal => token => bool` | Is this (terminal, token) pair used for loans? |
+| `totalLoansBorrowedFor` | `public` | `revnetId => uint256` | Counter for loan numbering |
+| `totalBorrowedFrom` | `public` | `revnetId => terminal => token => uint256` | Tracks debt per loan source |
+| `totalCollateralOf` | `public` | `revnetId => uint256` | Sum of all burned collateral |
+| `_loanOf` | `internal` | `loanId => REVLoan` | Per-loan state (use `loanOf(loanId)` view) |
+| `_loanSourcesOf` | `internal` | `revnetId => REVLoanSource[]` | Array of all loan sources used (use `loanSourcesOf(revnetId)` view) |
+| `tokenUriResolver` | `public` | `IJBTokenUriResolver` | Resolver for loan NFT token URIs |
 
 ## Gotchas
 
@@ -222,7 +222,7 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 14. **Fee revnet must have terminals.** Cash-out fees and loan protocol fees are paid to `FEE_REVNET_ID`. If that project has no terminal for the token, the fee silently fails (try-catch).
 15. **Buyback hook is immutable per deployer.** `REVDeployer.BUYBACK_HOOK` is set at construction time. All revnets deployed by the same deployer share the same buyback hook.
 16. **Cross-chain config matching.** `hashedEncodedConfigurationOf` covers economic parameters (baseCurrency, stages, auto-issuances) but NOT terminal configurations, accounting contexts, or sucker token mappings. Two deployments with identical hashes can have different terminal setups.
-17. **Loan fee model.** Three layers: (1) REV protocol fee (1%) taken when funds pulled, (2) terminal fee (2.5%) charged by `useAllowanceOf`, (3) prepaid source fee (2.5%-50%, borrower-chosen) that buys an interest-free window. After the prepaid window, time-proportional source fee accrues linearly over the remaining 10-year loan duration.
+17. **Loan fee model has three layers.** See Constants table for exact values: REV protocol fee, terminal fee, and prepaid source fee (borrower-chosen, buys interest-free window). After the prepaid window, source fee accrues linearly over the remaining loan duration.
 18. **Permit2 fallback.** `REVLoans` uses permit2 for ERC-20 transfers as a fallback when standard allowance is insufficient. Wrapped in try-catch.
 19. **39.16% cash-out tax crossover.** Below ~39% cash-out tax, cashing out is more capital-efficient than borrowing. Above ~39%, loans become more efficient because they preserve upside while providing liquidity. Based on CryptoEconLab academic research. Design implication: revnets intended for active token trading should consider this threshold when setting `cashOutTaxRate`.
 20. **REVDeployer always deploys a 721 hook** via `HOOK_DEPLOYER.deployHookFor` — even if `baseline721HookConfiguration` has empty tiers. This is correct by design: it lets the split operator add and sell NFTs later without migration. Non-revnet projects should follow the same pattern by using `JB721TiersHookProjectDeployer.launchProjectFor` (or `JBOmnichainDeployer.launchProjectFor`) instead of bare `launchProjectFor`.
@@ -248,6 +248,60 @@ JBAccountingContext({
     currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
 })
 ```
+
+## Reading Revnet State
+
+Quick-reference for common read operations. All functions are `view`/`pure` and permissionless.
+
+### Current Stage & Ruleset
+
+| What | Call | Returns |
+|------|------|---------|
+| Current ruleset (stage) | `IJBController(CONTROLLER).currentRulesetOf(revnetId)` | `(JBRuleset, JBRulesetMetadata)` -- the active stage's parameters |
+| All queued rulesets | `IJBController(CONTROLLER).allRulesetsOf(revnetId, startingId, size)` | `JBRulesetWithMetadata[]` -- paginated list of stages |
+| Specific stage by ID | `IJBController(CONTROLLER).getRulesetOf(revnetId, stageId)` | `(JBRuleset, JBRulesetMetadata)` for that stage |
+
+### Split Operator
+
+| What | Call | Returns |
+|------|------|---------|
+| Check if address is split operator | `REVDeployer.isSplitOperatorOf(revnetId, addr)` | `bool` |
+
+### Token Supply & Surplus
+
+| What | Call | Returns |
+|------|------|---------|
+| Total supply (incl. pending reserved) | `IJBController(CONTROLLER).totalTokenSupplyWithReservedTokensOf(revnetId)` | `uint256` |
+| Pending reserved tokens | `IJBController(CONTROLLER).pendingReservedTokenBalanceOf(revnetId)` | `uint256` |
+| Current surplus (single terminal) | `IJBTerminalStore(STORE).currentSurplusOf(terminal, revnetId, configs, decimals, currency)` | `uint256` |
+
+### Auto-Issuance
+
+| What | Call | Returns |
+|------|------|---------|
+| Remaining auto-issuance for beneficiary | `REVDeployer.amountToAutoIssue(revnetId, stageId, beneficiary)` | `uint256` (0 if already claimed) |
+
+### Loans
+
+| What | Call | Returns |
+|------|------|---------|
+| Borrowable amount for collateral | `REVLoans.borrowableAmountFrom(revnetId, collateralCount, decimals, currency)` | `uint256` |
+| Total borrowed (per source) | `REVLoans.totalBorrowedFrom(revnetId, terminal, token)` | `uint256` |
+| Total collateral locked | `REVLoans.totalCollateralOf(revnetId)` | `uint256` |
+| Loan details | `REVLoans.loanOf(loanId)` | `REVLoan` struct |
+| All loan sources | `REVLoans.loanSourcesOf(revnetId)` | `REVLoanSource[]` |
+| Loan count | `REVLoans.totalLoansBorrowedFor(revnetId)` | `uint256` |
+| Source fee for repayment | `REVLoans.determineSourceFeeAmount(loan, amount)` | `uint256` |
+| Revnet ID from loan ID | `REVLoans.revnetIdOfLoanWith(loanId)` | `uint256` (pure) |
+| Loan NFT owner | `REVLoans.ownerOf(loanId)` | `address` (ERC-721) |
+
+### Deployer Config
+
+| What | Call | Returns |
+|------|------|---------|
+| Config hash (cross-chain matching) | `REVDeployer.hashedEncodedConfigurationOf(revnetId)` | `bytes32` |
+| 721 hook address | `REVDeployer.tiered721HookOf(revnetId)` | `IJB721TiersHook` |
+| Cash-out delay timestamp | `REVDeployer.cashOutDelayOf(revnetId)` | `uint256` (0 = no delay) |
 
 ## Example Integration
 
