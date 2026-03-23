@@ -331,11 +331,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         // expected to return at most one spec for the cash-out buyback swap.
         if (buybackHookSpecifications.length > 0) {
             // The buyback hook returned a spec — include it before the fee spec.
-            // Override the amount to use nonFeeCashOutCount so the buyback hook only receives the
-            // non-fee portion. The buyback hook may have returned cashOutCount (the full amount);
-            // we must correct it to exclude the fee tokens already accounted for in feeSpec.
             hookSpecifications = new JBCashOutHookSpecification[](2);
-            buybackHookSpecifications[0].amount = nonFeeCashOutCount;
             hookSpecifications[0] = buybackHookSpecifications[0];
             hookSpecifications[1] = feeSpec;
         } else {
