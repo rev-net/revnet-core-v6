@@ -72,7 +72,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     error REVDeployer_StagesRequired();
     error REVDeployer_StageTimesMustIncrease();
     error REVDeployer_Unauthorized(uint256 revnetId, address caller);
-    error REVDeployer_ZeroAddress();
 
     //*********************************************************************//
     // ------------------------- public constants ------------------------ //
@@ -891,12 +890,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
 
     /// @notice Change a revnet's split operator.
     /// @dev Only a revnet's current split operator can set a new split operator.
+    /// @dev Passing `address(0)` as `newSplitOperator` relinquishes operator powers permanently — the permissions
+    /// are granted to the zero address (which cannot execute transactions), effectively burning them.
     /// @param revnetId The ID of the revnet to set the split operator of.
-    /// @param newSplitOperator The new split operator's address.
+    /// @param newSplitOperator The new split operator's address. Use `address(0)` to relinquish operator powers.
     function setSplitOperatorOf(uint256 revnetId, address newSplitOperator) external override {
-        // The zero address cannot receive permissions or operate splits.
-        if (newSplitOperator == address(0)) revert REVDeployer_ZeroAddress();
-
         // Enforce permissions.
         _checkIfIsSplitOperatorOf({revnetId: revnetId, operator: _msgSender()});
 

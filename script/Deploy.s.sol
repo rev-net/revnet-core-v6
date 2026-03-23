@@ -411,12 +411,7 @@ contract DeployScript is Script, Sphinx {
     }
 
     /// @notice Check whether a contract has already been deployed at its deterministic address.
-    /// @dev WARNING: This function uses the Arachnid deterministic-deployment-proxy address to predict
-    /// the deployment address. Under Sphinx, the actual deployer differs, so the predicted address never matches
-    /// and `isDeployed` always returns false. This means rerunning the deploy script via Sphinx is NOT idempotent:
-    /// each run creates a new fee project (via `core.projects.createFor`) and deploys fresh contract instances,
-    /// rather than reusing existing ones. Operators must ensure the script is only run once per chain, or manually
-    /// verify deployment state before re-execution.
+    /// @dev Uses the Arachnid deterministic-deployment-proxy address to predict the CREATE2 address.
     function _isDeployed(
         bytes32 salt,
         bytes memory creationCode,
@@ -426,10 +421,6 @@ contract DeployScript is Script, Sphinx {
         view
         returns (address deployedTo, bool isDeployed)
     {
-        // Note: This uses the Arachnid deterministic-deployment-proxy address, which differs from
-        // the Sphinx deployer used at runtime. As a result, the predicted address won't match and
-        // _isDeployed will always return false when deploying via Sphinx. This is benign — it just
-        // means contracts are always freshly deployed rather than skipped.
         address _deployedTo = vm.computeCreate2Address({
             salt: salt,
             initCodeHash: keccak256(abi.encodePacked(creationCode, arguments)),
