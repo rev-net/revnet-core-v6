@@ -85,7 +85,7 @@ These permissions are granted in the `REVDeployer` constructor and apply globall
 |---------|---------------|---------|
 | `SUCKER_REGISTRY` | `MAP_SUCKER_TOKEN` | Allows the sucker registry to map tokens for all revnets. |
 | `LOANS` | `USE_ALLOWANCE` | Allows the loans contract to use surplus allowance from all revnets to fund loans. |
-| `BUYBACK_HOOK` | `SET_BUYBACK_POOL` | Allows the buyback hook to configure Uniswap V4 pools for all revnets. |
+| `BUYBACK_HOOK` | `SET_BUYBACK_POOL` | Allows the buyback hook registry to configure Uniswap V4 pools for all revnets. |
 
 ## Autonomous Design
 
