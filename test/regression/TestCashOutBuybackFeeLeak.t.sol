@@ -128,15 +128,16 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
 
         // Perform the cash out.
         vm.prank(user);
-        jbMultiTerminal().cashOutTokensOf({
-            holder: user,
-            projectId: revnetId,
-            cashOutCount: fullCashOutCount,
-            tokenToReclaim: JBConstants.NATIVE_TOKEN,
-            minTokensReclaimed: 0,
-            beneficiary: payable(user),
-            metadata: ""
-        });
+        jbMultiTerminal()
+            .cashOutTokensOf({
+                holder: user,
+                projectId: revnetId,
+                cashOutCount: fullCashOutCount,
+                tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                minTokensReclaimed: 0,
+                beneficiary: payable(user),
+                metadata: ""
+            });
 
         // THE INVARIANT: The buyback hook callback should receive nonFeeCashOutCount.
         // The real buyback hook remints `context.cashOutCount` tokens and sells them on the pool.
@@ -161,9 +162,7 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
     {
         JBAccountingContext[] memory accountingContextsToAccept = new JBAccountingContext[](1);
         accountingContextsToAccept[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
         JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
@@ -197,8 +196,7 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
             }),
             terminalConfigurations: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256(abi.encodePacked(symbol))
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked(symbol))
             }),
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
