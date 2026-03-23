@@ -410,6 +410,8 @@ contract DeployScript is Script, Sphinx {
         });
     }
 
+    /// @notice Check whether a contract has already been deployed at its deterministic address.
+    /// @dev Uses the Arachnid deterministic-deployment-proxy address to predict the CREATE2 address.
     function _isDeployed(
         bytes32 salt,
         bytes memory creationCode,
@@ -419,10 +421,6 @@ contract DeployScript is Script, Sphinx {
         view
         returns (address deployedTo, bool isDeployed)
     {
-        // Note: This uses the Arachnid deterministic-deployment-proxy address, which differs from
-        // the Sphinx deployer used at runtime. As a result, the predicted address won't match and
-        // _isDeployed will always return false when deploying via Sphinx. This is benign — it just
-        // means contracts are always freshly deployed rather than skipped.
         address _deployedTo = vm.computeCreate2Address({
             salt: salt,
             initCodeHash: keccak256(abi.encodePacked(creationCode, arguments)),

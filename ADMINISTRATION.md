@@ -8,7 +8,7 @@ Admin privileges and their scope in revnet-core-v6. Revnets are designed to be a
 
 - **How assigned:** Specified at deployment via `REVConfig.splitOperator`. After deployment, only the current split operator can transfer the role to a new address by calling `setSplitOperatorOf()`.
 - **Scope:** Per-revnet. Each revnet has at most one split operator. The operator is the only human-controlled role in a deployed revnet.
-- **Cannot be removed:** The split operator can be replaced but there is no mechanism to entirely revoke the role (it can be set to an unreachable address like `address(0)` to effectively disable it).
+- **Can be permanently relinquished:** The split operator can transfer the role to `address(0)` via `setSplitOperatorOf()`, which permanently relinquishes operator powers. Permissions are granted to the zero address (which cannot execute transactions), effectively burning them. This is irreversible.
 
 ### REVLoans Owner (Ownable)
 

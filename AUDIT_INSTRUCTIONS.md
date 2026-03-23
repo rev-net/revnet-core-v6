@@ -296,7 +296,7 @@ forge test --gas-report
 | Pattern | Where | Why |
 |---------|-------|-----|
 | `mulDiv` rounding direction | `beforePayRecordedWith` weight scaling, `_determineSourceFeeAmount`, `_borrowableAmountFrom` | Rounding in borrower's favor compounds over many loans |
-| Source fee `pay` silently caught on revert | `_adjust` line 1086 | The catch block silently returns funds to the borrower instead of paying the fee, which could allow borrowers to intentionally cause fee payment reverts to avoid paying the source fee |
+| Source fee `pay` silently caught on revert | `REVLoans._adjust` try-catch block | The catch block silently returns funds to the borrower instead of paying the fee, which could allow borrowers to intentionally cause fee payment reverts to avoid paying the source fee |
 | `delete _loanOf[loanId]` after external calls | `_repayLoan`, `_reallocateCollateralFromLoan` | Verify delete happens after all references to the loan are resolved |
 | Loan storage read after `_adjust` mutates it | `_repayLoan` partial repay path | `_adjust` modifies `loan` via storage pointer; subsequent reads see mutated values |
 | Unbounded loop in `_totalBorrowedFrom` | Called during every borrow operation | Gas griefing if many distinct loan sources accumulate |

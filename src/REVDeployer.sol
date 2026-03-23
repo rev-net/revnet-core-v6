@@ -235,6 +235,10 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @notice Determine how a cash out from a revnet should be processed.
     /// @dev This function is part of `IJBRulesetDataHook`, and gets called before the revnet processes a cash out.
     /// @dev If a sucker is cashing out, no taxes or fees are imposed.
+    /// @dev REVDeployer is intentionally not registered as a feeless address. The protocol fee (2.5%) applies on top
+    /// of the rev fee — this is by design. The fee hook spec amount sent to `afterCashOutRecordedWith` will have the
+    /// protocol fee deducted by the terminal before reaching this contract, so the rev fee is computed on the
+    /// post-protocol-fee amount.
     /// @param context Standard Juicebox cash out context. See `JBBeforeCashOutRecordedContext`.
     /// @return cashOutTaxRate The cash out tax rate, which influences the amount of terminal tokens which get cashed
     /// out.
@@ -317,6 +321,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         });
 
         // Compose the final hook specifications: buyback spec (if any) + fee spec.
+        // NOTE: Only buybackHookSpecifications[0] is used. If the buyback hook returns multiple
+        // specs, the additional ones are silently dropped. This is intentional — the buyback hook is
+        // expected to return at most one spec for the cash-out buyback swap.
         if (buybackHookSpecifications.length > 0) {
             // The buyback hook returned a spec — include it before the fee spec.
             hookSpecifications = new JBCashOutHookSpecification[](2);
@@ -879,8 +886,10 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
 
     /// @notice Change a revnet's split operator.
     /// @dev Only a revnet's current split operator can set a new split operator.
+    /// @dev Passing `address(0)` as `newSplitOperator` relinquishes operator powers permanently — the permissions
+    /// are granted to the zero address (which cannot execute transactions), effectively burning them.
     /// @param revnetId The ID of the revnet to set the split operator of.
-    /// @param newSplitOperator The new split operator's address.
+    /// @param newSplitOperator The new split operator's address. Use `address(0)` to relinquish operator powers.
     function setSplitOperatorOf(uint256 revnetId, address newSplitOperator) external override {
         // Enforce permissions.
         _checkIfIsSplitOperatorOf({revnetId: revnetId, operator: _msgSender()});
