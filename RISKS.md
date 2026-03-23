@@ -34,7 +34,6 @@ Read [ARCHITECTURE.md](./ARCHITECTURE.md) and [SKILLS.md](./SKILLS.md) for proto
 - **100% LTV with no safety margin.** Borrowable amount equals exact bonding curve cash-out value. When `cashOutTaxRate == 0`, this is true 100% LTV. Any decrease in surplus (other cash-outs, payouts, stage transitions) makes existing loans effectively under-collateralized. The protocol has no liquidation trigger for under-collateralized loans -- only the 10-year expiry.
 - **Loans beat cash-outs above ~39% tax.** Above approximately 39.16% `cashOutTaxRate`, borrowing is more capital-efficient than cashing out because loans preserve upside while providing immediate liquidity. Based on CryptoEconLab research. This is by design but creates an incentive to borrow rather than cash out at higher tax rates, concentrating risk in the loan system.
 - **10-year free put option.** Over the loan's lifetime, if the collateral's real value drops below the borrowed amount, the borrower has no incentive to repay. The borrower keeps the borrowed funds and forfeits worthless collateral. This is equivalent to a free put option with a 10-year expiry. The protocol absorbs this loss through permanent supply reduction (burned collateral never re-minted).
-- **Surplus manipulation is economically irrational.** `_borrowableAmountFrom` reads live surplus. An attacker could inflate surplus via `addToBalanceOf`, but donations are permanent (no recovery), and the extra borrowable amount is always less than the donation. `pay` increases both surplus AND supply, neutralizing the effect. With non-zero `cashOutTaxRate`, the concave bonding curve makes this even worse for attackers.
 
 ### Stage transition edge cases
 
@@ -68,7 +67,7 @@ Read [ARCHITECTURE.md](./ARCHITECTURE.md) and [SKILLS.md](./SKILLS.md) for proto
 ### Liquidation concerns
 
 - **No cascading liquidation mechanism.** There is no health factor, no margin call, and no keeper-triggered liquidation for under-collateralized loans. The only liquidation path is `liquidateExpiredLoansFrom` after 10 years. Under-collateralized loans persist indefinitely within that window.
-- **Liquidation iterates by loan number.** `liquidateExpiredLoansFrom` takes `startingLoanId` and `count`, iterating sequentially. Repaid and already-liquidated loans are skipped (`createdAt == 0`), but the caller pays gas for every skip. If a revnet has thousands of loans with sparse gaps (many repaid), liquidation becomes expensive. The `count` parameter bounds gas per call, but a malicious actor could create many small loans to increase cleanup costs. **Mitigated:** `startingLoanId + count` is now bounded to `_ONE_TRILLION` to prevent cross-revnet accounting corruption (reverts with `REVLoans_LoanIdOverflow`).
+- **Liquidation iterates by loan number.** `liquidateExpiredLoansFrom` takes `startingLoanId` and `count`, iterating sequentially. Repaid and already-liquidated loans are skipped (`createdAt == 0`), but the caller pays gas for every skip. If a revnet has thousands of loans with sparse gaps (many repaid), liquidation becomes expensive. The `count` parameter bounds gas per call, but a malicious actor could create many small loans to increase cleanup costs.
 - **Liquidation permanently destroys collateral.** Collateral was burned at borrow time. Upon liquidation, `totalCollateralOf` is decremented but no tokens are minted or returned. The collateral is permanently removed from the token supply. This deflates the total supply, increasing per-token value for remaining holders -- a mild positive externality from defaults.
 
 ### Loan source rotation after deployment
@@ -85,11 +84,6 @@ Read [ARCHITECTURE.md](./ARCHITECTURE.md) and [SKILLS.md](./SKILLS.md) for proto
 ### BURN_TOKENS permission prerequisite
 
 - **Borrowers must grant BURN_TOKENS permission before calling `borrowFrom`.** The loans contract burns the caller's tokens as collateral via `JBController.burnTokensOf`, which requires the caller to have granted `BURN_TOKENS` permission to the loans contract for the revnet's project ID. Without this, the transaction reverts deep in `JBController` with `JBPermissioned_Unauthorized`. The prerequisite is documented in `borrowFrom`'s NatSpec.
-
-### Borrow-repay arbitrage
-
-- **Immediate repayment within prepaid window incurs zero source fee.** A borrower who pays the prepaid fee upfront can repay at any time within the prepaid duration with no additional cost. The prepaid fee is the minimum 2.5% + REV fee 1% = 3.5%. If the bonding curve value of the collateral increases (e.g., from new payments into the revnet) during the prepaid window, the borrower can repay, recover their collateral, and cash out at the higher value.
-- **This is not profitable as a standalone strategy** because the 3.5% minimum fee exceeds the expected value gained from short-term surplus fluctuations. But for borrowers who need liquidity anyway, it provides free optionality.
 
 ---
 
@@ -154,12 +148,6 @@ REVDeployer sits between the terminal and the actual hooks (buyback hook, 721 ho
 - **`_totalBorrowedFrom` iterates ALL sources on every borrow and repay.** Gas cost: ~20k per source (external `accountingContextForTokenOf` call + storage read + potential price feed call). With 10 sources, this adds ~200k gas per loan operation. With 50+ sources (unlikely but possible), operations become prohibitively expensive.
 - **Mitigation.** `borrowFrom` checks `DIRECTORY.isTerminalOf` before accepting a new source. The number of registered terminals per project is practically bounded. But nothing prevents a terminal from being registered, used for one loan, de-registered, and then a new terminal registered -- leaving stale entries in the source array.
 
-### Fee terminal unavailability
-
-- **Source fee payment in `_adjust` IS try-caught.** If `loan.source.terminal.pay` reverts when paying the source fee, the fee amount is returned to the borrower instead. This prevents a reverting terminal from blocking all loan operations.
-- **REV fee payment in `_addTo` IS try-caught.** If the REV fee terminal is unavailable, the fee is zeroed and the borrower receives it. This is graceful degradation.
-- **Cash-out fee in `afterCashOutRecordedWith` IS try-caught.** Falls back to `addToBalanceOf`. The fallback itself is NOT try-caught -- if it also reverts, the entire cashout transaction reverts. No funds are absorbed by the deployer.
-
 ---
 
 ## 7. Invariants to Verify
@@ -208,3 +196,11 @@ These MUST hold. Breaking any of them is a finding.
 ### 8.3 Auto-issuance dilution is permissionless but predictable
 
 `autoIssueFor` can be called by anyone, diluting existing holders by minting pre-configured token amounts to beneficiaries. This is accepted because: (1) auto-issuance amounts are set immutably at deployment, so dilution is fully predictable, (2) the dilution only occurs once per `(revnetId, stageId, beneficiary)` tuple (single-claim guarantee), and (3) delaying the call only delays the inevitable — the configured amounts will eventually be minted. A griefing vector exists where someone calls `autoIssueFor` immediately before another user's cash-out, but the dilution magnitude is deterministic and can be priced in.
+
+### 8.4 Surplus manipulation via donations is economically irrational (by design)
+
+`_borrowableAmountFrom` reads live surplus. An attacker could inflate surplus via `addToBalanceOf`, but donations are permanent (no recovery), and the extra borrowable amount is always less than the donation. `pay` increases both surplus AND supply, neutralizing the effect. With non-zero `cashOutTaxRate`, the concave bonding curve makes this even worse for attackers. The attack is self-defeating by construction.
+
+### 8.5 Borrow-repay arbitrage is unprofitable (by design)
+
+A borrower who pays the prepaid fee upfront (minimum 2.5% + REV fee 1% = 3.5%) can repay at any time within the prepaid duration with no additional cost. If the bonding curve value of the collateral increases during the prepaid window, the borrower can repay, recover their collateral, and cash out at the higher value. This is not profitable as a standalone strategy because the 3.5% minimum fee exceeds the expected value gained from short-term surplus fluctuations. For borrowers who need liquidity anyway, it provides free optionality — which is the intended use case.
