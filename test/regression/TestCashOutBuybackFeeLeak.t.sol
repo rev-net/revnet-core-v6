@@ -36,11 +36,11 @@ import {REVLoans} from "../../src/REVLoans.sol";
 import {REVEmpty721Config} from "../helpers/REVEmpty721Config.sol";
 import {MockBuybackCashOutRecorder} from "../mock/MockBuybackCashOutRecorder.sol";
 
-/// @title TestH3CashOutBuybackFeeLeak
-/// @notice Proves H-3: The buyback hook callback receives the FULL cashOutCount (not the non-fee portion).
-/// Since the buyback hook remints and sells `context.cashOutCount` tokens, it sells MORE tokens than REVDeployer
-/// intended. The fee portion is monetized through the pool sale AND the fee is also extracted from treasury.
-contract TestH3CashOutBuybackFeeLeak is TestBaseWorkflow {
+/// @title TestCashOutBuybackFeeLeak
+/// @notice Proves the buyback hook callback receives only the non-fee cashOutCount (not the full count).
+/// Before the fix, the buyback hook reminted and sold `context.cashOutCount` tokens — more than REVDeployer
+/// intended. The fee portion was monetized through the pool sale AND the fee was also extracted from treasury.
+contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
     bytes32 private constant REV_DEPLOYER_SALT = "REVDeployer";
     bytes32 private constant ERC20_SALT = "REV_TOKEN";
     address private constant TRUSTED_FORWARDER = 0xB2b5841DBeF766d4b521221732F9B618fCf34A87;
@@ -105,7 +105,7 @@ contract TestH3CashOutBuybackFeeLeak is TestBaseWorkflow {
 
     /// @notice The invariant: buyback hook should only process the non-fee token count.
     /// This test FAILS before the fix (proving the bug) and PASSES after.
-    function test_H3_buybackHookReceivesOnlyNonFeeCount() external {
+    function test_buybackHookReceivesOnlyNonFeeCount() external {
         // Fund the user and pay into the revnet.
         vm.deal(user, 10 ether);
         vm.prank(user);
@@ -144,7 +144,7 @@ contract TestH3CashOutBuybackFeeLeak is TestBaseWorkflow {
         assertEq(
             mockBuyback.afterCashOutCount(),
             expectedNonFeeCount,
-            "H-3 BUG: buyback hook received full count instead of non-fee count"
+            "BUG: buyback hook received full count instead of non-fee count"
         );
     }
 

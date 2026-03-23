@@ -53,7 +53,7 @@ contract MockBuybackCashOutRecorder is IJBRulesetDataHook, IJBPayHook, IJBCashOu
     }
 
     function afterCashOutRecordedWith(JBAfterCashOutRecordedContext calldata context) external payable override {
-        // Decode the cashOutCount from metadata (matching the real buyback hook's H-3 fix).
+        // Decode the cashOutCount from metadata (matching the real buyback hook's metadata passthrough).
         if (context.hookMetadata.length != 0) {
             (, afterCashOutCount) = abi.decode(context.hookMetadata, (uint256, uint256));
         } else {

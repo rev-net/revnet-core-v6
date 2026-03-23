@@ -411,7 +411,7 @@ contract DeployScript is Script, Sphinx {
     }
 
     /// @notice Check whether a contract has already been deployed at its deterministic address.
-    /// @dev WARNING (L-14): This function uses the Arachnid deterministic-deployment-proxy address to predict
+    /// @dev WARNING: This function uses the Arachnid deterministic-deployment-proxy address to predict
     /// the deployment address. Under Sphinx, the actual deployer differs, so the predicted address never matches
     /// and `isDeployed` always returns false. This means rerunning the deploy script via Sphinx is NOT idempotent:
     /// each run creates a new fee project (via `core.projects.createFor`) and deploys fresh contract instances,

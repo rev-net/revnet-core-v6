@@ -990,7 +990,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
                 _beforeTransferTo({to: address(feeTerminal), token: loan.source.token, amount: revFeeAmount});
 
             // Pay the fee. Send the REV to the beneficiary. If fee payment fails, give the amount back to the borrower.
-            // NOTE (L-9): When terminal.pay() reverts (e.g. due to a misconfigured terminal or paused payments),
+            // NOTE: When terminal.pay() reverts (e.g. due to a misconfigured terminal or paused payments),
             // the REV fee is refunded to the borrower, resulting in an effectively interest-free loan for the
             // REV fee portion. This is acceptable — it requires a broken/misconfigured fee terminal and the
             // borrower still pays the source fee and protocol fee.
@@ -1029,7 +1029,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
 
     /// @notice Allows the owner of a loan to pay it back, add more, or receive returned collateral no longer necessary
     /// to support the loan.
-    /// @dev CEI ordering note (L-7): `totalCollateralOf` is not incremented until `_addCollateralTo` executes,
+    /// @dev CEI ordering note: `totalCollateralOf` is not incremented until `_addCollateralTo` executes,
     /// which happens after the external calls in `_addTo` (useAllowanceOf, fee payment, transfer). A reentrant
     /// `borrowFrom` during those calls would see a lower `totalCollateralOf`, potentially passing collateral
     /// checks that should fail. Practically infeasible — requires an adversarial pay hook on the revnet's own
@@ -1104,7 +1104,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
             });
 
             // Pay the fee. If it fails, reclaim the allowance and give the amount back to the borrower.
-            // NOTE (L-10): When terminal.pay() reverts (e.g. due to a misconfigured terminal or paused payments),
+            // NOTE: When terminal.pay() reverts (e.g. due to a misconfigured terminal or paused payments),
             // the source fee is refunded to the borrower, resulting in an effectively interest-free loan for the
             // source fee portion. This is acceptable — it requires a broken/misconfigured source terminal and
             // the borrower still pays the REV fee and protocol fee.

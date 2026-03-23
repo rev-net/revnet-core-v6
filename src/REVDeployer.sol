@@ -236,11 +236,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
     /// @notice Determine how a cash out from a revnet should be processed.
     /// @dev This function is part of `IJBRulesetDataHook`, and gets called before the revnet processes a cash out.
     /// @dev If a sucker is cashing out, no taxes or fees are imposed.
-    /// @dev Known imprecision (M-5): REVDeployer is not registered as a feeless address, so the fee hook spec
+    /// @dev Known imprecision: REVDeployer is not registered as a feeless address, so the fee hook spec
     /// amount sent to `afterCashOutRecordedWith` will have a 2.5% protocol fee deducted by the terminal before
     /// reaching this contract. The fee is therefore slightly less than the exact bonding-curve amount. Registering
     /// REVDeployer as feeless in the deploy script would eliminate this imprecision.
-    /// @dev Known imprecision (M-6): When the buyback hook overrides the cashOutTaxRate, a small fee imprecision
+    /// @dev Known imprecision: When the buyback hook overrides the cashOutTaxRate, a small fee imprecision
     /// arises because the fee tokens' reclaim value (feeAmount) was computed using the original cashOutTaxRate from
     /// context, but the terminal ultimately applies the buyback hook's overridden rate. The delta is bounded by the
     /// difference between the two rates applied to the fee portion, which is small in practice.
@@ -326,7 +326,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         });
 
         // Compose the final hook specifications: buyback spec (if any) + fee spec.
-        // NOTE (L-11): Only buybackHookSpecifications[0] is used. If the buyback hook returns multiple
+        // NOTE: Only buybackHookSpecifications[0] is used. If the buyback hook returns multiple
         // specs, the additional ones are silently dropped. This is intentional — the buyback hook is
         // expected to return at most one spec for the cash-out buyback swap.
         if (buybackHookSpecifications.length > 0) {
