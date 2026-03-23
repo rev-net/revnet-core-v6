@@ -438,6 +438,9 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     }
 
     /// @notice Generate a ID for a loan given a revnet ID and a loan number within that revnet.
+    /// @dev The multiplication and addition can theoretically overflow a uint256 if revnetId or loanNumber are
+    /// astronomically large. In practice this is infeasible — it would require 2^256 loans or project IDs, far
+    /// beyond any realistic usage. No overflow check is needed.
     /// @param revnetId The ID of the revnet to generate a loan ID for.
     /// @param loanNumber The loan number of the loan within the revnet.
     /// @return The token ID of the 721.
@@ -987,6 +990,10 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
                 _beforeTransferTo({to: address(feeTerminal), token: loan.source.token, amount: revFeeAmount});
 
             // Pay the fee. Send the REV to the beneficiary. If fee payment fails, give the amount back to the borrower.
+            // NOTE (L-9): When terminal.pay() reverts (e.g. due to a misconfigured terminal or paused payments),
+            // the REV fee is refunded to the borrower, resulting in an effectively interest-free loan for the
+            // REV fee portion. This is acceptable — it requires a broken/misconfigured fee terminal and the
+            // borrower still pays the source fee and protocol fee.
             // slither-disable-next-line arbitrary-send-eth,unused-return
             try feeTerminal.pay{value: payValue}({
                 projectId: REV_ID,
@@ -1022,6 +1029,11 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
 
     /// @notice Allows the owner of a loan to pay it back, add more, or receive returned collateral no longer necessary
     /// to support the loan.
+    /// @dev CEI ordering note (L-7): `totalCollateralOf` is not incremented until `_addCollateralTo` executes,
+    /// which happens after the external calls in `_addTo` (useAllowanceOf, fee payment, transfer). A reentrant
+    /// `borrowFrom` during those calls would see a lower `totalCollateralOf`, potentially passing collateral
+    /// checks that should fail. Practically infeasible — requires an adversarial pay hook on the revnet's own
+    /// terminal that calls back into `borrowFrom`, which is not a realistic deployment configuration.
     /// @param loan The loan being adjusted.
     /// @param revnetId The ID of the revnet the loan is being adjusted in.
     /// @param newBorrowAmount The new amount of the loan, denominated in the token of the source's accounting
@@ -1092,6 +1104,10 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
             });
 
             // Pay the fee. If it fails, reclaim the allowance and give the amount back to the borrower.
+            // NOTE (L-10): When terminal.pay() reverts (e.g. due to a misconfigured terminal or paused payments),
+            // the source fee is refunded to the borrower, resulting in an effectively interest-free loan for the
+            // source fee portion. This is acceptable — it requires a broken/misconfigured source terminal and
+            // the borrower still pays the REV fee and protocol fee.
             // slither-disable-next-line unused-return,arbitrary-send-eth
             try loan.source.terminal.pay{value: payValue}({
                 projectId: revnetId,
