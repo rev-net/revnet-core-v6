@@ -238,7 +238,7 @@ This is a standard Juicebox payment, but REVDeployer intervenes as the data hook
 4. **Nothing-to-do check:** Reverts if `repayBorrowAmount == 0 && collateralCountToReturn == 0`
 5. **Source fee calculation:**
    - If within prepaid window (`timeSinceCreated <= prepaidDuration`): fee = 0
-   - If expired (`timeSinceCreated >= LOAN_LIQUIDATION_DURATION`): revert `REVLoans_LoanExpired`
+   - If expired (`timeSinceCreated > LOAN_LIQUIDATION_DURATION`): revert `REVLoans_LoanExpired`
    - Otherwise: linear fee based on time elapsed beyond prepaid window
    - `repayBorrowAmount += sourceFeeAmount` (fee added to repayment)
 6. **Accept funds:** `_acceptFundsFor` handles native token (uses `msg.value`) or ERC-20 (with optional permit2)
