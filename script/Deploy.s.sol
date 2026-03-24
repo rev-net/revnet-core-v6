@@ -342,20 +342,86 @@ contract DeployScript is Script, Sphinx {
     }
 
     function deploy() public sphinx {
-        // TODO figure out how to reference project ID if the contracts are already deployed.
+        // Check if singletons are already deployed before creating a new fee project.
+        // This prevents creating orphan projects on script restarts.
         // forge-lint: disable-next-line(mixed-case-variable)
-        uint256 FEE_PROJECT_ID = core.projects.createFor(safeAddress());
+        uint256 FEE_PROJECT_ID;
+
+        // Predict the REVLoans address for an arbitrary fee project ID to check if it exists.
+        // We can't predict without a fee project ID, so we first check the REVDeployer which also stores it.
+        // Try a two-step approach: compute addresses assuming singletons exist, then check.
+
+        // First, check if REVLoans is already deployed by trying with project ID = 0 (placeholder).
+        // We need to iterate: if either singleton exists, extract the fee project ID from it.
+        // Since both encode FEE_PROJECT_ID, we check if any code exists at the predicted address
+        // for sequential project IDs starting from 1.
+
+        // A simpler approach: predict the REVDeployer address for each possible fee project ID
+        // until we find one that's deployed, or give up and create a new one.
+        // In practice, the fee project is always one of the first few projects created.
+
+        // Check the next project ID that would be created — if singletons were deployed with a previous ID,
+        // that ID must be less than the current count.
+        uint256 _nextProjectId = core.projects.count() + 1;
+
+        // Try to find an existing deployment by checking all project IDs that have already been created.
+        // Whether previously deployed singletons were found.
+        bool _singletonsExist;
+        // The address of the previously deployed REVLoans, if found.
+        address _existingRevloansAddr;
+        // The address of the previously deployed REVDeployer, if found.
+        address _existingDeployerAddr;
+
+        for (uint256 _candidateId = 1; _candidateId < _nextProjectId; _candidateId++) {
+            // Predict REVLoans address for this candidate fee project ID.
+            (address _candidateRevloansAddr, bool _candidateRevloansDeployed) = _isDeployed({
+                salt: REVLOANS_SALT,
+                creationCode: type(REVLoans).creationCode,
+                arguments: abi.encode(
+                    core.controller, core.projects, _candidateId, LOANS_OWNER, PERMIT2, TRUSTED_FORWARDER
+                )
+            });
+
+            if (_candidateRevloansDeployed) {
+                // Verify the fee project ID matches by reading the immutable.
+                if (REVLoans(payable(_candidateRevloansAddr)).REV_ID() == _candidateId) {
+                    // Record the fee project ID from the existing deployment.
+                    FEE_PROJECT_ID = _candidateId;
+                    // Record the existing REVLoans address.
+                    _existingRevloansAddr = _candidateRevloansAddr;
+                    // Flag that singletons were found.
+                    _singletonsExist = true;
+
+                    // Also predict and verify the deployer.
+                    (_existingDeployerAddr,) = _isDeployed({
+                        salt: DEPLOYER_SALT,
+                        creationCode: type(REVDeployer).creationCode,
+                        arguments: abi.encode(
+                            core.controller,
+                            suckers.registry,
+                            _candidateId,
+                            hook.hook_deployer,
+                            croptop.publisher,
+                            IJBBuybackHookRegistry(address(buybackHook.registry)),
+                            _candidateRevloansAddr,
+                            TRUSTED_FORWARDER
+                        )
+                    });
+                    // Stop searching — we found the deployed singletons.
+                    break;
+                }
+            }
+        }
+
+        // Only create a new fee project if no singletons were found.
+        if (!_singletonsExist) {
+            // forge-lint: disable-next-line(mixed-case-variable)
+            FEE_PROJECT_ID = core.projects.createFor(safeAddress());
+        }
 
         // Deploy REVLoans first — it only depends on the controller.
-        (address _revloansAddr, bool _revloansIsDeployed) = _isDeployed({
-            salt: REVLOANS_SALT,
-            creationCode: type(REVLoans).creationCode,
-            arguments: abi.encode(
-                core.controller, core.projects, FEE_PROJECT_ID, LOANS_OWNER, PERMIT2, TRUSTED_FORWARDER
-            )
-        });
-        REVLoans revloans = _revloansIsDeployed
-            ? REVLoans(payable(_revloansAddr))
+        REVLoans revloans = _singletonsExist
+            ? REVLoans(payable(_existingRevloansAddr))
             : new REVLoans{salt: REVLOANS_SALT}({
                 controller: core.controller,
                 projects: core.projects,
