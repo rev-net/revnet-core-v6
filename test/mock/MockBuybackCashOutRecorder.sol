@@ -19,9 +19,10 @@ contract MockBuybackCashOutRecorder is IJBRulesetDataHook, IJBPayHook, IJBCashOu
     uint256 public afterCashOutCount;
     address public lastBeneficiary;
 
+    // Pure: does not read or modify state, only returns values derived from calldata.
     function beforePayRecordedWith(JBBeforePayRecordedContext calldata context)
         external
-        view
+        pure
         override
         returns (uint256 weight, JBPayHookSpecification[] memory hookSpecifications)
     {
