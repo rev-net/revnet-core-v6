@@ -580,6 +580,9 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
             );
         }
 
+        // Prevent the loan number from exceeding the ID namespace for this revnet.
+        if (totalLoansBorrowedFor[revnetId] >= _ONE_TRILLION) revert REVLoans_LoanIdOverflow();
+
         // Get a reference to the loan ID.
         loanId = _generateLoanId({revnetId: revnetId, loanNumber: ++totalLoansBorrowedFor[revnetId]});
 
@@ -1179,6 +1182,9 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
             revert REVLoans_ReallocatingMoreCollateralThanBorrowedAmountAllows(borrowAmount, loan.amount);
         }
 
+        // Prevent the loan number from exceeding the ID namespace for this revnet.
+        if (totalLoansBorrowedFor[revnetId] >= _ONE_TRILLION) revert REVLoans_LoanIdOverflow();
+
         // Get a reference to the replacement loan ID.
         reallocatedLoanId = _generateLoanId({revnetId: revnetId, loanNumber: ++totalLoansBorrowedFor[revnetId]});
 
@@ -1308,6 +1314,9 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
             return (loanId, paidOffSnapshot);
         } else {
             // Make a new loan with the remaining amount and collateral.
+            // Prevent the loan number from exceeding the ID namespace for this revnet.
+            if (totalLoansBorrowedFor[revnetId] >= _ONE_TRILLION) revert REVLoans_LoanIdOverflow();
+
             // Get a reference to the replacement loan ID.
             uint256 paidOffLoanId = _generateLoanId({revnetId: revnetId, loanNumber: ++totalLoansBorrowedFor[revnetId]});
 
