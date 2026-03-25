@@ -353,7 +353,7 @@ No prior formal audit with finding IDs has been conducted on this codebase. All 
 
 ## Compiler and Version Info
 
-- **Solidity**: 0.8.26
+- **Solidity**: ^0.8.26
 - **EVM target**: Cancun
 - **Optimizer**: via-IR, 100 runs
 - **Dependencies**: OpenZeppelin 5.x, PRBMath, Permit2, nana-core-v6, nana-721-hook-v6, nana-buyback-hook-v6, nana-suckers-v6
