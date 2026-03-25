@@ -1,6 +1,6 @@
 # revnet-core-v6 Changelog (v5 -> v6)
 
-This document describes all changes between `revnet-core` (v5, Solidity 0.8.23) and `revnet-core-v6` (v6, Solidity ^0.8.26).
+This document describes all changes between `revnet-core` (v5, Solidity 0.8.23) and `revnet-core-v6` (v6, Solidity 0.8.28).
 
 ## Summary
 
@@ -245,7 +245,7 @@ The following structs are identical between v5 and v6 (only `forge-lint` comment
 
 | Change | Description |
 |--------|-------------|
-| **Solidity version** | Upgraded from `0.8.23` to `^0.8.26`. |
+| **Solidity version** | Upgraded from `0.8.23` to `0.8.28`. |
 | **Buyback hook architecture** | Per-revnet `buybackHookOf` mapping replaced with a single immutable `BUYBACK_HOOK` (`IJBBuybackHookRegistry`). Pools are auto-initialized for each terminal token during deployment via `_tryInitializeBuybackPoolFor`. |
 | **Loans architecture** | Per-revnet `loansOf` mapping replaced with a single immutable `LOANS` address. The deployer grants `USE_ALLOWANCE` permission to the loans contract for all revnets in the constructor (wildcard `revnetId=0`). |
 | **Constructor permissions** | v6 constructor grants three wildcard permissions: `MAP_SUCKER_TOKEN` to the sucker registry, `USE_ALLOWANCE` to the loans contract, and `SET_BUYBACK_POOL` to the buyback hook. v5 only granted `MAP_SUCKER_TOKEN`. |
@@ -270,7 +270,7 @@ The following structs are identical between v5 and v6 (only `forge-lint` comment
 
 | Change | Description |
 |--------|-------------|
-| **Solidity version** | Upgraded from `0.8.23` to `^0.8.26`. |
+| **Solidity version** | Upgraded from `0.8.23` to `0.8.28`. |
 | **Deployer dependency removed** | v5 stored `REVNETS` (`IREVDeployer`) and validated that the revnet was owned by the expected deployer via `RevnetsMismatch`. v6 does not reference the deployer at all. Validation now checks the terminal directly via `DIRECTORY.isTerminalOf`. |
 | **Constructor refactored** | v5 accepted `IREVDeployer revnets` and derived `CONTROLLER`, `DIRECTORY`, etc. from it. v6 accepts `IJBController controller` and `IJBProjects projects` directly. |
 | **Terminal validation** | `borrowFrom` now validates that the source terminal is registered in the directory for the revnet, reverting with `REVLoans_InvalidTerminal` if not. v5 validated deployer ownership instead. |
