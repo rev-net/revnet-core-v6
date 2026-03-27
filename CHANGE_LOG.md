@@ -129,6 +129,13 @@ The boolean semantics are **inverted**: v5 used opt-in flags (`splitOperatorCan*
 
 ## 3. Event Changes
 
+### 3.0 Indexer Notes
+
+For revnet-focused subgraphs:
+- both deployment flows now correlate to `deployFor` rather than a split `deployFor`/`deployWith721sFor` model;
+- revnet deployment entities should expect an associated 721 hook by default;
+- any entity that previously depended on caller-supplied buyback-hook config should be updated for the v6 auto-configured buyback path.
+
 ### 3.1 Added Events
 
 See section 2.2 above.

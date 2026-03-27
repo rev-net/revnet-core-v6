@@ -459,21 +459,25 @@ contract DeployScript is Script, Sphinx {
                 trustedForwarder: TRUSTED_FORWARDER
             });
 
-        // Approve the basic deployer to configure the project.
-        core.projects.approve({to: address(_basicDeployer), tokenId: FEE_PROJECT_ID});
+        // Only configure the fee project if singletons were freshly deployed. Re-running `deployFor` on an
+        // already-configured project would fail because the project is no longer blank.
+        if (!_singletonsExist) {
+            // Approve the basic deployer to configure the project.
+            core.projects.approve({to: address(_basicDeployer), tokenId: FEE_PROJECT_ID});
 
-        // Build the config.
-        FeeProjectConfig memory feeProjectConfig = getFeeProjectConfig();
+            // Build the config.
+            FeeProjectConfig memory feeProjectConfig = getFeeProjectConfig();
 
-        // Configure the project.
-        _basicDeployer.deployFor({
-            revnetId: FEE_PROJECT_ID,
-            configuration: feeProjectConfig.configuration,
-            terminalConfigurations: feeProjectConfig.terminalConfigurations,
-            suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration,
-            tiered721HookConfiguration: feeProjectConfig.tiered721HookConfiguration,
-            allowedPosts: feeProjectConfig.allowedPosts
-        });
+            // Configure the project.
+            _basicDeployer.deployFor({
+                revnetId: FEE_PROJECT_ID,
+                configuration: feeProjectConfig.configuration,
+                terminalConfigurations: feeProjectConfig.terminalConfigurations,
+                suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration,
+                tiered721HookConfiguration: feeProjectConfig.tiered721HookConfiguration,
+                allowedPosts: feeProjectConfig.allowedPosts
+            });
+        }
     }
 
     /// @notice Check whether a contract has already been deployed at its deterministic address.
