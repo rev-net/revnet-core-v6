@@ -282,6 +282,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
         }
 
         // Split the cashed-out tokens into a fee portion and a non-fee portion.
+        // The fee is applied to TOKEN COUNT (2.5% of tokens), not to value. The fee revnet receives the bonding-curve
+        // reclaim of its 2.5% token share regardless of whether the remaining 97.5% routes through a buyback pool at
+        // a better price. This is by design.
         // Micro cash outs (< 40 wei at 2.5% fee) round feeCashOutCount to zero, bypassing the fee.
         // Economically insignificant: the gas cost of the transaction far exceeds the bypassed fee. No fix needed.
         uint256 feeCashOutCount = mulDiv({x: context.cashOutCount, y: FEE, denominator: JBConstants.MAX_FEE});
