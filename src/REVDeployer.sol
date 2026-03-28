@@ -611,6 +611,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
             sqrtPriceX96 = uint160(1 << 96);
         } else {
             address normalizedTerminalToken = terminalToken == JBConstants.NATIVE_TOKEN ? address(0) : terminalToken;
+            // slither-disable-next-line calls-loop
             address projectToken = address(CONTROLLER.TOKENS().tokenOf(revnetId));
 
             if (projectToken == address(0) || projectToken == normalizedTerminalToken) {
