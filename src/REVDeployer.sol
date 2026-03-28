@@ -958,7 +958,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IJBRulesetDataHook, IJBCas
                 tokenUriResolver: tiered721HookConfiguration.baseline721HookConfiguration.tokenUriResolver,
                 contractUri: tiered721HookConfiguration.baseline721HookConfiguration.contractUri,
                 tiersConfig: tiered721HookConfiguration.baseline721HookConfiguration.tiersConfig,
-                reserveBeneficiary: tiered721HookConfiguration.baseline721HookConfiguration.reserveBeneficiary,
                 flags: JB721TiersHookFlags({
                     noNewTiersWithReserves: tiered721HookConfiguration.baseline721HookConfiguration.flags
                     .noNewTiersWithReserves,

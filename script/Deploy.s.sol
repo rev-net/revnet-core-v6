@@ -323,7 +323,6 @@ contract DeployScript is Script, Sphinx {
                     tiersConfig: JB721InitTiersConfig({
                         tiers: new JB721TierConfig[](0), currency: ETH_CURRENCY, decimals: 18
                     }),
-                    reserveBeneficiary: address(0),
                     flags: REV721TiersHookFlags({
                         noNewTiersWithReserves: false,
                         noNewTiersWithVotes: false,
