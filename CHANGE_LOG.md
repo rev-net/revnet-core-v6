@@ -108,6 +108,7 @@ The boolean semantics are **inverted**: v5 used opt-in flags (`splitOperatorCan*
 | `REVLoans` | `REVLoans_NothingToRepay()` |
 | `REVLoans` | `REVLoans_ZeroBorrowAmount()` |
 | `REVLoans` | `REVLoans_SourceMismatch()` |
+| `REVLoans` | `REVLoans_CashOutDelayNotFinished(uint256 cashOutDelay, uint256 blockTimestamp)` |
 | `REVLoans` | `REVLoans_LoanIdOverflow()` |
 
 ### 2.4 New Constants
@@ -296,6 +297,7 @@ The following structs are identical between v5 and v6 (only `forge-lint` comment
 | **Source fee try-catch hardening** | The source fee payment in `_adjust` is now wrapped in a try-catch block. If the source terminal's `pay` call reverts, the ERC-20 allowance is reclaimed and the fee amount is returned to the beneficiary instead of blocking the entire loan operation. v5 called `terminal.pay` directly without error handling. |
 | **Timestamp cast fix** | `borrowFrom` now casts `block.timestamp` to `uint48` when setting `loan.createdAt`, matching the `REVLoan.createdAt` field width. v5 used `uint40`, which would silently truncate timestamps after the year 36812. |
 | **`ReallocateCollateral` event typo fix** | v5 used `removedcollateralCount` (lowercase 'c'). v6 fixes it to `removedCollateralCount` (uppercase 'C'). |
+| **Cash out delay enforced in loans** | `borrowFrom` now resolves the `REVDeployer` from the ruleset's `dataHook` and checks `cashOutDelayOf(revnetId)`. If the 30-day cross-chain deployment delay hasn't passed, `borrowFrom` reverts with `REVLoans_CashOutDelayNotFinished`. `borrowableAmountFrom` returns 0 during the delay so UIs reflect the restriction. v5 did not enforce the cash out delay in the loans contract. |
 | **NatSpec documentation** | Extensive NatSpec added to all functions, views, and internal helpers. Flash loan safety analysis documented in `_borrowableAmountFrom`. |
 
 ### 6.3 Named Arguments

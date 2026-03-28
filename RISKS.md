@@ -81,6 +81,10 @@ Read [ARCHITECTURE.md](./ARCHITECTURE.md) and [SKILLS.md](./SKILLS.md) for proto
 - **Source mismatch check.** `reallocateCollateralFromLoan` enforces that the new loan's source matches the existing loan's source (`source.token == existingSource.token && source.terminal == existingSource.terminal`). This prevents cross-source value extraction.
 - **MEV opportunity at stage boundaries.** If a borrower knows a stage transition will decrease `cashOutTaxRate`, they can wait until just after the transition and `reallocateCollateralFromLoan` to extract more borrowed funds from the same collateral. This is predictable and not preventable by design.
 
+### Cross-chain cash-out delay enforcement
+
+- **Loans enforce the same 30-day cash-out delay as direct cash outs.** When a revnet is deployed to a new chain where its first stage has already started, `REVDeployer._setCashOutDelayIfNeeded()` sets a 30-day delay. `borrowFrom` resolves the deployer from the current ruleset's `dataHook` and checks `cashOutDelayOf(revnetId)`, reverting with `REVLoans_CashOutDelayNotFinished` if the delay hasn't passed. `borrowableAmountFrom` returns 0 during the delay. This prevents cross-chain arbitrage via the loan system (bridging tokens to a new chain and immediately borrowing against them before prices equilibrate).
+
 ### BURN_TOKENS permission prerequisite
 
 - **Borrowers must grant BURN_TOKENS permission before calling `borrowFrom`.** The loans contract burns the caller's tokens as collateral via `JBController.burnTokensOf`, which requires the caller to have granted `BURN_TOKENS` permission to the loans contract for the revnet's project ID. Without this, the transaction reverts deep in `JBController` with `JBPermissioned_Unauthorized`. The prerequisite is documented in `borrowFrom`'s NatSpec.
