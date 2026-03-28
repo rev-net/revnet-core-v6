@@ -435,7 +435,6 @@ abstract contract ForkTestBase is TestBaseWorkflow {
                 tiersConfig: JB721InitTiersConfig({
                     tiers: tiers, currency: uint32(uint160(JBConstants.NATIVE_TOKEN)), decimals: 18
                 }),
-                reserveBeneficiary: address(0),
                 flags: REV721TiersHookFlags({
                     noNewTiersWithReserves: false,
                     noNewTiersWithVotes: false,

@@ -228,6 +228,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         returns (uint256)
     {
         // Get the current ruleset to resolve the deployer from its data hook.
+        // slither-disable-next-line unused-return
         (JBRuleset memory currentRuleset,) = CONTROLLER.currentRulesetOf(revnetId);
 
         // The ruleset's data hook is the REVDeployer that configured this revnet.
@@ -598,6 +599,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         }
 
         // Get the current ruleset to resolve the deployer from its data hook.
+        // slither-disable-next-line unused-return
         (JBRuleset memory currentRuleset,) = CONTROLLER.currentRulesetOf(revnetId);
 
         // The ruleset's data hook is the REVDeployer that configured this revnet.

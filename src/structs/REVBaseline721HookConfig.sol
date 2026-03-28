@@ -12,7 +12,6 @@ import {REV721TiersHookFlags} from "./REV721TiersHookFlags.sol";
 /// @custom:member tokenUriResolver The token URI resolver for the NFT collection.
 /// @custom:member contractUri The contract URI for the NFT collection.
 /// @custom:member tiersConfig The tier configuration for the NFT collection.
-/// @custom:member reserveBeneficiary The default reserve beneficiary for the NFT collection.
 /// @custom:member flags A set of flags that configure the 721 hook. Omits `issueTokensForSplits` since revnets
 /// always force it to `false`.
 // forge-lint: disable-next-line(pascal-case-struct)
@@ -23,6 +22,5 @@ struct REVBaseline721HookConfig {
     IJB721TokenUriResolver tokenUriResolver;
     string contractUri;
     JB721InitTiersConfig tiersConfig;
-    address reserveBeneficiary;
     REV721TiersHookFlags flags;
 }
