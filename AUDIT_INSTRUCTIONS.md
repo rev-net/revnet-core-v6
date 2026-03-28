@@ -93,6 +93,7 @@ User cashes out via terminal
 ```
 Borrower calls REVLoans.borrowFrom()
   -> Prerequisite: caller must have granted BURN_TOKENS permission to REVLoans via JBPermissions
+  -> Enforce cash-out delay: resolve deployer from ruleset dataHook, check cashOutDelayOf(revnetId)
   -> Validate: collateral > 0, terminal registered, prepaidFeePercent in range
   -> Generate loan ID: revnetId * 1T + loanNumber
   -> Create loan in storage
@@ -332,6 +333,7 @@ No prior formal audit with finding IDs has been conducted on this codebase. All 
 | `REVDeployer_StagesRequired` | REVDeployer | `deployFor` / `launchChainsFor` called with empty `stageConfigurations` array |
 | `REVDeployer_StageTimesMustIncrease` | REVDeployer | Stage `startsAtOrAfter` timestamps are not strictly increasing |
 | `REVDeployer_Unauthorized` | REVDeployer | Caller is not the split operator (for operator-gated functions) or not the project owner (for `launchChainsFor`) |
+| `REVLoans_CashOutDelayNotFinished` | REVLoans | `borrowFrom` called during the 30-day cash-out delay period (cross-chain deployment protection) |
 | `REVLoans_CollateralExceedsLoan` | REVLoans | `reallocateCollateralFromLoan` called with `collateralCountToReturn > loan.collateral` |
 | `REVLoans_InvalidPrepaidFeePercent` | REVLoans | `prepaidFeePercent` outside `[MIN_PREPAID_FEE_PERCENT, MAX_PREPAID_FEE_PERCENT]` range (25-500) |
 | `REVLoans_InvalidTerminal` | REVLoans | Loan source references a terminal not registered in `JBDirectory` for the revnet |

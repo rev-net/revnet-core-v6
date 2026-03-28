@@ -76,6 +76,7 @@ Cash Out → REVDeployer.beforeCashOutRecordedWith()
 ### Loan Flow
 ```
 Borrower → REVLoans.borrowFrom()
+  → Enforce cash-out delay if set (cross-chain deployment protection)
   → Burn borrower's revnet tokens as collateral
   → Calculate borrow amount from bonding curve value of collateral
   → Pull funds from treasury via USE_ALLOWANCE

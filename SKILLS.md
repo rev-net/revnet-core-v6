@@ -47,7 +47,7 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 
 | Function | Permissions | What it does |
 |----------|------------|-------------|
-| `REVLoans.borrowFrom(revnetId, source, minBorrowAmount, collateralCount, beneficiary, prepaidFeePercent)` | Permissionless (caller must grant BURN_TOKENS to REVLoans) | Open a loan: burn collateral tokens, pull funds from revnet via `useAllowanceOf`, pay REV fee (1%) + terminal fee (2.5%), transfer remainder to beneficiary, mint loan NFT. |
+| `REVLoans.borrowFrom(revnetId, source, minBorrowAmount, collateralCount, beneficiary, prepaidFeePercent)` | Permissionless (caller must grant BURN_TOKENS to REVLoans) | Open a loan: enforce cash-out delay if set (cross-chain deployment protection), burn collateral tokens, pull funds from revnet via `useAllowanceOf`, pay REV fee (1%) + terminal fee (2.5%), transfer remainder to beneficiary, mint loan NFT. |
 | `REVLoans.repayLoan(loanId, maxRepayBorrowAmount, collateralCountToReturn, beneficiary, allowance)` | Loan NFT owner | Repay fully or partially. Returns funds to revnet via `addToBalanceOf`, re-mints collateral tokens, burns/replaces the loan NFT. Supports permit2 signatures. |
 | `REVLoans.reallocateCollateralFromLoan(loanId, collateralCountToTransfer, source, minBorrowAmount, collateralCountToAdd, beneficiary, prepaidFeePercent)` | Loan NFT owner | Refinance: remove excess collateral from an existing loan and open a new loan with the freed collateral. Burns original, mints two replacements. |
 | `REVLoans.liquidateExpiredLoansFrom(revnetId, startingLoanId, count)` | Permissionless | Clean up loans past the 10-year liquidation duration. Burns NFTs and decrements accounting totals. Collateral is permanently lost. |
@@ -57,7 +57,7 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 
 | Function | What it does |
 |----------|-------------|
-| `REVLoans.borrowableAmountFrom(revnetId, collateralCount, decimals, currency)` | Calculate how much can be borrowed for a given collateral amount. Aggregates surplus from all terminals, applies bonding curve. |
+| `REVLoans.borrowableAmountFrom(revnetId, collateralCount, decimals, currency)` | Calculate how much can be borrowed for a given collateral amount. Returns 0 during the cash-out delay period. Aggregates surplus from all terminals, applies bonding curve. |
 | `REVLoans.determineSourceFeeAmount(loan, amount)` | Calculate the time-proportional source fee for a loan repayment. Zero during prepaid window, linear accrual after. |
 | `REVLoans.loanOf(loanId)` | Returns the full `REVLoan` struct for a loan. |
 | `REVLoans.loanSourcesOf(revnetId)` | Returns all `(terminal, token)` pairs used for loans by a revnet. |
@@ -139,6 +139,7 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 
 | Error | When It Fires |
 |-------|---------------|
+| `REVLoans_CashOutDelayNotFinished(cashOutDelay, blockTimestamp)` | When borrowing during the 30-day cash-out delay period (cross-chain deployment protection). |
 | `REVLoans_CollateralExceedsLoan(collateralToReturn, loanCollateral)` | When trying to return more collateral than the loan holds. |
 | `REVLoans_InvalidPrepaidFeePercent(prepaidFeePercent, min, max)` | When `prepaidFeePercent` is outside the allowed range (2.5%--50%). |
 | `REVLoans_InvalidTerminal(terminal, revnetId)` | When the specified terminal is not registered for the revnet. |
@@ -213,7 +214,7 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 5. **uint112 truncation risk.** `REVLoan.amount` and `REVLoan.collateral` are `uint112`. Values above ~5.19e33 truncate silently.
 6. **Auto-issuance stage IDs.** Computed as `block.timestamp + i` during deployment. These match the Juicebox ruleset IDs because `JBRulesets` assigns IDs the same way (`latestId >= block.timestamp ? latestId + 1 : block.timestamp`), producing identical sequential IDs when all stages are queued in a single `deployFor()` call.
 7. **Cash-out fee stacking.** Cash outs incur both the Juicebox terminal fee (2.5%) and the revnet cash-out fee (2.5% to fee revnet). These compound. The 2.5% fee is deducted from the TOKEN AMOUNT being cashed out, not from the reclaim value. 2.5% of the tokens are redirected to the fee revnet, which then redeems them at the bonding curve independently. The net reclaim to the caller is based on 97.5% of the tokens, not 97.5% of the computed ETH value. This is by design.
-8. **30-day cash-out delay.** Applied when deploying an existing revnet to a new chain where the first stage has already started. Prevents cross-chain liquidity arbitrage.
+8. **30-day cash-out delay.** Applied when deploying an existing revnet to a new chain where the first stage has already started. Prevents cross-chain liquidity arbitrage. Enforced in both `beforeCashOutRecordedWith` (direct cash outs) and `REVLoans.borrowFrom` / `borrowableAmountFrom` (loans). The delay is resolved via the ruleset's `dataHook` (the REVDeployer) and `cashOutDelayOf(revnetId)`.
 9. **`cashOutTaxRate` cannot be MAX.** Must be strictly less than `MAX_CASH_OUT_TAX_RATE` (10,000). Revnets cannot fully disable cash outs.
 10. **Split operator is singular.** Only ONE address can be split operator at a time. The operator can replace itself via `setSplitOperatorOf` but cannot delegate or multi-sig.
 11. **NATIVE_TOKEN on non-ETH chains.** `JBConstants.NATIVE_TOKEN` on Celo means CELO, on Polygon means MATIC -- not ETH. Use ERC-20 WETH instead. The config matching hash does NOT catch terminal configuration differences.

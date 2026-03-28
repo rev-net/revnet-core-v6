@@ -163,6 +163,7 @@ This is a standard Juicebox payment, but REVDeployer intervenes as the data hook
 **Prerequisites:**
 - Caller must hold `collateralCount` revnet ERC-20 tokens
 - Caller must grant `BURN_TOKENS` permission to the REVLoans contract for the revnet's project ID via `JBPermissions.setPermissionsFor()`. Without this, the transaction reverts in `JBController.burnTokensOf` with `JBPermissioned_Unauthorized`.
+- The revnet's cash-out delay must have passed (if one was set during cross-chain deployment). `borrowableAmountFrom` returns 0 and `borrowFrom` reverts with `REVLoans_CashOutDelayNotFinished` until the 30-day delay expires.
 
 **Key parameters:**
 
@@ -181,6 +182,7 @@ This is a standard Juicebox payment, but REVDeployer intervenes as the data hook
    - `collateralCount > 0` (no zero-collateral loans)
    - `source.terminal` is registered for the revnet in the directory
    - `prepaidFeePercent` in range [25, 500]
+   - Cash-out delay has passed: resolves the `REVDeployer` from the current ruleset's `dataHook`, checks `cashOutDelayOf(revnetId)`. Reverts with `REVLoans_CashOutDelayNotFinished(cashOutDelay, block.timestamp)` if `cashOutDelay > block.timestamp`.
 2. **Loan ID generation:** `revnetId * 1_000_000_000_000 + (++totalLoansBorrowedFor[revnetId])`
 3. **Loan creation in storage:**
    - `source`, `createdAt = block.timestamp`, `prepaidFeePercent`, `prepaidDuration = mulDiv(prepaidFeePercent, 3650 days, 500)`
@@ -210,6 +212,7 @@ This is a standard Juicebox payment, but REVDeployer intervenes as the data hook
 - `prepaidDuration` at minimum (25): `25 * 3650 days / 500 = 182.5 days`. At maximum (500): `500 * 3650 days / 500 = 3650 days`.
 - Both the REV fee payment and the source fee payment failures are non-fatal. If either `feeTerminal.pay` or `source.terminal.pay` reverts, the fee amount is transferred to the beneficiary instead.
 - Loan NFT is minted to `_msgSender()`, not `beneficiary`. The caller owns the loan; the beneficiary receives the funds.
+- When a revnet deploys to a new chain with `startsAtOrAfter` in the past, `REVDeployer` sets a 30-day cash-out delay. Both `borrowFrom` and `borrowableAmountFrom` enforce this delay by resolving the deployer from the current ruleset's `dataHook` and checking `cashOutDelayOf`. This prevents cross-chain arbitrage via loans during the delay window.
 
 ---
 

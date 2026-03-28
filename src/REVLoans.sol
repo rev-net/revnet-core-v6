@@ -27,6 +27,7 @@ import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingCo
 import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
 import {JBSingleAllowance} from "@bananapus/core-v6/src/structs/JBSingleAllowance.sol";
 
+import {IREVDeployer} from "./interfaces/IREVDeployer.sol";
 import {IREVLoans} from "./interfaces/IREVLoans.sol";
 import {REVLoan} from "./structs/REVLoan.sol";
 import {REVLoanSource} from "./structs/REVLoanSource.sol";
@@ -55,6 +56,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     // --------------------------- custom errors ------------------------- //
     //*********************************************************************//
 
+    error REVLoans_CashOutDelayNotFinished(uint256 cashOutDelay, uint256 blockTimestamp);
     error REVLoans_CollateralExceedsLoan(uint256 collateralToReturn, uint256 loanCollateral);
     error REVLoans_InvalidPrepaidFeePercent(uint256 prepaidFeePercent, uint256 min, uint256 max);
     error REVLoans_InvalidTerminal(address terminal, uint256 revnetId);
@@ -225,6 +227,21 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         view
         returns (uint256)
     {
+        // Get the current ruleset to resolve the deployer from its data hook.
+        (JBRuleset memory currentRuleset,) = CONTROLLER.currentRulesetOf(revnetId);
+
+        // The ruleset's data hook is the REVDeployer that configured this revnet.
+        address deployer = currentRuleset.dataHook();
+
+        // Only check the delay if a deployer is set.
+        if (deployer != address(0)) {
+            // Get the timestamp after which cash outs (and loans) are allowed.
+            uint256 cashOutDelay = IREVDeployer(deployer).cashOutDelayOf(revnetId);
+
+            // If the delay hasn't passed yet, no amount is borrowable.
+            if (cashOutDelay > block.timestamp) return 0;
+        }
+
         return _borrowableAmountFrom({
             revnetId: revnetId,
             collateralCount: collateralCount,
@@ -578,6 +595,23 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
             revert REVLoans_InvalidPrepaidFeePercent(
                 prepaidFeePercent, MIN_PREPAID_FEE_PERCENT, MAX_PREPAID_FEE_PERCENT
             );
+        }
+
+        // Get the current ruleset to resolve the deployer from its data hook.
+        (JBRuleset memory currentRuleset,) = CONTROLLER.currentRulesetOf(revnetId);
+
+        // The ruleset's data hook is the REVDeployer that configured this revnet.
+        address deployer = currentRuleset.dataHook();
+
+        // Only check the delay if a deployer is set.
+        if (deployer != address(0)) {
+            // Get the timestamp after which cash outs (and loans) are allowed.
+            uint256 cashOutDelay = IREVDeployer(deployer).cashOutDelayOf(revnetId);
+
+            // Revert if the delay hasn't passed yet.
+            if (cashOutDelay > block.timestamp) {
+                revert REVLoans_CashOutDelayNotFinished(cashOutDelay, block.timestamp);
+            }
         }
 
         // Prevent the loan number from exceeding the ID namespace for this revnet.
