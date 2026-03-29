@@ -2,6 +2,84 @@
 
 This document describes all changes between `revnet-core` (v5, Solidity 0.8.23) and `revnet-core-v6` (v6, Solidity 0.8.28).
 
+## 0. REVDeployer/REVOwner Split (post-v6 refactor)
+
+### Motivation
+
+REVDeployer exceeded the EIP-170 contract size limit (24,576 bytes) at 26,397 bytes. The contract was split into two:
+
+| Contract | Size | Role |
+|----------|------|------|
+| `REVDeployer` | 19,746 bytes | Deployment, configuration, state storage, split operator management |
+| `REVOwner` | 8,353 bytes (~310 lines) | Runtime hook behavior: `IJBRulesetDataHook` + `IJBCashOutHook` |
+
+### What moved to REVOwner
+
+| Function | Description |
+|----------|-------------|
+| `beforePayRecordedWith()` | Pay data hook -- 721 hook delegation, buyback hook delegation, weight scaling |
+| `beforeCashOutRecordedWith()` | Cash-out data hook -- sucker bypass, fee splitting, cash-out delay enforcement |
+| `afterCashOutRecordedWith()` | Cash-out hook callback -- fee payment to fee revnet |
+| `hasMintPermissionFor()` | Mint permission check for loans, buyback hook, suckers |
+| `_isSuckerOf()` | Internal sucker verification helper |
+| `_beforeTransferTo()` | Internal pre-transfer fee handling |
+| `cashOutDelayOf(revnetId)` | View that returns the cash-out delay from REVOwner storage. Exposed via IREVOwner for REVLoans compatibility. |
+
+### What REVDeployer retains
+
+- `deployFor()` -- revnet deployment (both overloads)
+- `queueStagesToRevnetOf()` -- stage configuration
+- `autoIssueFor()` -- auto-issuance claiming
+- `setSplitOperatorOf()` -- operator management
+- `replaceSplitsOf()` -- split management
+- `deploySuckersFor()` -- sucker deployment
+- Configuration state mappings: `amountToAutoIssue`, `hashedEncodedConfigurationOf`, etc.
+- `OWNER()` -- new view returning the REVOwner address
+- `supportsInterface()` -- no longer includes `IJBRulesetDataHook` or `IJBCashOutHook`
+
+### Storage migration: `cashOutDelayOf` and `tiered721HookOf` moved to REVOwner
+
+The `cashOutDelayOf` and `tiered721HookOf` storage mappings were moved from REVDeployer to REVOwner. REVOwner now has DEPLOYER-restricted setter functions (`setCashOutDelayOf()` and `setTiered721HookOf()`) that only REVDeployer can call. REVDeployer calls these setters during deployment instead of writing to its own storage.
+
+- `cashOutDelayOf` and `tiered721HookOf` removed from `IREVDeployer` interface
+- `IREVOwner.sol` created at `src/interfaces/IREVOwner.sol` (exposes `cashOutDelayOf`)
+- REVLoans now imports `IREVOwner` (not `IREVDeployer`) for `cashOutDelayOf` calls
+- REVOwner reads `cashOutDelayOf` and `tiered721HookOf` directly from its own storage instead of delegating to `DEPLOYER`
+
+### Circular dependency pattern
+
+REVDeployer needs REVOwner (as the `dataHook` address and to set `cashOutDelayOf`/`tiered721HookOf` via restricted setters), and REVOwner references REVDeployer (to restrict setter access). This circular dependency is broken by:
+
+1. Deploy REVOwner first
+2. Deploy REVDeployer with `owner=REVOwner`
+3. Call `REVOwner.initialize(deployer)` to set the `DEPLOYER` storage variable
+
+`REVOwner.DEPLOYER` is a **storage variable** (not immutable) because the deployer address is not known at REVOwner construction time. The `initialize()` function can only be called once. After initialization, `DEPLOYER` is used to restrict access to `setCashOutDelayOf()` and `setTiered721HookOf()`.
+
+### Shared immutables
+
+Both contracts independently store these as immutables (set at construction): `BUYBACK_HOOK`, `DIRECTORY`, `FEE_REVNET_ID`, `SUCKER_REGISTRY`, `LOANS`. The `FEE` constant (25 = 2.5%) is defined in both contracts.
+
+### Interface changes
+
+| Change | Description |
+|--------|-------------|
+| `IREVDeployer.OWNER()` | New view function returning the REVOwner address |
+| `IREVDeployer` | `cashOutDelayOf` and `tiered721HookOf` removed (moved to REVOwner) |
+| `IREVOwner.sol` | New interface at `src/interfaces/IREVOwner.sol` — exposes `cashOutDelayOf` |
+| `REVOwner.setCashOutDelayOf()` | New DEPLOYER-restricted setter for `cashOutDelayOf` |
+| `REVOwner.setTiered721HookOf()` | New DEPLOYER-restricted setter for `tiered721HookOf` |
+| `REVDeployer.supportsInterface()` | No longer reports `IJBRulesetDataHook` or `IJBCashOutHook` |
+| Ruleset `metadata.dataHook` | Now set to `address(REVOwner)` instead of `address(REVDeployer)` |
+
+### Migration impact
+
+- **Indexers/subgraphs**: Data hook events now originate from the REVOwner address, not REVDeployer. `cashOutDelayOf` and `tiered721HookOf` storage reads must target REVOwner, not REVDeployer.
+- **REVLoans**: Now imports `IREVOwner` (not `IREVDeployer`) and calls `REVOwner.cashOutDelayOf(revnetId)` directly from REVOwner storage.
+- **Direct callers**: Any code that read `cashOutDelayOf` or `tiered721HookOf` from REVDeployer must now read from REVOwner. Any code that cast the deployer address to `IJBRulesetDataHook` or `IJBCashOutHook` must now use the REVOwner address instead.
+
+---
+
 ## Summary
 
 - **Buyback hook centralized**: Per-revnet `buybackHookOf` mapping replaced by a single immutable `BUYBACK_HOOK` registry — pools auto-initialized with default parameters during deployment.
@@ -297,7 +375,7 @@ The following structs are identical between v5 and v6 (only `forge-lint` comment
 | **Source fee try-catch hardening** | The source fee payment in `_adjust` is now wrapped in a try-catch block. If the source terminal's `pay` call reverts, the ERC-20 allowance is reclaimed and the fee amount is returned to the beneficiary instead of blocking the entire loan operation. v5 called `terminal.pay` directly without error handling. |
 | **Timestamp cast fix** | `borrowFrom` now casts `block.timestamp` to `uint48` when setting `loan.createdAt`, matching the `REVLoan.createdAt` field width. v5 used `uint40`, which would silently truncate timestamps after the year 36812. |
 | **`ReallocateCollateral` event typo fix** | v5 used `removedcollateralCount` (lowercase 'c'). v6 fixes it to `removedCollateralCount` (uppercase 'C'). |
-| **Cash out delay enforced in loans** | `borrowFrom` now resolves the `REVDeployer` from the ruleset's `dataHook` and checks `cashOutDelayOf(revnetId)`. If the 30-day cross-chain deployment delay hasn't passed, `borrowFrom` reverts with `REVLoans_CashOutDelayNotFinished`. `borrowableAmountFrom` returns 0 during the delay so UIs reflect the restriction. v5 did not enforce the cash out delay in the loans contract. |
+| **Cash out delay enforced in loans** | `borrowFrom` now resolves REVOwner from the ruleset's `dataHook` and checks `IREVOwner.cashOutDelayOf(revnetId)` (stored on REVOwner). If the 30-day cross-chain deployment delay hasn't passed, `borrowFrom` reverts with `REVLoans_CashOutDelayNotFinished`. `borrowableAmountFrom` returns 0 during the delay so UIs reflect the restriction. v5 did not enforce the cash out delay in the loans contract. |
 | **NatSpec documentation** | Extensive NatSpec added to all functions, views, and internal helpers. Flash loan safety analysis documented in `_borrowableAmountFrom`. |
 
 ### 6.3 Named Arguments

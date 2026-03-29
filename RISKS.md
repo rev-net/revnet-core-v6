@@ -10,14 +10,15 @@ Read [ARCHITECTURE.md](./ARCHITECTURE.md) and [SKILLS.md](./SKILLS.md) for proto
 
 ### What the system assumes to be correct
 
-- **REVDeployer is a singleton data hook.** Every revnet shares one `beforePayRecordedWith` and `beforeCashOutRecordedWith` implementation. A bug in either function affects ALL revnets deployed by that deployer simultaneously. There is no per-project isolation and no circuit breaker.
+- **REVOwner is a singleton data hook.** Every revnet shares one `beforePayRecordedWith` and `beforeCashOutRecordedWith` implementation in REVOwner. A bug in either function affects ALL revnets deployed by that deployer simultaneously. There is no per-project isolation and no circuit breaker.
+- **REVOwner circular dependency.** REVOwner and REVDeployer have a circular dependency broken by a one-shot `initialize()` call. `REVOwner.DEPLOYER` is a storage variable (not immutable) set via `initialize()`. If `initialize()` is never called, REVDeployer cannot call the DEPLOYER-restricted setters (`setCashOutDelayOf`, `setTiered721HookOf`) on REVOwner, and `cashOutDelayOf`/`tiered721HookOf` will never be populated, breaking all runtime hook behavior. If called with the wrong deployer address, an unauthorized address could set incorrect state. The `initialize()` function must be called exactly once with the correct address immediately after deploying both contracts.
 - **Stage immutability is the trust model.** Once `deployFor()` completes, stage parameters (issuance, `cashOutTaxRate`, splits, auto-issuances) are locked forever. No owner, no governance, no upgrade path. A misconfigured deployment is permanent. This is intentional -- the absence of admin keys IS the security property.
 - **Bonding curve is the sole collateral oracle.** `REVLoans` uses `JBCashOuts.cashOutFrom` to value collateral. There is no external price oracle, no liquidation margin, and no health factor. The borrowable amount equals the cash-out value at the moment of borrowing.
 - **Juicebox core contracts are correct.** `JBController`, `JBMultiTerminal`, `JBTerminalStore`, `JBTokens`, `JBPrices` -- a bug in any of these is a bug in every revnet.
 - **Buyback hook operates correctly.** `BUYBACK_HOOK` handles swap-vs-mint routing. All revnets from the same deployer share one instance. Failure falls back to direct minting (not a revert), so the failure mode is economic inefficiency, not fund loss.
 - **Suckers are honest bridges.** Suckers get 0% cashout tax in `beforeCashOutRecordedWith`. A compromised or malicious sucker registered in `SUCKER_REGISTRY` can extract funds from any revnet at zero cost.
 - **Auto-issuance beneficiaries are set at deployment.** Beneficiary addresses are baked into the stage configuration. If a beneficiary address is a contract that becomes compromised, or an EOA whose keys are lost, those auto-issuance tokens are either captured or permanently unclaimable.
-- **REVLoans contract address is immutable per deployer.** `LOANS` is set once in the REVDeployer constructor with wildcard `USE_ALLOWANCE` permission (`projectId=0`). If the loans contract has a vulnerability, every revnet's surplus is exposed.
+- **REVLoans contract address is immutable per deployer.** `LOANS` is set once in the REVDeployer constructor (and shared as an immutable on REVOwner) with wildcard `USE_ALLOWANCE` permission (`projectId=0`). If the loans contract has a vulnerability, every revnet's surplus is exposed.
 
 ### What you do NOT need to trust
 
@@ -83,7 +84,7 @@ Read [ARCHITECTURE.md](./ARCHITECTURE.md) and [SKILLS.md](./SKILLS.md) for proto
 
 ### Cross-chain cash-out delay enforcement
 
-- **Loans enforce the same 30-day cash-out delay as direct cash outs.** When a revnet is deployed to a new chain where its first stage has already started, `REVDeployer._setCashOutDelayIfNeeded()` sets a 30-day delay. `borrowFrom` resolves the deployer from the current ruleset's `dataHook` and checks `cashOutDelayOf(revnetId)`, reverting with `REVLoans_CashOutDelayNotFinished` if the delay hasn't passed. `borrowableAmountFrom` returns 0 during the delay. This prevents cross-chain arbitrage via the loan system (bridging tokens to a new chain and immediately borrowing against them before prices equilibrate).
+- **Loans enforce the same 30-day cash-out delay as direct cash outs.** When a revnet is deployed to a new chain where its first stage has already started, REVDeployer calls `REVOwner.setCashOutDelayOf()` to set a 30-day delay (stored on REVOwner). `borrowFrom` resolves the REVOwner from the current ruleset's `dataHook` and checks `IREVOwner.cashOutDelayOf(revnetId)` (read directly from REVOwner storage), reverting with `REVLoans_CashOutDelayNotFinished` if the delay hasn't passed. `borrowableAmountFrom` returns 0 during the delay. This prevents cross-chain arbitrage via the loan system (bridging tokens to a new chain and immediately borrowing against them before prices equilibrate).
 
 ### BURN_TOKENS permission prerequisite
 
@@ -93,22 +94,22 @@ Read [ARCHITECTURE.md](./ARCHITECTURE.md) and [SKILLS.md](./SKILLS.md) for proto
 
 ## 4. Data Hook Proxy Risks
 
-REVDeployer sits between the terminal and the actual hooks (buyback hook, 721 hook). This proxy pattern creates composition risks.
+REVOwner sits between the terminal and the actual hooks (buyback hook, 721 hook). This proxy pattern creates composition risks.
 
 ### Underlying hook reverts
 
-- **721 hook revert in `beforePayRecordedWith`.** The call to `IJBRulesetDataHook(tiered721Hook).beforePayRecordedWith(context)` is NOT wrapped in try-catch. If the 721 hook reverts (e.g., due to a storage corruption or out-of-gas), the entire payment reverts. This is a single point of failure for all payments to revnets with 721 hooks.
-- **Buyback hook is more resilient.** The `BUYBACK_HOOK.beforePayRecordedWith(buybackHookContext)` call is also not try-caught, but the buyback hook is a shared singleton controlled by the protocol. If it reverts, all revnets from that deployer are affected.
-- **Cash-out fee terminal revert.** In `afterCashOutRecordedWith`, the fee payment to the fee terminal IS wrapped in try-catch with a fallback to `addToBalanceOf`. If the fallback also reverts, the entire cashout transaction reverts — no funds are stuck, but the cashout is blocked until the terminal is available.
+- **721 hook revert in `beforePayRecordedWith`.** The call to `IJBRulesetDataHook(tiered721Hook).beforePayRecordedWith(context)` in REVOwner is NOT wrapped in try-catch. If the 721 hook reverts (e.g., due to a storage corruption or out-of-gas), the entire payment reverts. This is a single point of failure for all payments to revnets with 721 hooks.
+- **Buyback hook is more resilient.** The `BUYBACK_HOOK.beforePayRecordedWith(buybackHookContext)` call in REVOwner is also not try-caught, but the buyback hook is a shared singleton controlled by the protocol. If it reverts, all revnets from that deployer are affected.
+- **Cash-out fee terminal revert.** In `REVOwner.afterCashOutRecordedWith`, the fee payment to the fee terminal IS wrapped in try-catch with a fallback to `addToBalanceOf`. If the fallback also reverts, the entire cashout transaction reverts — no funds are stuck, but the cashout is blocked until the terminal is available.
 
 ### Sucker bypass path (0% cashout tax)
 
-- **Suckers bypass all economic protections.** `beforeCashOutRecordedWith` returns `(0, context.cashOutCount, context.totalSupply, hookSpecifications)` for suckers -- zero tax, no fee. A compromised sucker effectively has a backdoor to extract the full pro-rata surplus of any token it holds.
+- **Suckers bypass all economic protections.** `REVOwner.beforeCashOutRecordedWith` returns `(0, context.cashOutCount, context.totalSupply, hookSpecifications)` for suckers -- zero tax, no fee. A compromised sucker effectively has a backdoor to extract the full pro-rata surplus of any token it holds.
 - **Sucker registration is controlled by `SUCKER_REGISTRY`.** The registry has `MAP_SUCKER_TOKEN` wildcard permission from the deployer. The split operator has `SUCKER_SAFETY` permission. Verify that `deploySuckersFor` correctly checks the `extraMetadata` bit (bit 2) for sucker deployment permission per stage.
 
 ### Permission escalation through proxy
 
-- **`hasMintPermissionFor` grants mint to four categories.** The loans contract, buyback hook, buyback hook delegates, and suckers all have unrestricted mint permission. If any of these contracts have a vulnerability that allows arbitrary calls, they can mint unlimited revnet tokens for any revnet.
+- **`hasMintPermissionFor` grants mint to four categories.** `REVOwner.hasMintPermissionFor` grants mint to: the loans contract, buyback hook, buyback hook delegates, and suckers. If any of these contracts have a vulnerability that allows arbitrary calls, they can mint unlimited revnet tokens for any revnet.
 - **Wildcard permissions.** REVDeployer grants `USE_ALLOWANCE` to `LOANS` with `projectId=0` (wildcard). This means the loans contract can drain surplus from ANY revnet deployed by this deployer, constrained only by the loan logic itself. A bug in `REVLoans._addTo` that miscalculates `addedBorrowAmount` could drain treasuries.
 
 ---
@@ -183,7 +184,7 @@ These MUST hold. Breaking any of them is a finding.
 
 - **Sucker privilege.** Only addresses returning `true` from `SUCKER_REGISTRY.isSuckerOf(projectId, addr)` get 0% cashout tax. No other code path grants this exemption.
 - **Loan ownership.** Only `_ownerOf(loanId)` can call `repayLoan` and `reallocateCollateralFromLoan`. The loan NFT is burned before any state changes in repayment, preventing double-use.
-- **Mint permission.** Only `LOANS`, `BUYBACK_HOOK`, buyback hook delegates (via `BUYBACK_HOOK.hasMintPermissionFor`), and suckers (via `_isSuckerOf`) can mint tokens. No other address passes the `hasMintPermissionFor` check.
+- **Mint permission.** Only `LOANS`, `BUYBACK_HOOK`, buyback hook delegates (via `BUYBACK_HOOK.hasMintPermissionFor`), and suckers (via `REVOwner._isSuckerOf`) can mint tokens. No other address passes the `REVOwner.hasMintPermissionFor` check.
 
 ---
 
@@ -191,7 +192,7 @@ These MUST hold. Breaking any of them is a finding.
 
 ### 8.1 Suckers receive 0% cashout tax (by design)
 
-`beforeCashOutRecordedWith` returns `cashOutTaxRate = 0` for any address where `SUCKER_REGISTRY.isSuckerOf(projectId, addr)` returns true. This grants suckers the full pro-rata reclaim with no tax retention. This is intentional: suckers burn tokens on the source chain and mint equivalent tokens on the destination chain. The zero-tax path ensures bridged tokens preserve their full economic value across chains. The security boundary is the sucker registry — only addresses registered by authorized deployers (gated by `DEPLOY_SUCKERS` permission and per-stage `extraMetadata` bit 2) receive this privilege.
+`REVOwner.beforeCashOutRecordedWith` returns `cashOutTaxRate = 0` for any address where `SUCKER_REGISTRY.isSuckerOf(projectId, addr)` returns true. This grants suckers the full pro-rata reclaim with no tax retention. This is intentional: suckers burn tokens on the source chain and mint equivalent tokens on the destination chain. The zero-tax path ensures bridged tokens preserve their full economic value across chains. The security boundary is the sucker registry — only addresses registered by authorized deployers (gated by `DEPLOY_SUCKERS` permission and per-stage `extraMetadata` bit 2) receive this privilege.
 
 ### 8.2 No liquidation trigger for under-collateralized loans (by design)
 

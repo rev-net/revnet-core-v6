@@ -40,6 +40,8 @@ import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStor
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
+import {REVOwner} from "../src/REVOwner.sol";
+import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 
 /// @notice Contract that reenters REVLoans when it receives ETH during a borrow payout.
 /// Records the loan state it observes during reentrancy to verify CEI correctness.
@@ -85,6 +87,8 @@ contract TestCEIPattern is TestBaseWorkflow {
 
     // forge-lint: disable-next-line(mixed-case-variable)
     REVDeployer REV_DEPLOYER;
+    // forge-lint: disable-next-line(mixed-case-variable)
+    REVOwner REV_OWNER;
     // forge-lint: disable-next-line(mixed-case-variable)
     JB721TiersHook EXAMPLE_HOOK;
     // forge-lint: disable-next-line(mixed-case-variable)
@@ -138,6 +142,14 @@ contract TestCEIPattern is TestBaseWorkflow {
             permit2: permit2(),
             trustedForwarder: TRUSTED_FORWARDER
         });
+        REV_OWNER = new REVOwner(
+            IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
+            jbDirectory(),
+            FEE_PROJECT_ID,
+            SUCKER_REGISTRY,
+            address(LOANS_CONTRACT)
+        );
+
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
             SUCKER_REGISTRY,
@@ -146,8 +158,11 @@ contract TestCEIPattern is TestBaseWorkflow {
             PUBLISHER,
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
             address(LOANS_CONTRACT),
-            TRUSTED_FORWARDER
+            TRUSTED_FORWARDER,
+            address(REV_OWNER)
         );
+
+        REV_OWNER.initialize(IREVDeployer(address(REV_DEPLOYER)));
         vm.prank(multisig());
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);
         _deployFeeProject();

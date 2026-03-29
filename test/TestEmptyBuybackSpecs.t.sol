@@ -37,6 +37,8 @@ import {JBBeforePayRecordedContext} from "@bananapus/core-v6/src/structs/JBBefor
 import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
 import {JBTokenAmount} from "@bananapus/core-v6/src/structs/JBTokenAmount.sol";
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
+import {REVOwner} from "../src/REVOwner.sol";
+import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 
 /// @notice Regression tests for the empty buyback hook specifications fix.
 /// When JBBuybackHook determines minting is cheaper than swapping, it returns an empty
@@ -48,6 +50,8 @@ contract TestEmptyBuybackSpecs is TestBaseWorkflow {
 
     // forge-lint: disable-next-line(mixed-case-variable)
     REVDeployer REV_DEPLOYER;
+    // forge-lint: disable-next-line(mixed-case-variable)
+    REVOwner REV_OWNER;
     // forge-lint: disable-next-line(mixed-case-variable)
     JB721TiersHook EXAMPLE_HOOK;
     // forge-lint: disable-next-line(mixed-case-variable)
@@ -92,6 +96,14 @@ contract TestEmptyBuybackSpecs is TestBaseWorkflow {
             permit2: permit2(),
             trustedForwarder: TRUSTED_FORWARDER
         });
+        REV_OWNER = new REVOwner(
+            IJBBuybackHookRegistry(address(MOCK_BUYBACK_MINT_PATH)),
+            jbDirectory(),
+            FEE_PROJECT_ID,
+            SUCKER_REGISTRY,
+            address(LOANS_CONTRACT)
+        );
+
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
             SUCKER_REGISTRY,
@@ -100,8 +112,11 @@ contract TestEmptyBuybackSpecs is TestBaseWorkflow {
             PUBLISHER,
             IJBBuybackHookRegistry(address(MOCK_BUYBACK_MINT_PATH)),
             address(LOANS_CONTRACT),
-            TRUSTED_FORWARDER
+            TRUSTED_FORWARDER,
+            address(REV_OWNER)
         );
+
+        REV_OWNER.initialize(IREVDeployer(address(REV_DEPLOYER)));
         vm.prank(multisig());
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);
     }
@@ -260,13 +275,13 @@ contract TestEmptyBuybackSpecs is TestBaseWorkflow {
             metadata: ""
         });
 
-        (uint256 weight, JBPayHookSpecification[] memory specs) = REV_DEPLOYER.beforePayRecordedWith(context);
+        (uint256 weight, JBPayHookSpecification[] memory specs) = REV_OWNER.beforePayRecordedWith(context);
 
         assertEq(weight, context.weight, "Weight should pass through from buyback hook");
         assertEq(specs.length, 1, "Should return only the 721 hook spec when buyback hook returns empty");
         assertEq(
             address(specs[0].hook),
-            address(REV_DEPLOYER.tiered721HookOf(revnetId)),
+            address(REV_OWNER.tiered721HookOf(revnetId)),
             "Spec hook should be the revnet's 721 hook"
         );
     }

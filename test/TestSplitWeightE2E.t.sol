@@ -46,6 +46,8 @@ import {REVBaseline721HookConfig} from "../src/structs/REVBaseline721HookConfig.
 import {REV721TiersHookFlags} from "../src/structs/REV721TiersHookFlags.sol";
 import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
+import {REVOwner} from "../src/REVOwner.sol";
+import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 
 /// @notice E2E tests verifying that the split weight adjustment in REVDeployer produces correct token counts
 /// when payments flow through the full terminal → store → dataHook → mint pipeline.
@@ -58,6 +60,8 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
 
     // forge-lint: disable-next-line(mixed-case-variable)
     REVDeployer REV_DEPLOYER;
+    // forge-lint: disable-next-line(mixed-case-variable)
+    REVOwner REV_OWNER;
     // forge-lint: disable-next-line(mixed-case-variable)
     JB721TiersHook EXAMPLE_HOOK;
     // forge-lint: disable-next-line(mixed-case-variable)
@@ -113,6 +117,14 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
             trustedForwarder: TRUSTED_FORWARDER
         });
 
+        REV_OWNER = new REVOwner(
+            IJBBuybackHookRegistry(address(MOCK_BUYBACK_MINT)),
+            jbDirectory(),
+            FEE_PROJECT_ID,
+            SUCKER_REGISTRY,
+            address(LOANS_CONTRACT)
+        );
+
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
             SUCKER_REGISTRY,
@@ -121,8 +133,11 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
             PUBLISHER,
             IJBBuybackHookRegistry(address(MOCK_BUYBACK_MINT)),
             address(LOANS_CONTRACT),
-            TRUSTED_FORWARDER
+            TRUSTED_FORWARDER,
+            address(REV_OWNER)
         );
+
+        REV_OWNER.initialize(IREVDeployer(address(REV_DEPLOYER)));
 
         vm.prank(multisig());
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);
@@ -405,6 +420,13 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
         vm.prank(multisig());
         jbProjects().approve(address(0), FEE_PROJECT_ID); // Clear old approval.
 
+        REVOwner ammOwner = new REVOwner(
+            IJBBuybackHookRegistry(address(ammBuyback)),
+            jbDirectory(),
+            FEE_PROJECT_ID,
+            SUCKER_REGISTRY,
+            address(LOANS_CONTRACT)
+        );
         REVDeployer ammDeployer = new REVDeployer{salt: "REVDeployer_AMM_E2E"}(
             jbController(),
             SUCKER_REGISTRY,
@@ -413,8 +435,10 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
             PUBLISHER,
             IJBBuybackHookRegistry(address(ammBuyback)),
             address(LOANS_CONTRACT),
-            TRUSTED_FORWARDER
+            TRUSTED_FORWARDER,
+            address(ammOwner)
         );
+        ammOwner.initialize(IREVDeployer(address(ammDeployer)));
 
         vm.prank(multisig());
         jbProjects().approve(address(ammDeployer), FEE_PROJECT_ID);

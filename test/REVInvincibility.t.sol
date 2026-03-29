@@ -48,6 +48,8 @@ import {mulDiv} from "@prb/math/src/Common.sol";
 import {REVInvincibilityHandler} from "./REVInvincibilityHandler.sol";
 import {BrokenFeeTerminal} from "./helpers/MaliciousContracts.sol";
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
+import {REVOwner} from "../src/REVOwner.sol";
+import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 
 // =========================================================================
 // Shared config struct
@@ -87,6 +89,8 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
     CTPublisher PUBLISHER;
     // forge-lint: disable-next-line(mixed-case-variable)
     MockBuybackDataHook MOCK_BUYBACK;
+    // forge-lint: disable-next-line(mixed-case-variable)
+    REVOwner REV_OWNER;
 
     // forge-lint: disable-next-line(mixed-case-variable)
     uint256 FEE_PROJECT_ID;
@@ -247,6 +251,14 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
             trustedForwarder: TRUSTED_FORWARDER
         });
 
+        REV_OWNER = new REVOwner(
+            IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
+            jbDirectory(),
+            FEE_PROJECT_ID,
+            SUCKER_REGISTRY,
+            address(LOANS_CONTRACT)
+        );
+
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
             SUCKER_REGISTRY,
@@ -255,8 +267,11 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
             PUBLISHER,
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
             address(LOANS_CONTRACT),
-            TRUSTED_FORWARDER
+            TRUSTED_FORWARDER,
+            address(REV_OWNER)
         );
+
+        REV_OWNER.initialize(IREVDeployer(address(REV_DEPLOYER)));
 
         // Deploy fee project
         vm.prank(multisig());
@@ -415,7 +430,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
 
         // hasMintPermissionFor should return false for random addresses
         address randomAddr = address(0x12345);
-        bool hasPerm = REV_DEPLOYER.hasMintPermissionFor(FEE_PROJECT_ID, currentRuleset, randomAddr);
+        bool hasPerm = REV_OWNER.hasMintPermissionFor(FEE_PROJECT_ID, currentRuleset, randomAddr);
         assertFalse(hasPerm, "random address should not have mint permission");
     }
 
@@ -959,6 +974,8 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
     // forge-lint: disable-next-line(mixed-case-variable)
     REVDeployer REV_DEPLOYER;
     // forge-lint: disable-next-line(mixed-case-variable)
+    REVOwner REV_OWNER;
+    // forge-lint: disable-next-line(mixed-case-variable)
     JB721TiersHook EXAMPLE_HOOK;
     // forge-lint: disable-next-line(mixed-case-variable)
     IJB721TiersHookDeployer HOOK_DEPLOYER;
@@ -1018,6 +1035,14 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
             trustedForwarder: TRUSTED_FORWARDER
         });
 
+        REV_OWNER = new REVOwner(
+            IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
+            jbDirectory(),
+            FEE_PROJECT_ID,
+            SUCKER_REGISTRY,
+            address(LOANS_CONTRACT)
+        );
+
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
             SUCKER_REGISTRY,
@@ -1026,8 +1051,11 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
             PUBLISHER,
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
             address(LOANS_CONTRACT),
-            TRUSTED_FORWARDER
+            TRUSTED_FORWARDER,
+            address(REV_OWNER)
         );
+
+        REV_OWNER.initialize(IREVDeployer(address(REV_DEPLOYER)));
 
         // Deploy fee project
         {

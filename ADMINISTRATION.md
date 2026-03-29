@@ -40,7 +40,7 @@ Admin privileges and their scope in revnet-core-v6. Revnets are designed to be a
 | `setSplitOperatorOf()` | Split Operator | Checked via `_checkIfIsSplitOperatorOf()` | Replaces the current split operator with a new address. Revokes all operator permissions from the caller and grants them to the new address. |
 | `autoIssueFor()` | Anyone | None | Mints pre-configured auto-issuance tokens for a beneficiary once the relevant stage has started. Amounts are set at deployment and can only be claimed once. |
 | `burnHeldTokensOf()` | Anyone | None | Burns any of a revnet's tokens held by the `REVDeployer` contract (e.g., from reserved token splits that did not sum to 100%). |
-| `afterCashOutRecordedWith()` | Anyone (called by terminal) | None | Processes cash-out fees. No caller validation needed because a non-terminal caller would only be donating their own funds. |
+| `afterCashOutRecordedWith()` | Anyone (called by terminal) | None | **Note: This function lives on REVOwner, not REVDeployer.** Processes cash-out fees. No caller validation needed because a non-terminal caller would only be donating their own funds. |
 
 ### Split Operator Permissions (granted via JBPermissions)
 
@@ -95,8 +95,8 @@ Revnets are designed to operate without a traditional project owner. The followi
 - **No ruleset queuing.** The `REVDeployer` does not expose any function to queue new rulesets after deployment. The stage progression is fully determined at deploy time. Nobody -- not the split operator, not the deployer, not anyone -- can change the issuance schedule, cash-out tax rates, or stage timing after deployment.
 - **No approval hooks.** All rulesets are deployed with `approvalHook = address(0)`. There is no mechanism to block or delay stage transitions.
 - **Cash outs cannot be fully disabled.** The deployer enforces `cashOutTaxRate < MAX_CASH_OUT_TAX_RATE` for every stage, guaranteeing that token holders always retain some ability to cash out.
-- **Data hook is the deployer itself.** The `REVDeployer` is set as the data hook (`metadata.dataHook = address(this)`) for all rulesets, ensuring consistent fee and sucker logic without external admin control.
-- **Mint permission is restricted.** Only the loans contract, the buyback hook (and its delegates), and registered suckers can mint tokens. The split operator cannot mint fungible revnet tokens.
+- **Data hook is REVOwner.** `REVOwner` is set as the data hook (`metadata.dataHook = address(OWNER())`) for all rulesets, ensuring consistent fee and sucker logic without external admin control. REVOwner stores `cashOutDelayOf` and `tiered721HookOf` in its own storage (set by REVDeployer via DEPLOYER-restricted setters during deployment).
+- **Mint permission is restricted.** Only the loans contract, the buyback hook (and its delegates), and registered suckers can mint tokens (as determined by `REVOwner.hasMintPermissionFor`). The split operator cannot mint fungible revnet tokens.
 - **No held fee manipulation.** The deployer has no function to process or return held fees arbitrarily.
 - **Owner minting is constrained.** While `allowOwnerMinting = true` is set in ruleset metadata, the "owner" is the `REVDeployer` contract. It only uses this to mint auto-issuance tokens (amounts fixed at deployment) and to return loan collateral.
 
@@ -138,6 +138,16 @@ The following parameters are set at deployment and can never be changed:
 - `DEFAULT_BUYBACK_POOL_FEE` -- 10,000 (1% Uniswap V4 fee tier)
 - `DEFAULT_BUYBACK_TICK_SPACING` -- 200
 - `DEFAULT_BUYBACK_TWAP_WINDOW` -- 2 days
+- `OWNER()` -- view returning the REVOwner address
+
+### REVOwner (global, set at contract deployment + initialize)
+- `BUYBACK_HOOK` -- the buyback hook (shared immutable with REVDeployer)
+- `DIRECTORY` -- the Juicebox directory (shared immutable with REVDeployer)
+- `FEE_REVNET_ID` -- the project ID that receives cash-out fees (shared immutable)
+- `SUCKER_REGISTRY` -- the sucker registry (shared immutable)
+- `LOANS` -- the loans contract address (shared immutable)
+- `FEE` -- the cash-out fee constant (2.5%)
+- `DEPLOYER` -- the REVDeployer address (storage variable, set once via `initialize()`)
 
 ### REVLoans (global, set at contract deployment)
 - `CONTROLLER`, `DIRECTORY`, `PRICES`, `PROJECTS` -- protocol infrastructure
@@ -186,5 +196,5 @@ What admins **cannot** do -- this is the most important section for understandin
 - Prevent token holders from eventually cashing out
 - Extract funds from the treasury without going through the bonding curve
 - Modify the fee structure (2.5% cash-out fee, loan fees)
-- Change which contract is the data hook for a revnet
+- Change which contract is the data hook for a revnet (always REVOwner)
 - Alter auto-issuance amounts after deployment (they can only be claimed, not changed)

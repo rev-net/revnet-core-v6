@@ -35,6 +35,8 @@ import {REVSuckerDeploymentConfig} from "../../src/structs/REVSuckerDeploymentCo
 import {REVLoans} from "../../src/REVLoans.sol";
 import {REVEmpty721Config} from "../helpers/REVEmpty721Config.sol";
 import {MockBuybackCashOutRecorder} from "../mock/MockBuybackCashOutRecorder.sol";
+import {REVOwner} from "../../src/REVOwner.sol";
+import {IREVDeployer} from "../../src/interfaces/IREVDeployer.sol";
 
 /// @title TestCashOutBuybackFeeLeak
 /// @notice Proves the buyback hook callback receives only the non-fee cashOutCount (not the full count).
@@ -46,6 +48,7 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
     address private constant TRUSTED_FORWARDER = 0xB2b5841DBeF766d4b521221732F9B618fCf34A87;
 
     REVDeployer internal revDeployer;
+    REVOwner internal revOwner;
     MockBuybackCashOutRecorder internal mockBuyback;
     JB721TiersHook internal exampleHook;
     IJB721TiersHookDeployer internal hookDeployer;
@@ -81,6 +84,14 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
             trustedForwarder: TRUSTED_FORWARDER
         });
 
+        revOwner = new REVOwner(
+            IJBBuybackHookRegistry(address(mockBuyback)),
+            jbDirectory(),
+            feeProjectId,
+            IJBSuckerRegistry(address(suckerRegistry)),
+            address(loans)
+        );
+
         revDeployer = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
             suckerRegistry,
@@ -89,8 +100,11 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
             publisher,
             IJBBuybackHookRegistry(address(mockBuyback)),
             address(loans),
-            TRUSTED_FORWARDER
+            TRUSTED_FORWARDER,
+            address(revOwner)
         );
+
+        revOwner.initialize(IREVDeployer(address(revDeployer)));
 
         vm.prank(multisig());
         jbProjects().approve(address(revDeployer), feeProjectId);

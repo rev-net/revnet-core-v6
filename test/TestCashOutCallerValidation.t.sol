@@ -42,6 +42,8 @@ import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStor
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
+import {REVOwner} from "../src/REVOwner.sol";
+import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 
 struct FeeProjectConfig {
     REVConfig configuration;
@@ -57,6 +59,8 @@ contract TestCashOutCallerValidation is TestBaseWorkflow {
 
     // forge-lint: disable-next-line(mixed-case-variable)
     REVDeployer REV_DEPLOYER;
+    // forge-lint: disable-next-line(mixed-case-variable)
+    REVOwner REV_OWNER;
     // forge-lint: disable-next-line(mixed-case-variable)
     JB721TiersHook EXAMPLE_HOOK;
     // forge-lint: disable-next-line(mixed-case-variable)
@@ -223,6 +227,14 @@ contract TestCashOutCallerValidation is TestBaseWorkflow {
             trustedForwarder: TRUSTED_FORWARDER
         });
 
+        REV_OWNER = new REVOwner(
+            IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
+            jbDirectory(),
+            FEE_PROJECT_ID,
+            SUCKER_REGISTRY,
+            address(LOANS_CONTRACT)
+        );
+
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
             SUCKER_REGISTRY,
@@ -231,8 +243,11 @@ contract TestCashOutCallerValidation is TestBaseWorkflow {
             PUBLISHER,
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
             address(LOANS_CONTRACT),
-            TRUSTED_FORWARDER
+            TRUSTED_FORWARDER,
+            address(REV_OWNER)
         );
+
+        REV_OWNER.initialize(IREVDeployer(address(REV_DEPLOYER)));
 
         // Approve the deployer to configure the fee project.
         vm.prank(multisig());
@@ -341,7 +356,7 @@ contract TestCashOutCallerValidation is TestBaseWorkflow {
             uint256 cashOutCount,
             uint256 totalSupply,
             JBCashOutHookSpecification[] memory hookSpecifications
-        ) = REV_DEPLOYER.beforeCashOutRecordedWith(context);
+        ) = REV_OWNER.beforeCashOutRecordedWith(context);
 
         uint256 feeCashOutCount = context.cashOutCount * REV_DEPLOYER.FEE() / JBConstants.MAX_FEE;
         uint256 nonFeeCashOutCount = context.cashOutCount - feeCashOutCount;
@@ -367,7 +382,7 @@ contract TestCashOutCallerValidation is TestBaseWorkflow {
         assertEq(hookSpecifications[0].amount, 0, "Buyback sell-side spec should preserve its forwarded amount");
         assertEq(hookSpecifications[0].metadata, buybackMetadata, "Buyback metadata should be preserved");
 
-        assertEq(address(hookSpecifications[1].hook), address(REV_DEPLOYER), "Second hook spec should charge fee");
+        assertEq(address(hookSpecifications[1].hook), address(REV_OWNER), "Second hook spec should charge fee");
         assertEq(hookSpecifications[1].amount, feeAmount, "Fee spec amount should match the revnet fee math");
         assertEq(
             hookSpecifications[1].metadata,
@@ -416,7 +431,7 @@ contract TestCashOutCallerValidation is TestBaseWorkflow {
         // This should NOT revert with any authorization error.
         // The caller sends ETH which gets paid as a fee to the fee project.
         vm.prank(RANDOM_CALLER);
-        REV_DEPLOYER.afterCashOutRecordedWith{value: 1 ether}(context);
+        REV_OWNER.afterCashOutRecordedWith{value: 1 ether}(context);
 
         // Verify the fee project received the ETH (donation).
         uint256 feeBalanceAfter =

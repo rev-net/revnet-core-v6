@@ -63,6 +63,8 @@ import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
 import {StateLibrary} from "@uniswap/v4-core/src/libraries/StateLibrary.sol";
 
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {REVOwner} from "../src/REVOwner.sol";
+import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 
 /// @notice Helper that adds liquidity to and swaps on a V4 pool via the unlock/callback pattern.
 contract LiquidityHelper is IUnlockCallback {
@@ -234,6 +236,8 @@ contract TestSplitWeightFork is TestBaseWorkflow {
     // forge-lint: disable-next-line(mixed-case-variable)
     REVDeployer REV_DEPLOYER;
     // forge-lint: disable-next-line(mixed-case-variable)
+    REVOwner REV_OWNER;
+    // forge-lint: disable-next-line(mixed-case-variable)
     JBBuybackHook BUYBACK_HOOK;
     // forge-lint: disable-next-line(mixed-case-variable)
     JBBuybackHookRegistry BUYBACK_REGISTRY;
@@ -325,6 +329,14 @@ contract TestSplitWeightFork is TestBaseWorkflow {
             trustedForwarder: TRUSTED_FORWARDER
         });
 
+        REV_OWNER = new REVOwner(
+            IJBBuybackHookRegistry(address(BUYBACK_REGISTRY)),
+            jbDirectory(),
+            FEE_PROJECT_ID,
+            SUCKER_REGISTRY,
+            address(LOANS_CONTRACT)
+        );
+
         REV_DEPLOYER = new REVDeployer{salt: "REVDeployer_Fork"}(
             jbController(),
             SUCKER_REGISTRY,
@@ -333,8 +345,11 @@ contract TestSplitWeightFork is TestBaseWorkflow {
             PUBLISHER,
             IJBBuybackHookRegistry(address(BUYBACK_REGISTRY)),
             address(LOANS_CONTRACT),
-            TRUSTED_FORWARDER
+            TRUSTED_FORWARDER,
+            address(REV_OWNER)
         );
+
+        REV_OWNER.initialize(IREVDeployer(address(REV_DEPLOYER)));
 
         vm.prank(multisig());
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);

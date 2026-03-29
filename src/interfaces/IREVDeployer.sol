@@ -102,11 +102,6 @@ interface IREVDeployer {
     /// @return The cash out delay in seconds.
     function CASH_OUT_DELAY() external view returns (uint256);
 
-    /// @notice The timestamp when cash outs become available for a revnet's participants.
-    /// @param revnetId The ID of the revnet.
-    /// @return The cash out delay timestamp.
-    function cashOutDelayOf(uint256 revnetId) external view returns (uint256);
-
     /// @notice The controller used to create and manage Juicebox projects for revnets.
     /// @return The controller contract.
     function CONTROLLER() external view returns (IJBController);
@@ -150,6 +145,10 @@ interface IREVDeployer {
     /// @return The loans contract address.
     function LOANS() external view returns (address);
 
+    /// @notice The runtime data hook contract that handles pay and cash out callbacks for revnets.
+    /// @return The owner contract address.
+    function OWNER() external view returns (address);
+
     /// @notice The contract that stores Juicebox project access permissions.
     /// @return The permissions contract.
     function PERMISSIONS() external view returns (IJBPermissions);
@@ -165,11 +164,6 @@ interface IREVDeployer {
     /// @notice The registry that deploys and tracks suckers for revnets.
     /// @return The sucker registry contract.
     function SUCKER_REGISTRY() external view returns (IJBSuckerRegistry);
-
-    /// @notice Each revnet's tiered ERC-721 hook.
-    /// @param revnetId The ID of the revnet.
-    /// @return The tiered ERC-721 hook.
-    function tiered721HookOf(uint256 revnetId) external view returns (IJB721TiersHook);
 
     /// @notice Auto-mint a revnet's tokens from a stage for a beneficiary.
     /// @param revnetId The ID of the revnet to auto-mint tokens from.

@@ -30,6 +30,8 @@ import {IJBBuybackHookRegistry} from "@bananapus/buyback-hook-v6/src/interfaces/
 import {JBSplit} from "@bananapus/core-v6/src/structs/JBSplit.sol";
 
 import {REVDeployer} from "./../src/REVDeployer.sol";
+import {REVOwner} from "./../src/REVOwner.sol";
+import {IREVDeployer} from "./../src/interfaces/IREVDeployer.sol";
 import {REVAutoIssuance} from "../src/structs/REVAutoIssuance.sol";
 import {REVConfig} from "../src/structs/REVConfig.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
@@ -90,6 +92,8 @@ contract DeployScript is Script, Sphinx {
     bytes32 DEPLOYER_SALT = "_REV_DEPLOYER_SALT_V6_";
     // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REVLOANS_SALT = "_REV_LOANS_SALT_V6_";
+    // forge-lint: disable-next-line(mixed-case-variable)
+    bytes32 REVOWNER_SALT = "_REV_OWNER_SALT_V6_";
     // forge-lint: disable-next-line(mixed-case-variable)
     address LOANS_OWNER;
     // forge-lint: disable-next-line(mixed-case-variable)
@@ -368,6 +372,8 @@ contract DeployScript is Script, Sphinx {
         bool _singletonsExist;
         // The address of the previously deployed REVLoans, if found.
         address _existingRevloansAddr;
+        // The address of the previously deployed REVOwner, if found.
+        address _existingOwnerAddr;
         // The address of the previously deployed REVDeployer, if found.
         address _existingDeployerAddr;
 
@@ -391,6 +397,19 @@ contract DeployScript is Script, Sphinx {
                     // Flag that singletons were found.
                     _singletonsExist = true;
 
+                    // Also predict and verify the owner.
+                    (_existingOwnerAddr,) = _isDeployed({
+                        salt: REVOWNER_SALT,
+                        creationCode: type(REVOwner).creationCode,
+                        arguments: abi.encode(
+                            IJBBuybackHookRegistry(address(buybackHook.registry)),
+                            core.controller.DIRECTORY(),
+                            _candidateId,
+                            suckers.registry,
+                            _candidateRevloansAddr
+                        )
+                    });
+
                     // Also predict and verify the deployer.
                     (_existingDeployerAddr,) = _isDeployed({
                         salt: DEPLOYER_SALT,
@@ -403,7 +422,8 @@ contract DeployScript is Script, Sphinx {
                             croptop.publisher,
                             IJBBuybackHookRegistry(address(buybackHook.registry)),
                             _candidateRevloansAddr,
-                            TRUSTED_FORWARDER
+                            TRUSTED_FORWARDER,
+                            _existingOwnerAddr
                         )
                     });
                     // Stop searching — we found the deployed singletons.
@@ -430,7 +450,18 @@ contract DeployScript is Script, Sphinx {
                 trustedForwarder: TRUSTED_FORWARDER
             });
 
-        // Deploy REVDeployer with the REVLoans and buyback hook addresses.
+        // Deploy REVOwner — the runtime data hook that handles pay and cash out callbacks.
+        REVOwner revOwner = _singletonsExist
+            ? REVOwner(_existingOwnerAddr)
+            : new REVOwner{salt: REVOWNER_SALT}({
+                buybackHook: IJBBuybackHookRegistry(address(buybackHook.registry)),
+                directory: core.controller.DIRECTORY(),
+                feeRevnetId: FEE_PROJECT_ID,
+                suckerRegistry: suckers.registry,
+                loans: address(revloans)
+            });
+
+        // Deploy REVDeployer with the REVLoans, buyback hook, and REVOwner addresses.
         (address _deployerAddr, bool _deployerIsDeployed) = _isDeployed({
             salt: DEPLOYER_SALT,
             creationCode: type(REVDeployer).creationCode,
@@ -442,7 +473,8 @@ contract DeployScript is Script, Sphinx {
                 croptop.publisher,
                 IJBBuybackHookRegistry(address(buybackHook.registry)),
                 address(revloans),
-                TRUSTED_FORWARDER
+                TRUSTED_FORWARDER,
+                address(revOwner)
             )
         });
         REVDeployer _basicDeployer = _deployerIsDeployed
@@ -455,8 +487,14 @@ contract DeployScript is Script, Sphinx {
                 publisher: croptop.publisher,
                 buybackHook: IJBBuybackHookRegistry(address(buybackHook.registry)),
                 loans: address(revloans),
-                trustedForwarder: TRUSTED_FORWARDER
+                trustedForwarder: TRUSTED_FORWARDER,
+                owner: address(revOwner)
             });
+
+        // Link the REVOwner to the REVDeployer (can only be called once).
+        if (!_deployerIsDeployed) {
+            revOwner.initialize(IREVDeployer(address(_basicDeployer)));
+        }
 
         // Only configure the fee project if singletons were freshly deployed. Re-running `deployFor` on an
         // already-configured project would fail because the project is no longer blank.
