@@ -831,6 +831,11 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
                 loan: loan, revnetId: revnetId, collateralCount: loan.collateral - collateralCountToReturn
             });
 
+            // If the remaining collateral yields zero borrow amount, treat as full repay.
+            if (newBorrowAmount == 0) {
+                collateralCountToReturn = loan.collateral;
+            }
+
             // Make sure the new borrow amount is less than the loan's amount.
             if (newBorrowAmount > loan.amount) {
                 revert REVLoans_NewBorrowAmountGreaterThanLoanAmount(newBorrowAmount, loan.amount);
@@ -1362,7 +1367,10 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
             paidOffLoan.prepaidDuration = loan.prepaidDuration;
             paidOffLoan.source = loan.source;
 
-            // Borrow in.
+            // Mint the replacement loan FIRST so it exists before _adjust writes data.
+            _mint({to: _msgSender(), tokenId: paidOffLoanId});
+
+            // Then adjust the loan data.
             _adjust({
                 loan: paidOffLoan,
                 revnetId: revnetId,
@@ -1371,9 +1379,6 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
                 sourceFeeAmount: sourceFeeAmount,
                 beneficiary: beneficiary
             });
-
-            // Mint the replacement loan.
-            _mint({to: _msgSender(), tokenId: paidOffLoanId});
 
             emit RepayLoan({
                 loanId: loanId,
