@@ -149,14 +149,15 @@ contract TestPermit2PaymentFork is ForkTestBase {
             sigDeadline: sigDeadline, amount: amount, expiration: expiration, nonce: nonce, signature: sig
         });
 
-        // Encode as metadata with the "permit2" key targeting the terminal, plus a zero "quote"
-        // so the buyback hook skips the TWAP pool lookup (no pool exists for testToken).
+        // Encode as metadata with the "permit2" key targeting the terminal, plus a "quote" entry
+        // targeting the buyback hook with minimumSwapAmountOut=1 so the buyback hook skips the
+        // TWAP oracle and falls through to normal minting (no V4 pool has liquidity for testToken).
         bytes4[] memory ids = new bytes4[](2);
         bytes[] memory datas = new bytes[](2);
         ids[0] = JBMetadataResolver.getId("permit2", address(jbMultiTerminal()));
         datas[0] = abi.encode(allowance);
         ids[1] = JBMetadataResolver.getId("quote", address(BUYBACK_HOOK));
-        datas[1] = abi.encode(uint256(0), uint256(0));
+        datas[1] = abi.encode(uint256(0), uint256(1));
         metadata = JBMetadataResolver.createMetadata(ids, datas);
     }
 
