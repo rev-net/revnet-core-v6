@@ -11,7 +11,7 @@ REVDeployer exceeded the EIP-170 contract size limit (24,576 bytes) at 26,397 by
 | Contract | Size | Role |
 |----------|------|------|
 | `REVDeployer` | 19,746 bytes | Deployment, configuration, state storage, split operator management |
-| `REVOwner` | 8,353 bytes (~310 lines) | Runtime hook behavior: `IJBRulesetDataHook` + `IJBCashOutHook` |
+| `REVOwner` | 8,434 bytes (~310 lines) | Runtime hook behavior: `IJBRulesetDataHook` + `IJBCashOutHook` |
 
 ### What moved to REVOwner
 
@@ -51,10 +51,9 @@ The `cashOutDelayOf` and `tiered721HookOf` storage mappings were moved from REVD
 REVDeployer needs REVOwner (as the `dataHook` address and to set `cashOutDelayOf`/`tiered721HookOf` via restricted setters), and REVOwner references REVDeployer (to restrict setter access). This circular dependency is broken by:
 
 1. Deploy REVOwner first
-2. Deploy REVDeployer with `owner=REVOwner`
-3. Call `REVOwner.initialize(deployer)` to set the `DEPLOYER` storage variable
+2. Deploy REVDeployer with `owner=REVOwner` -- the constructor calls `REVOwner.setDeployer()` atomically
 
-`REVOwner.DEPLOYER` is a **storage variable** (not immutable) because the deployer address is not known at REVOwner construction time. The `initialize()` function can only be called once. After initialization, `DEPLOYER` is used to restrict access to `setCashOutDelayOf()` and `setTiered721HookOf()`.
+`REVOwner.DEPLOYER` is a **storage variable** (not immutable) because the deployer address is not known at REVOwner construction time. `setDeployer()` sets `msg.sender` as `DEPLOYER` and reverts if already set (`REVOwner_AlreadyInitialized`). After initialization, `DEPLOYER` is used to restrict access to `setCashOutDelayOf()` and `setTiered721HookOf()`.
 
 ### Shared immutables
 

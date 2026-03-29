@@ -80,7 +80,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
     mapping(uint256 revnetId => IJB721TiersHook tiered721Hook) public tiered721HookOf;
 
     /// @notice The deployer that manages revnet state.
-    /// @dev Set once via `initialize(…)` after deployment.
+    /// @dev Set once via `setDeployer()` from the REVDeployer's constructor. Reverts if called again.
     IREVDeployer public DEPLOYER;
 
     //*********************************************************************//
@@ -362,12 +362,11 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
         }
     }
 
-    /// @notice Link this contract to the REVDeployer that manages revnet state.
-    /// @dev Can only be called once.
-    /// @param deployer The REVDeployer to link to.
-    function initialize(IREVDeployer deployer) external {
+    /// @notice Set the caller as this contract's deployer.
+    /// @dev Called by the REVDeployer's constructor. Reverts if a deployer is already set.
+    function setDeployer() external {
         if (address(DEPLOYER) != address(0)) revert REVOwner_AlreadyInitialized();
-        DEPLOYER = deployer;
+        DEPLOYER = IREVDeployer(msg.sender);
     }
 
     /// @notice Store the cash out delay for a revnet.
