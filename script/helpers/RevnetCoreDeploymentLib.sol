@@ -7,11 +7,13 @@ import {SphinxConstants, NetworkInfo} from "@sphinx-labs/contracts/contracts/fou
 
 import {IREVDeployer} from "./../../src/interfaces/IREVDeployer.sol";
 import {IREVLoans} from "./../../src/interfaces/IREVLoans.sol";
+import {REVOwner} from "./../../src/REVOwner.sol";
 
 struct RevnetCoreDeployment {
     // forge-lint: disable-next-line(mixed-case-variable)
     IREVDeployer basic_deployer;
     IREVLoans loans;
+    REVOwner owner;
 }
 
 library RevnetCoreDeploymentLib {
@@ -56,6 +58,12 @@ library RevnetCoreDeploymentLib {
         deployment.loans = IREVLoans(
             _getDeploymentAddress({
                 path: path, project_name: "revnet-core-v6", network_name: network_name, contractName: "REVLoans"
+            })
+        );
+
+        deployment.owner = REVOwner(
+            _getDeploymentAddress({
+                path: path, project_name: "revnet-core-v6", network_name: network_name, contractName: "REVOwner"
             })
         );
     }
