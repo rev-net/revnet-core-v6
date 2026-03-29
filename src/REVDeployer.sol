@@ -210,6 +210,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
 
         // Give the buyback hook (registry) permission to configure pools on all revnets.
         _setPermission({operator: address(BUYBACK_HOOK), revnetId: 0, permissionId: JBPermissionIds.SET_BUYBACK_POOL});
+
+        // Link the REVOwner to this deployer so it can accept setter calls.
+        REVOwner(OWNER).initialize(IREVDeployer(address(this)));
     }
 
     //*********************************************************************//

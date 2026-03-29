@@ -491,11 +491,6 @@ contract DeployScript is Script, Sphinx {
                 owner: address(revOwner)
             });
 
-        // Link the REVOwner to the REVDeployer (can only be called once).
-        if (!_deployerIsDeployed) {
-            revOwner.initialize(IREVDeployer(address(_basicDeployer)));
-        }
-
         // Only configure the fee project if singletons were freshly deployed. Re-running `deployFor` on an
         // already-configured project would fail because the project is no longer blank.
         if (!_singletonsExist) {

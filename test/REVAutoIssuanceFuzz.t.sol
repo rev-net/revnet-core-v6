@@ -104,8 +104,6 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
             address(revOwner)
         );
 
-        revOwner.initialize(IREVDeployer(address(REV_DEPLOYER)));
-
         vm.prank(multisig());
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);
     }
