@@ -37,6 +37,8 @@ import {JB721TiersHook} from "@bananapus/721-hook-v6/src/JB721TiersHook.sol";
 import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStore.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
+import {REVOwner} from "../src/REVOwner.sol";
+import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 
 /// @notice Regression tests for REVDeployer.
 contract REVDeployerRegressions is TestBaseWorkflow {
@@ -65,6 +67,8 @@ contract REVDeployerRegressions is TestBaseWorkflow {
     CTPublisher PUBLISHER;
     // forge-lint: disable-next-line(mixed-case-variable)
     MockBuybackDataHook MOCK_BUYBACK;
+    // forge-lint: disable-next-line(mixed-case-variable)
+    REVOwner REV_OWNER;
 
     // forge-lint: disable-next-line(mixed-case-variable)
     uint256 FEE_PROJECT_ID;
@@ -95,6 +99,14 @@ contract REVDeployerRegressions is TestBaseWorkflow {
             trustedForwarder: TRUSTED_FORWARDER
         });
 
+        REV_OWNER = new REVOwner(
+            IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
+            jbDirectory(),
+            FEE_PROJECT_ID,
+            SUCKER_REGISTRY,
+            address(LOANS_CONTRACT)
+        );
+
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
             SUCKER_REGISTRY,
@@ -103,8 +115,11 @@ contract REVDeployerRegressions is TestBaseWorkflow {
             PUBLISHER,
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
             address(LOANS_CONTRACT),
-            TRUSTED_FORWARDER
+            TRUSTED_FORWARDER,
+            address(REV_OWNER)
         );
+
+        REV_OWNER.initialize(IREVDeployer(address(REV_DEPLOYER)));
 
         vm.prank(multisig());
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);
@@ -220,7 +235,7 @@ contract REVDeployerRegressions is TestBaseWorkflow {
 
         // With buyback hook removed, hasMintPermissionFor should return false
         // for addresses that are not the loans contract or a sucker.
-        bool hasPerm = REV_DEPLOYER.hasMintPermissionFor(revnetId, currentRuleset, someRandomAddr);
+        bool hasPerm = REV_OWNER.hasMintPermissionFor(revnetId, currentRuleset, someRandomAddr);
         assertFalse(hasPerm, "random address should not have mint permission");
     }
 

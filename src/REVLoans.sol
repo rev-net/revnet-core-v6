@@ -27,8 +27,8 @@ import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingCo
 import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
 import {JBSingleAllowance} from "@bananapus/core-v6/src/structs/JBSingleAllowance.sol";
 
-import {IREVDeployer} from "./interfaces/IREVDeployer.sol";
 import {IREVLoans} from "./interfaces/IREVLoans.sol";
+import {IREVOwner} from "./interfaces/IREVOwner.sol";
 import {REVLoan} from "./structs/REVLoan.sol";
 import {REVLoanSource} from "./structs/REVLoanSource.sol";
 
@@ -227,21 +227,8 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         view
         returns (uint256)
     {
-        // Get the current ruleset to resolve the deployer from its data hook.
-        // slither-disable-next-line unused-return
-        (JBRuleset memory currentRuleset,) = CONTROLLER.currentRulesetOf(revnetId);
-
-        // The ruleset's data hook is the REVDeployer that configured this revnet.
-        address deployer = currentRuleset.dataHook();
-
-        // Only check the delay if a deployer is set.
-        if (deployer != address(0)) {
-            // Get the timestamp after which cash outs (and loans) are allowed.
-            uint256 cashOutDelay = IREVDeployer(deployer).cashOutDelayOf(revnetId);
-
-            // If the delay hasn't passed yet, no amount is borrowable.
-            if (cashOutDelay > block.timestamp) return 0;
-        }
+        // If the cash out delay hasn't passed yet, no amount is borrowable.
+        if (_cashOutDelayOf(revnetId) > block.timestamp) return 0;
 
         return _borrowableAmountFrom({
             revnetId: revnetId,
@@ -302,6 +289,24 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     //*********************************************************************//
     // -------------------------- internal views ------------------------- //
     //*********************************************************************//
+
+    /// @notice Returns the cash out delay timestamp for a revnet by resolving the data hook from the current ruleset.
+    /// @param revnetId The ID of the revnet.
+    /// @return The cash out delay timestamp. Returns 0 if no data hook is set or no delay exists.
+    function _cashOutDelayOf(uint256 revnetId) internal view returns (uint256) {
+        // Get the revnet's current ruleset to find its data hook (the REVOwner contract).
+        // slither-disable-next-line unused-return
+        (JBRuleset memory currentRuleset,) = CONTROLLER.currentRulesetOf(revnetId);
+
+        // Extract the data hook address from the ruleset's packed metadata.
+        address dataHook = currentRuleset.dataHook();
+
+        // If there's no data hook, this isn't a revnet — no cash out delay applies.
+        if (dataHook == address(0)) return 0;
+
+        // Read the cash out delay from the REVOwner contract (the data hook).
+        return IREVOwner(dataHook).cashOutDelayOf(revnetId);
+    }
 
     /// @notice Checks this contract's balance of a specific token.
     /// @param token The address of the token to get this contract's balance of.
@@ -598,19 +603,9 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
             );
         }
 
-        // Get the current ruleset to resolve the deployer from its data hook.
-        // slither-disable-next-line unused-return
-        (JBRuleset memory currentRuleset,) = CONTROLLER.currentRulesetOf(revnetId);
-
-        // The ruleset's data hook is the REVDeployer that configured this revnet.
-        address deployer = currentRuleset.dataHook();
-
-        // Only check the delay if a deployer is set.
-        if (deployer != address(0)) {
-            // Get the timestamp after which cash outs (and loans) are allowed.
-            uint256 cashOutDelay = IREVDeployer(deployer).cashOutDelayOf(revnetId);
-
-            // Revert if the delay hasn't passed yet.
+        // Enforce the cash out delay.
+        {
+            uint256 cashOutDelay = _cashOutDelayOf(revnetId);
             if (cashOutDelay > block.timestamp) {
                 revert REVLoans_CashOutDelayNotFinished(cashOutDelay, block.timestamp);
             }

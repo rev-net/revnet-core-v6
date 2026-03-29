@@ -41,6 +41,8 @@ import {JBBeforePayRecordedContext} from "@bananapus/core-v6/src/structs/JBBefor
 import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
 import {JBTokenAmount} from "@bananapus/core-v6/src/structs/JBTokenAmount.sol";
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
+import {REVOwner} from "../src/REVOwner.sol";
+import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 
 /// @notice Tests for the split weight adjustment in REVDeployer.beforePayRecordedWith.
 contract TestSplitWeightAdjustment is TestBaseWorkflow {
@@ -49,6 +51,8 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
 
     // forge-lint: disable-next-line(mixed-case-variable)
     REVDeployer REV_DEPLOYER;
+    // forge-lint: disable-next-line(mixed-case-variable)
+    REVOwner REV_OWNER;
     // forge-lint: disable-next-line(mixed-case-variable)
     JB721TiersHook EXAMPLE_HOOK;
     // forge-lint: disable-next-line(mixed-case-variable)
@@ -93,6 +97,14 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
             permit2: permit2(),
             trustedForwarder: TRUSTED_FORWARDER
         });
+        REV_OWNER = new REVOwner(
+            IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
+            jbDirectory(),
+            FEE_PROJECT_ID,
+            SUCKER_REGISTRY,
+            address(LOANS_CONTRACT)
+        );
+
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
             SUCKER_REGISTRY,
@@ -101,8 +113,11 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
             PUBLISHER,
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
             address(LOANS_CONTRACT),
-            TRUSTED_FORWARDER
+            TRUSTED_FORWARDER,
+            address(REV_OWNER)
         );
+
+        REV_OWNER.initialize(IREVDeployer(address(REV_DEPLOYER)));
         vm.prank(multisig());
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);
     }
@@ -199,7 +214,7 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
         });
 
         // 721 hook is deployed but has no tiers, buyback returns context.weight.
-        (uint256 weight, JBPayHookSpecification[] memory specs) = REV_DEPLOYER.beforePayRecordedWith(context);
+        (uint256 weight, JBPayHookSpecification[] memory specs) = REV_OWNER.beforePayRecordedWith(context);
 
         assertEq(weight, context.weight, "weight should pass through unchanged");
         assertEq(specs.length, 1, "should have 721 hook spec even with no tiers");
@@ -217,11 +232,11 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
         // tiered721HookOf is internal, so we use vm.store.
         // Slot for tiered721HookOf[revnetId]: keccak256(abi.encode(revnetId, slot))
         // Need to find the storage slot for tiered721HookOf mapping.
-        bytes32 slot = keccak256(abi.encode(revnetId, uint256(3))); // slot 9 for tiered721HookOf in REVDeployer
-        vm.store(address(REV_DEPLOYER), slot, bytes32(uint256(uint160(mock721))));
+        bytes32 slot = keccak256(abi.encode(revnetId, uint256(1))); // slot 1 for tiered721HookOf in REVOwner
+        vm.store(address(REV_OWNER), slot, bytes32(uint256(uint160(mock721))));
 
         // Verify the store worked.
-        assertEq(address(REV_DEPLOYER.tiered721HookOf(revnetId)), mock721, "721 hook stored");
+        assertEq(address(REV_OWNER.tiered721HookOf(revnetId)), mock721, "721 hook stored");
 
         // Mock 721 hook returning 0.3 ETH split on 1 ETH payment.
         JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
@@ -250,7 +265,7 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
             metadata: ""
         });
 
-        (uint256 weight,) = REV_DEPLOYER.beforePayRecordedWith(context);
+        (uint256 weight,) = REV_OWNER.beforePayRecordedWith(context);
 
         // Buyback returns context.weight (1000e18) since mock buyback passes through.
         // Weight adjusted for 0.3 ETH split on 1 ETH: 1000e18 * 0.7 = 700e18.
@@ -263,8 +278,8 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
 
         address mock721 = makeAddr("mock721_full");
         vm.etch(mock721, bytes("0x01"));
-        bytes32 slot = keccak256(abi.encode(revnetId, uint256(3)));
-        vm.store(address(REV_DEPLOYER), slot, bytes32(uint256(uint160(mock721))));
+        bytes32 slot = keccak256(abi.encode(revnetId, uint256(1))); // slot 1 for tiered721HookOf in REVOwner
+        vm.store(address(REV_OWNER), slot, bytes32(uint256(uint160(mock721))));
 
         // Mock 721 hook returning full 1 ETH split.
         JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
@@ -293,7 +308,7 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
             metadata: ""
         });
 
-        (uint256 weight,) = REV_DEPLOYER.beforePayRecordedWith(context);
+        (uint256 weight,) = REV_OWNER.beforePayRecordedWith(context);
 
         assertEq(weight, 0, "full split = zero weight");
     }
@@ -308,6 +323,13 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
 
         // Deploy a new REVDeployer with the AMM buyback mock.
         MockBuybackDataHook ammBuyback = new MockBuybackDataHook();
+        REVOwner ammOwner = new REVOwner(
+            IJBBuybackHookRegistry(address(ammBuyback)),
+            jbDirectory(),
+            FEE_PROJECT_ID,
+            SUCKER_REGISTRY,
+            address(LOANS_CONTRACT)
+        );
         REVDeployer ammDeployer = new REVDeployer{salt: "REVDeployer_AMM"}(
             jbController(),
             SUCKER_REGISTRY,
@@ -316,8 +338,10 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
             PUBLISHER,
             IJBBuybackHookRegistry(address(ammBuyback)),
             address(LOANS_CONTRACT),
-            TRUSTED_FORWARDER
+            TRUSTED_FORWARDER,
+            address(ammOwner)
         );
+        ammOwner.initialize(IREVDeployer(address(ammDeployer)));
 
         vm.prank(multisig());
         jbProjects().approve(address(ammDeployer), FEE_PROJECT_ID);
@@ -348,8 +372,8 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
         // Mock a 721 hook for this project.
         address mock721 = makeAddr("mock721_amm");
         vm.etch(mock721, bytes("0x01"));
-        bytes32 slot = keccak256(abi.encode(revnetId, uint256(3)));
-        vm.store(address(ammDeployer), slot, bytes32(uint256(uint160(mock721))));
+        bytes32 slot = keccak256(abi.encode(revnetId, uint256(1))); // slot 1 for tiered721HookOf in REVOwner
+        vm.store(address(ammOwner), slot, bytes32(uint256(uint160(mock721))));
 
         // Mock 721 hook returning 0.4 ETH split on 1 ETH payment.
         JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
@@ -378,7 +402,7 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
             metadata: ""
         });
 
-        (uint256 weight, JBPayHookSpecification[] memory specs) = ammDeployer.beforePayRecordedWith(context);
+        (uint256 weight, JBPayHookSpecification[] memory specs) = ammOwner.beforePayRecordedWith(context);
 
         // AMM buyback returns context.weight (passes through the reduced weight from context).
         // The buyback mock receives a reduced context with 0.6 ETH and returns that weight.
@@ -398,8 +422,8 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
 
         address mock721 = makeAddr("mock721_mint");
         vm.etch(mock721, bytes("0x01"));
-        bytes32 slot = keccak256(abi.encode(revnetId, uint256(3)));
-        vm.store(address(REV_DEPLOYER), slot, bytes32(uint256(uint160(mock721))));
+        bytes32 slot = keccak256(abi.encode(revnetId, uint256(1))); // slot 1 for tiered721HookOf in REVOwner
+        vm.store(address(REV_OWNER), slot, bytes32(uint256(uint160(mock721))));
 
         // Mock 721 hook returning 0.2 ETH split.
         JBPayHookSpecification[] memory hookSpecs = new JBPayHookSpecification[](1);
@@ -428,7 +452,7 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
             metadata: ""
         });
 
-        (uint256 weight, JBPayHookSpecification[] memory specs) = REV_DEPLOYER.beforePayRecordedWith(context);
+        (uint256 weight, JBPayHookSpecification[] memory specs) = REV_OWNER.beforePayRecordedWith(context);
 
         // Buyback mint path: returns context.weight (1000e18 from reduced context = 0.8 ETH context).
         // Actually MockBuybackDataHookMintPath returns context.weight with empty specs.
@@ -447,8 +471,8 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
 
         address mock721 = makeAddr("mock721_specs");
         vm.etch(mock721, bytes("0x01"));
-        bytes32 slot = keccak256(abi.encode(revnetId, uint256(3)));
-        vm.store(address(REV_DEPLOYER), slot, bytes32(uint256(uint160(mock721))));
+        bytes32 slot = keccak256(abi.encode(revnetId, uint256(1))); // slot 1 for tiered721HookOf in REVOwner
+        vm.store(address(REV_OWNER), slot, bytes32(uint256(uint160(mock721))));
 
         // Mock 721 hook returning split amount with metadata.
         bytes memory splitMeta = abi.encode(uint256(42));
@@ -478,7 +502,7 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
             metadata: ""
         });
 
-        (, JBPayHookSpecification[] memory specs) = REV_DEPLOYER.beforePayRecordedWith(context);
+        (, JBPayHookSpecification[] memory specs) = REV_OWNER.beforePayRecordedWith(context);
 
         // Should have 721 hook spec (buyback empty).
         assertEq(specs.length, 1, "should have 1 spec (721 hook, buyback empty)");

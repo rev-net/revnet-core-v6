@@ -8,7 +8,8 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 
 | Contract | Role |
 |----------|------|
-| `REVDeployer` | Deploys revnets, permanently owns the project NFT, acts as data hook and cash-out hook. Manages stages, splits, auto-issuance, buyback hooks, 721 hooks, suckers, and split operators. (~1,287 lines) |
+| `REVDeployer` | Deploys revnets, permanently owns the project NFT. Manages stages, splits, auto-issuance, buyback hooks, suckers, split operators, and configuration state storage. Exposes `OWNER()` view returning the REVOwner address. Calls DEPLOYER-restricted setters on REVOwner during deployment to store `cashOutDelayOf` and `tiered721HookOf`. |
+| `REVOwner` | Runtime hook contract for all revnets. Implements `IJBRulesetDataHook` + `IJBCashOutHook`. Set as the `dataHook` in each revnet's ruleset metadata. Handles pay hooks, cash-out hooks, mint permissions, and sucker verification. Stores `cashOutDelayOf` and `tiered721HookOf` mappings (set by REVDeployer via DEPLOYER-restricted setters `setCashOutDelayOf()` and `setTiered721HookOf()`). (~310 lines) |
 | `REVLoans` | Issues token-collateralized loans from revnet treasuries. Each loan is an ERC-721 NFT. Burns collateral on borrow, re-mints on repay. Charges tiered fees (REV protocol fee + source fee + prepaid fee). (~1,359 lines) |
 
 ## Key Functions
@@ -21,14 +22,15 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 | `REVDeployer.deployFor(revnetId, config, terminals, suckerConfig, hookConfig, allowedPosts)` | Permissionless | Same as `deployFor` but deploys a tiered ERC-721 hook with pre-configured tiers. Optionally configures Croptop posting criteria and grants publisher permission to add tiers. |
 | `REVDeployer.deploySuckersFor(revnetId, suckerConfig)` | Split operator | Deploy new cross-chain suckers post-launch. Validates ruleset allows sucker deployment (bit 2 of `extraMetadata`). Uses stored config hash for cross-chain matching. |
 
-### Data Hooks
+### Data Hooks (REVOwner)
 
 | Function | Permissions | What it does |
 |----------|------------|-------------|
-| `REVDeployer.beforePayRecordedWith(context)` | Terminal callback | Calls the 721 hook first for split specs, then calls the buyback hook with a reduced amount context (payment minus split amount). Adjusts the returned weight proportionally for splits (`weight = mulDiv(weight, amount - splitAmount, amount)`) so the terminal only mints tokens for the amount entering the project. Assembles pay hook specs (721 hook specs first, then buyback spec). |
-| `REVDeployer.beforeCashOutRecordedWith(context)` | Terminal callback | If sucker: returns full amount with 0 tax (fee exempt). Otherwise: calculates 2.5% fee, enforces 30-day cash-out delay, returns modified count + fee hook spec. |
-| `REVDeployer.afterCashOutRecordedWith(context)` | Permissionless | Cash-out hook callback. Receives fee amount and pays it to the fee revnet's terminal. Falls back to returning funds if fee payment fails. |
-| `REVDeployer.hasMintPermissionFor(revnetId, ruleset, addr)` | View | Returns `true` for: loans contract, buyback hook, buyback hook delegates, or suckers. |
+| `REVOwner.beforePayRecordedWith(context)` | Terminal callback | Calls the 721 hook first for split specs, then calls the buyback hook with a reduced amount context (payment minus split amount). Adjusts the returned weight proportionally for splits (`weight = mulDiv(weight, amount - splitAmount, amount)`) so the terminal only mints tokens for the amount entering the project. Assembles pay hook specs (721 hook specs first, then buyback spec). Reads `tiered721HookOf` from REVOwner storage. |
+| `REVOwner.beforeCashOutRecordedWith(context)` | Terminal callback | If sucker: returns full amount with 0 tax (fee exempt). Otherwise: calculates 2.5% fee, enforces 30-day cash-out delay (reads `cashOutDelayOf` from REVOwner storage), returns modified count + fee hook spec. |
+| `REVOwner.afterCashOutRecordedWith(context)` | Permissionless | Cash-out hook callback. Receives fee amount and pays it to the fee revnet's terminal. Falls back to returning funds if fee payment fails. |
+| `REVOwner.hasMintPermissionFor(revnetId, ruleset, addr)` | View | Returns `true` for: loans contract, buyback hook, buyback hook delegates, or suckers. |
+| `REVOwner.cashOutDelayOf(revnetId)` | View | Returns the cash-out delay timestamp from REVOwner storage. Exposed for REVLoans compatibility (REVLoans imports IREVOwner for this). |
 
 ### Split Operator
 
@@ -188,10 +190,16 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 | Mapping | Visibility | Type | Purpose |
 |---------|-----------|------|---------|
 | `amountToAutoIssue` | `public` | `revnetId => stageId => beneficiary => uint256` | Premint tokens per stage per beneficiary |
-| `cashOutDelayOf` | `public` | `revnetId => uint256` | Timestamp when cash outs unlock (0 = no delay) |
 | `hashedEncodedConfigurationOf` | `public` | `revnetId => bytes32` | Config hash for cross-chain sucker validation |
-| `tiered721HookOf` | `public` | `revnetId => address` | Deployed 721 hook address (if any) |
 | `_extraOperatorPermissions` | `internal` | `revnetId => uint256[]` | Custom permissions for split operator (no auto-getter) |
+
+### REVOwner
+
+| Mapping | Visibility | Type | Purpose |
+|---------|-----------|------|---------|
+| `DEPLOYER` | `public` | `address` | REVDeployer address (storage variable, set once via `initialize()`) |
+| `cashOutDelayOf` | `public` | `revnetId => uint256` | Timestamp when cash outs unlock (0 = no delay). Set by REVDeployer via `setCashOutDelayOf()`. |
+| `tiered721HookOf` | `public` | `revnetId => address` | Deployed 721 hook address (if any). Set by REVDeployer via `setTiered721HookOf()`. |
 
 ### REVLoans
 
@@ -214,19 +222,20 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 5. **uint112 truncation risk.** `REVLoan.amount` and `REVLoan.collateral` are `uint112`. Values above ~5.19e33 truncate silently.
 6. **Auto-issuance stage IDs.** Computed as `block.timestamp + i` during deployment. These match the Juicebox ruleset IDs because `JBRulesets` assigns IDs the same way (`latestId >= block.timestamp ? latestId + 1 : block.timestamp`), producing identical sequential IDs when all stages are queued in a single `deployFor()` call.
 7. **Cash-out fee stacking.** Cash outs incur both the Juicebox terminal fee (2.5%) and the revnet cash-out fee (2.5% to fee revnet). These compound. The 2.5% fee is deducted from the TOKEN AMOUNT being cashed out, not from the reclaim value. 2.5% of the tokens are redirected to the fee revnet, which then redeems them at the bonding curve independently. The net reclaim to the caller is based on 97.5% of the tokens, not 97.5% of the computed ETH value. This is by design.
-8. **30-day cash-out delay.** Applied when deploying an existing revnet to a new chain where the first stage has already started. Prevents cross-chain liquidity arbitrage. Enforced in both `beforeCashOutRecordedWith` (direct cash outs) and `REVLoans.borrowFrom` / `borrowableAmountFrom` (loans). The delay is resolved via the ruleset's `dataHook` (the REVDeployer) and `cashOutDelayOf(revnetId)`.
+8. **30-day cash-out delay.** Applied when deploying an existing revnet to a new chain where the first stage has already started. Prevents cross-chain liquidity arbitrage. Enforced in both `beforeCashOutRecordedWith` (direct cash outs) and `REVLoans.borrowFrom` / `borrowableAmountFrom` (loans). The delay is stored on REVOwner (`cashOutDelayOf(revnetId)`) and set by REVDeployer during deployment via `setCashOutDelayOf()`. REVLoans imports IREVOwner (not IREVDeployer) to read it.
 9. **`cashOutTaxRate` cannot be MAX.** Must be strictly less than `MAX_CASH_OUT_TAX_RATE` (10,000). Revnets cannot fully disable cash outs.
 10. **Split operator is singular.** Only ONE address can be split operator at a time. The operator can replace itself via `setSplitOperatorOf` but cannot delegate or multi-sig.
 11. **NATIVE_TOKEN on non-ETH chains.** `JBConstants.NATIVE_TOKEN` on Celo means CELO, on Polygon means MATIC -- not ETH. Use ERC-20 WETH instead. The config matching hash does NOT catch terminal configuration differences.
 12. **Loan source array is unbounded.** `_loanSourcesOf[revnetId]` grows without limit. No validation that a terminal is actually registered for the project.
 13. **Flash-loan surplus exposure.** `borrowableAmountFrom` reads live surplus. A flash loan can temporarily inflate the treasury to borrow more than the sustained value supports.
 14. **Fee revnet must have terminals.** Cash-out fees and loan protocol fees are paid to `FEE_REVNET_ID`. If that project has no terminal for the token, the fee silently fails (try-catch).
-15. **Buyback hook is immutable per deployer.** `REVDeployer.BUYBACK_HOOK` is set at construction time. All revnets deployed by the same deployer share the same buyback hook.
+15. **Buyback hook is immutable per deployer.** `BUYBACK_HOOK` is set at construction time on both REVDeployer and REVOwner. All revnets deployed by the same deployer share the same buyback hook.
 16. **Cross-chain config matching.** `hashedEncodedConfigurationOf` covers economic parameters (baseCurrency, stages, auto-issuances) but NOT terminal configurations, accounting contexts, or sucker token mappings. Two deployments with identical hashes can have different terminal setups.
 17. **Loan fee model has three layers.** See Constants table for exact values: REV protocol fee, terminal fee, and prepaid source fee (borrower-chosen, buys interest-free window). After the prepaid window, source fee accrues linearly over the remaining loan duration.
 18. **Permit2 fallback.** `REVLoans` uses permit2 for ERC-20 transfers as a fallback when standard allowance is insufficient. Wrapped in try-catch.
 19. **39.16% cash-out tax crossover.** Below ~39% cash-out tax, cashing out is more capital-efficient than borrowing. Above ~39%, loans become more efficient because they preserve upside while providing liquidity. Based on CryptoEconLab academic research. Design implication: revnets intended for active token trading should consider this threshold when setting `cashOutTaxRate`.
 20. **REVDeployer always deploys a 721 hook** via `HOOK_DEPLOYER.deployHookFor` — even if `baseline721HookConfiguration` has empty tiers. This is correct by design: it lets the split operator add and sell NFTs later without migration. Non-revnet projects should follow the same pattern by using `JB721TiersHookProjectDeployer.launchProjectFor` (or `JBOmnichainDeployer.launchProjectFor`) instead of bare `launchProjectFor`.
+21. **REVOwner circular dependency.** REVOwner and REVDeployer have a circular dependency broken by a one-shot `initialize()` call. `REVOwner.DEPLOYER` is a storage variable (not immutable) set via `initialize()`. If `initialize()` is never called or called with the wrong address, all runtime hook behavior breaks. Deploy order: REVOwner first, then REVDeployer(owner=REVOwner), then REVOwner.initialize(deployer). REVOwner stores `cashOutDelayOf` and `tiered721HookOf` mappings, which are set by REVDeployer via DEPLOYER-restricted setters (`setCashOutDelayOf()`, `setTiered721HookOf()`).
 
 ### NATIVE_TOKEN Accounting on Non-ETH Chains
 
@@ -301,8 +310,14 @@ Quick-reference for common read operations. All functions are `view`/`pure` and 
 | What | Call | Returns |
 |------|------|---------|
 | Config hash (cross-chain matching) | `REVDeployer.hashedEncodedConfigurationOf(revnetId)` | `bytes32` |
-| 721 hook address | `REVDeployer.tiered721HookOf(revnetId)` | `IJB721TiersHook` |
-| Cash-out delay timestamp | `REVDeployer.cashOutDelayOf(revnetId)` | `uint256` (0 = no delay) |
+| REVOwner address | `REVDeployer.OWNER()` | `address` |
+
+### REVOwner State
+
+| What | Call | Returns |
+|------|------|---------|
+| 721 hook address | `REVOwner.tiered721HookOf(revnetId)` | `IJB721TiersHook` |
+| Cash-out delay timestamp | `REVOwner.cashOutDelayOf(revnetId)` | `uint256` (0 = no delay) |
 
 ## Example Integration
 

@@ -42,6 +42,8 @@ import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressReg
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 // Helper that provides empty 721 tier configs for revnet deployment.
 import {REVEmpty721Config} from "../helpers/REVEmpty721Config.sol";
+import {REVOwner} from "../../src/REVOwner.sol";
+import {IREVDeployer} from "../../src/interfaces/IREVDeployer.sol";
 
 /// @notice Regression tests for the loan ID overflow guard in REVLoans.
 /// @dev The totalLoansBorrowedFor counter must never exceed _ONE_TRILLION (1e12).
@@ -73,6 +75,8 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
 
     // forge-lint: disable-next-line(mixed-case-variable)
     REVDeployer REV_DEPLOYER;
+    // forge-lint: disable-next-line(mixed-case-variable)
+    REVOwner REV_OWNER;
     // forge-lint: disable-next-line(mixed-case-variable)
     JB721TiersHook EXAMPLE_HOOK;
     // forge-lint: disable-next-line(mixed-case-variable)
@@ -159,6 +163,14 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
         });
 
         // Deploy the REVDeployer with a deterministic salt.
+        REV_OWNER = new REVOwner(
+            IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
+            jbDirectory(),
+            FEE_PROJECT_ID,
+            SUCKER_REGISTRY,
+            address(LOANS_CONTRACT)
+        );
+
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
             SUCKER_REGISTRY,
@@ -167,8 +179,11 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
             PUBLISHER,
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
             address(LOANS_CONTRACT),
-            TRUSTED_FORWARDER
+            TRUSTED_FORWARDER,
+            address(REV_OWNER)
         );
+
+        REV_OWNER.initialize(IREVDeployer(address(REV_DEPLOYER)));
 
         // Approve the deployer to configure the fee project.
         vm.prank(multisig());

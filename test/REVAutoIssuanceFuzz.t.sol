@@ -35,6 +35,8 @@ import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStor
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
+import {REVOwner} from "../src/REVOwner.sol";
+import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 
 /// @notice Fuzz tests for REVDeployer multi-stage auto-issuance.
 /// Tests stage ID computation consistency and multi-stage claiming behavior.
@@ -82,6 +84,14 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
         MOCK_BUYBACK = new MockBuybackDataHook();
 
+        REVOwner revOwner = new REVOwner(
+            IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
+            jbDirectory(),
+            FEE_PROJECT_ID,
+            SUCKER_REGISTRY,
+            makeAddr("loans")
+        );
+
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
             SUCKER_REGISTRY,
@@ -90,8 +100,11 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
             PUBLISHER,
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
             makeAddr("loans"),
-            TRUSTED_FORWARDER
+            TRUSTED_FORWARDER,
+            address(revOwner)
         );
+
+        revOwner.initialize(IREVDeployer(address(REV_DEPLOYER)));
 
         vm.prank(multisig());
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);

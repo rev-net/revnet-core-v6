@@ -37,6 +37,8 @@ import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStor
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
+import {REVOwner} from "../src/REVOwner.sol";
+import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 
 struct FeeProjectConfig {
     REVConfig configuration;
@@ -53,6 +55,8 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
 
     // forge-lint: disable-next-line(mixed-case-variable)
     REVDeployer REV_DEPLOYER;
+    // forge-lint: disable-next-line(mixed-case-variable)
+    REVOwner REV_OWNER;
     // forge-lint: disable-next-line(mixed-case-variable)
     JB721TiersHook EXAMPLE_HOOK;
     // forge-lint: disable-next-line(mixed-case-variable)
@@ -214,6 +218,14 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
             trustedForwarder: TRUSTED_FORWARDER
         });
 
+        REV_OWNER = new REVOwner(
+            IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
+            jbDirectory(),
+            FEE_PROJECT_ID,
+            SUCKER_REGISTRY,
+            address(LOANS_CONTRACT)
+        );
+
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
             SUCKER_REGISTRY,
@@ -222,8 +234,11 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
             PUBLISHER,
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
             address(LOANS_CONTRACT),
-            TRUSTED_FORWARDER
+            TRUSTED_FORWARDER,
+            address(REV_OWNER)
         );
+
+        REV_OWNER.initialize(IREVDeployer(address(REV_DEPLOYER)));
 
         // Approve the deployer to configure the fee project.
         vm.prank(multisig());
@@ -293,13 +308,13 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
 
     /// @notice Verify the deployer actually set a cash out delay for the delayed revnet.
     function test_delayedRevnet_hasCashOutDelay() public view {
-        uint256 cashOutDelay = REV_DEPLOYER.cashOutDelayOf(DELAYED_REVNET_ID);
+        uint256 cashOutDelay = REV_OWNER.cashOutDelayOf(DELAYED_REVNET_ID);
         assertGt(cashOutDelay, block.timestamp, "Cash out delay should be in the future");
     }
 
     /// @notice Verify the normal revnet has no cash out delay.
     function test_normalRevnet_noCashOutDelay() public view {
-        uint256 cashOutDelay = REV_DEPLOYER.cashOutDelayOf(NORMAL_REVNET_ID);
+        uint256 cashOutDelay = REV_OWNER.cashOutDelayOf(NORMAL_REVNET_ID);
         assertEq(cashOutDelay, 0, "Normal revnet should have no cash out delay");
     }
 
@@ -327,7 +342,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 
         // Attempt to borrow — should revert with CashOutDelayNotFinished.
-        uint256 cashOutDelay = REV_DEPLOYER.cashOutDelayOf(DELAYED_REVNET_ID);
+        uint256 cashOutDelay = REV_OWNER.cashOutDelayOf(DELAYED_REVNET_ID);
         vm.expectRevert(
             abi.encodeWithSelector(REVLoans.REVLoans_CashOutDelayNotFinished.selector, cashOutDelay, block.timestamp)
         );
@@ -429,7 +444,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
         uint256 tokenCount = _payAndGetTokens(DELAYED_REVNET_ID, 1 ether);
 
         // Warp to exactly the delay timestamp (not past it).
-        uint256 cashOutDelay = REV_DEPLOYER.cashOutDelayOf(DELAYED_REVNET_ID);
+        uint256 cashOutDelay = REV_OWNER.cashOutDelayOf(DELAYED_REVNET_ID);
         vm.warp(cashOutDelay);
 
         // borrowableAmountFrom should still return 0 (cashOutDelay > block.timestamp is false, but == is not >).
@@ -446,7 +461,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
         uint256 tokenCount = _payAndGetTokens(DELAYED_REVNET_ID, 1 ether);
 
         // Warp to 1 second before the delay expires.
-        uint256 cashOutDelay = REV_DEPLOYER.cashOutDelayOf(DELAYED_REVNET_ID);
+        uint256 cashOutDelay = REV_OWNER.cashOutDelayOf(DELAYED_REVNET_ID);
         vm.warp(cashOutDelay - 1);
 
         // borrowableAmountFrom should return 0.

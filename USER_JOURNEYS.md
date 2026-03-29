@@ -29,7 +29,7 @@ Or: `REVDeployer.deployFor(revnetId=0, configuration, terminalConfigurations, su
 1. `revnetId = PROJECTS.count() + 1` (next available ID)
 2. `_makeRulesetConfigurations` converts stages to JBRulesetConfigs:
    - Validates: at least one stage, `startsAtOrAfter` strictly increasing, `cashOutTaxRate < MAX`, splits required if `splitPercent > 0`
-   - Each stage becomes a ruleset with: duration = `issuanceCutFrequency`, weight = `initialIssuance`, weightCutPercent = `issuanceCutPercent`, data hook = REVDeployer address
+   - Each stage becomes a ruleset with: duration = `issuanceCutFrequency`, weight = `initialIssuance`, weightCutPercent = `issuanceCutPercent`, data hook = REVOwner address
    - Fund access limits: unlimited surplus allowance per terminal/token (for loans)
    - Encoded configuration hash computed from economic parameters
    - Auto-issuance amounts stored: `amountToAutoIssue[revnetId][block.timestamp + i][beneficiary] += count`
@@ -91,12 +91,13 @@ Or: `REVDeployer.deployFor(revnetId=0, configuration, terminalConfigurations, su
 
 **Entry point:** `JBMultiTerminal.pay(projectId, token, amount, beneficiary, minReturnedTokens, memo, metadata)`
 
-This is a standard Juicebox payment, but REVDeployer intervenes as the data hook.
+This is a standard Juicebox payment, but REVOwner intervenes as the data hook.
 
 **What happens:**
 
 1. Terminal records payment in store
-2. Store calls `REVDeployer.beforePayRecordedWith(context)`:
+2. Store calls `REVOwner.beforePayRecordedWith(context)`:
+   - Reads `tiered721HookOf` from REVOwner storage
    - Calls 721 hook's `beforePayRecordedWith` for split specs (tier purchases)
    - Computes `projectAmount = context.amount.value - totalSplitAmount`
    - Calls buyback hook's `beforePayRecordedWith` with reduced amount context
@@ -108,14 +109,14 @@ This is a standard Juicebox payment, but REVDeployer intervenes as the data hook
    - 721 hook processes tier purchases
    - Buyback hook processes swap (if applicable)
 
-**Preview**: Call `JBMultiTerminal.previewPayFor(revnetId, token, amount, beneficiary, metadata)` to simulate the full payment including REVDeployer's data hook effects (buyback routing, 721 tier splits, weight adjustment). Returns the expected token count and hook specifications. When the buyback hook is active, noop specs may carry routing diagnostics (TWAP tick, liquidity, pool ID) even when the protocol mint path wins.
+**Preview**: Call `JBMultiTerminal.previewPayFor(revnetId, token, amount, beneficiary, metadata)` to simulate the full payment including REVOwner's data hook effects (buyback routing, 721 tier splits, weight adjustment). Returns the expected token count and hook specifications. When the buyback hook is active, noop specs may carry routing diagnostics (TWAP tick, liquidity, pool ID) even when the protocol mint path wins.
 
-**Events:** No revnet-specific events. The payment is handled by `JBMultiTerminal` and `JBController` (see nana-core-v6). REVDeployer's `beforePayRecordedWith` is a `view` function and emits nothing.
+**Events:** No revnet-specific events. The payment is handled by `JBMultiTerminal` and `JBController` (see nana-core-v6). REVOwner's `beforePayRecordedWith` is a `view` function and emits nothing.
 
 **Edge cases:**
 - If the buyback hook determines a DEX swap is better, weight = 0 and the buyback hook spec receives the full project amount. The buyback hook buys tokens on the DEX and mints them to the payer.
 - If `totalSplitAmount >= context.amount.value`, `projectAmount = 0`, weight = 0, and no tokens are minted by the terminal. All funds go to 721 tier splits.
-- If no 721 hook is set (`tiered721HookOf[revnetId] == address(0)`), only the buyback hook is consulted.
+- If no 721 hook is set (`tiered721HookOf[revnetId] == address(0)` on REVOwner), only the buyback hook is consulted.
 
 ---
 
@@ -126,9 +127,9 @@ This is a standard Juicebox payment, but REVDeployer intervenes as the data hook
 **What happens:**
 
 1. Terminal records cash-out in store
-2. Store calls `REVDeployer.beforeCashOutRecordedWith(context)`:
+2. Store calls `REVOwner.beforeCashOutRecordedWith(context)`:
    - **If sucker:** Returns 0% tax, full cash-out count, no hooks (fee exempt)
-   - **If cash-out delay active:** Reverts with `REVDeployer_CashOutDelayNotFinished`
+   - **If cash-out delay active:** Reads `cashOutDelayOf` from REVOwner storage, reverts with `REVDeployer_CashOutDelayNotFinished`
    - **If no tax or no fee terminal:** Returns parameters unchanged
    - **Otherwise:** Splits cash-out into fee portion (2.5%) and non-fee portion:
      - `feeCashOutCount = mulDiv(cashOutCount, 25, 1000)`
@@ -138,17 +139,17 @@ This is a standard Juicebox payment, but REVDeployer intervenes as the data hook
      - Returns `nonFeeCashOutCount` as the adjusted cash-out count + hook spec for fee
 3. Terminal burns ALL of the user's specified token count
 4. Terminal transfers the reclaimed amount to the beneficiary
-5. Terminal calls `REVDeployer.afterCashOutRecordedWith(context)`:
+5. Terminal calls `REVOwner.afterCashOutRecordedWith(context)`:
    - Transfers fee amount from terminal to this contract
    - Pays fee to fee revnet's terminal via `feeTerminal.pay`
    - On failure: returns funds to the originating project via `addToBalanceOf`
 
-**Preview**: Call `JBMultiTerminal.previewCashOutFrom(holder, revnetId, cashOutCount, tokenToReclaim, beneficiary, metadata)` to simulate the full cash out including REVDeployer's data hook effects (fee splitting, tax rate). Returns the expected reclaim amount and hook specifications. For a simpler estimate without data hook effects, use `JBTerminalStore.currentTotalReclaimableSurplusOf(revnetId, cashOutCount, decimals, currency)`.
+**Preview**: Call `JBMultiTerminal.previewCashOutFrom(holder, revnetId, cashOutCount, tokenToReclaim, beneficiary, metadata)` to simulate the full cash out including REVOwner's data hook effects (fee splitting, tax rate). Returns the expected reclaim amount and hook specifications. For a simpler estimate without data hook effects, use `JBTerminalStore.currentTotalReclaimableSurplusOf(revnetId, cashOutCount, decimals, currency)`.
 
-**Events:** No revnet-specific events. Cash-out events are emitted by `JBMultiTerminal` and `JBController`. REVDeployer's `beforeCashOutRecordedWith` is a `view` function. The `afterCashOutRecordedWith` hook processes fees but does not emit events.
+**Events:** No revnet-specific events. Cash-out events are emitted by `JBMultiTerminal` and `JBController`. REVOwner's `beforeCashOutRecordedWith` is a `view` function. The `afterCashOutRecordedWith` hook on REVOwner processes fees but does not emit events.
 
 **Edge cases:**
-- Suckers bypass both the cash-out fee AND the cash-out delay. The `_isSuckerOf` check is the only gate.
+- Suckers bypass both the cash-out fee AND the cash-out delay. The `REVOwner._isSuckerOf` check is the only gate.
 - `cashOutTaxRate == 0` means no tax and no revnet fee. The terminal's 2.5% protocol fee only applies up to the `feeFreeSurplusOf` amount (round-trip prevention), not the full reclaim.
 - Micro cash-outs (< 40 wei at 2.5%) round `feeCashOutCount` to 0, bypassing the fee. Gas cost far exceeds the bypassed fee.
 - The fee is paid to `FEE_REVNET_ID`, not `REV_ID`. These may be different projects.
@@ -182,7 +183,7 @@ This is a standard Juicebox payment, but REVDeployer intervenes as the data hook
    - `collateralCount > 0` (no zero-collateral loans)
    - `source.terminal` is registered for the revnet in the directory
    - `prepaidFeePercent` in range [25, 500]
-   - Cash-out delay has passed: resolves the `REVDeployer` from the current ruleset's `dataHook`, checks `cashOutDelayOf(revnetId)`. Reverts with `REVLoans_CashOutDelayNotFinished(cashOutDelay, block.timestamp)` if `cashOutDelay > block.timestamp`.
+   - Cash-out delay has passed: resolves the `REVOwner` from the current ruleset's `dataHook`, checks `IREVOwner.cashOutDelayOf(revnetId)` (stored on REVOwner). Reverts with `REVLoans_CashOutDelayNotFinished(cashOutDelay, block.timestamp)` if `cashOutDelay > block.timestamp`.
 2. **Loan ID generation:** `revnetId * 1_000_000_000_000 + (++totalLoansBorrowedFor[revnetId])`
 3. **Loan creation in storage:**
    - `source`, `createdAt = block.timestamp`, `prepaidFeePercent`, `prepaidDuration = mulDiv(prepaidFeePercent, 3650 days, 500)`
@@ -212,7 +213,7 @@ This is a standard Juicebox payment, but REVDeployer intervenes as the data hook
 - `prepaidDuration` at minimum (25): `25 * 3650 days / 500 = 182.5 days`. At maximum (500): `500 * 3650 days / 500 = 3650 days`.
 - Both the REV fee payment and the source fee payment failures are non-fatal. If either `feeTerminal.pay` or `source.terminal.pay` reverts, the fee amount is transferred to the beneficiary instead.
 - Loan NFT is minted to `_msgSender()`, not `beneficiary`. The caller owns the loan; the beneficiary receives the funds.
-- When a revnet deploys to a new chain with `startsAtOrAfter` in the past, `REVDeployer` sets a 30-day cash-out delay. Both `borrowFrom` and `borrowableAmountFrom` enforce this delay by resolving the deployer from the current ruleset's `dataHook` and checking `cashOutDelayOf`. This prevents cross-chain arbitrage via loans during the delay window.
+- When a revnet deploys to a new chain with `startsAtOrAfter` in the past, `REVDeployer` sets a 30-day cash-out delay via `REVOwner.setCashOutDelayOf()`. Both `borrowFrom` and `borrowableAmountFrom` enforce this delay by resolving the REVOwner from the current ruleset's `dataHook` and checking `IREVOwner.cashOutDelayOf(revnetId)` (stored on REVOwner). This prevents cross-chain arbitrage via loans during the delay window.
 
 ---
 

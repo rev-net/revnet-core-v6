@@ -2,16 +2,18 @@
 
 ## Purpose
 
-Autonomous revenue networks ("revnets") built on Juicebox V6. REVDeployer creates projects with pre-programmed multi-stage rulesets that cannot be changed after deployment. REVLoans enables borrowing against locked revnet tokens.
+Autonomous revenue networks ("revnets") built on Juicebox V6. REVDeployer creates projects with pre-programmed multi-stage rulesets that cannot be changed after deployment. REVOwner handles all runtime hook behavior (pay hooks, cash-out hooks, mint permissions) as the `dataHook` for every revnet. REVLoans enables borrowing against locked revnet tokens.
 
 ## Contract Map
 
 ```
 src/
-├── REVDeployer.sol  — Deploys revnets: stages → rulesets, data hook, buyback, suckers, 721 tiers
+├── REVDeployer.sol  — Deploys revnets: stages → rulesets, buyback, suckers, 721 tiers, state storage
+├── REVOwner.sol     — Runtime data hook + cash-out hook for all revnets, stores cashOutDelayOf + tiered721HookOf (~310 lines)
 ├── REVLoans.sol     — Borrow against burned revnet tokens (10-year max, permissionless liquidation)
 ├── interfaces/
 │   ├── IREVDeployer.sol
+│   ├── IREVOwner.sol
 │   └── IREVLoans.sol
 └── structs/         — REVConfig, REVStageConfig, REVLoanSource, REVAutoIssuance, etc.
 ```
@@ -25,7 +27,7 @@ Deployer → REVDeployer.deployFor()
   → Convert REV stages → JBRulesetConfigs (see Stage-to-Ruleset Mapping below)
     → Each stage: duration, weight, cashOutTaxRate, splits
     → Auto-issuance: record per-beneficiary token counts for later claiming
-  → Set REVDeployer as data hook (controls pay + cashout behavior)
+  → Set REVOwner as data hook (controls pay + cashout behavior)
   → Initialize buyback pools at fair issuance price (derived from initialIssuance)
   → Deploy suckers for cross-chain operation
   → Deploy tiered ERC-721 hook (always — empty by default, pre-configured if specified)
@@ -55,17 +57,18 @@ Claiming is a separate step: anyone can call `autoIssueFor(revnetId, stageId, be
 
 Stage IDs are assigned as `block.timestamp + i` (where `i` is the stage index), matching the JBRulesets ID assignment scheme when all stages are queued in a single transaction.
 
-### Data Hook Behavior
+### Data Hook Behavior (REVOwner)
 ```
-Payment → REVDeployer.beforePayRecordedWith()
+Payment → REVOwner.beforePayRecordedWith()
+  → Read tiered721HookOf from REVOwner storage
   → Query 721 tier hook for tier split specs (if configured)
   → Delegate remaining amount to buyback hook for swap-vs-mint decision
   → Scale weight so tokens are only minted for the project's share (after tier splits)
   → Return merged hook specifications (721 hook + buyback hook)
 
-Cash Out → REVDeployer.beforeCashOutRecordedWith()
+Cash Out → REVOwner.beforeCashOutRecordedWith()
   → If caller is a sucker: 0% cash out tax, full reclaim (bridging privilege)
-  → Enforce cash out delay (for cross-chain deployments of existing revnets)
+  → Enforce cash out delay (reads cashOutDelayOf from REVOwner storage)
   → If no tax, no fee terminal, or feeless beneficiary: delegate directly to buyback hook
   → Otherwise: split tokens into fee/non-fee portions via bonding curve
   → Delegate non-fee portion to buyback hook
@@ -112,7 +115,7 @@ Fields set automatically by the deployer (not configurable per stage):
 - `metadata.allowOwnerMinting` — always `true` (required for auto-issuance)
 - `metadata.useDataHookForPay` — always `true`
 - `metadata.useDataHookForCashOut` — always `true`
-- `metadata.dataHook` — always `address(REVDeployer)`
+- `metadata.dataHook` — always `address(REVOwner)`
 - `approvalHook` — always `address(0)` (no approval hook; stages are immutable)
 - `fundAccessLimitGroups` — set to `uint224.max` surplus allowance per terminal token for loan withdrawals
 
@@ -120,7 +123,7 @@ Fields set automatically by the deployer (not configurable per stage):
 
 | Point | Interface | Purpose |
 |-------|-----------|---------|
-| Data hook | `IJBRulesetDataHook` | REVDeployer acts as data hook for all revnets |
+| Data hook | `IJBRulesetDataHook` | REVOwner acts as data hook for all revnets |
 | Buyback hook | `IJBBuybackHook` | Swap-vs-mint decision on payments |
 | Sucker integration | `IJBSucker` | Cross-chain token bridging |
 | 721 tiers | `IJB721TiersHook` | NFT tier rewards |
@@ -140,7 +143,7 @@ Fields set automatically by the deployer (not configurable per stage):
 ## Key Design Decisions
 - Stages are immutable after deployment — no owner can change ruleset parameters
 - Matching hash ensures cross-chain deployments have identical economic parameters. It covers all economic fields (issuance, decay, tax rates, auto-issuances) but intentionally excludes split recipient addresses, which may differ by chain. The hash is used as a CREATE2 salt component for sucker deployment, so mismatched configs produce different sucker addresses that cannot peer with each other.
-- REVDeployer is the data hook for all revnets it deploys — centralizes behavioral control
+- REVOwner is the data hook for all revnets — centralizes runtime behavioral control (pay hooks, cash-out hooks, mint permissions) and stores `cashOutDelayOf` and `tiered721HookOf` per revnet. REVDeployer handles deployment and configuration state storage. The split was necessary to stay under the EIP-170 contract size limit (24,576 bytes). Deploy order: REVOwner first, then REVDeployer(owner=REVOwner), then REVOwner.initialize(deployer). REVDeployer calls DEPLOYER-restricted setters on REVOwner (`setCashOutDelayOf`, `setTiered721HookOf`) during deployment.
 - Loans use bonding curve value, not market price — independent of external DEX pricing
 - Auto-issuance is deferred, not instant — token amounts are recorded at deploy time but minted via a separate `autoIssueFor` call after the stage starts. This separates deployment from issuance, allows anyone to trigger the mint permissionlessly, and ensures tokens are not minted before their stage is active.
 - No approval hook — revnet rulesets set `approvalHook` to `address(0)` because stages are configured immutably at deployment. There is no governance or owner who could queue a change that would need approval.

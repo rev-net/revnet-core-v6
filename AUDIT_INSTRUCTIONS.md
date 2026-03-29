@@ -10,8 +10,9 @@ Read [RISKS.md](./RISKS.md) for the trust model and known risks. Read [ARCHITECT
 
 | Contract | Lines | Role |
 |----------|-------|------|
-| `src/REVDeployer.sol` | ~1,373 | Deploys revnets. Acts as data hook and cash-out hook for all revnets. Manages stages, splits, auto-issuance, buyback hook delegation, 721 hook deployment, suckers, and split operator permissions. |
-| `src/REVLoans.sol` | ~1,359 | Token-collateralized lending. Burns collateral on borrow, re-mints on repay. ERC-721 loan NFTs. Three-layer fee model. Permit2 integration. |
+| `src/REVDeployer.sol` | ~19,746 bytes | Deploys revnets. Manages stages, splits, auto-issuance, buyback hook delegation, 721 hook deployment, suckers, split operator permissions, and all state storage. Split from original monolith to stay under EIP-170 (24,576 bytes). |
+| `src/REVOwner.sol` | ~8,353 bytes (~310 lines) | Runtime hook contract. Implements `IJBRulesetDataHook` + `IJBCashOutHook`. Set as the `dataHook` in each revnet's ruleset metadata. Handles `beforePayRecordedWith`, `beforeCashOutRecordedWith`, `afterCashOutRecordedWith`, `hasMintPermissionFor`, and sucker verification. Stores `cashOutDelayOf` and `tiered721HookOf` mappings (set by REVDeployer via DEPLOYER-restricted setters). **Key audit focus: the `initialize()` one-shot pattern, DEPLOYER-restricted setter access control, and circular dependency with REVDeployer.** |
+| `src/REVLoans.sol` | ~1,359 lines | Token-collateralized lending. Burns collateral on borrow, re-mints on repay. ERC-721 loan NFTs. Three-layer fee model. Permit2 integration. |
 | `src/interfaces/` | ~525 | Interface definitions for both contracts |
 | `src/structs/` | ~212 | All struct definitions |
 
@@ -27,7 +28,7 @@ Read [RISKS.md](./RISKS.md) for the trust model and known risks. Read [ARCHITECT
 
 ## The System in 90 Seconds
 
-A **revnet** is a Juicebox project that nobody owns. REVDeployer deploys it, permanently holds its project NFT, and acts as the data hook for all payments and cash-outs. The revnet's economics are encoded as a sequence of **stages** that map 1:1 to Juicebox rulesets. Stages are immutable after deployment.
+A **revnet** is a Juicebox project that nobody owns. REVDeployer deploys it and permanently holds its project NFT. REVOwner acts as the data hook for all payments and cash-outs (`dataHook` in ruleset metadata). The deployer/owner split was necessary to stay under the EIP-170 contract size limit. The revnet's economics are encoded as a sequence of **stages** that map 1:1 to Juicebox rulesets. Stages are immutable after deployment.
 
 Each stage defines:
 - **Initial issuance** (`initialIssuance`): tokens minted per unit of base currency
@@ -53,26 +54,27 @@ Understanding this interaction is essential. REVDeployer wraps core Juicebox fun
 ```
 User pays terminal
   -> Terminal calls JBTerminalStore.recordPaymentFrom()
-    -> Store calls REVDeployer.beforePayRecordedWith() [data hook]
-      -> REVDeployer calls 721 hook's beforePayRecordedWith() for split specs
-      -> REVDeployer calls buyback hook's beforePayRecordedWith() for swap decision
-      -> REVDeployer scales weight: mulDiv(weight, projectAmount, totalAmount)
+    -> Store calls REVOwner.beforePayRecordedWith() [data hook]
+      -> REVOwner reads tiered721HookOf from its own storage
+      -> REVOwner calls 721 hook's beforePayRecordedWith() for split specs
+      -> REVOwner calls buyback hook's beforePayRecordedWith() for swap decision
+      -> REVOwner scales weight: mulDiv(weight, projectAmount, totalAmount)
       -> Returns merged specs: [721 hook spec, buyback hook spec]
     -> Store records payment with modified weight
   -> Terminal mints tokens via Controller
   -> Terminal executes pay hook specs (721 hook first, then buyback hook)
 ```
 
-**Key insight:** The weight scaling in `beforePayRecordedWith` ensures the terminal only mints tokens proportional to the amount entering the project (excluding 721 tier split amounts). Without this scaling, payers would get token credit for the split portion too.
+**Key insight:** The weight scaling in `REVOwner.beforePayRecordedWith` ensures the terminal only mints tokens proportional to the amount entering the project (excluding 721 tier split amounts). Without this scaling, payers would get token credit for the split portion too.
 
 ### Cash-Out Flow
 
 ```
 User cashes out via terminal
   -> Terminal calls JBTerminalStore.recordCashOutFor()
-    -> Store calls REVDeployer.beforeCashOutRecordedWith() [data hook]
+    -> Store calls REVOwner.beforeCashOutRecordedWith() [data hook]
       -> If sucker: return 0% tax, full amount (fee exempt)
-      -> If cashOutDelay not passed: revert
+      -> If cashOutDelay not passed (reads from REVOwner storage): revert
       -> If cashOutTaxRate == 0 or no fee terminal: return as-is
       -> Otherwise: split cashOutCount into fee portion + non-fee portion
         -> Compute reclaim for non-fee portion via bonding curve
@@ -81,8 +83,8 @@ User cashes out via terminal
     -> Store records cash-out with modified parameters
   -> Terminal burns tokens
   -> Terminal transfers reclaimed amount to user
-  -> Terminal calls REVDeployer.afterCashOutRecordedWith() [cash-out hook]
-    -> REVDeployer pays fee to fee revnet terminal
+  -> Terminal calls REVOwner.afterCashOutRecordedWith() [cash-out hook]
+    -> REVOwner pays fee to fee revnet terminal
     -> On failure: returns funds to originating project
 ```
 
@@ -93,7 +95,7 @@ User cashes out via terminal
 ```
 Borrower calls REVLoans.borrowFrom()
   -> Prerequisite: caller must have granted BURN_TOKENS permission to REVLoans via JBPermissions
-  -> Enforce cash-out delay: resolve deployer from ruleset dataHook, check cashOutDelayOf(revnetId)
+  -> Enforce cash-out delay: resolve REVOwner from ruleset dataHook, check IREVOwner.cashOutDelayOf(revnetId) (stored on REVOwner)
   -> Validate: collateral > 0, terminal registered, prepaidFeePercent in range
   -> Generate loan ID: revnetId * 1T + loanNumber
   -> Create loan in storage
@@ -119,10 +121,16 @@ Borrower calls REVLoans.borrowFrom()
 | Variable | Purpose | Audit Focus |
 |----------|---------|-------------|
 | `amountToAutoIssue[revnetId][stageId][beneficiary]` | Premint tokens per stage per beneficiary | Single-claim enforcement (zeroed before mint) |
-| `cashOutDelayOf[revnetId]` | Timestamp when cash-outs unlock | Applied only for existing revnets deployed to new chains |
 | `hashedEncodedConfigurationOf[revnetId]` | Config hash for cross-chain sucker validation | Gap: does NOT cover terminal configs |
-| `tiered721HookOf[revnetId]` | 721 hook address | Set once during deploy, never changed |
 | `_extraOperatorPermissions[revnetId]` | Custom permissions for split operator | Set during deploy based on 721 hook prevention flags |
+
+### REVOwner Storage
+
+| Variable | Purpose | Audit Focus |
+|----------|---------|-------------|
+| `DEPLOYER` | REVDeployer address | Set once via `initialize()`. **Not immutable** -- stored as a regular storage variable to break circular dependency. Verify `initialize()` can only be called once and with the correct address. Used to restrict access to `setCashOutDelayOf()` and `setTiered721HookOf()`. |
+| `cashOutDelayOf[revnetId]` | Timestamp when cash-outs unlock | Set by REVDeployer via `setCashOutDelayOf()` (DEPLOYER-restricted). Applied only for existing revnets deployed to new chains. **Read by REVLoans via IREVOwner.** Verify only DEPLOYER can call the setter. |
+| `tiered721HookOf[revnetId]` | 721 hook address | Set by REVDeployer via `setTiered721HookOf()` (DEPLOYER-restricted). Set once during deploy, never changed. **Read by REVOwner internally during pay hooks.** Verify only DEPLOYER can call the setter. |
 
 ### REVLoans Storage
 
@@ -179,7 +187,7 @@ No reentrancy guard. Verify the CEI ordering in:
 
 ### 3. Data hook composition
 
-REVDeployer proxies between the terminal and two hooks. Verify:
+REVOwner proxies between the terminal and two hooks. REVOwner reads `tiered721HookOf` and `cashOutDelayOf` from its own storage (set by REVDeployer via DEPLOYER-restricted setters). Verify:
 
 - The 721 hook's `beforePayRecordedWith` is called with the full context, but the buyback hook's is called with a reduced amount. Is this always correct?
 - When the 721 hook returns specs with `amount >= context.amount.value`, `projectAmount` is 0 and weight is 0. This means no tokens are minted by the terminal (all funds go to 721 splits). Verify this is safe -- does the buyback hook handle a zero-amount context gracefully?
@@ -188,7 +196,7 @@ REVDeployer proxies between the terminal and two hooks. Verify:
 
 ### 4. Cash-out fee calculation
 
-The two-step bonding curve fee calculation in `beforeCashOutRecordedWith`:
+The two-step bonding curve fee calculation in `REVOwner.beforeCashOutRecordedWith`:
 
 ```solidity
 feeCashOutCount = mulDiv(cashOutCount, FEE, MAX_FEE)  // 2.5% of tokens
@@ -264,6 +272,18 @@ Verify:
 - The linear accrual formula: at `timeSinceLoanCreated = LOAN_LIQUIDATION_DURATION`, the fee percent approaches MAX_FEE (100%). The borrower would owe the full remaining loan amount as a fee, making repayment impossible.
 - At the boundary, `_determineSourceFeeAmount` reverts with `REVLoans_LoanExpired` before the fee reaches 100%. The revert uses `>` (not `>=`) so the exact boundary second is still repayable -- verify this matches the liquidation path which uses `<=`.
 
+### 8. REVOwner initialization and circular dependency
+
+REVOwner and REVDeployer have a circular dependency broken by a one-shot `initialize()` call. Deploy order: REVOwner first, then REVDeployer(owner=REVOwner), then REVOwner.initialize(deployer). Verify:
+
+- `initialize()` can only be called once (subsequent calls revert)
+- `DEPLOYER` is a storage variable, not immutable, to break the circular dependency
+- Before `initialize()` is called, the DEPLOYER-restricted setters (`setCashOutDelayOf`, `setTiered721HookOf`) would reject calls, leaving `cashOutDelayOf` and `tiered721HookOf` unpopulated
+- No path allows `initialize()` to be called with the wrong deployer address after the correct one is set
+- Only DEPLOYER can call `setCashOutDelayOf()` and `setTiered721HookOf()` -- verify access control on these setters
+- `cashOutDelayOf` and `tiered721HookOf` are stored on REVOwner (not REVDeployer) -- verify REVOwner reads from its own storage and the setters cannot be called by unauthorized addresses
+- Both contracts define `FEE = 25` independently -- verify they stay in sync
+
 ## Invariants
 
 Fuzzable properties that should hold for all valid inputs:
@@ -273,6 +293,7 @@ Fuzzable properties that should hold for all valid inputs:
 3. **Loan NFT ownership**: The ERC-721 owner of a loan NFT is the only address authorized to repay, reallocate, or manage that loan (absent ROOT or explicit permission grants).
 4. **No flash-loan profit**: Borrowing and repaying in the same block (zero time elapsed) should never yield a net profit to the borrower after all fees.
 5. **Stage monotonicity**: Stage transitions are monotonically increasing in time -- a later stage's `startsAtOrAfter` is always strictly greater than the previous stage's.
+6. **REVOwner initialization**: `DEPLOYER` is set exactly once via `initialize()` and matches the REVDeployer that references this REVOwner via `OWNER()`. Only the initialized `DEPLOYER` can call `setCashOutDelayOf()` and `setTiered721HookOf()`.
 
 ## How to Run Tests
 
@@ -296,7 +317,7 @@ forge test --gas-report
 
 | Pattern | Where | Why |
 |---------|-------|-----|
-| `mulDiv` rounding direction | `beforePayRecordedWith` weight scaling, `_determineSourceFeeAmount`, `_borrowableAmountFrom` | Rounding in borrower's favor compounds over many loans |
+| `mulDiv` rounding direction | `REVOwner.beforePayRecordedWith` weight scaling, `_determineSourceFeeAmount`, `_borrowableAmountFrom` | Rounding in borrower's favor compounds over many loans |
 | Source fee `pay` silently caught on revert | `REVLoans._adjust` try-catch block | The catch block silently returns funds to the borrower instead of paying the fee, which could allow borrowers to intentionally cause fee payment reverts to avoid paying the source fee |
 | `delete _loanOf[loanId]` after external calls | `_repayLoan`, `_reallocateCollateralFromLoan` | Verify delete happens after all references to the loan are resolved |
 | Loan storage read after `_adjust` mutates it | `_repayLoan` partial repay path | `_adjust` modifies `loan` via storage pointer; subsequent reads see mutated values |

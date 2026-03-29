@@ -17,7 +17,7 @@ Revnets are autonomous Juicebox projects with predetermined economic stages. Eac
 ```
 1. Deploy revnet with stage configurations
    → REVDeployer.deployFor(revnetId=0, config, terminals, suckerConfig)
-   → Creates Juicebox project owned by REVDeployer (permanently)
+   → Creates Juicebox project owned by REVDeployer (permanently), dataHook = REVOwner
    → Deploys ERC-20 token, initializes buyback pools at 1:1 price, deploys suckers
    |
 2. Stage 1 begins (startsAtOrAfter or block.timestamp)
@@ -90,18 +90,20 @@ Every revnet gets a tiered ERC-721 hook deployed automatically — even if no ti
 
 | Contract | Description |
 |----------|-------------|
-| `REVDeployer` | Deploys revnets as Juicebox projects owned by the deployer contract itself (no human owner). Translates stage configurations into Juicebox rulesets, manages buyback hooks, tiered 721 hooks, suckers, split operators, auto-issuance, and cash-out fees. Acts as the ruleset data hook and cash-out hook for every revnet it deploys. When 721 tier splits are active, adjusts the payment weight so the terminal only mints tokens proportional to the amount entering the project treasury (the split portion is forwarded separately). |
+| `REVDeployer` | Deploys revnets as Juicebox projects owned by the deployer contract itself (no human owner). Translates stage configurations into Juicebox rulesets, manages buyback hooks, suckers, split operators, auto-issuance, and configuration state storage. Handles deployment, configuration, and split operator management. Calls DEPLOYER-restricted setters on REVOwner during deployment to store `cashOutDelayOf` and `tiered721HookOf`. |
+| `REVOwner` | Runtime hook contract for all revnets. Implements `IJBRulesetDataHook` and `IJBCashOutHook`. Set as the `dataHook` in each revnet's ruleset metadata. Handles `beforePayRecordedWith`, `beforeCashOutRecordedWith`, `afterCashOutRecordedWith`, `hasMintPermissionFor`, and sucker verification. When 721 tier splits are active, adjusts the payment weight so the terminal only mints tokens proportional to the amount entering the project treasury (the split portion is forwarded separately). Stores `cashOutDelayOf` and `tiered721HookOf` mappings (set by REVDeployer via DEPLOYER-restricted setters `setCashOutDelayOf()` and `setTiered721HookOf()`). |
 | `REVLoans` | Lets participants borrow against their revnet tokens. Collateral tokens are burned on borrow and re-minted on repayment. Each loan is an ERC-721 NFT. Charges a prepaid fee (2.5% min, 50% max) that determines the interest-free duration; after that window, a time-proportional source fee accrues. Loans liquidate after 10 years. |
 
 ### How They Relate
 
-`REVDeployer` owns every revnet's Juicebox project NFT and holds all administrative permissions. During deployment it grants `REVLoans` the `USE_ALLOWANCE` permission so loans can pull funds from the revnet's terminal. `REVLoans` verifies that a revnet was deployed by its expected `REVDeployer` before issuing any loan.
+`REVDeployer` owns every revnet's Juicebox project NFT and holds all administrative permissions. `REVOwner` is set as the `dataHook` for every revnet's rulesets, handling all runtime hook behavior (pay hooks, cash-out hooks, mint permissions) and storing `cashOutDelayOf` and `tiered721HookOf` per revnet (set by REVDeployer via DEPLOYER-restricted setters during deployment). Deploy order: REVOwner is deployed first, then REVDeployer (with `owner=REVOwner`), then `REVOwner.initialize(deployer)` is called to link them. Both contracts share immutables: `BUYBACK_HOOK`, `DIRECTORY`, `FEE_REVNET_ID`, `SUCKER_REGISTRY`, `LOANS`. During deployment, REVDeployer grants `REVLoans` the `USE_ALLOWANCE` permission so loans can pull funds from the revnet's terminal. `REVLoans` imports `IREVOwner` (not `IREVDeployer`) for `cashOutDelayOf` calls and verifies that a revnet was deployed by its expected `REVDeployer` before issuing any loan.
 
 ### Interfaces
 
 | Interface | Description |
 |-----------|-------------|
-| `IREVDeployer` | Deployment, data hooks, auto-issuance, split operator management, sucker deployment, plus events. |
+| `IREVDeployer` | Deployment, auto-issuance, split operator management, sucker deployment, configuration state storage, `OWNER()` view, plus events. |
+| `IREVOwner` | Exposes `cashOutDelayOf` view. Used by REVLoans to read cash-out delay. |
 | `IREVLoans` | Borrow, repay, refinance, liquidate, views, plus events. |
 
 ## Install
@@ -130,10 +132,12 @@ If `forge install` has issues, try `git submodule update --init --recursive`.
 
 ```
 src/
-  REVDeployer.sol                                # Revnet deployer + data hook (~1,373 lines)
+  REVDeployer.sol                                # Revnet deployer + configuration + state storage
+  REVOwner.sol                                   # Runtime data hook + cash-out hook (~310 lines)
   REVLoans.sol                                   # Token-collateralized lending (~1,391 lines)
   interfaces/
     IREVDeployer.sol                             # Deployer interface + events
+    IREVOwner.sol                                # Owner interface (cashOutDelayOf view)
     IREVLoans.sol                                # Loans interface + events
   structs/
     REVConfig.sol                                # Top-level deployment config
@@ -205,6 +209,7 @@ Plus optional from 721 hook config: `ADJUST_721_TIERS`, `SET_721_METADATA`, `MIN
 ## Risks
 
 - **No human owner.** `REVDeployer` permanently holds the project NFT. There is no function to release it. This is by design -- revnets are ownerless. But it means bugs in stage configurations cannot be fixed after deployment.
+- **REVOwner circular dependency.** REVOwner and REVDeployer have a circular dependency broken by a one-shot `initialize()` call. `REVOwner.DEPLOYER` is a storage variable (not immutable) set via `initialize()`. If `initialize()` is never called or called with the wrong address, the DEPLOYER-restricted setters (`setCashOutDelayOf`, `setTiered721HookOf`) cannot be called correctly, and all runtime hook behavior breaks.
 - **Loan flash-loan exposure.** `borrowableAmountFrom` reads live surplus, which can be inflated via flash loans. A borrower could temporarily inflate the treasury to borrow more than the sustained value would support.
 - **uint112 truncation.** `REVLoan.amount` and `REVLoan.collateral` are `uint112` -- values above ~5.19e33 truncate silently.
 - **Cash-out fee stacking.** Cash outs incur both the Juicebox terminal fee (2.5%) and the revnet cash-out fee (2.5% to fee revnet). These compound.
