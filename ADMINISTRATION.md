@@ -140,14 +140,14 @@ The following parameters are set at deployment and can never be changed:
 - `DEFAULT_BUYBACK_TWAP_WINDOW` -- 2 days
 - `OWNER()` -- view returning the REVOwner address
 
-### REVOwner (global, set at contract deployment + initialize)
+### REVOwner (global, set at contract deployment)
 - `BUYBACK_HOOK` -- the buyback hook (shared immutable with REVDeployer)
 - `DIRECTORY` -- the Juicebox directory (shared immutable with REVDeployer)
 - `FEE_REVNET_ID` -- the project ID that receives cash-out fees (shared immutable)
 - `SUCKER_REGISTRY` -- the sucker registry (shared immutable)
 - `LOANS` -- the loans contract address (shared immutable)
 - `FEE` -- the cash-out fee constant (2.5%)
-- `DEPLOYER` -- the REVDeployer address (storage variable, set once via `initialize()`)
+- `DEPLOYER` -- the REVDeployer address (storage variable, set once via `setDeployer()` called from REVDeployer's constructor)
 
 ### REVLoans (global, set at contract deployment)
 - `CONTROLLER`, `DIRECTORY`, `PRICES`, `PROJECTS` -- protocol infrastructure

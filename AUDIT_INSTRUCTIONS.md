@@ -11,7 +11,7 @@ Read [RISKS.md](./RISKS.md) for the trust model and known risks. Read [ARCHITECT
 | Contract | Lines | Role |
 |----------|-------|------|
 | `src/REVDeployer.sol` | ~19,746 bytes | Deploys revnets. Manages stages, splits, auto-issuance, buyback hook delegation, 721 hook deployment, suckers, split operator permissions, and all state storage. Split from original monolith to stay under EIP-170 (24,576 bytes). |
-| `src/REVOwner.sol` | ~8,353 bytes (~310 lines) | Runtime hook contract. Implements `IJBRulesetDataHook` + `IJBCashOutHook`. Set as the `dataHook` in each revnet's ruleset metadata. Handles `beforePayRecordedWith`, `beforeCashOutRecordedWith`, `afterCashOutRecordedWith`, `hasMintPermissionFor`, and sucker verification. Stores `cashOutDelayOf` and `tiered721HookOf` mappings (set by REVDeployer via DEPLOYER-restricted setters). **Key audit focus: the `initialize()` one-shot pattern, DEPLOYER-restricted setter access control, and circular dependency with REVDeployer.** |
+| `src/REVOwner.sol` | ~8,434 bytes (~310 lines) | Runtime hook contract. Implements `IJBRulesetDataHook` + `IJBCashOutHook`. Set as the `dataHook` in each revnet's ruleset metadata. Handles `beforePayRecordedWith`, `beforeCashOutRecordedWith`, `afterCashOutRecordedWith`, `hasMintPermissionFor`, and sucker verification. Stores `cashOutDelayOf` and `tiered721HookOf` mappings (set by REVDeployer via DEPLOYER-restricted setters). **Key audit focus: the `setDeployer()` one-shot pattern, DEPLOYER-restricted setter access control, and circular dependency with REVDeployer.** |
 | `src/REVLoans.sol` | ~1,359 lines | Token-collateralized lending. Burns collateral on borrow, re-mints on repay. ERC-721 loan NFTs. Three-layer fee model. Permit2 integration. |
 | `src/interfaces/` | ~525 | Interface definitions for both contracts |
 | `src/structs/` | ~212 | All struct definitions |
@@ -128,7 +128,7 @@ Borrower calls REVLoans.borrowFrom()
 
 | Variable | Purpose | Audit Focus |
 |----------|---------|-------------|
-| `DEPLOYER` | REVDeployer address | Set once via `initialize()`. **Not immutable** -- stored as a regular storage variable to break circular dependency. Verify `initialize()` can only be called once and with the correct address. Used to restrict access to `setCashOutDelayOf()` and `setTiered721HookOf()`. |
+| `DEPLOYER` | REVDeployer address | Set once via `setDeployer()` called from REVDeployer's constructor. **Not immutable** -- stored as a regular storage variable to break circular dependency. `setDeployer()` sets `msg.sender` as `DEPLOYER` and reverts if already set (`REVOwner_AlreadyInitialized`). Used to restrict access to `setCashOutDelayOf()` and `setTiered721HookOf()`. |
 | `cashOutDelayOf[revnetId]` | Timestamp when cash-outs unlock | Set by REVDeployer via `setCashOutDelayOf()` (DEPLOYER-restricted). Applied only for existing revnets deployed to new chains. **Read by REVLoans via IREVOwner.** Verify only DEPLOYER can call the setter. |
 | `tiered721HookOf[revnetId]` | 721 hook address | Set by REVDeployer via `setTiered721HookOf()` (DEPLOYER-restricted). Set once during deploy, never changed. **Read by REVOwner internally during pay hooks.** Verify only DEPLOYER can call the setter. |
 
@@ -274,12 +274,12 @@ Verify:
 
 ### 8. REVOwner initialization and circular dependency
 
-REVOwner and REVDeployer have a circular dependency broken by a one-shot `initialize()` call. Deploy order: REVOwner first, then REVDeployer(owner=REVOwner), then REVOwner.initialize(deployer). Verify:
+REVOwner and REVDeployer have a circular dependency broken by `setDeployer()`, called atomically from REVDeployer's constructor. Deploy order: REVOwner first, then REVDeployer(owner=REVOwner) -- the constructor calls `REVOwner.setDeployer()` atomically. Verify:
 
-- `initialize()` can only be called once (subsequent calls revert)
+- `setDeployer()` sets `msg.sender` as `DEPLOYER` and reverts if already set (`REVOwner_AlreadyInitialized`)
 - `DEPLOYER` is a storage variable, not immutable, to break the circular dependency
-- Before `initialize()` is called, the DEPLOYER-restricted setters (`setCashOutDelayOf`, `setTiered721HookOf`) would reject calls, leaving `cashOutDelayOf` and `tiered721HookOf` unpopulated
-- No path allows `initialize()` to be called with the wrong deployer address after the correct one is set
+- Before `setDeployer()` is called, the DEPLOYER-restricted setters (`setCashOutDelayOf`, `setTiered721HookOf`) would reject calls, leaving `cashOutDelayOf` and `tiered721HookOf` unpopulated
+- After `setDeployer()` has been called once, no subsequent call can change the `DEPLOYER` address
 - Only DEPLOYER can call `setCashOutDelayOf()` and `setTiered721HookOf()` -- verify access control on these setters
 - `cashOutDelayOf` and `tiered721HookOf` are stored on REVOwner (not REVDeployer) -- verify REVOwner reads from its own storage and the setters cannot be called by unauthorized addresses
 - Both contracts define `FEE = 25` independently -- verify they stay in sync
@@ -293,7 +293,7 @@ Fuzzable properties that should hold for all valid inputs:
 3. **Loan NFT ownership**: The ERC-721 owner of a loan NFT is the only address authorized to repay, reallocate, or manage that loan (absent ROOT or explicit permission grants).
 4. **No flash-loan profit**: Borrowing and repaying in the same block (zero time elapsed) should never yield a net profit to the borrower after all fees.
 5. **Stage monotonicity**: Stage transitions are monotonically increasing in time -- a later stage's `startsAtOrAfter` is always strictly greater than the previous stage's.
-6. **REVOwner initialization**: `DEPLOYER` is set exactly once via `initialize()` and matches the REVDeployer that references this REVOwner via `OWNER()`. Only the initialized `DEPLOYER` can call `setCashOutDelayOf()` and `setTiered721HookOf()`.
+6. **REVOwner initialization**: `DEPLOYER` is set exactly once via `setDeployer()` (called from REVDeployer's constructor) and matches the REVDeployer that references this REVOwner via `OWNER()`. Only the initialized `DEPLOYER` can call `setCashOutDelayOf()` and `setTiered721HookOf()`.
 
 ## How to Run Tests
 

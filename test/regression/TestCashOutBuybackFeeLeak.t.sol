@@ -104,8 +104,6 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
             address(revOwner)
         );
 
-        revOwner.initialize(IREVDeployer(address(revDeployer)));
-
         vm.prank(multisig());
         jbProjects().approve(address(revDeployer), feeProjectId);
 

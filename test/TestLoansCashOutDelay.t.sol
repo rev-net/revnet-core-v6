@@ -238,8 +238,6 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
             address(REV_OWNER)
         );
 
-        REV_OWNER.initialize(IREVDeployer(address(REV_DEPLOYER)));
-
         // Approve the deployer to configure the fee project.
         vm.prank(multisig());
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);
