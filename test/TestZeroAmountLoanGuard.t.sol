@@ -313,11 +313,7 @@ contract TestZeroAmountLoanGuard is TestBaseWorkflow {
 
         vm.prank(USER);
         (uint256 paidOffLoanId, REVLoan memory paidOffLoan) = LOANS_CONTRACT.repayLoan{value: loan.amount}(
-            loanId,
-            loan.amount,
-            collateralToReturn,
-            payable(USER),
-            allowance
+            loanId, loan.amount, collateralToReturn, payable(USER), allowance
         );
 
         // Partial repay should create a new loan (different ID)
