@@ -434,8 +434,21 @@ contract DeployScript is Script, Sphinx {
 
         // Only create a new fee project if no singletons were found.
         if (!_singletonsExist) {
-            // forge-lint: disable-next-line(mixed-case-variable)
-            FEE_PROJECT_ID = core.projects.createFor(safeAddress());
+            // Check if safeAddress() already owns a blank project (from a previous interrupted run).
+            bool _foundExisting;
+            for (uint256 i = _nextProjectId - 1; i >= 1; i--) {
+                if (core.projects.ownerOf(i) == safeAddress()) {
+                    if (address(core.controller.DIRECTORY().controllerOf(i)) == address(0)) {
+                        FEE_PROJECT_ID = i;
+                        _foundExisting = true;
+                        break;
+                    }
+                }
+            }
+            if (!_foundExisting) {
+                // forge-lint: disable-next-line(mixed-case-variable)
+                FEE_PROJECT_ID = core.projects.createFor(safeAddress());
+            }
         }
 
         // Deploy REVLoans first — it only depends on the controller.
@@ -491,9 +504,11 @@ contract DeployScript is Script, Sphinx {
                 owner: address(revOwner)
             });
 
-        // Only configure the fee project if singletons were freshly deployed. Re-running `deployFor` on an
-        // already-configured project would fail because the project is no longer blank.
-        if (!_singletonsExist) {
+        // Only configure the fee project if it doesn't already have a controller.
+        // This handles both fresh deploys and restarts where singletons exist but the fee project
+        // was not yet configured.
+        bool _feeProjectConfigured = address(core.controller.DIRECTORY().controllerOf(FEE_PROJECT_ID)) != address(0);
+        if (!_feeProjectConfigured) {
             // Approve the basic deployer to configure the project.
             core.projects.approve({to: address(_basicDeployer), tokenId: FEE_PROJECT_ID});
 
