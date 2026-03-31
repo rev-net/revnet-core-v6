@@ -426,8 +426,9 @@ contract TestSplitWeightFork is TestBaseWorkflow {
             useReserveBeneficiaryAsDefault: false,
             transfersPausable: false,
             useVotingUnits: false,
-            cannotBeRemoved: false,
-            cannotIncreaseDiscountPercent: false,
+            cantBeRemoved: false,
+            cantIncreaseDiscountPercent: false,
+            cantBuyWithCredits: false,
             splitPercent: SPLIT_PERCENT,
             splits: tierSplits
         });
