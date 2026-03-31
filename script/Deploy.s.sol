@@ -1,18 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-// forge-lint: disable-next-line(unaliased-plain-import)
-import "@bananapus/721-hook-v6/script/helpers/Hook721DeploymentLib.sol";
-// forge-lint: disable-next-line(unaliased-plain-import)
-import "@bananapus/buyback-hook-v6/script/helpers/BuybackDeploymentLib.sol";
-// forge-lint: disable-next-line(unaliased-plain-import)
-import "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
-// forge-lint: disable-next-line(unaliased-plain-import)
-import "@bananapus/suckers-v6/script/helpers/SuckerDeploymentLib.sol";
-// forge-lint: disable-next-line(unaliased-plain-import)
-import "@bananapus/router-terminal-v6/script/helpers/RouterTerminalDeploymentLib.sol";
-// forge-lint: disable-next-line(unaliased-plain-import)
-import "@croptop/core-v6/script/helpers/CroptopDeploymentLib.sol";
+import {Hook721Deployment, Hook721DeploymentLib} from "@bananapus/721-hook-v6/script/helpers/Hook721DeploymentLib.sol";
+import {BuybackDeployment, BuybackDeploymentLib} from "@bananapus/buyback-hook-v6/script/helpers/BuybackDeploymentLib.sol";
+import {CoreDeployment, CoreDeploymentLib} from "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
+import {SuckerDeployment, SuckerDeploymentLib} from "@bananapus/suckers-v6/script/helpers/SuckerDeploymentLib.sol";
+import {
+    RouterTerminalDeployment,
+    RouterTerminalDeploymentLib
+} from "@bananapus/router-terminal-v6/script/helpers/RouterTerminalDeploymentLib.sol";
+import {CroptopDeployment, CroptopDeploymentLib} from "@croptop/core-v6/script/helpers/CroptopDeploymentLib.sol";
 
 import {Sphinx} from "@sphinx-labs/contracts/contracts/foundry/SphinxPlugin.sol";
 import {Script} from "forge-std/Script.sol";
