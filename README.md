@@ -1,110 +1,74 @@
 # Revnet Core
 
-Deploy and operate Revnets: unowned Juicebox projects that run autonomously according to predefined stages, with built-in token-collateralized loans.
+`@rev-net/core-v6` deploys and operates Revnets: autonomous Juicebox projects with staged economics, optional tiered NFTs, cross-chain support, buyback integration, and token-collateralized loans.
 
-[Docs](https://docs.juicebox.money) | [Discord](https://discord.gg/nT3XqbzNEr)
+Docs: <https://docs.juicebox.money>
+Architecture: [ARCHITECTURE.md](./ARCHITECTURE.md)
 
-## What is a Revnet?
+## Overview
 
-A Revnet is a treasury-backed token that runs itself. No owners, no governors, no multisigs. Once deployed, a revnet follows its predefined stages forever, backed by the Juicebox and Uniswap protocols.
+A Revnet is meant to run without a human owner after launch. Its economics are encoded up front as a sequence of stages, and the runtime hook plus loan system enforce those rules over time.
 
-## Conceptual Overview
+This package provides:
 
-Revnets are autonomous Juicebox projects with predetermined economic stages. Each stage defines issuance rates, decay schedules, cash-out taxes, reserved splits, and auto-issuance allocations. Once deployed, these parameters cannot be changed -- the revnet operates on its own forever.
+- a deployer that launches Revnets and stores their long-lived configuration
+- a runtime hook that mediates pay, cash-out, mint-permission, and delayed-cash-out behavior
+- an ERC-721 loan system that burns token collateral on borrow and remints on repayment
 
-### Stage-Based Lifecycle
+It also composes with the 721 hook stack, buyback hook, router terminal, Croptop, and suckers where needed.
 
-```
-1. Deploy revnet with stage configurations
-   → REVDeployer.deployFor(revnetId=0, config, terminals, suckerConfig)
-   → Creates Juicebox project owned by REVDeployer (permanently), dataHook = REVOwner
-   → Deploys ERC-20 token, initializes buyback pools at 1:1 price, deploys suckers
-   |
-2. Stage 1 begins (startsAtOrAfter or block.timestamp)
-   → Tokens issued at initialIssuance rate per unit of base currency
-   → Issuance decays by issuanceCutPercent every issuanceCutFrequency
-   → splitPercent of new tokens go to reserved splits
-   → Cash outs taxed at cashOutTaxRate (2.5% fee to fee revnet)
-   |
-3. Stage transitions happen automatically
-   → When startsAtOrAfter timestamp is reached for next stage
-   → New issuance rate, tax rate, splits, etc. take effect
-   → No governance, no votes, no owner action required
-   |
-4. Participants can borrow against their tokens
-   → REVLoans.borrowFrom(revnetId, source, collateral, ...)
-   → Collateral tokens are burned, funds pulled from treasury
-   → Loan is an ERC-721 NFT, liquidates after 10 years
-   |
-5. Ongoing operations (permissionless or split operator)
-   → Auto-issuance claims (permissionless)
-   → Buyback pool configuration (split operator)
-   → Sucker deployment (split operator, if ruleset allows)
-   → Split group updates (split operator)
-```
+Use this repo when the product is an autonomous treasury-backed network with encoded stage transitions. Do not use it when governance, mutable operator control, or simple project deployment is the goal.
 
-### Token-Collateralized Loans
+The key point is that a Revnet is not just "a Juicebox project with presets." It is a project shape whose admin surface is intentionally collapsed into deployment-time configuration plus constrained runtime operators.
 
-`REVLoans` lets participants borrow against their revnet tokens. Unlike traditional lending:
+## Key Contracts
 
-- **Collateral is burned, not held.** Tokens are destroyed on borrow and re-minted on repay. This keeps the token supply accurate -- collateral tokens don't exist during the loan. Callers must first grant `BURN_TOKENS` permission to the loans contract via `JBPermissions.setPermissionsFor()`.
-- **Borrowable amount = cash-out value.** The bonding curve determines how much you can borrow for a given amount of collateral.
-- **Prepaid fee model.** Borrowers choose a prepaid fee (2.5%-50%) that buys an interest-free window. After that window, a time-proportional source fee accrues.
-- **Each loan is an ERC-721 NFT.** Loans can be transferred, and expired loans (10 years) can be liquidated by anyone.
+| Contract | Role |
+| --- | --- |
+| `REVDeployer` | Launches and configures Revnets, stages, split operators, and optional auxiliary features. |
+| `REVOwner` | Runtime data-hook and cash-out-hook surface used by active Revnets. |
+| `REVLoans` | Loan surface that lets users borrow against Revnet tokens with burned collateral and NFT loan positions. |
 
-#### Loan Flow
+## Mental Model
 
-```mermaid
-sequenceDiagram
-    participant Borrower
-    participant REVLoans
-    participant JBController
-    participant JBMultiTerminal
-    participant Beneficiary
+Read the package in two halves:
 
-    Note over Borrower,Beneficiary: Borrow
-    Borrower->>REVLoans: borrowFrom(revnetId, source, collateral, ...)
-    REVLoans->>JBController: burnTokensOf(borrower, collateral)
-    REVLoans->>JBMultiTerminal: useAllowanceOf(revnetId, borrowAmount)
-    JBMultiTerminal-->>REVLoans: net funds (minus protocol fee)
-    REVLoans-->>Beneficiary: borrowed funds (minus prepaid fee)
-    REVLoans-->>Borrower: mint loan ERC-721 NFT
+1. deployment-time shape: `REVDeployer` decides what the network will be allowed to do
+2. runtime enforcement: `REVOwner` and `REVLoans` decide how that shape behaves over time
 
-    Note over Borrower,Beneficiary: Repay
-    Borrower->>REVLoans: repayLoan(loanId, collateralToReturn, ...)
-    REVLoans->>REVLoans: burn loan ERC-721 NFT
-    REVLoans->>JBMultiTerminal: addToBalanceOf(revnetId, repayAmount)
-    REVLoans->>JBController: mintTokensOf(beneficiary, collateral)
-    Note right of Beneficiary: Collateral tokens re-minted
-```
+That split matters because most mistakes are one of these:
 
-### Deployer Variants
+- assuming a deploy-time parameter can be changed later
+- assuming a runtime hook is only advisory rather than economically binding
 
-Every revnet gets a tiered ERC-721 hook deployed automatically — even if no tiers are configured at launch. This lets the split operator add and sell NFTs later without migration.
+The shortest useful reading order is:
 
-- **Basic revnet** -- `deployFor` with stage configurations mapped to Juicebox rulesets and an empty 721 hook. Choose this when the revnet only needs fungible token issuance and the split operator may optionally add NFT tiers later.
-- **Tiered 721 revnet** -- `deployFor` adds a tiered 721 pay hook with pre-configured tiers that mint NFTs as people pay. Choose this when the revnet should sell specific NFT tiers from day one, such as membership passes or limited editions.
-- **Croptop revnet** -- A tiered 721 revnet with Croptop posting criteria, allowing the public to post content. Choose this when the revnet should function as an open publishing platform where anyone can submit content that gets minted as NFTs according to the configured posting rules.
+1. `REVDeployer`
+2. `REVOwner`
+3. `REVLoans`
+4. any integrated hook or bridge repo the deployment enables
 
-## Architecture
+## Read These Files First
 
-| Contract | Description |
-|----------|-------------|
-| `REVDeployer` | Deploys revnets as Juicebox projects owned by the deployer contract itself (no human owner). Translates stage configurations into Juicebox rulesets, manages buyback hooks, suckers, split operators, auto-issuance, and configuration state storage. Handles deployment, configuration, and split operator management. Calls DEPLOYER-restricted setters on REVOwner during deployment to store `cashOutDelayOf` and `tiered721HookOf`. |
-| `REVOwner` | Runtime hook contract for all revnets. Implements `IJBRulesetDataHook` and `IJBCashOutHook`. Set as the `dataHook` in each revnet's ruleset metadata. Handles `beforePayRecordedWith`, `beforeCashOutRecordedWith`, `afterCashOutRecordedWith`, `hasMintPermissionFor`, and sucker verification. When 721 tier splits are active, adjusts the payment weight so the terminal only mints tokens proportional to the amount entering the project treasury (the split portion is forwarded separately). Stores `cashOutDelayOf` and `tiered721HookOf` mappings (set by REVDeployer via DEPLOYER-restricted setters `setCashOutDelayOf()` and `setTiered721HookOf()`). |
-| `REVLoans` | Lets participants borrow against their revnet tokens. Collateral tokens are burned on borrow and re-minted on repayment. Each loan is an ERC-721 NFT. Charges a prepaid fee (2.5% min, 50% max) that determines the interest-free duration; after that window, a time-proportional source fee accrues. Loans liquidate after 10 years. |
+1. `src/REVDeployer.sol`
+2. `src/REVOwner.sol`
+3. `src/REVLoans.sol`
+4. the integrated hook or bridge repo used by the deployment
 
-### How They Relate
+## Integration Traps
 
-`REVDeployer` owns every revnet's Juicebox project NFT and holds all administrative permissions. `REVOwner` is set as the `dataHook` for every revnet's rulesets, handling all runtime hook behavior (pay hooks, cash-out hooks, mint permissions) and storing `cashOutDelayOf` and `tiered721HookOf` per revnet (set by REVDeployer via DEPLOYER-restricted setters during deployment). Deploy order: REVOwner first, then REVDeployer(owner=REVOwner) -- the constructor calls `REVOwner.setDeployer()` atomically. Both contracts share immutables: `BUYBACK_HOOK`, `DIRECTORY`, `FEE_REVNET_ID`, `SUCKER_REGISTRY`, `LOANS`. During deployment, REVDeployer grants `REVLoans` the `USE_ALLOWANCE` permission so loans can pull funds from the revnet's terminal. `REVLoans` imports `IREVOwner` (not `IREVDeployer`) for `cashOutDelayOf` calls and verifies that a revnet was deployed by its expected `REVDeployer` before issuing any loan.
+- the deployer holding the project NFT is not an implementation detail; it is part of the ownership model
+- split operators are constrained, not equivalent to general protocol governance
+- the loan system depends on live revnet economics, so it should be reviewed together with the runtime hook and treasury assumptions
+- optional integrations like buybacks, 721 hooks, and suckers are compositional, but they materially change the resulting network
 
-### Interfaces
+## Where State Lives
 
-| Interface | Description |
-|-----------|-------------|
-| `IREVDeployer` | Deployment, auto-issuance, split operator management, sucker deployment, configuration state storage, `OWNER()` view, plus events. |
-| `IREVOwner` | Exposes `cashOutDelayOf` view. Used by REVLoans to read cash-out delay. |
-| `IREVLoans` | Borrow, repay, refinance, liquidate, views, plus events. |
+- deployment-time configuration and operator envelope live in `REVDeployer`
+- runtime pay and cash-out behavior live in `REVOwner`
+- loan positions and loan-specific state live in `REVLoans`
+
+Do not audit those contracts in isolation if the deployment enables cross-package features; the composed network is the real product.
 
 ## Install
 
@@ -112,109 +76,46 @@ Every revnet gets a tiered ERC-721 hook deployed automatically — even if no ti
 npm install @rev-net/core-v6
 ```
 
-If using Forge directly:
+## Development
 
 ```bash
-npm install && forge install
+npm install
+forge build
+forge test
 ```
 
-If `forge install` has issues, try `git submodule update --init --recursive`.
+Useful scripts:
 
-## Develop
+- `npm run deploy:mainnets`
+- `npm run deploy:testnets`
+- `npm run deploy:mainnets:1_1`
+- `npm run deploy:testnets:1_1`
 
-| Command | Description |
-|---------|-------------|
-| `forge build` | Compile contracts |
-| `forge test` | Run tests (55 test files covering deployment, lifecycle, loans, attacks, invariants, fork tests, regressions) |
-| `forge test -vvvv` | Run tests with full traces |
+## Deployment Notes
+
+Revnet deployment assumes the core protocol, 721 hook, buyback hook, router terminal, suckers, and Croptop packages are available. Every Revnet is intentionally unowned after deployment in the human sense; the deployer contract itself retains the project NFT.
 
 ## Repository Layout
 
-```
+```text
 src/
-  REVDeployer.sol                                # Revnet deployer + configuration + state storage
-  REVOwner.sol                                   # Runtime data hook + cash-out hook (~310 lines)
-  REVLoans.sol                                   # Token-collateralized lending (~1,391 lines)
+  REVDeployer.sol
+  REVOwner.sol
+  REVLoans.sol
   interfaces/
-    IREVDeployer.sol                             # Deployer interface + events
-    IREVOwner.sol                                # Owner interface (cashOutDelayOf view)
-    IREVLoans.sol                                # Loans interface + events
   structs/
-    REVConfig.sol                                # Top-level deployment config
-    REVDescription.sol                           # ERC-20 metadata (name, ticker, uri, salt)
-    REVStageConfig.sol                           # Economic stage parameters
-    REVAutoIssuance.sol                          # Per-stage cross-chain premint
-    REVLoan.sol                                  # Loan state
-    REVLoanSource.sol                            # Terminal + token pair for loans
-    REVBaseline721HookConfig.sol                 # 721 hook config (omits issueTokensForSplits)
-    REV721TiersHookFlags.sol                     # 721 hook flags for revnets (no issueTokensForSplits)
-    REVDeploy721TiersHookConfig.sol              # 721 hook deployment config wrapper
-    REVCroptopAllowedPost.sol                    # Croptop posting criteria
-    REVSuckerDeploymentConfig.sol                # Cross-chain sucker deployment
 test/
-  REV.integrations.t.sol                         # Deployment, payments, cash-outs
-  REVLifecycle.t.sol                             # Stage transitions, weight decay
-  REVAutoIssuanceFuzz.t.sol                      # Auto-issuance fuzz tests
-  REVInvincibility.t.sol                         # Economic property fuzzing
-  REVInvincibilityHandler.sol                    # Fuzz handler
-  REVDeployerRegressions.t.sol                   # Deployer regressions
-  REVLoansSourced.t.sol                          # Multi-source loan tests
-  REVLoansUnSourced.t.sol                        # Loan error cases
-  REVLoansFeeRecovery.t.sol                      # Fee calculation tests
-  REVLoansAttacks.t.sol                          # Flash loan, reentrancy scenarios
-  REVLoans.invariants.t.sol                      # Loan fuzzing invariants
-  REVLoansRegressions.t.sol                      # Loan regressions
-  helpers/
-    MaliciousContracts.sol                       # Attack contract mocks
-  mock/
-    MockBuybackDataHook.sol                      # Mock for buyback hook tests
+  lifecycle, deployment, loan, fork, invariant, audit, and regression coverage
 script/
-  Deploy.s.sol                                   # Sphinx multi-chain deployment
+  Deploy.s.sol
   helpers/
-    RevnetCoreDeploymentLib.sol                  # Deployment artifact reader
 ```
 
-## Permissions
+## Risks And Notes
 
-### Split Operator (per-revnet)
+- Revnets are intentionally hard to change after launch, so bad stage design is expensive
+- `REVLoans` relies on live treasury conditions and is therefore sensitive to surplus and pricing assumptions
+- the deployer and runtime hook have a tight relationship that should be treated as one design, not two independent contracts
+- burned-collateral lending is operationally different from escrowed-collateral lending and needs clear integrator expectations
 
-The split operator has these default permissions:
-
-| Permission | Purpose |
-|------------|---------|
-| `SET_SPLIT_GROUPS` | Change reserved token splits |
-| `SET_BUYBACK_POOL` | Configure Uniswap buyback pool |
-| `SET_BUYBACK_TWAP` | Adjust TWAP window for buyback |
-| `SET_PROJECT_URI` | Update project metadata |
-| `ADD_PRICE_FEED` | Add price oracle |
-| `SUCKER_SAFETY` | Emergency sucker functions |
-| `SET_BUYBACK_HOOK` | Swap buyback hook |
-| `SET_ROUTER_TERMINAL` | Swap terminal |
-| `SET_TOKEN_METADATA` | Update token name and symbol |
-
-Plus optional from 721 hook config: `ADJUST_721_TIERS`, `SET_721_METADATA`, `MINT_721`, `SET_721_DISCOUNT_PERCENT`.
-
-### Global Permissions
-
-| Grantee | Permission | Scope |
-|---------|------------|-------|
-| `SUCKER_REGISTRY` | `MAP_SUCKER_TOKEN` | All revnets (wildcard projectId=0) |
-| `REVLoans` | `USE_ALLOWANCE` | All revnets (wildcard projectId=0) |
-
-### Permissionless Operations
-
-- `autoIssueFor` -- claim auto-issuance tokens (anyone)
-- `burnHeldTokensOf` -- burn reserved tokens held by deployer (anyone)
-
-## Risks
-
-- **No human owner.** `REVDeployer` permanently holds the project NFT. There is no function to release it. This is by design -- revnets are ownerless. But it means bugs in stage configurations cannot be fixed after deployment.
-- **REVOwner circular dependency.** REVOwner and REVDeployer have a circular dependency broken by `setDeployer()`, called atomically from REVDeployer's constructor. `REVOwner.DEPLOYER` is a storage variable (not immutable). `setDeployer()` sets `msg.sender` as `DEPLOYER` and reverts if already set. If `setDeployer()` is never called, the DEPLOYER-restricted setters (`setCashOutDelayOf`, `setTiered721HookOf`) cannot be called correctly, and all runtime hook behavior breaks.
-- **Loan flash-loan exposure.** `borrowableAmountFrom` reads live surplus, which can be inflated via flash loans. A borrower could temporarily inflate the treasury to borrow more than the sustained value would support.
-- **uint112 truncation.** `REVLoan.amount` and `REVLoan.collateral` are `uint112` -- values above ~5.19e33 truncate silently.
-- **Cash-out fee stacking.** Cash outs incur both the Juicebox terminal fee (2.5%) and the revnet cash-out fee (2.5% to fee revnet). These compound.
-- **Auto-issuance stage IDs.** Stage IDs are `block.timestamp + i` during deployment. These match the Juicebox ruleset IDs because `JBRulesets` assigns IDs the same way (`latestId >= block.timestamp ? latestId + 1 : block.timestamp`), producing identical sequential IDs when all stages are queued in a single `deployFor()` call.
-- **NATIVE_TOKEN on non-ETH chains.** Using `JBConstants.NATIVE_TOKEN` on Celo or Polygon means CELO/MATIC, not ETH. Use ERC-20 WETH instead. The matching hash does NOT catch this -- it covers economic parameters but NOT terminal configurations.
-- **30-day cash-out delay.** When deploying an existing revnet to a new chain where the first stage has already started, a 30-day delay is imposed before cash outs are allowed, preventing cross-chain liquidity arbitrage.
-- **Loan source array growth.** `_loanSourcesOf[revnetId]` is unbounded. If an attacker creates loans from many different terminals/tokens, the array grows without limit.
-- **10-year loan liquidation.** Expired loans (10+ years) can be liquidated by anyone. The burned collateral is permanently lost -- it was destroyed at borrow time.
+The usual review failure mode is to focus on the loans or the stages in isolation. The real system is the combination of stage economics, runtime hook behavior, and who is still allowed to act after deployment.

@@ -1,10 +1,22 @@
-# revnet-core-v6 -- Active Risk Vectors
+# Revnet Core Risk Register
 
-Forward-looking risk assessment for auditors. Covers trust assumptions, economic risks, loan system risks, data hook proxy concerns, access control, DoS vectors, and invariants.
+This file focuses on the risks created by autonomous treasury-backed projects with staged economics, composable hooks, cross-chain wiring, and token-collateralized loans.
 
 Read [ARCHITECTURE.md](./ARCHITECTURE.md) and [SKILLS.md](./SKILLS.md) for protocol context first.
 
----
+## How to use this file
+
+- Read `Priority risks` first; they capture the highest-impact ways a revnet can misprice, misroute, or mis-govern itself.
+- Use the detailed sections for economics, loans, data-hook proxying, and liveness reasoning.
+- Treat `Accepted Behaviors` and `Invariants to Verify` as the operating contract for revnet deployments.
+
+## Priority risks
+
+| Priority | Risk | Why it matters | Primary controls |
+|----------|------|----------------|------------------|
+| P0 | Loan mispricing from bad surplus or configuration | `REVLoans` depends on correct surplus, fee, and deployer-owned configuration; bad inputs can enable over-borrowing. | Surplus and price checks, deployer verification, and loan-specific invariant coverage. |
+| P0 | Deployer or data-hook proxy blast radius | `REVDeployer` sits in the pay and cash-out path for all revnets it launched. A bug here affects every attached project. | High-scrutiny review, composition testing, and cautious shared-deployer usage. |
+| P1 | Stage or split misconfiguration becomes permanent | Revnets are intentionally autonomous and hard to govern after launch; bad initial economics are difficult or impossible to fix. | Strong pre-launch review, deployment runbooks, and config simulation before production. |
 
 ## 1. Trust Assumptions
 
@@ -40,7 +52,7 @@ Read [ARCHITECTURE.md](./ARCHITECTURE.md) and [SKILLS.md](./SKILLS.md) for proto
 
 - **`cashOutTaxRate` increase destroys loan health.** Active loans use the CURRENT stage's `cashOutTaxRate`. When a stage transition increases this rate, existing loans become under-collateralized -- the collateral's cash-out value drops but the loan amount remains unchanged. No forced repayment or margin call mechanism exists. Over 10 years with multiple stage transitions, this compounds.
 - **`cashOutTaxRate` decrease creates refinancing opportunity.** When a new stage lowers the tax rate, existing collateral becomes worth more. Borrowers can `reallocateCollateralFromLoan` to extract the surplus value. This creates a predictable, front-runnable event at every stage boundary.
-- **Weight decay approaching zero over long periods.** With `issuanceCutPercent > 0` and `issuanceCutFrequency > 0`, issuance weight decays exponentially. After 10+ years, new payments mint negligibly few tokens, meaning the token supply effectively freezes. This concentrates cash-out value among existing holders and makes the bonding curve increasingly sensitive to individual cash-outs. Verify the weight cache mechanism (`updateRulesetWeightCache`) handles the 20,000-iteration threshold correctly when many cycles have elapsed.
+- **Weight decay approaching zero over long periods.** With `issuanceCutPercent > 0` and `issuanceCutFrequency > 0`, issuance weight decays exponentially through successive rulesets. After long enough, new payments mint negligibly few tokens, meaning the token supply effectively freezes. This concentrates cash-out value among existing holders and makes the bonding curve increasingly sensitive to individual cash-outs. The current repo models decay through ruleset duration and `weightCutPercent`, so validation should focus on long-horizon ruleset progression and issuance-decay tests rather than any separate weight-cache updater.
 - **Duration=0 stages never auto-expire.** A stage with `duration=0` (no issuance cut frequency) persists until explicitly replaced by a subsequent stage's `startsAtOrAfter`. If the next stage's `startsAtOrAfter` is far in the future, the current stage runs indefinitely at its configured parameters.
 
 ### Cross-currency reclaim calculations

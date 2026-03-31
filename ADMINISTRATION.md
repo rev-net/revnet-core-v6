@@ -2,6 +2,33 @@
 
 Admin privileges and their scope in revnet-core-v6. Revnets are designed to be autonomous Juicebox projects with no traditional owner. This document covers what privileged operations exist, who can perform them, and -- critically -- what is intentionally made impossible.
 
+## At A Glance
+
+| Item | Details |
+|------|---------|
+| Scope | Autonomous revnet deployment, split-operator powers, loan metadata ownership, and the boundaries imposed by revnet immutability. |
+| Operators | The per-revnet split operator, the global `REVLoans` owner for metadata cosmetics, the protocol-owned `REVDeployer`, loan NFT holders, and permissionless callers for open lifecycle actions. |
+| Highest-risk actions | Converting an existing project into a revnet, changing or burning the split operator, and configuring buyback, router, price-feed, or sucker permissions inside the narrow allowed operator surface. |
+| Recovery posture | Revnet economics are intentionally not admin-recoverable. A bad deployment generally means abandoning the revnet and deploying a new one. |
+
+## Routine Operations
+
+- Use the split operator only for the limited post-launch surfaces the protocol deliberately leaves mutable: reserved-token split routing, selected hook metadata, router selection, and related operator-scoped settings.
+- Keep `REVLoans` owner actions limited to URI resolver maintenance; that role should never be treated as an economic admin.
+- Treat `deploySuckersFor`, buyback configuration, and router-terminal changes as operational extensions around a fixed revnet, not as tools to rewrite the revnet's stage economics.
+- If autonomy is the goal, consider relinquishing the split operator to `address(0)` only after all intended mutable integrations are finalized.
+
+## One-Way Or High-Risk Actions
+
+- Deploying a revnet or converting an existing project into one is irreversible from an ownership and stage-design perspective.
+- Setting the split operator to `address(0)` permanently burns the human-controlled role.
+- Stage schedules, issuance curves, cash-out tax rates, and core economic parameters are fixed at deployment.
+
+## Recovery Notes
+
+- There is no admin escape hatch for broken revnet stage design. The recovery path is a new revnet deployment with corrected parameters.
+- If an auxiliary integration such as a buyback hook or sucker is wrong but the split operator still has the relevant scoped power, fix that integration without expecting to change the underlying revnet economics.
+
 ## Roles
 
 ### Split Operator
