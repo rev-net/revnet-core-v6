@@ -759,6 +759,11 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         // Make sure only the loan's owner can manage it.
         if (_ownerOf(loanId) != _msgSender()) revert REVLoans_Unauthorized(_msgSender(), _ownerOf(loanId));
 
+        // Make sure the loan hasn't expired.
+        if (block.timestamp - _loanOf[loanId].createdAt > LOAN_LIQUIDATION_DURATION) {
+            revert REVLoans_LoanExpired(block.timestamp - _loanOf[loanId].createdAt, LOAN_LIQUIDATION_DURATION);
+        }
+
         // Make sure the new loan's source matches the existing loan's source to prevent cross-source value extraction.
         {
             REVLoanSource storage existingSource = _loanOf[loanId].source;

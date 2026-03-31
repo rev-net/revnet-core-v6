@@ -321,8 +321,9 @@ This is a standard Juicebox payment, but REVOwner intervenes as the data hook.
 **What happens:**
 
 1. **Authorization:** `_ownerOf(loanId) == _msgSender()`
-2. **Source match:** New loan source must match existing loan source (prevents cross-source value extraction)
-3. **`_reallocateCollateralFromLoan`:**
+2. **Expiry check:** If the loan has expired (`block.timestamp - createdAt > LOAN_LIQUIDATION_DURATION`), reverts with `REVLoans_LoanExpired`. Expired loans can only be liquidated, not reallocated.
+3. **Source match:** New loan source must match existing loan source (prevents cross-source value extraction)
+4. **`_reallocateCollateralFromLoan`:**
    - Burns original loan NFT
    - Validates `collateralCountToTransfer <= loan.collateral`
    - Computes `newCollateralCount = loan.collateral - collateralCountToTransfer`
@@ -332,8 +333,8 @@ This is a standard Juicebox payment, but REVOwner intervenes as the data hook.
    - Calls `_adjust` to reduce collateral (returns excess tokens to caller via `_returnCollateralFrom`)
    - Mints replacement loan NFT to caller
    - Deletes original loan data
-4. **`borrowFrom`:** Opens a new loan with `collateralCountToTransfer + collateralCountToAdd` as collateral
-   - The `collateralCountToTransfer` tokens were just re-minted to the caller in step 3
+5. **`borrowFrom`:** Opens a new loan with `collateralCountToTransfer + collateralCountToAdd` as collateral
+   - The `collateralCountToTransfer` tokens were just re-minted to the caller in step 4
    - The `collateralCountToAdd` tokens come from the caller's existing balance
    - Both are burned as collateral for the new loan
 
