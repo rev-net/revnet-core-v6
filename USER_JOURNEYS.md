@@ -32,7 +32,18 @@
 
 **Failure cases that matter:** assuming a stage parameter is mutable when it is fixed at launch, misreading delayed cash-out behavior, and forgetting that optional integrations materially change the participant experience.
 
-## Journey 3: Borrow Against Revnet Tokens Instead Of Selling Them
+## Journey 3: Claim Stage-Based Auto-Issuance When It Becomes Available
+
+**Starting state:** the Revnet was deployed with auto-issuance allocations for one or more beneficiaries.
+
+**Success:** the beneficiary claims the right amount for the right stage only after that stage is actually live.
+
+**Flow**
+1. Check `amountToAutoIssue(...)` for the revnet, stage, and beneficiary.
+2. Call `autoIssueFor(...)` only once the target stage has started.
+3. The stored allocation is consumed so the same stage allocation cannot be claimed twice.
+
+## Journey 4: Borrow Against Revnet Tokens Instead Of Selling Them
 
 **Starting state:** a holder wants liquidity but does not want to exit the Revnet position.
 
@@ -44,7 +55,7 @@
 3. Loan terms depend on the live Revnet economics rather than a static side system.
 4. The borrower can later repay, transfer the loan NFT, or face liquidation if conditions require it.
 
-## Journey 4: Repay, Transfer, Or Liquidate A Loan Position
+## Journey 5: Repay, Transfer, Or Liquidate A Loan Position
 
 **Starting state:** a loan already exists and either the borrower or another actor needs to change its state.
 
@@ -57,7 +68,7 @@
 
 **Edge conditions that change user experience:** cross-ruleset loan behavior, zero-amount or zero-price edge cases, and sourced versus unsourced loan paths.
 
-## Journey 5: Operate Inside The Bounded Post-Launch Control Envelope
+## Journey 6: Operate Inside The Bounded Post-Launch Control Envelope
 
 **Starting state:** the Revnet is live and an operator wants to use whatever ongoing controls the deployment allowed.
 
