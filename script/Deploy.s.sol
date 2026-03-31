@@ -398,7 +398,8 @@ contract DeployScript is Script, Sphinx {
                     _singletonsExist = true;
 
                     // Also predict and verify the owner.
-                    (_existingOwnerAddr,) = _isDeployed({
+                    bool _ownerDeployed;
+                    (_existingOwnerAddr, _ownerDeployed) = _isDeployed({
                         salt: REVOWNER_SALT,
                         creationCode: type(REVOwner).creationCode,
                         arguments: abi.encode(
@@ -411,7 +412,8 @@ contract DeployScript is Script, Sphinx {
                     });
 
                     // Also predict and verify the deployer.
-                    (_existingDeployerAddr,) = _isDeployed({
+                    bool _deployerDeployed;
+                    (_existingDeployerAddr, _deployerDeployed) = _isDeployed({
                         salt: DEPLOYER_SALT,
                         creationCode: type(REVDeployer).creationCode,
                         arguments: abi.encode(
@@ -426,6 +428,9 @@ contract DeployScript is Script, Sphinx {
                             _existingOwnerAddr
                         )
                     });
+
+                    // If either singleton is missing, we cannot reuse the set.
+                    if (!_ownerDeployed || !_deployerDeployed) _singletonsExist = false;
                     // Stop searching — we found the deployed singletons.
                     break;
                 }
