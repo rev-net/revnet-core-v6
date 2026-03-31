@@ -41,6 +41,7 @@ import {IJBBuybackHookRegistry} from "@bananapus/buyback-hook-v6/src/interfaces/
 // forge-lint: disable-next-line(unused-import)
 import {IJBPayHook} from "@bananapus/core-v6/src/interfaces/IJBPayHook.sol";
 import {JB721TierConfig} from "@bananapus/721-hook-v6/src/structs/JB721TierConfig.sol";
+import {JB721TierConfigFlags} from "@bananapus/721-hook-v6/src/structs/JB721TierConfigFlags.sol";
 import {JB721InitTiersConfig} from "@bananapus/721-hook-v6/src/structs/JB721InitTiersConfig.sol";
 import {IJB721TokenUriResolver} from "@bananapus/721-hook-v6/src/interfaces/IJB721TokenUriResolver.sol";
 import {REVDeploy721TiersHookConfig} from "../../src/structs/REVDeploy721TiersHookConfig.sol";
@@ -428,13 +429,15 @@ abstract contract ForkTestBase is TestBaseWorkflow {
             encodedIPFSUri: bytes32("tier1"),
             category: 1,
             discountPercent: 0,
-            allowOwnerMint: false,
-            useReserveBeneficiaryAsDefault: false,
-            transfersPausable: false,
-            useVotingUnits: false,
-            cantBeRemoved: false,
-            cantIncreaseDiscountPercent: false,
-            cantBuyWithCredits: false,
+            flags: JB721TierConfigFlags({
+                allowOwnerMint: false,
+                useReserveBeneficiaryAsDefault: false,
+                transfersPausable: false,
+                useVotingUnits: false,
+                cantBeRemoved: false,
+                cantIncreaseDiscountPercent: false,
+                cantBuyWithCredits: false
+            }),
             splitPercent: SPLIT_PERCENT,
             splits: tierSplits
         });
