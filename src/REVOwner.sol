@@ -65,6 +65,9 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
     /// @notice Deploys and tracks suckers for revnets.
     IJBSuckerRegistry public immutable SUCKER_REGISTRY;
 
+    /// @notice The address allowed to bind the canonical deployer exactly once.
+    address public immutable INITIALIZER;
+
     //*********************************************************************//
     // --------------------- public stored properties -------------------- //
     //*********************************************************************//
@@ -103,6 +106,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
         DIRECTORY = directory;
         FEE_REVNET_ID = feeRevnetId;
         SUCKER_REGISTRY = suckerRegistry;
+        INITIALIZER = msg.sender;
         // slither-disable-next-line missing-zero-check
         LOANS = loans;
     }
@@ -335,8 +339,9 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
             minReturnedTokens: 0,
             memo: "",
             metadata: bytes(abi.encodePacked(context.projectId))
-        }) {}
-        catch (bytes memory) {
+        }) {
+            _afterTransferTo({to: address(feeTerminal), token: context.forwardedAmount.token});
+        } catch (bytes memory) {
             // Decrease the allowance for the fee terminal if the token is not the native token.
             if (context.forwardedAmount.token != JBConstants.NATIVE_TOKEN) {
                 IERC20(context.forwardedAmount.token)
@@ -359,14 +364,18 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
                 memo: "",
                 metadata: bytes(abi.encodePacked(FEE_REVNET_ID))
             });
+            _afterTransferTo({to: msg.sender, token: context.forwardedAmount.token});
         }
     }
 
-    /// @notice Set the caller as this contract's deployer.
-    /// @dev Called by the REVDeployer's constructor. Reverts if a deployer is already set.
-    function setDeployer() external {
+    /// @notice Bind the canonical deployer address exactly once.
+    /// @dev The deployer address is precomputed and supplied by the account that created this REVOwner instance.
+    /// This avoids a public ambient initializer where any first caller could seize the deployer role before the
+    /// deterministic REVDeployer is actually deployed.
+    function setDeployer(IREVDeployer deployer) external {
+        if (msg.sender != INITIALIZER) revert REVOwner_Unauthorized();
         if (address(DEPLOYER) != address(0)) revert REVOwner_AlreadyInitialized();
-        DEPLOYER = IREVDeployer(msg.sender);
+        DEPLOYER = deployer;
     }
 
     /// @notice Store the cash out delay for a revnet.
@@ -425,5 +434,11 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
         if (token == JBConstants.NATIVE_TOKEN) return amount;
         IERC20(token).safeIncreaseAllowance({spender: to, value: amount});
         return 0;
+    }
+
+    /// @notice Clears any token allowance granted by `_beforeTransferTo`.
+    function _afterTransferTo(address to, address token) internal {
+        if (token == JBConstants.NATIVE_TOKEN) return;
+        IERC20(token).forceApprove({spender: to, value: 0});
     }
 }

@@ -569,6 +569,8 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow {
             address(REV_OWNER)
         );
 
+        REV_OWNER.setDeployer(REV_DEPLOYER);
+
         // Approve the basic deployer to configure the project.
         vm.prank(address(multisig()));
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);

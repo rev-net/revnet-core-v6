@@ -104,7 +104,7 @@ Use this file when you need revnet-specific risks, state reads, constants, or ex
 
 | Mapping | Visibility | Type | Purpose |
 |---------|-----------|------|---------|
-| `DEPLOYER` | `public` | `address` | REVDeployer address (storage variable, set once via `setDeployer()` called from REVDeployer's constructor) |
+| `DEPLOYER` | `public` | `address` | REVDeployer address (storage variable, set once by the REVOwner initializer using the precomputed canonical deployer address) |
 | `cashOutDelayOf` | `public` | `revnetId => uint256` | Timestamp when cash outs unlock (0 = no delay). Set by REVDeployer via `setCashOutDelayOf()`. |
 | `tiered721HookOf` | `public` | `revnetId => address` | Deployed 721 hook address (if any). Set by REVDeployer via `setTiered721HookOf()`. |
 
@@ -142,7 +142,7 @@ Use this file when you need revnet-specific risks, state reads, constants, or ex
 18. **Permit2 fallback.** `REVLoans` uses permit2 for ERC-20 transfers as a fallback when standard allowance is insufficient. Wrapped in try-catch.
 19. **39.16% cash-out tax crossover.** Below ~39% cash-out tax, cashing out is more capital-efficient than borrowing. Above ~39%, loans become more efficient because they preserve upside while providing liquidity. Based on CryptoEconLab academic research. Design implication: revnets intended for active token trading should consider this threshold when setting `cashOutTaxRate`.
 20. **REVDeployer always deploys a 721 hook** via `HOOK_DEPLOYER.deployHookFor` — even if `baseline721HookConfiguration` has empty tiers. This is correct by design: it lets the split operator add and sell NFTs later without migration. Non-revnet projects should follow the same pattern by using `JB721TiersHookProjectDeployer.launchProjectFor` (or `JBOmnichainDeployer.launchProjectFor`) instead of bare `launchProjectFor`.
-21. **REVOwner circular dependency.** REVOwner and REVDeployer have a circular dependency broken by `setDeployer()`, called atomically from REVDeployer's constructor. `REVOwner.DEPLOYER` is a storage variable (not immutable). `setDeployer()` sets `msg.sender` as `DEPLOYER` if not already set -- reverts if already set. If `setDeployer()` is never called, all runtime hook behavior breaks. Deploy order: REVOwner first, then REVDeployer(owner=REVOwner) -- the constructor calls `REVOwner.setDeployer()` atomically. REVOwner stores `cashOutDelayOf` and `tiered721HookOf` mappings, which are set by REVDeployer via DEPLOYER-restricted setters (`setCashOutDelayOf()`, `setTiered721HookOf()`).
+21. **REVOwner deployer binding is precomputed.** REVOwner records the account that created it as `INITIALIZER`. That initializer must call `setDeployer(precomputedRevDeployerAddress)` exactly once before the canonical REVDeployer is deployed. This avoids an ambient public initializer while keeping the circular dependency manageable. If `setDeployer(...)` is never called, all DEPLOYER-gated runtime configuration breaks.
 
 ### NATIVE_TOKEN Accounting on Non-ETH Chains
 

@@ -368,8 +368,9 @@ contract DeployScript is Script, Sphinx {
         uint256 _nextProjectId = core.projects.count() + 1;
 
         // Try to find an existing deployment by checking all project IDs that have already been created.
-        // Whether previously deployed singletons were found.
-        bool _singletonsExist;
+        bool _revloansExists;
+        bool _revOwnerExists;
+        bool _revDeployerExists;
         // The address of the previously deployed REVLoans, if found.
         address _existingRevloansAddr;
         // The address of the previously deployed REVOwner, if found.
@@ -394,12 +395,10 @@ contract DeployScript is Script, Sphinx {
                     FEE_PROJECT_ID = _candidateId;
                     // Record the existing REVLoans address.
                     _existingRevloansAddr = _candidateRevloansAddr;
-                    // Flag that singletons were found.
-                    _singletonsExist = true;
+                    _revloansExists = true;
 
                     // Also predict and verify the owner.
-                    bool _ownerDeployed;
-                    (_existingOwnerAddr, _ownerDeployed) = _isDeployed({
+                    (_existingOwnerAddr, _revOwnerExists) = _isDeployed({
                         salt: REVOWNER_SALT,
                         creationCode: type(REVOwner).creationCode,
                         arguments: abi.encode(
@@ -412,8 +411,7 @@ contract DeployScript is Script, Sphinx {
                     });
 
                     // Also predict and verify the deployer.
-                    bool _deployerDeployed;
-                    (_existingDeployerAddr, _deployerDeployed) = _isDeployed({
+                    (_existingDeployerAddr, _revDeployerExists) = _isDeployed({
                         salt: DEPLOYER_SALT,
                         creationCode: type(REVDeployer).creationCode,
                         arguments: abi.encode(
@@ -429,16 +427,14 @@ contract DeployScript is Script, Sphinx {
                         )
                     });
 
-                    // If either singleton is missing, we cannot reuse the set.
-                    if (!_ownerDeployed || !_deployerDeployed) _singletonsExist = false;
                     // Stop searching — we found the deployed singletons.
                     break;
                 }
             }
         }
 
-        // Only create a new fee project if no singletons were found.
-        if (!_singletonsExist) {
+        // Only create a new fee project if no singleton state was found.
+        if (!_revloansExists) {
             // Check if safeAddress() already owns a blank project (from a previous interrupted run).
             bool _foundExisting;
             for (uint256 i = _nextProjectId - 1; i >= 1; i--) {
@@ -457,7 +453,7 @@ contract DeployScript is Script, Sphinx {
         }
 
         // Deploy REVLoans first — it only depends on the controller.
-        REVLoans revloans = _singletonsExist
+        REVLoans revloans = _revloansExists
             ? REVLoans(payable(_existingRevloansAddr))
             : new REVLoans{salt: REVLOANS_SALT}({
                 controller: core.controller,
@@ -469,7 +465,7 @@ contract DeployScript is Script, Sphinx {
             });
 
         // Deploy REVOwner — the runtime data hook that handles pay and cash out callbacks.
-        REVOwner revOwner = _singletonsExist
+        REVOwner revOwner = _revOwnerExists
             ? REVOwner(_existingOwnerAddr)
             : new REVOwner{salt: REVOWNER_SALT}({
                 buybackHook: IJBBuybackHookRegistry(address(buybackHook.registry)),
@@ -480,21 +476,26 @@ contract DeployScript is Script, Sphinx {
             });
 
         // Deploy REVDeployer with the REVLoans, buyback hook, and REVOwner addresses.
-        (address _deployerAddr, bool _deployerIsDeployed) = _isDeployed({
-            salt: DEPLOYER_SALT,
-            creationCode: type(REVDeployer).creationCode,
-            arguments: abi.encode(
-                core.controller,
-                suckers.registry,
-                FEE_PROJECT_ID,
-                hook.hook_deployer,
-                croptop.publisher,
-                IJBBuybackHookRegistry(address(buybackHook.registry)),
-                address(revloans),
-                TRUSTED_FORWARDER,
-                address(revOwner)
-            )
-        });
+        (address _deployerAddr, bool _deployerIsDeployed) = _revDeployerExists
+            ? (_existingDeployerAddr, true)
+            : _isDeployed({
+                salt: DEPLOYER_SALT,
+                creationCode: type(REVDeployer).creationCode,
+                arguments: abi.encode(
+                    core.controller,
+                    suckers.registry,
+                    FEE_PROJECT_ID,
+                    hook.hook_deployer,
+                    croptop.publisher,
+                    IJBBuybackHookRegistry(address(buybackHook.registry)),
+                    address(revloans),
+                    TRUSTED_FORWARDER,
+                    address(revOwner)
+                )
+            });
+        if (address(revOwner.DEPLOYER()) == address(0)) {
+            revOwner.setDeployer(IREVDeployer(_deployerAddr));
+        }
         REVDeployer _basicDeployer = _deployerIsDeployed
             ? REVDeployer(payable(_deployerAddr))
             : new REVDeployer{salt: DEPLOYER_SALT}({
