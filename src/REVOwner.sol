@@ -65,9 +65,6 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
     /// @notice Deploys and tracks suckers for revnets.
     IJBSuckerRegistry public immutable SUCKER_REGISTRY;
 
-    /// @notice The account allowed to bind the canonical deployer exactly once.
-    address private immutable _deployerBinder;
-
     //*********************************************************************//
     // --------------------- public stored properties -------------------- //
     //*********************************************************************//
@@ -85,6 +82,13 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
     /// @notice The deployer that manages revnet state.
     /// @dev Set once via `setDeployer()` using the precomputed canonical REVDeployer address.
     IREVDeployer public DEPLOYER;
+
+    //*********************************************************************//
+    // -------------------- private stored properties -------------------- //
+    //*********************************************************************//
+
+    /// @notice The account allowed to bind the canonical deployer exactly once.
+    address private immutable _DEPLOYER_BINDER;
 
     //*********************************************************************//
     // -------------------------- constructor ---------------------------- //
@@ -106,7 +110,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
         DIRECTORY = directory;
         FEE_REVNET_ID = feeRevnetId;
         SUCKER_REGISTRY = suckerRegistry;
-        _deployerBinder = msg.sender;
+        _DEPLOYER_BINDER = msg.sender;
         // slither-disable-next-line missing-zero-check
         LOANS = loans;
     }
@@ -372,9 +376,13 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
     /// @dev The deployer address is precomputed and supplied by the account that created this REVOwner instance.
     /// Only that deploy-time binder may call this, which avoids an ambient public initializer where any first caller
     /// could seize the deployer role before the deterministic REVDeployer is actually deployed.
+    /// @param deployer The canonical REVDeployer instance that will manage revnet runtime state.
     function setDeployer(IREVDeployer deployer) external {
-        if (msg.sender != _deployerBinder) revert REVOwner_Unauthorized();
+        // Only the account that deployed this REVOwner may complete the one-time deployer binding.
+        if (msg.sender != _DEPLOYER_BINDER) revert REVOwner_Unauthorized();
+        // Prevent the deployer binding from being overwritten after initialization.
         if (address(DEPLOYER) != address(0)) revert REVOwner_AlreadyInitialized();
+        // Store the canonical REVDeployer that is authorized to manage runtime hook state.
         DEPLOYER = deployer;
     }
 
