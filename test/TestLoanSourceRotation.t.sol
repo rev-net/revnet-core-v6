@@ -135,6 +135,8 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
             address(REV_OWNER)
         );
 
+        REV_OWNER.setDeployer(REV_DEPLOYER);
+
         vm.prank(multisig());
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);
 

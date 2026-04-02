@@ -177,6 +177,8 @@ contract TestConversionDocumentation is TestBaseWorkflow {
             address(REV_OWNER)
         );
 
+        REV_OWNER.setDeployer(REV_DEPLOYER);
+
         // Deploy fee project as revnet.
         vm.prank(multisig());
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);

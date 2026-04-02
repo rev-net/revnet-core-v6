@@ -271,6 +271,8 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
             address(REV_OWNER)
         );
 
+        REV_OWNER.setDeployer(REV_DEPLOYER);
+
         // Deploy fee project
         vm.prank(multisig());
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);
@@ -1052,6 +1054,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
             TRUSTED_FORWARDER,
             address(REV_OWNER)
         );
+        REV_OWNER.setDeployer(REV_DEPLOYER);
 
         // Deploy fee project
         {

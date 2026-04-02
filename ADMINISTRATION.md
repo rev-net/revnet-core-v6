@@ -174,7 +174,7 @@ The following parameters are set at deployment and can never be changed:
 - `SUCKER_REGISTRY` -- the sucker registry (shared immutable)
 - `LOANS` -- the loans contract address (shared immutable)
 - `FEE` -- the cash-out fee constant (2.5%)
-- `DEPLOYER` -- the REVDeployer address (storage variable, set once via `setDeployer()` called from REVDeployer's constructor)
+- `DEPLOYER` -- the REVDeployer address (storage variable, set once by the REVOwner initializer account using the precomputed canonical deployer address)
 
 ### REVLoans (global, set at contract deployment)
 - `CONTROLLER`, `DIRECTORY`, `PRICES`, `PROJECTS` -- protocol infrastructure
