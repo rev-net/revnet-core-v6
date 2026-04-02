@@ -65,8 +65,8 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
     /// @notice Deploys and tracks suckers for revnets.
     IJBSuckerRegistry public immutable SUCKER_REGISTRY;
 
-    /// @notice The address allowed to bind the canonical deployer exactly once.
-    address public immutable INITIALIZER;
+    /// @notice The account allowed to bind the canonical deployer exactly once.
+    address private immutable _deployerBinder;
 
     //*********************************************************************//
     // --------------------- public stored properties -------------------- //
@@ -83,7 +83,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
     mapping(uint256 revnetId => IJB721TiersHook tiered721Hook) public tiered721HookOf;
 
     /// @notice The deployer that manages revnet state.
-    /// @dev Set once via `setDeployer()` from the REVDeployer's constructor. Reverts if called again.
+    /// @dev Set once via `setDeployer()` using the precomputed canonical REVDeployer address.
     IREVDeployer public DEPLOYER;
 
     //*********************************************************************//
@@ -106,7 +106,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
         DIRECTORY = directory;
         FEE_REVNET_ID = feeRevnetId;
         SUCKER_REGISTRY = suckerRegistry;
-        INITIALIZER = msg.sender;
+        _deployerBinder = msg.sender;
         // slither-disable-next-line missing-zero-check
         LOANS = loans;
     }
@@ -370,10 +370,10 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
 
     /// @notice Bind the canonical deployer address exactly once.
     /// @dev The deployer address is precomputed and supplied by the account that created this REVOwner instance.
-    /// This avoids a public ambient initializer where any first caller could seize the deployer role before the
-    /// deterministic REVDeployer is actually deployed.
+    /// Only that deploy-time binder may call this, which avoids an ambient public initializer where any first caller
+    /// could seize the deployer role before the deterministic REVDeployer is actually deployed.
     function setDeployer(IREVDeployer deployer) external {
-        if (msg.sender != INITIALIZER) revert REVOwner_Unauthorized();
+        if (msg.sender != _deployerBinder) revert REVOwner_Unauthorized();
         if (address(DEPLOYER) != address(0)) revert REVOwner_AlreadyInitialized();
         DEPLOYER = deployer;
     }
