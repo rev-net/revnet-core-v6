@@ -110,9 +110,9 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
         DIRECTORY = directory;
         FEE_REVNET_ID = feeRevnetId;
         SUCKER_REGISTRY = suckerRegistry;
-        _DEPLOYER_BINDER = msg.sender;
         // slither-disable-next-line missing-zero-check
         LOANS = loans;
+        _DEPLOYER_BINDER = msg.sender;
     }
 
     //*********************************************************************//

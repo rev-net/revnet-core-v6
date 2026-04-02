@@ -1030,7 +1030,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// are deploying to a new chain.
     /// @param revnetId The ID of the revnet to set the cash out delay for.
     /// @param firstStageConfig The revnet's first stage.
-    // slither-disable-next-line reentrancy-events
     function _setCashOutDelayIfNeeded(uint256 revnetId, REVStageConfig calldata firstStageConfig) internal {
         // If this is the first revnet being deployed (with a `startsAtOrAfter` of 0),
         // or if the first stage hasn't started yet, we don't need to set a cash out delay.
