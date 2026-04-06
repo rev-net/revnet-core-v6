@@ -410,6 +410,8 @@ contract REVLoansAttacks is TestBaseWorkflow {
             address(REV_OWNER)
         );
 
+        REV_OWNER.setDeployer(REV_DEPLOYER);
+
         // Deploy fee project
         vm.prank(address(multisig()));
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);

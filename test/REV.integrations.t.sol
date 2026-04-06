@@ -241,6 +241,8 @@ contract REVnet_Integrations is TestBaseWorkflow {
             address(revOwner)
         );
 
+        revOwner.setDeployer(REV_DEPLOYER);
+
         // Deploy the ARB sucker deployer.
         JBArbitrumSuckerDeployer _deployer =
             new JBArbitrumSuckerDeployer(jbDirectory(), jbPermissions(), jbTokens(), address(this), address(0));
