@@ -275,8 +275,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     {
         // Count the total number of accounting contexts across all terminals.
         uint256 count;
-        for (uint256 i; i < terminalConfigurations.length; i++) {
+        for (uint256 i; i < terminalConfigurations.length;) {
             count += terminalConfigurations[i].accountingContextsToAccept.length;
+            unchecked {
+                ++i;
+            }
         }
 
         // Initialize the fund access limit groups.
@@ -284,9 +287,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
 
         // Set up the fund access limits.
         uint256 index;
-        for (uint256 i; i < terminalConfigurations.length; i++) {
+        for (uint256 i; i < terminalConfigurations.length;) {
             JBTerminalConfig calldata terminalConfiguration = terminalConfigurations[i];
-            for (uint256 j; j < terminalConfiguration.accountingContextsToAccept.length; j++) {
+            for (uint256 j; j < terminalConfiguration.accountingContextsToAccept.length;) {
                 JBAccountingContext calldata accountingContext = terminalConfiguration.accountingContextsToAccept[j];
 
                 // Set up an unlimited allowance for the loan contract to use.
@@ -300,6 +303,12 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
                     payoutLimits: new JBCurrencyAmount[](0),
                     surplusAllowances: loanAllowances
                 });
+                unchecked {
+                    ++j;
+                }
+            }
+            unchecked {
+                ++i;
             }
         }
     }
@@ -378,8 +387,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         allOperatorPermissions[8] = JBPermissionIds.SET_TOKEN_METADATA;
 
         // Copy the custom permissions into the array.
-        for (uint256 i; i < customSplitOperatorPermissionIndexes.length; i++) {
+        for (uint256 i; i < customSplitOperatorPermissionIndexes.length;) {
             allOperatorPermissions[9 + i] = customSplitOperatorPermissionIndexes[i];
+            unchecked {
+                ++i;
+            }
         }
     }
 
@@ -722,7 +734,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             CTAllowedPost[] memory formattedAllowedPosts = new CTAllowedPost[](allowedPosts.length);
 
             // Iterate through each post to add it to the formatted list.
-            for (uint256 i; i < allowedPosts.length; i++) {
+            for (uint256 i; i < allowedPosts.length;) {
                 // Set the post being iterated on.
                 REVCroptopAllowedPost memory post = allowedPosts[i];
 
@@ -736,6 +748,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
                     maximumSplitPercent: post.maximumSplitPercent,
                     allowedAddresses: post.allowedAddresses
                 });
+                unchecked {
+                    ++i;
+                }
             }
 
             // Set up the allowed posts in the publisher.
@@ -830,15 +845,21 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         });
 
         // Now that the ERC-20 exists, initialize buyback pools for each terminal token.
-        for (uint256 i; i < terminalConfigurations.length; i++) {
+        for (uint256 i; i < terminalConfigurations.length;) {
             JBTerminalConfig calldata terminalConfiguration = terminalConfigurations[i];
-            for (uint256 j; j < terminalConfiguration.accountingContextsToAccept.length; j++) {
+            for (uint256 j; j < terminalConfiguration.accountingContextsToAccept.length;) {
                 // slither-disable-next-line calls-loop
                 _tryInitializeBuybackPoolFor({
                     revnetId: revnetId,
                     terminalToken: terminalConfiguration.accountingContextsToAccept[j].token,
                     initialIssuance: configuration.stageConfigurations[0].initialIssuance
                 });
+                unchecked {
+                    ++j;
+                }
+            }
+            unchecked {
+                ++i;
             }
         }
 
@@ -937,7 +958,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             _makeLoanFundAccessLimits({terminalConfigurations: terminalConfigurations});
 
         // Iterate through each stage to set up its ruleset.
-        for (uint256 i; i < configuration.stageConfigurations.length; i++) {
+        for (uint256 i; i < configuration.stageConfigurations.length;) {
             // Set the stage being iterated on.
             REVStageConfig calldata stageConfiguration = configuration.stageConfigurations[i];
 
@@ -1019,6 +1040,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
                 // slither-disable-next-line reentrancy-benign
                 amountToAutoIssue[revnetId][block.timestamp + i][autoIssuance.beneficiary] += autoIssuance.count;
             }
+            unchecked {
+                ++i;
+            }
         }
 
         // Hash the encoded configuration.
@@ -1089,8 +1113,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         uint256[] memory permissionIndexes = _splitOperatorPermissionIndexesOf(revnetId);
         uint8[] memory permissionIds = new uint8[](permissionIndexes.length);
 
-        for (uint256 i; i < permissionIndexes.length; i++) {
+        for (uint256 i; i < permissionIndexes.length;) {
             permissionIds[i] = uint8(permissionIndexes[i]);
+            unchecked {
+                ++i;
+            }
         }
 
         _setPermissionsFor({
