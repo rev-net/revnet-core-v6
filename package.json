@@ -1,6 +1,6 @@
 {
     "name": "@rev-net/core-v6",
-    "version": "0.0.27",
+    "version": "0.0.28",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -32,6 +32,7 @@
         "@uniswap/v4-periphery": "^1.0.3"
     },
     "devDependencies": {
+        "@bananapus/address-registry-v6": "^0.0.17",
         "@sphinx-labs/plugins": "^0.33.2"
     }
 }
