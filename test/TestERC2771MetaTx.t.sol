@@ -401,7 +401,8 @@ contract TestERC2771MetaTx is TestBaseWorkflow {
             0, // minBorrowAmount
             tokenCount,
             payable(signerAddr),
-            uint256(25) // MIN_PREPAID_FEE_PERCENT
+            uint256(25), // MIN_PREPAID_FEE_PERCENT
+            signerAddr // holder
         );
 
         // Build the forwarded request signed by the signer.
@@ -449,7 +450,7 @@ contract TestERC2771MetaTx is TestBaseWorkflow {
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 
         vm.prank(signerAddr);
-        (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(signerAddr), 25);
+        (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(signerAddr), 25, signerAddr);
 
         REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
         assertTrue(loan.amount > 0, "Loan should exist");

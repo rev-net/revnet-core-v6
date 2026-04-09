@@ -284,7 +284,7 @@ contract TestCEIPattern is TestBaseWorkflow {
         );
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
         vm.prank(user);
-        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee);
+        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee, user);
     }
 
     /// @notice After borrowing, loan.amount and loan.collateral are set correctly (CEI: state written before external
@@ -348,7 +348,7 @@ contract TestCEIPattern is TestBaseWorkflow {
             );
             REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
             vm.prank(USER);
-            LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens2, payable(USER), 25);
+            LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens2, payable(USER), 25, USER);
         }
 
         // Total collateral should equal sum of both loans' collateral
@@ -390,7 +390,7 @@ contract TestCEIPattern is TestBaseWorkflow {
 
         // Borrow with attacker as beneficiary — attacker's receive() will fire when ETH arrives.
         vm.prank(address(attacker));
-        (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(address(attacker)), 25);
+        (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(address(attacker)), 25, address(attacker));
 
         assertEq(loanId, expectedLoanId, "LoanId should match pre-computed value");
 
@@ -473,7 +473,7 @@ contract TestCEIPattern is TestBaseWorkflow {
             REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 
             vm.prank(USER);
-            (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(USER), 25);
+            (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(USER), 25, USER);
 
             REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
 

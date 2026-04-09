@@ -389,7 +389,7 @@ contract TestLowFindings is TestBaseWorkflow {
         uint256 minPrepaid = LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT();
 
         vm.prank(USER);
-        (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(revnetId, source, loanable, tokens, payable(USER), minPrepaid);
+        (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(revnetId, source, loanable, tokens, payable(USER), minPrepaid, USER);
 
         REVLoan memory loanBefore = LOANS_CONTRACT.loanOf(loanId);
         assertGt(loanBefore.amount, 0, "Loan should have an amount");
@@ -436,7 +436,7 @@ contract TestLowFindings is TestBaseWorkflow {
         uint256 minPrepaid = LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT();
 
         vm.prank(USER);
-        (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(revnetId, source, loanable, tokens, payable(USER), minPrepaid);
+        (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(revnetId, source, loanable, tokens, payable(USER), minPrepaid, USER);
 
         REVLoan memory loanBefore = LOANS_CONTRACT.loanOf(loanId);
         assertGt(loanBefore.amount, 0, "Loan should exist before liquidation");
@@ -480,7 +480,7 @@ contract TestLowFindings is TestBaseWorkflow {
         uint256 minPrepaid = LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT();
 
         vm.prank(USER);
-        (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(revnetId, source, loanable, tokens, payable(USER), minPrepaid);
+        (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(revnetId, source, loanable, tokens, payable(USER), minPrepaid, USER);
 
         REVLoan memory loanBefore = LOANS_CONTRACT.loanOf(loanId);
         assertGt(loanBefore.collateral, 1, "Need >1 collateral for partial return");
@@ -537,7 +537,7 @@ contract TestLowFindings is TestBaseWorkflow {
         uint256 minPrepaid = LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT();
 
         vm.prank(USER);
-        (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(revnetId, source, loanable, tokens, payable(USER), minPrepaid);
+        (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(revnetId, source, loanable, tokens, payable(USER), minPrepaid, USER);
 
         REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
 
@@ -588,7 +588,7 @@ contract TestLowFindings is TestBaseWorkflow {
 
         // Borrow the full max against all tokens.
         vm.prank(USER);
-        (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(revnetId, source, loanable, tokens, payable(USER), minPrepaid);
+        (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(revnetId, source, loanable, tokens, payable(USER), minPrepaid, USER);
 
         REVLoan memory loanBefore = LOANS_CONTRACT.loanOf(loanId);
         assertGt(loanBefore.collateral, 0, "Loan should have collateral");
@@ -657,6 +657,6 @@ contract TestLowFindings is TestBaseWorkflow {
         // Attempt to borrow with 1 wei of collateral -- bonding curve returns 0, should revert.
         vm.prank(USER);
         vm.expectRevert(REVLoans.REVLoans_ZeroBorrowAmount.selector);
-        LOANS_CONTRACT.borrowFrom(revnetId, source, 0, 1, payable(USER), minPrepaid);
+        LOANS_CONTRACT.borrowFrom(revnetId, source, 0, 1, payable(USER), minPrepaid, USER);
     }
 }

@@ -163,7 +163,7 @@ contract TestHiddenTokens is TestBaseWorkflow {
         // Hide half the tokens.
         uint256 hideCount = userTokens / 2;
         vm.prank(USER);
-        HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hideCount);
+        HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hideCount, USER);
 
         uint256 totalSupplyAfter = jbController().TOKENS().totalSupplyOf(REVNET_ID);
         assertEq(totalSupplyAfter, totalSupplyBefore - hideCount, "Total supply should decrease by hidden amount");
@@ -193,11 +193,11 @@ contract TestHiddenTokens is TestBaseWorkflow {
         // Hide tokens.
         uint256 hideCount = userTokensBefore / 2;
         vm.prank(USER);
-        HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hideCount);
+        HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hideCount, USER);
 
         // Reveal tokens to beneficiary.
         vm.prank(USER);
-        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hideCount, BENEFICIARY);
+        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hideCount, BENEFICIARY, USER);
 
         uint256 totalSupplyAfter = jbController().TOKENS().totalSupplyOf(REVNET_ID);
         assertEq(totalSupplyAfter, totalSupplyBefore, "Total supply should be restored");
@@ -229,7 +229,7 @@ contract TestHiddenTokens is TestBaseWorkflow {
 
         // Hide some tokens.
         vm.prank(USER);
-        HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hideCount);
+        HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hideCount, USER);
 
         // Try to reveal more than hidden — should revert.
         vm.prank(USER);
@@ -238,7 +238,7 @@ contract TestHiddenTokens is TestBaseWorkflow {
                 REVHiddenTokens.REVHiddenTokens_InsufficientHiddenBalance.selector, hideCount, hideCount + 1
             )
         );
-        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hideCount + 1, USER);
+        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hideCount + 1, USER, USER);
     }
 
     // ──────────────────── Test: Hidden tokens inflate cash out rate ────────────────────
@@ -262,7 +262,7 @@ contract TestHiddenTokens is TestBaseWorkflow {
         // Hide half the user's tokens.
         uint256 hideCount = userTokens / 2;
         vm.prank(USER);
-        HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hideCount);
+        HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hideCount, USER);
 
         // The remaining tokens now represent a larger share of totalSupply.
         uint256 totalSupply = jbController().TOKENS().totalSupplyOf(REVNET_ID);
@@ -290,8 +290,8 @@ contract TestHiddenTokens is TestBaseWorkflow {
 
         vm.prank(USER);
         vm.expectEmit(true, false, false, true);
-        emit IREVHiddenTokens.HideTokens(REVNET_ID, userTokens, USER);
-        HIDDEN_TOKENS.hideTokensOf(REVNET_ID, userTokens);
+        emit IREVHiddenTokens.HideTokens(REVNET_ID, userTokens, USER, USER);
+        HIDDEN_TOKENS.hideTokensOf(REVNET_ID, userTokens, USER);
     }
 
     function test_revealTokens_emitsEvent() public {
@@ -310,12 +310,12 @@ contract TestHiddenTokens is TestBaseWorkflow {
         uint256 userTokens = jbController().TOKENS().totalBalanceOf(USER, REVNET_ID);
 
         vm.prank(USER);
-        HIDDEN_TOKENS.hideTokensOf(REVNET_ID, userTokens);
+        HIDDEN_TOKENS.hideTokensOf(REVNET_ID, userTokens, USER);
 
         vm.prank(USER);
         vm.expectEmit(true, false, false, true);
-        emit IREVHiddenTokens.RevealTokens(REVNET_ID, userTokens, BENEFICIARY, USER);
-        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, userTokens, BENEFICIARY);
+        emit IREVHiddenTokens.RevealTokens(REVNET_ID, userTokens, BENEFICIARY, USER, USER);
+        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, userTokens, BENEFICIARY, USER);
     }
 
     // ──────────────────── Internal helpers ────────────────────

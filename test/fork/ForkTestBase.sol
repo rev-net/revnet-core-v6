@@ -708,7 +708,8 @@ abstract contract ForkTestBase is TestBaseWorkflow {
             minBorrowAmount: 0,
             collateralCount: collateral,
             beneficiary: payable(borrower),
-            prepaidFeePercent: prepaidFeePercent
+            prepaidFeePercent: prepaidFeePercent,
+            holder: borrower
         });
     }
 }

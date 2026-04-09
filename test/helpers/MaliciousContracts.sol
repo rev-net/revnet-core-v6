@@ -162,7 +162,7 @@ contract SurplusInflator is ERC165, IJBPayoutTerminal {
             shouldInflate = false;
             // Try to borrow at the inflated surplus
             REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: realTerminal});
-            try loans.borrowFrom(revnetId, source, 0, 1e18, payable(address(this)), 25) {} catch {}
+            try loans.borrowFrom(revnetId, source, 0, 1e18, payable(address(this)), 25, address(this)) {} catch {}
         }
         return 0;
     }

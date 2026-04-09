@@ -272,7 +272,7 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
         );
 
         vm.prank(user);
-        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), 25);
+        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), 25, user);
     }
 
     //*********************************************************************//
@@ -324,7 +324,7 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
             );
 
             vm.prank(user2);
-            (uint256 loanId2,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, tokenSource, 0, user2Tokens, payable(user2), 25);
+            (uint256 loanId2,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, tokenSource, 0, user2Tokens, payable(user2), 25, user2);
             assertGt(loanId2, 0, "TOKEN loan should be created");
 
             // Both sources should now be registered.
@@ -416,7 +416,7 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
             );
 
             vm.prank(user2);
-            (uint256 loanId2,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, ethSource2, 0, user2Tokens, payable(user2), 25);
+            (uint256 loanId2,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, ethSource2, 0, user2Tokens, payable(user2), 25, user2);
             assertGt(loanId2, 0, "second loan should be created");
 
             // First loan should be unaffected.
@@ -531,7 +531,7 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
             );
 
             vm.prank(user2);
-            (uint256 loanId2,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, ethSource, 0, tokens, payable(user2), 25);
+            (uint256 loanId2,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, ethSource, 0, tokens, payable(user2), 25, user2);
             assertGt(loanId2, 0, "second loan should succeed");
 
             uint256 countAfterSecond = LOANS_CONTRACT.totalLoansBorrowedFor(REVNET_ID);

@@ -287,7 +287,8 @@ contract TestReallocationSandwich is TestBaseWorkflow {
             minBorrowAmount: 0,
             collateralCount: borrowerTokens,
             beneficiary: payable(BORROWER),
-            prepaidFeePercent: prepaidFeePercent
+            prepaidFeePercent: prepaidFeePercent,
+            holder: BORROWER
         });
 
         uint256 stage1BorrowedAmount = stage1Loan.amount;

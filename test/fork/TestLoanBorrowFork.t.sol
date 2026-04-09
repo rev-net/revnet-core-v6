@@ -97,7 +97,8 @@ contract TestLoanBorrowFork is ForkTestBase {
             minBorrowAmount: 0,
             collateralCount: borrowerTokens,
             beneficiary: payable(BORROWER),
-            prepaidFeePercent: prepaidFeePercent
+            prepaidFeePercent: prepaidFeePercent,
+            holder: BORROWER
         });
 
         uint256 borrowerReceived = BORROWER.balance - borrowerEthBefore;

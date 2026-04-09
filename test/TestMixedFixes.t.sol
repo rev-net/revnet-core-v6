@@ -246,7 +246,7 @@ contract TestMixedFixes is TestBaseWorkflow {
         );
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
         vm.prank(user);
-        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee);
+        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee, user);
     }
 
     /// @notice At exactly LOAN_LIQUIDATION_DURATION, determineSourceFeeAmount should revert with LoanExpired (>=
@@ -432,7 +432,7 @@ contract TestMixedFixes is TestBaseWorkflow {
         REVLoanSource memory ethSource = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
         vm.prank(USER);
         (uint256 loanId, REVLoan memory loan) =
-            LOANS_CONTRACT.borrowFrom(MIXED_REVNET_ID, ethSource, 0, tokenCount, payable(USER), 25);
+            LOANS_CONTRACT.borrowFrom(MIXED_REVNET_ID, ethSource, 0, tokenCount, payable(USER), 25, USER);
 
         // Verify loan created and TOKEN source has zero borrowed.
         assertTrue(loanId != 0, "ETH loan should be created");
@@ -482,7 +482,7 @@ contract TestMixedFixes is TestBaseWorkflow {
         REVLoanSource memory tokenSource = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
         vm.prank(USER);
         (uint256 loanId, REVLoan memory loan) =
-            LOANS_CONTRACT.borrowFrom(MIXED_REVNET_ID, tokenSource, 0, smallCollateral, payable(USER), 25);
+            LOANS_CONTRACT.borrowFrom(MIXED_REVNET_ID, tokenSource, 0, smallCollateral, payable(USER), 25, USER);
 
         assertTrue(loanId != 0, "TOKEN loan should be created");
         assertTrue(loan.amount > 0, "Loan amount should be nonzero");
@@ -538,7 +538,7 @@ contract TestMixedFixes is TestBaseWorkflow {
         REVLoanSource memory tokenSource = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
         vm.prank(USER);
         (uint256 tokenLoanId,) =
-            LOANS_CONTRACT.borrowFrom(MIXED_REVNET_ID, tokenSource, 0, smallCollateral, payable(USER), 25);
+            LOANS_CONTRACT.borrowFrom(MIXED_REVNET_ID, tokenSource, 0, smallCollateral, payable(USER), 25, USER);
         assertTrue(tokenLoanId != 0, "TOKEN loan should be created");
 
         // STEP 3: Pay ETH to create ETH surplus.
@@ -559,7 +559,7 @@ contract TestMixedFixes is TestBaseWorkflow {
         REVLoanSource memory ethSource = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
         vm.prank(USER);
         (uint256 ethLoanId,) =
-            LOANS_CONTRACT.borrowFrom(MIXED_REVNET_ID, ethSource, 0, ethCollateral, payable(USER), 25);
+            LOANS_CONTRACT.borrowFrom(MIXED_REVNET_ID, ethSource, 0, ethCollateral, payable(USER), 25, USER);
         assertTrue(ethLoanId != 0, "ETH loan should be created");
 
         // Both sources should have tracked borrows.

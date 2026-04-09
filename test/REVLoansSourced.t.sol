@@ -429,7 +429,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         REVLoanSource memory sauce = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
 
         vm.prank(USER);
-        (uint256 newLoanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), prepaidFee);
+        (uint256 newLoanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), prepaidFee, USER);
 
         REVLoan memory loan = LOANS_CONTRACT.loanOf(newLoanId);
         assertEq(loan.amount, loanable);
@@ -481,7 +481,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         REVLoanSource memory sauce = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
 
         vm.prank(USER);
-        (uint256 newLoanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), prepaidFee);
+        (uint256 newLoanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), prepaidFee, USER);
 
         REVLoan memory loan = LOANS_CONTRACT.loanOf(newLoanId);
         assertEq(loan.amount, loanable);
@@ -540,7 +540,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         uint256 balanceBeforeLoan = TOKEN.balanceOf(USER);
 
         // Create the new loan.
-        (uint256 newLoanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, loanable, tokens, payable(USER), prepaidFee);
+        (uint256 newLoanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, loanable, tokens, payable(USER), prepaidFee, USER);
         REVLoan memory loan = LOANS_CONTRACT.loanOf(newLoanId);
 
         // Check what amount we actually received.
@@ -611,7 +611,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         REVLoanSource memory sauce = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
 
         vm.prank(USER);
-        (uint256 newLoanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), prepaidFee);
+        (uint256 newLoanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), prepaidFee, USER);
 
         REVLoan memory loan = LOANS_CONTRACT.loanOf(newLoanId);
         assertEq(loan.amount, loanable);
@@ -816,7 +816,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         uint256 balanceBefore = USER.balance;
 
         vm.prank(USER);
-        (uint256 newLoanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 500);
+        (uint256 newLoanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 500, USER);
 
         REVLoan memory loan = LOANS_CONTRACT.loanOf(newLoanId);
         assertEq(loan.amount, loanable);
@@ -870,7 +870,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
 
             vm.prank(USER);
             (newLoanId,) =
-                LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), prepaidFeePercent);
+                LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), prepaidFeePercent, USER);
         }
 
         REVLoan memory loan = LOANS_CONTRACT.loanOf(newLoanId);
@@ -977,7 +977,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         REVLoanSource memory sauce = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 
         vm.prank(USER);
-        (uint256 newLoanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 500);
+        (uint256 newLoanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 500, USER);
 
         REVLoan memory loan = LOANS_CONTRACT.loanOf(newLoanId);
 
@@ -1059,7 +1059,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         REVLoanSource memory sauce = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 
         vm.prank(USER);
-        (uint256 newLoanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 500);
+        (uint256 newLoanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 500, USER);
 
         REVLoan memory loan = LOANS_CONTRACT.loanOf(newLoanId);
 
@@ -1122,7 +1122,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         REVLoanSource memory sauce = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 
         vm.prank(USER);
-        (uint256 newLoanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 500);
+        (uint256 newLoanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 500, USER);
 
         REVLoan memory loan = LOANS_CONTRACT.loanOf(newLoanId);
 
@@ -1252,7 +1252,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
                 revnetProjectId, JBConstants.NATIVE_TOKEN, paymentPerBorrow, USER, 0, "", ""
             );
 
-            (, REVLoan memory loan) = LOANS_CONTRACT.borrowFrom(revnetProjectId, source, 0, tokens, payable(USER), 500);
+            (, REVLoan memory loan) = LOANS_CONTRACT.borrowFrom(revnetProjectId, source, 0, tokens, payable(USER), 500, USER);
 
             if (i == 0) {
                 initialBorrow = loan.amount;
@@ -1337,7 +1337,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         uint256 balanceBefore = USER.balance;
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
         (uint256 newLoanId, REVLoan memory loan) =
-            LOANS_CONTRACT.borrowFrom(revnetProjectId, source, loanable, tokens, payable(USER), 500);
+            LOANS_CONTRACT.borrowFrom(revnetProjectId, source, loanable, tokens, payable(USER), 500, USER);
 
         // Ensure loans contract isn't hodling
         assertEq(address(LOANS_CONTRACT).balance, 0);
@@ -1396,7 +1396,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         REVLoanSource memory sauce = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 
         vm.prank(USER);
-        (uint256 newLoanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 500);
+        (uint256 newLoanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 500, USER);
 
         REVLoan memory loan = LOANS_CONTRACT.loanOf(newLoanId);
 
@@ -1481,7 +1481,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         REVLoanSource memory sauce = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 
         vm.prank(USER);
-        (uint256 newLoanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 500);
+        (uint256 newLoanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 500, USER);
 
         REVLoan memory loan = LOANS_CONTRACT.loanOf(newLoanId);
 
@@ -1554,7 +1554,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         assertEq(sources.length, 0);
 
         vm.prank(USER);
-        (, REVLoan memory loan) = LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 100);
+        (, REVLoan memory loan) = LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 100, USER);
 
         // Source should exist after a borrow
         REVLoanSource[] memory sourcesUpdated = LOANS_CONTRACT.loanSourcesOf(REVNET_ID);
@@ -1597,7 +1597,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         vm.expectRevert(
             abi.encodeWithSelector(REVLoans.REVLoans_InvalidPrepaidFeePercent.selector, feePercentage, 25, 500)
         );
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, 1, tokens, payable(USER), feePercentage);
+        LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, 1, tokens, payable(USER), feePercentage, USER);
     }
 
     function test_liquidateLoans() external {
@@ -1619,7 +1619,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
 
         vm.prank(USER);
         (uint256 loanId, REVLoan memory loan) =
-            LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 100);
+            LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 100, USER);
 
         // Take out another loan
         vm.prank(USER);
@@ -1637,7 +1637,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
 
         vm.prank(USER);
         (uint256 loanId2, REVLoan memory loan2) =
-            LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable2, tokens2, payable(USER), 50);
+            LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable2, tokens2, payable(USER), 50, USER);
 
         // Warp further than the loan liquidation duration.
         vm.warp(block.timestamp + 10_000 days);
@@ -1675,7 +1675,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
 
         vm.prank(USER);
         (uint256 loanId, REVLoan memory loan) =
-            LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 100);
+            LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 100, USER);
 
         // Attempt to liquidate before the loan is expired and loop will break
         LOANS_CONTRACT.liquidateExpiredLoansFrom(REVNET_ID, 0, 2);
@@ -1748,7 +1748,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         REVLoanSource memory sauce = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 
         vm.prank(USER);
-        (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 100);
+        (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 100, USER);
 
         // empty allowance data
         JBSingleAllowance memory allowance;
@@ -1778,7 +1778,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
 
         vm.prank(USER);
         (uint256 loanId, REVLoan memory loan) =
-            LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 100);
+            LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 100, USER);
 
         // empty allowance data
         JBSingleAllowance memory allowance;

@@ -350,7 +350,7 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
 
         // Borrow with minimum fee percent (25 = 2.5%).
         vm.prank(user);
-        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), 25);
+        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), 25, user);
     }
 
     /// @dev Computes the storage slot for totalLoansBorrowedFor[revnetId].
@@ -402,7 +402,7 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
 
         // Attempt to borrow -- should revert because the counter is at the limit.
         vm.prank(USER);
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(USER), 25);
+        LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(USER), 25, USER);
     }
 
     // ---------------------------------------------------------------

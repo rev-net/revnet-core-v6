@@ -373,7 +373,7 @@ contract REVLoansFindings is TestBaseWorkflow {
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 
         vm.prank(USER);
-        (loanId, loan) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, loanable, tokens, payable(USER), 25);
+        (loanId, loan) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, loanable, tokens, payable(USER), 25, USER);
     }
 
     //*********************************************************************//
@@ -412,7 +412,7 @@ contract REVLoansFindings is TestBaseWorkflow {
         );
 
         vm.prank(USER);
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, fakeSource, loanable, tokens, payable(USER), 25);
+        LOANS_CONTRACT.borrowFrom(REVNET_ID, fakeSource, loanable, tokens, payable(USER), 25, USER);
     }
 
     //*********************************************************************//

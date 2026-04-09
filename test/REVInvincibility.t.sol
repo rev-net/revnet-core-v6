@@ -330,7 +330,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 
         vm.prank(user);
-        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee);
+        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee, user);
     }
 
     // =====================================================================
@@ -789,7 +789,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
 
         if (borrowableA > 0) {
             vm.prank(userA);
-            LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokensA, payable(userA), 25);
+            LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokensA, payable(userA), 25, userA);
         }
 
         // UserB's tokens should still have proportional cash-out value

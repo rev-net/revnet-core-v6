@@ -219,6 +219,7 @@ interface IREVLoans {
     /// @param collateralCount The amount of tokens to use as collateral for the loan.
     /// @param beneficiary The address that will receive the borrowed funds and fee payment tokens.
     /// @param prepaidFeePercent The fee percent to charge upfront, in terms of `JBConstants.MAX_FEE`.
+    /// @param holder The address whose tokens are used as collateral and who receives the loan NFT.
     /// @return loanId The ID of the loan created from borrowing.
     /// @return The loan created from borrowing.
     function borrowFrom(
@@ -227,7 +228,8 @@ interface IREVLoans {
         uint256 minBorrowAmount,
         uint256 collateralCount,
         address payable beneficiary,
-        uint256 prepaidFeePercent
+        uint256 prepaidFeePercent,
+        address holder
     )
         external
         returns (uint256 loanId, REVLoan memory);

@@ -117,7 +117,7 @@ contract REVLoansCallHandler is JBTest {
 
         REVLoanSource memory sauce = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: TERMINAL});
         (, REVLoan memory lastLoan) =
-            LOANS.borrowFrom(REVNET_ID, sauce, borrowable, receivedTokens, payable(USER), prepaidFee);
+            LOANS.borrowFrom(REVNET_ID, sauce, borrowable, receivedTokens, payable(USER), prepaidFee, USER);
 
         COLLATERAL_SUM += receivedTokens;
         BORROWED_SUM += lastLoan.amount;

@@ -311,7 +311,7 @@ contract REVLoansSourceFeeRecovery is TestBaseWorkflow {
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 
         vm.prank(user);
-        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), 25);
+        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), 25, user);
     }
 
     // =========================================================================
@@ -496,7 +496,7 @@ contract REVLoansSourceFeeRecovery is TestBaseWorkflow {
 
         uint256 balBefore = USER.balance;
         vm.prank(USER);
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(USER), 25);
+        LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(USER), 25, USER);
 
         uint256 received = USER.balance - balBefore;
         assertGt(received, 0, "Borrower should receive ETH even when source fee terminal fails");

@@ -336,7 +336,7 @@ contract REVLoansRegressions is TestBaseWorkflow {
         );
 
         vm.prank(USER);
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, fakeSource, borrowable, tokens, payable(USER), 500);
+        LOANS_CONTRACT.borrowFrom(REVNET_ID, fakeSource, borrowable, tokens, payable(USER), 500, USER);
     }
 
     /// @notice Verify that the configured loan source (real terminal) is properly registered.

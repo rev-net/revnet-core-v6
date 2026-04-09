@@ -348,7 +348,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
             abi.encodeWithSelector(REVLoans.REVLoans_CashOutDelayNotFinished.selector, cashOutDelay, block.timestamp)
         );
         vm.prank(USER);
-        LOANS_CONTRACT.borrowFrom(DELAYED_REVNET_ID, source, 1, tokenCount, payable(USER), 25);
+        LOANS_CONTRACT.borrowFrom(DELAYED_REVNET_ID, source, 1, tokenCount, payable(USER), 25, USER);
     }
 
     /// @notice After warping past the delay, borrowableAmountFrom should return a non-zero value.
@@ -394,7 +394,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
         // Borrow — should succeed.
         vm.prank(USER);
         (uint256 loanId,) =
-            LOANS_CONTRACT.borrowFrom(DELAYED_REVNET_ID, source, borrowable, tokenCount, payable(USER), 25);
+            LOANS_CONTRACT.borrowFrom(DELAYED_REVNET_ID, source, borrowable, tokenCount, payable(USER), 25, USER);
         assertGt(loanId, 0, "Should have created a loan");
     }
 
@@ -432,7 +432,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
         // Borrow — should succeed without any delay.
         vm.prank(USER);
         (uint256 loanId,) =
-            LOANS_CONTRACT.borrowFrom(NORMAL_REVNET_ID, source, borrowable, tokenCount, payable(USER), 25);
+            LOANS_CONTRACT.borrowFrom(NORMAL_REVNET_ID, source, borrowable, tokenCount, payable(USER), 25, USER);
         assertGt(loanId, 0, "Should have created a loan");
     }
 
@@ -478,6 +478,6 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
             abi.encodeWithSelector(REVLoans.REVLoans_CashOutDelayNotFinished.selector, cashOutDelay, block.timestamp)
         );
         vm.prank(USER);
-        LOANS_CONTRACT.borrowFrom(DELAYED_REVNET_ID, source, 1, tokenCount, payable(USER), 25);
+        LOANS_CONTRACT.borrowFrom(DELAYED_REVNET_ID, source, 1, tokenCount, payable(USER), 25, USER);
     }
 }

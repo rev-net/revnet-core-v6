@@ -301,7 +301,7 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
         _mockBurnPermission();
         REVLoanSource memory ethSource = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
         vm.prank(USER);
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, ethSource, 0, ethCollateral, payable(USER), 25);
+        LOANS_CONTRACT.borrowFrom(REVNET_ID, ethSource, 0, ethCollateral, payable(USER), 25, USER);
 
         // Step 3: Fund the terminal with TOKEN and borrow from TOKEN source.
         uint256 tokenFunding = 1_000_000e6;
@@ -313,7 +313,7 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
         _mockBurnPermission();
         REVLoanSource memory tokenSource = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
         vm.prank(USER);
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, tokenSource, 0, tokenCollateral, payable(USER), 25);
+        LOANS_CONTRACT.borrowFrom(REVNET_ID, tokenSource, 0, tokenCollateral, payable(USER), 25, USER);
 
         // Verify both sources have nonzero totalBorrowedFrom.
         uint256 borrowedFromEth =
@@ -385,7 +385,7 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
         _mockBurnPermission();
         REVLoanSource memory ethSource = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
         vm.prank(USER);
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, ethSource, 0, revnetTokens / 2, payable(USER), 25);
+        LOANS_CONTRACT.borrowFrom(REVNET_ID, ethSource, 0, revnetTokens / 2, payable(USER), 25, USER);
 
         // Step 3: Get borrowable amount.
         vm.prank(USER);

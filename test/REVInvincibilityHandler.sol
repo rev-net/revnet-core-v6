@@ -145,7 +145,7 @@ contract REVInvincibilityHandler is JBTest {
 
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: TERMINAL});
         (, REVLoan memory loan) =
-            LOANS.borrowFrom(REVNET_ID, source, borrowable, receivedTokens, payable(USER), prepaidFee);
+            LOANS.borrowFrom(REVNET_ID, source, borrowable, receivedTokens, payable(USER), prepaidFee, USER);
 
         COLLATERAL_SUM += receivedTokens;
         BORROWED_SUM += loan.amount;

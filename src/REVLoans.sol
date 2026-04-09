@@ -4,10 +4,13 @@ pragma solidity 0.8.28;
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBPayoutTerminal} from "@bananapus/core-v6/src/interfaces/IJBPayoutTerminal.sol";
+import {IJBPermissioned} from "@bananapus/core-v6/src/interfaces/IJBPermissioned.sol";
+import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
 import {IJBPrices} from "@bananapus/core-v6/src/interfaces/IJBPrices.sol";
 import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
 import {IJBTerminal} from "@bananapus/core-v6/src/interfaces/IJBTerminal.sol";
 import {IJBTokenUriResolver} from "@bananapus/core-v6/src/interfaces/IJBTokenUriResolver.sol";
+import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {JBCashOuts} from "@bananapus/core-v6/src/libraries/JBCashOuts.sol";
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBFees} from "@bananapus/core-v6/src/libraries/JBFees.sol";
@@ -108,6 +111,9 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     // --------------- public immutable stored properties ---------------- //
     //*********************************************************************//
 
+    /// @notice The permissions contract used for operator delegation checks.
+    IJBPermissions public immutable PERMISSIONS;
+
     /// @notice The permit2 utility.
     IPermit2 public immutable override PERMIT2;
 
@@ -201,6 +207,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     {
         CONTROLLER = controller;
         DIRECTORY = controller.DIRECTORY();
+        PERMISSIONS = IJBPermissioned(address(controller)).PERMISSIONS();
         PRICES = controller.PRICES();
         PROJECTS = projects;
         REV_ID = revId;
@@ -648,12 +655,29 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         uint256 minBorrowAmount,
         uint256 collateralCount,
         address payable beneficiary,
-        uint256 prepaidFeePercent
+        uint256 prepaidFeePercent,
+        address holder
     )
         public
         override
         returns (uint256 loanId, REVLoan memory)
     {
+        // Only the holder or a permissioned operator can open a loan on the holder's behalf.
+        {
+            address sender = _msgSender();
+            if (
+                sender != holder
+                    && !PERMISSIONS.hasPermission({
+                        operator: sender,
+                        account: holder,
+                        projectId: revnetId,
+                        permissionId: JBPermissionIds.OPEN_LOAN,
+                        includeRoot: true,
+                        includeWildcardProjectId: true
+                    })
+            ) revert REVLoans_Unauthorized(sender, holder);
+        }
+
         // A loan needs to have collateral.
         if (collateralCount == 0) revert REVLoans_ZeroCollateralLoanIsInvalid();
 
@@ -722,14 +746,12 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
             newBorrowAmount: borrowAmount,
             newCollateralCount: collateralCount,
             sourceFeeAmount: sourceFeeAmount,
-            beneficiary: beneficiary
+            beneficiary: beneficiary,
+            holder: holder
         });
 
-        // Cache the sender to avoid repeated ERC2771 context reads.
-        address sender = _msgSender();
-
-        // Mint the loan.
-        _mint({to: sender, tokenId: loanId});
+        // Mint the loan NFT to the holder.
+        _mint({to: holder, tokenId: loanId});
 
         emit Borrow({
             loanId: loanId,
@@ -740,7 +762,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
             collateralCount: collateralCount,
             sourceFeeAmount: sourceFeeAmount,
             beneficiary: beneficiary,
-            caller: sender
+            caller: _msgSender()
         });
 
         return (loanId, loan);
@@ -839,11 +861,22 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         // Cache the sender to avoid repeated ERC2771 context reads.
         address sender = _msgSender();
 
-        // Make sure only the loan's owner can manage it.
-        {
-            address loanOwner = _ownerOf(loanId);
-            if (loanOwner != sender) revert REVLoans_Unauthorized(sender, loanOwner);
-        }
+        // Keep a reference to the revnet ID of the loan being reallocated.
+        uint256 revnetId = revnetIdOfLoanWith(loanId);
+
+        // Only the loan owner or a permissioned operator can reallocate.
+        address loanOwner = _ownerOf(loanId);
+        if (
+            loanOwner != sender
+                && !PERMISSIONS.hasPermission({
+                    operator: sender,
+                    account: loanOwner,
+                    projectId: revnetId,
+                    permissionId: JBPermissionIds.REALLOCATE_LOAN,
+                    includeRoot: true,
+                    includeWildcardProjectId: true
+                })
+        ) revert REVLoans_Unauthorized(sender, loanOwner);
 
         // Make sure the loan hasn't expired.
         if (block.timestamp - _loanOf[loanId].createdAt > LOAN_LIQUIDATION_DURATION) {
@@ -860,22 +893,21 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
 
         // Note: this function is not payable, so the EVM prevents sending ETH at the call level.
 
-        // Keep a reference to the revnet ID of the loan being reallocated.
-        uint256 revnetId = revnetIdOfLoanWith(loanId);
-
         // Refinance the loan.
         (reallocatedLoanId, reallocatedLoan) = _reallocateCollateralFromLoan({
-            loanId: loanId, revnetId: revnetId, collateralCountToRemove: collateralCountToTransfer
+            loanId: loanId, revnetId: revnetId, collateralCountToRemove: collateralCountToTransfer, loanOwner: loanOwner
         });
 
         // Make a new loan with the leftover collateral from reallocating.
+        // The loan owner is the holder for the new loan (their tokens are used as collateral).
         (newLoanId, newLoan) = borrowFrom({
             revnetId: revnetId,
             source: source,
             minBorrowAmount: minBorrowAmount,
             collateralCount: collateralCountToTransfer + collateralCountToAdd,
             beneficiary: beneficiary,
-            prepaidFeePercent: prepaidFeePercent
+            prepaidFeePercent: prepaidFeePercent,
+            holder: loanOwner
         });
     }
 
@@ -1054,13 +1086,13 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     /// loan is repaid. If the loan expires and is liquidated, the burned collateral is permanently lost.
     /// @param revnetId The ID of the revnet the loan is being added in.
     /// @param amount The new amount of collateral being added to the loan.
-    function _addCollateralTo(uint256 revnetId, uint256 amount) internal {
+    function _addCollateralTo(uint256 revnetId, uint256 amount, address holder) internal {
         // Increment the total amount of collateral tokens.
         totalCollateralOf[revnetId] += amount;
 
         // Permanently burn the tokens that are tracked as collateral. These are only re-minted upon repayment.
         CONTROLLER.burnTokensOf({
-            holder: _msgSender(), projectId: revnetId, tokenCount: amount, memo: "Adding collateral to loan"
+            holder: holder, projectId: revnetId, tokenCount: amount, memo: "Adding collateral to loan"
         });
     }
 
@@ -1177,13 +1209,15 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     /// @param newCollateralCount The new amount of collateral backing the loan.
     /// @param sourceFeeAmount The amount of the fee being taken from the revnet acting as the source of the loan.
     /// @param beneficiary The address receiving the returned collateral and any tokens resulting from paying fees.
+    /// @param holder The address whose tokens are used as collateral (burned).
     function _adjust(
         REVLoan storage loan,
         uint256 revnetId,
         uint256 newBorrowAmount,
         uint256 newCollateralCount,
         uint256 sourceFeeAmount,
-        address payable beneficiary
+        address payable beneficiary,
+        address holder
     )
         internal
     {
@@ -1227,7 +1261,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
 
         // Add collateral if needed...
         if (addedCollateralCount > 0) {
-            _addCollateralTo({revnetId: revnetId, amount: addedCollateralCount});
+            _addCollateralTo({revnetId: revnetId, amount: addedCollateralCount, holder: holder});
             // ... or return collateral if needed.
         } else if (returnedCollateralCount > 0) {
             _returnCollateralFrom({
@@ -1291,7 +1325,8 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     function _reallocateCollateralFromLoan(
         uint256 loanId,
         uint256 revnetId,
-        uint256 collateralCountToRemove
+        uint256 collateralCountToRemove,
+        address loanOwner
     )
         internal
         returns (uint256 reallocatedLoanId, REVLoan storage reallocatedLoan)
@@ -1340,12 +1375,13 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
             newBorrowAmount: reallocatedLoan.amount, // Don't change the borrow amount.
             newCollateralCount: newCollateralCount,
             sourceFeeAmount: 0,
-            beneficiary: payable(_msgSender()) // use the msgSender as the beneficiary, who will have the returned
+            beneficiary: payable(loanOwner), // Return collateral to the loan owner, who will have the returned
             // collateral tokens debited from their balance for the new loan.
+            holder: loanOwner // Only used if collateral is added (not the case here — collateral is being returned).
         });
 
-        // Mint the replacement loan.
-        _mint({to: _msgSender(), tokenId: reallocatedLoanId});
+        // Mint the replacement loan to the loan owner.
+        _mint({to: loanOwner, tokenId: reallocatedLoanId});
 
         // Clear stale loan data for gas refund.
         delete _loanOf[loanId];
@@ -1423,7 +1459,8 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
                 newBorrowAmount: 0,
                 newCollateralCount: 0,
                 sourceFeeAmount: sourceFeeAmount,
-                beneficiary: beneficiary
+                beneficiary: beneficiary,
+                holder: _msgSender() // Only used if collateral is added (not the case here — collateral is returned).
             });
 
             // Snapshot the zeroed loan for the return value (reflects post-repay state).
@@ -1476,7 +1513,8 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
                 newBorrowAmount: paidOffLoan.amount - (repayBorrowAmount - sourceFeeAmount),
                 newCollateralCount: paidOffLoan.collateral - collateralCountToReturn,
                 sourceFeeAmount: sourceFeeAmount,
-                beneficiary: beneficiary
+                beneficiary: beneficiary,
+                holder: _msgSender() // Only used if collateral is added (not the case here — collateral is returned).
             });
 
             emit RepayLoan({
