@@ -88,7 +88,7 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
     /// @param holder The address whose hidden balance to decrement.
     function revealTokensOf(uint256 revnetId, uint256 tokenCount, address beneficiary, address holder) external override {
         // Only the holder or a permissioned operator can reveal tokens.
-        _requirePermissionFrom(holder, revnetId, JBPermissionIds.HIDE_TOKENS);
+        _requirePermissionFrom(holder, revnetId, JBPermissionIds.REVEAL_TOKENS);
 
         uint256 hidden = hiddenBalanceOf[holder][revnetId];
 

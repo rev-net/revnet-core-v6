@@ -936,10 +936,21 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         // Cache the sender to avoid repeated ERC2771 context reads.
         address sender = _msgSender();
 
-        // Make sure only the loan's owner can manage it.
+        // Only the loan owner or a permissioned operator can repay.
+        address loanOwner = _ownerOf(loanId);
         {
-            address loanOwner = _ownerOf(loanId);
-            if (loanOwner != sender) revert REVLoans_Unauthorized(sender, loanOwner);
+            uint256 revnetId_ = revnetIdOfLoanWith(loanId);
+            if (
+                loanOwner != sender
+                    && !PERMISSIONS.hasPermission({
+                        operator: sender,
+                        account: loanOwner,
+                        projectId: revnetId_,
+                        permissionId: JBPermissionIds.REPAY_LOAN,
+                        includeRoot: true,
+                        includeWildcardProjectId: true
+                    })
+            ) revert REVLoans_Unauthorized(sender, loanOwner);
         }
 
         // Keep a reference to the fee being iterated on.
@@ -1004,7 +1015,8 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
             repayBorrowAmount: repayBorrowAmount,
             sourceFeeAmount: sourceFeeAmount,
             collateralCountToReturn: collateralCountToReturn,
-            beneficiary: beneficiary
+            beneficiary: beneficiary,
+            loanOwner: loanOwner
         });
 
         // If the max repay amount is greater than the repay amount, return the difference back to the payer.
@@ -1430,6 +1442,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     /// @param sourceFeeAmount The amount of the fee being taken from the revnet acting as the source of the loan.
     /// @param collateralCountToReturn The amount of collateral being returned that the loan no longer requires.
     /// @param beneficiary The address receiving the returned collateral and any tokens resulting from paying fees.
+    /// @param loanOwner The owner of the loan NFT (receives replacement loan if partial repay).
     // slither-disable-next-line reentrancy-eth,reentrancy-events
     function _repayLoan(
         uint256 loanId,
@@ -1438,7 +1451,8 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         uint256 repayBorrowAmount,
         uint256 sourceFeeAmount,
         uint256 collateralCountToReturn,
-        address payable beneficiary
+        address payable beneficiary,
+        address loanOwner
     )
         internal
         returns (uint256, REVLoan memory)
@@ -1503,8 +1517,8 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
             paidOffLoan.prepaidDuration = loan.prepaidDuration;
             paidOffLoan.source = loan.source;
 
-            // Mint the replacement loan FIRST so it exists before _adjust writes data.
-            _mint({to: _msgSender(), tokenId: paidOffLoanId});
+            // Mint the replacement loan to the loan owner FIRST so it exists before _adjust writes data.
+            _mint({to: loanOwner, tokenId: paidOffLoanId});
 
             // Then adjust the loan data.
             _adjust({
