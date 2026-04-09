@@ -290,36 +290,6 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     // -------------------------- internal views ------------------------- //
     //*********************************************************************//
 
-    /// @notice Returns the current ruleset for a revnet. Consolidates ABI encode/decode to a single site.
-    /// @param revnetId The ID of the revnet.
-    /// @return currentRuleset The current ruleset.
-    function _currentRulesetOf(uint256 revnetId) internal view returns (JBRuleset memory currentRuleset) {
-        // slither-disable-next-line unused-return
-        (currentRuleset,) = CONTROLLER.currentRulesetOf(revnetId);
-    }
-
-    /// @notice Returns the terminals for a revnet. Consolidates ABI encode/decode to a single site.
-    /// @param revnetId The ID of the revnet.
-    /// @return The terminals registered for the revnet.
-    function _terminalsOf(uint256 revnetId) internal view returns (IJBTerminal[] memory) {
-        return DIRECTORY.terminalsOf(revnetId);
-    }
-
-    /// @notice Returns the cash out delay timestamp using a pre-fetched ruleset.
-    /// @param revnetId The ID of the revnet.
-    /// @param currentRuleset The pre-fetched current ruleset.
-    /// @return The cash out delay timestamp. Returns 0 if no data hook is set or no delay exists.
-    function _cashOutDelayOf(uint256 revnetId, JBRuleset memory currentRuleset) internal view returns (uint256) {
-        // Extract the data hook address from the ruleset's packed metadata.
-        address dataHook = currentRuleset.dataHook();
-
-        // If there's no data hook, this isn't a revnet — no cash out delay applies.
-        if (dataHook == address(0)) return 0;
-
-        // Read the cash out delay from the REVOwner contract (the data hook).
-        return IREVOwner(dataHook).cashOutDelayOf(revnetId);
-    }
-
     /// @notice Checks this contract's balance of a specific token.
     /// @param token The address of the token to get this contract's balance of.
     /// @return This contract's balance.
@@ -434,9 +404,32 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         });
     }
 
+    /// @notice Returns the cash out delay timestamp using a pre-fetched ruleset.
+    /// @param revnetId The ID of the revnet.
+    /// @param currentRuleset The pre-fetched current ruleset.
+    /// @return The cash out delay timestamp. Returns 0 if no data hook is set or no delay exists.
+    function _cashOutDelayOf(uint256 revnetId, JBRuleset memory currentRuleset) internal view returns (uint256) {
+        // Extract the data hook address from the ruleset's packed metadata.
+        address dataHook = currentRuleset.dataHook();
+
+        // If there's no data hook, this isn't a revnet — no cash out delay applies.
+        if (dataHook == address(0)) return 0;
+
+        // Read the cash out delay from the REVOwner contract (the data hook).
+        return IREVOwner(dataHook).cashOutDelayOf(revnetId);
+    }
+
     /// @dev `ERC-2771` specifies the context as being a single address (20 bytes).
     function _contextSuffixLength() internal view override(ERC2771Context, Context) returns (uint256) {
         return super._contextSuffixLength();
+    }
+
+    /// @notice Returns the current ruleset for a revnet. Consolidates ABI encode/decode to a single site.
+    /// @param revnetId The ID of the revnet.
+    /// @return currentRuleset The current ruleset.
+    function _currentRulesetOf(uint256 revnetId) internal view returns (JBRuleset memory currentRuleset) {
+        // slither-disable-next-line unused-return
+        (currentRuleset,) = CONTROLLER.currentRulesetOf(revnetId);
     }
 
     /// @notice Determines the source fee amount for a loan being paid off a certain amount.
@@ -494,6 +487,13 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @return sender The address which sent this call.
     function _msgSender() internal view override(ERC2771Context, Context) returns (address sender) {
         return ERC2771Context._msgSender();
+    }
+
+    /// @notice Returns the terminals for a revnet. Consolidates ABI encode/decode to a single site.
+    /// @param revnetId The ID of the revnet.
+    /// @return The terminals registered for the revnet.
+    function _terminalsOf(uint256 revnetId) internal view returns (IJBTerminal[] memory) {
+        return DIRECTORY.terminalsOf(revnetId);
     }
 
     /// @notice The total borrowed amount from a revnet, aggregated across all loan sources.
