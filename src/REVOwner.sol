@@ -143,22 +143,19 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
             JBCashOutHookSpecification[] memory hookSpecifications
         )
     {
-        // Check the cash out delay first (cheap SLOAD) before the expensive sucker registry call.
-        uint256 cashOutDelay = cashOutDelayOf[context.projectId];
-
-        if (cashOutDelay > block.timestamp) {
-            // Delay hasn't passed. Only suckers can proceed — check sucker status.
-            // This relies on the sucker registry to only contain trusted sucker contracts deployed via
-            // the registry's own deploySuckersFor flow — external addresses cannot register as suckers.
-            if (!_isSuckerOf({revnetId: context.projectId, addr: context.holder})) {
-                revert REVOwner_CashOutDelayNotFinished(cashOutDelay, block.timestamp);
-            }
+        // If the cash out is from a sucker, return the full cash out amount without taxes or fees.
+        // This relies on the sucker registry to only contain trusted sucker contracts deployed via
+        // the registry's own deploySuckersFor flow — external addresses cannot register as suckers.
+        if (_isSuckerOf({revnetId: context.projectId, addr: context.holder})) {
             return (0, context.cashOutCount, context.totalSupply, hookSpecifications);
         }
 
-        // Delay has passed. If the cash out is from a sucker, return the full amount without taxes or fees.
-        if (_isSuckerOf({revnetId: context.projectId, addr: context.holder})) {
-            return (0, context.cashOutCount, context.totalSupply, hookSpecifications);
+        // Keep a reference to the cash out delay of the revnet.
+        uint256 cashOutDelay = cashOutDelayOf[context.projectId];
+
+        // Enforce the cash out delay.
+        if (cashOutDelay > block.timestamp) {
+            revert REVOwner_CashOutDelayNotFinished(cashOutDelay, block.timestamp);
         }
 
         // Get the terminal that will receive the cash out fee.
