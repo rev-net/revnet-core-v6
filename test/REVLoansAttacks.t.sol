@@ -98,7 +98,8 @@ contract ReentrantTerminal is ERC165, IJBPayoutTerminal {
                 0, // minBorrowAmount
                 reenterCollateral,
                 payable(address(this)),
-                25 // MIN_PREPAID_FEE_PERCENT
+                25, // MIN_PREPAID_FEE_PERCENT
+                address(this)
             ) {}
                 catch {
                 // Expected to revert if reentrancy guard exists
@@ -383,7 +384,6 @@ contract REVLoansAttacks is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
-            projects: jbProjects(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
@@ -395,7 +395,8 @@ contract REVLoansAttacks is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT)
+            address(LOANS_CONTRACT),
+            address(0)
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -474,7 +475,7 @@ contract REVLoansAttacks is TestBaseWorkflow {
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 
         vm.prank(user);
-        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee);
+        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee, user);
     }
 
     // =========================================================================
@@ -646,7 +647,7 @@ contract REVLoansAttacks is TestBaseWorkflow {
         vm.assume(borrowable > 0);
 
         vm.prank(userA);
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokensA, payable(userA), 25);
+        LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokensA, payable(userA), 25, userA);
 
         // After borrowing, tokensA are burned as collateral
         // But the surplus is adjusted by adding totalBorrowed
@@ -771,7 +772,7 @@ contract REVLoansAttacks is TestBaseWorkflow {
 
         // Borrow with max prepaid fee (so no additional fee on immediate repay)
         vm.prank(USER);
-        (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(USER), 500);
+        (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(USER), 500, USER);
 
         REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
 

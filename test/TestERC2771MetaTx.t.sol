@@ -291,7 +291,6 @@ contract TestERC2771MetaTx is TestBaseWorkflow {
         // Deploy LOANS_CONTRACT with the forwarder as trusted forwarder.
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
-            projects: jbProjects(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
@@ -303,7 +302,8 @@ contract TestERC2771MetaTx is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT)
+            address(LOANS_CONTRACT),
+            address(0)
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -400,7 +400,8 @@ contract TestERC2771MetaTx is TestBaseWorkflow {
             0, // minBorrowAmount
             tokenCount,
             payable(signerAddr),
-            uint256(25) // MIN_PREPAID_FEE_PERCENT
+            uint256(25), // MIN_PREPAID_FEE_PERCENT
+            signerAddr // holder
         );
 
         // Build the forwarded request signed by the signer.
@@ -448,7 +449,8 @@ contract TestERC2771MetaTx is TestBaseWorkflow {
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 
         vm.prank(signerAddr);
-        (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(signerAddr), 25);
+        (uint256 loanId,) =
+            LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(signerAddr), 25, signerAddr);
 
         REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
         assertTrue(loan.amount > 0, "Loan should exist");

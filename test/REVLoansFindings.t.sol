@@ -207,7 +207,6 @@ contract REVLoansFindings is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
-            projects: jbProjects(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
@@ -219,7 +218,8 @@ contract REVLoansFindings is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT)
+            address(LOANS_CONTRACT),
+            address(0)
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -372,7 +372,7 @@ contract REVLoansFindings is TestBaseWorkflow {
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 
         vm.prank(USER);
-        (loanId, loan) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, loanable, tokens, payable(USER), 25);
+        (loanId, loan) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, loanable, tokens, payable(USER), 25, USER);
     }
 
     //*********************************************************************//
@@ -411,7 +411,7 @@ contract REVLoansFindings is TestBaseWorkflow {
         );
 
         vm.prank(USER);
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, fakeSource, loanable, tokens, payable(USER), 25);
+        LOANS_CONTRACT.borrowFrom(REVNET_ID, fakeSource, loanable, tokens, payable(USER), 25, USER);
     }
 
     //*********************************************************************//

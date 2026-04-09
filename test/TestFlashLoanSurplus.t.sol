@@ -102,7 +102,6 @@ contract TestFlashLoanSurplus is TestBaseWorkflow {
             .addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
-            projects: jbProjects(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
@@ -113,7 +112,8 @@ contract TestFlashLoanSurplus is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT)
+            address(LOANS_CONTRACT),
+            address(0)
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -250,7 +250,7 @@ contract TestFlashLoanSurplus is TestBaseWorkflow {
         );
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
         vm.prank(user);
-        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee);
+        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee, user);
     }
 
     /// @notice Donate ETH via addToBalanceOf, then borrow. The donation costs more than the extra borrowable amount.

@@ -90,7 +90,6 @@ contract TestEmptyBuybackSpecs is TestBaseWorkflow {
         MOCK_BUYBACK_MINT_PATH = new MockBuybackDataHookMintPath();
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
-            projects: jbProjects(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
@@ -101,7 +100,8 @@ contract TestEmptyBuybackSpecs is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT)
+            address(LOANS_CONTRACT),
+            address(0)
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(

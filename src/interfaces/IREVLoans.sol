@@ -5,7 +5,6 @@ import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBPayoutTerminal} from "@bananapus/core-v6/src/interfaces/IJBPayoutTerminal.sol";
 import {IJBPrices} from "@bananapus/core-v6/src/interfaces/IJBPrices.sol";
-import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
 import {IJBTokenUriResolver} from "@bananapus/core-v6/src/interfaces/IJBTokenUriResolver.sol";
 import {JBSingleAllowance} from "@bananapus/core-v6/src/structs/JBSingleAllowance.sol";
 import {IPermit2} from "@uniswap/permit2/src/interfaces/IPermit2.sol";
@@ -164,10 +163,6 @@ interface IREVLoans {
     /// @return The prices contract.
     function PRICES() external view returns (IJBPrices);
 
-    /// @notice The contract that mints ERC-721s representing project ownership.
-    /// @return The projects contract.
-    function PROJECTS() external view returns (IJBProjects);
-
     /// @notice The ID of the REV revnet that receives protocol fees from loans.
     /// @return The REV revnet ID.
     function REV_ID() external view returns (uint256);
@@ -219,6 +214,7 @@ interface IREVLoans {
     /// @param collateralCount The amount of tokens to use as collateral for the loan.
     /// @param beneficiary The address that will receive the borrowed funds and fee payment tokens.
     /// @param prepaidFeePercent The fee percent to charge upfront, in terms of `JBConstants.MAX_FEE`.
+    /// @param holder The address whose tokens are used as collateral and who receives the loan NFT.
     /// @return loanId The ID of the loan created from borrowing.
     /// @return The loan created from borrowing.
     function borrowFrom(
@@ -227,7 +223,8 @@ interface IREVLoans {
         uint256 minBorrowAmount,
         uint256 collateralCount,
         address payable beneficiary,
-        uint256 prepaidFeePercent
+        uint256 prepaidFeePercent,
+        address holder
     )
         external
         returns (uint256 loanId, REVLoan memory);

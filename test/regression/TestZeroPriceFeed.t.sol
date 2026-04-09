@@ -114,7 +114,6 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
-            projects: jbProjects(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
@@ -126,7 +125,8 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT)
+            address(LOANS_CONTRACT),
+            address(0)
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -300,7 +300,7 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
         _mockBurnPermission();
         REVLoanSource memory ethSource = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
         vm.prank(USER);
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, ethSource, 0, ethCollateral, payable(USER), 25);
+        LOANS_CONTRACT.borrowFrom(REVNET_ID, ethSource, 0, ethCollateral, payable(USER), 25, USER);
 
         // Step 3: Fund the terminal with TOKEN and borrow from TOKEN source.
         uint256 tokenFunding = 1_000_000e6;
@@ -312,7 +312,7 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
         _mockBurnPermission();
         REVLoanSource memory tokenSource = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
         vm.prank(USER);
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, tokenSource, 0, tokenCollateral, payable(USER), 25);
+        LOANS_CONTRACT.borrowFrom(REVNET_ID, tokenSource, 0, tokenCollateral, payable(USER), 25, USER);
 
         // Verify both sources have nonzero totalBorrowedFrom.
         uint256 borrowedFromEth =
@@ -384,7 +384,7 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
         _mockBurnPermission();
         REVLoanSource memory ethSource = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
         vm.prank(USER);
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, ethSource, 0, revnetTokens / 2, payable(USER), 25);
+        LOANS_CONTRACT.borrowFrom(REVNET_ID, ethSource, 0, revnetTokens / 2, payable(USER), 25, USER);
 
         // Step 3: Get borrowable amount.
         vm.prank(USER);

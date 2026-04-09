@@ -153,7 +153,6 @@ contract TestReallocationSandwich is TestBaseWorkflow {
         MOCK_BUYBACK = new MockBuybackDataHook();
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
-            projects: jbProjects(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
@@ -164,7 +163,8 @@ contract TestReallocationSandwich is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT)
+            address(LOANS_CONTRACT),
+            address(0)
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -286,7 +286,8 @@ contract TestReallocationSandwich is TestBaseWorkflow {
             minBorrowAmount: 0,
             collateralCount: borrowerTokens,
             beneficiary: payable(BORROWER),
-            prepaidFeePercent: prepaidFeePercent
+            prepaidFeePercent: prepaidFeePercent,
+            holder: BORROWER
         });
 
         uint256 stage1BorrowedAmount = stage1Loan.amount;

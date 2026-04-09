@@ -9,6 +9,7 @@
 - `REVDeployer` owns launch-time configuration and runtime wrapper behavior.
 - `REVOwner` owns owner-like data-hook behavior for revnet projects.
 - `REVLoans` owns the loan lifecycle.
+- `REVHiddenTokens` owns temporary token hiding and supply exclusion.
 - The repo composes several sibling repos instead of reimplementing them.
 
 ## Main Components
@@ -18,6 +19,7 @@
 | `REVDeployer` | Launches revnets, queues staged rulesets, wires hooks, grants operator permissions, and exposes runtime wrapper behavior |
 | `REVOwner` | Ownerless policy surface plugged into revnet rulesets |
 | `REVLoans` | Burn-collateral borrow/repay/liquidate flow represented as ERC-721 loans |
+| `REVHiddenTokens` | Temporary token hiding: burn to exclude from totalSupply, re-mint on reveal |
 | config structs | Stage, auto-issuance, loan source, and 721-hook configuration surfaces |
 
 ## Runtime Model
@@ -50,6 +52,7 @@ borrower
 - The project is designed to be ownerless after deployment. "Easy" admin recovery paths would break the product thesis.
 - Stage configuration is effectively permanent once queued.
 - Loan collateral is burned, not escrowed. Supply-sensitive logic must treat that as real destruction until repayment.
+- Hidden tokens are burned, not escrowed. They reduce totalSupply until revealed. This interacts with bonding curve valuations.
 - `REVOwner` and `REVDeployer` are tightly coupled. Their setup order is part of correctness.
 
 ## Where Complexity Lives

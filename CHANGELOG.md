@@ -9,9 +9,11 @@ This file describes the verified change from `revnet-core-v5` to the current `re
 - `REVDeployer`
 - `REVOwner`
 - `REVLoans`
+- `REVHiddenTokens`
 - `IREVDeployer`
 - `IREVOwner`
 - `IREVLoans`
+- `IREVHiddenTokens`
 
 ## Summary
 
@@ -21,12 +23,36 @@ This file describes the verified change from `revnet-core-v5` to the current `re
 - The v6 test tree is substantially broader than the v5 tree, with dedicated regression, fork, attack, and invariant coverage for loans, cash-outs, split weights, and lifecycle edges.
 - The repo moved from the v5 `0.8.23` baseline to `0.8.28`.
 
+## Operator delegation (permission IDs 35–39)
+
+- Added five new `JBPermissionIds` for operator delegation in `@bananapus/permission-ids-v6`:
+  - `HIDE_TOKENS` (35) — hide tokens on behalf of a holder via `REVHiddenTokens.hideTokensOf`
+  - `OPEN_LOAN` (36) — open a loan on behalf of a token holder via `REVLoans.borrowFrom`
+  - `REALLOCATE_LOAN` (37) — reallocate loan collateral on behalf of a loan owner via `REVLoans.reallocateCollateralFromLoan`
+  - `REPAY_LOAN` (38) — repay a loan on behalf of a loan owner via `REVLoans.repayLoan`
+  - `REVEAL_TOKENS` (39) — reveal hidden tokens on behalf of a holder via `REVHiddenTokens.revealTokensOf`
+- `REVHiddenTokens` now inherits `JBPermissioned` and accepts a `holder` parameter on `hideTokensOf` and `revealTokensOf`. An operator with the appropriate permission can act on behalf of the holder.
+- `REVLoans.borrowFrom` now accepts a `holder` parameter. The loan NFT is minted to `holder`, and collateral is burned from `holder`. An operator with `OPEN_LOAN` permission can borrow on behalf of a holder.
+- `REVLoans.repayLoan` now allows permissioned operators with `REPAY_LOAN` to repay on behalf of the loan NFT owner. Replacement loans are minted to the original loan owner.
+- `REVLoans.reallocateCollateralFromLoan` now allows permissioned operators with `REALLOCATE_LOAN` to reallocate on behalf of the loan NFT owner. Returned collateral and replacement loans go to the original loan owner.
+- `REVLoans` stores a `PERMISSIONS` immutable for inline permission checks (cannot inherit `JBPermissioned` due to existing `ERC721 + ERC2771Context + Ownable` inheritance).
+
+### Breaking ABI changes from delegation
+
+- `IREVHiddenTokens.hideTokensOf` signature changed: added `address holder` parameter
+- `IREVHiddenTokens.revealTokensOf` signature changed: added `address holder` parameter
+- `IREVHiddenTokens.HideTokens` event: added `address holder` field
+- `IREVHiddenTokens.RevealTokens` event: added `address holder` field
+- `IREVLoans.borrowFrom` signature changed: added `address holder` as last parameter
+
 ## Verified deltas
 
 - `IREVDeployer.deployWith721sFor(...)` is gone.
 - `IREVDeployer.deployFor(...)` now has overloads that return `(uint256, IJB721TiersHook)`.
 - `IREVDeployer.BUYBACK_HOOK()`, `LOANS()`, and `OWNER()` are explicit v6 surface area.
 - `IREVOwner` is a new interface and runtime counterpart to the deployer.
+- `IREVHiddenTokens` is a new interface for temporary token hiding (burn to exclude from totalSupply, re-mint on reveal).
+- `REVHiddenTokens` is a new standalone contract that lets holders temporarily hide tokens to increase cash-out value for remaining holders.
 - The old caller-supplied `REVBuybackHookConfig` path is no longer part of the deployer interface.
 
 ## Breaking ABI changes

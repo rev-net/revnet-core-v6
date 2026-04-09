@@ -258,7 +258,6 @@ contract TestPermit2Signatures is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
-            projects: jbProjects(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
@@ -270,7 +269,8 @@ contract TestPermit2Signatures is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT)
+            address(LOANS_CONTRACT),
+            address(0)
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -398,7 +398,7 @@ contract TestPermit2Signatures is TestBaseWorkflow {
         REVLoanSource memory source = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
 
         vm.prank(user);
-        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee);
+        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee, user);
     }
 
     // =========================================================================

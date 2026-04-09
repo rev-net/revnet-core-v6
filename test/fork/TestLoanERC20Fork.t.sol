@@ -184,7 +184,8 @@ contract TestLoanERC20Fork is ForkTestBase {
             minBorrowAmount: 0,
             collateralCount: collateral,
             beneficiary: payable(borrower),
-            prepaidFeePercent: prepaidFeePercent
+            prepaidFeePercent: prepaidFeePercent,
+            holder: borrower
         });
     }
 
@@ -263,7 +264,8 @@ contract TestLoanERC20Fork is ForkTestBase {
             minBorrowAmount: 0,
             collateralCount: borrowerTokens,
             beneficiary: payable(BORROWER),
-            prepaidFeePercent: prepaidFeePercent
+            prepaidFeePercent: prepaidFeePercent,
+            holder: BORROWER
         });
 
         uint256 borrowerUsdcReceived = IERC20(USDC).balanceOf(BORROWER) - borrowerUsdcBefore;

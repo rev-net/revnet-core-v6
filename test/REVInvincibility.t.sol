@@ -244,7 +244,6 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
-            projects: jbProjects(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
@@ -256,7 +255,8 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT)
+            address(LOANS_CONTRACT),
+            address(0)
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -329,7 +329,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 
         vm.prank(user);
-        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee);
+        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee, user);
     }
 
     // =====================================================================
@@ -788,7 +788,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
 
         if (borrowableA > 0) {
             vm.prank(userA);
-            LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokensA, payable(userA), 25);
+            LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokensA, payable(userA), 25, userA);
         }
 
         // UserB's tokens should still have proportional cash-out value
@@ -1028,7 +1028,6 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
-            projects: jbProjects(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
@@ -1040,7 +1039,8 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT)
+            address(LOANS_CONTRACT),
+            address(0)
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(

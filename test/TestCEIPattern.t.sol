@@ -136,7 +136,6 @@ contract TestCEIPattern is TestBaseWorkflow {
             .addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
-            projects: jbProjects(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
@@ -147,7 +146,8 @@ contract TestCEIPattern is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT)
+            address(LOANS_CONTRACT),
+            address(0)
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -283,7 +283,7 @@ contract TestCEIPattern is TestBaseWorkflow {
         );
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
         vm.prank(user);
-        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee);
+        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee, user);
     }
 
     /// @notice After borrowing, loan.amount and loan.collateral are set correctly (CEI: state written before external
@@ -347,7 +347,7 @@ contract TestCEIPattern is TestBaseWorkflow {
             );
             REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
             vm.prank(USER);
-            LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens2, payable(USER), 25);
+            LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens2, payable(USER), 25, USER);
         }
 
         // Total collateral should equal sum of both loans' collateral
@@ -389,7 +389,8 @@ contract TestCEIPattern is TestBaseWorkflow {
 
         // Borrow with attacker as beneficiary — attacker's receive() will fire when ETH arrives.
         vm.prank(address(attacker));
-        (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(address(attacker)), 25);
+        (uint256 loanId,) =
+            LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(address(attacker)), 25, address(attacker));
 
         assertEq(loanId, expectedLoanId, "LoanId should match pre-computed value");
 
@@ -472,7 +473,7 @@ contract TestCEIPattern is TestBaseWorkflow {
             REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 
             vm.prank(USER);
-            (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(USER), 25);
+            (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(USER), 25, USER);
 
             REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
 

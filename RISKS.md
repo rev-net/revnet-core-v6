@@ -63,6 +63,13 @@ Read [ARCHITECTURE.md](./ARCHITECTURE.md) and [SKILLS.md](./SKILLS.md) for proto
 - **No automatic recovery mechanism.** Once a price feed returns 0, the affected source's debt remains invisible to `_totalBorrowedFrom` until the feed recovers. There is no event emitted when a source is skipped, no fallback oracle, and no circuit breaker that pauses borrowing when feed health degrades. Operators should actively monitor price feed health and treat any feed returning 0 as a risk event for the revnet's loan system.
 - **Decimal normalization truncation.** When converting from higher-decimal tokens (18) to lower-decimal targets (6), integer division truncates. For sources with large outstanding borrows in high-decimal tokens, this truncation can systematically undercount the total borrowed amount, allowing slightly more borrowing than intended. For example, converting 999,999,999,999 wei (18-decimal) to 6-decimal precision discards 12 digits of precision. Across many sources, these per-source truncation errors accumulate additively, further widening the gap between the reported and actual total debt.
 
+### Hidden token supply manipulation
+
+- **Hiding reduces totalSupply, inflating per-token cash-out value.** When a holder hides tokens via `REVHiddenTokens`, those tokens are burned and excluded from `totalSupply`. The bonding curve sees fewer tokens, so each remaining token is worth more on cash-out. A holder with a large position can hide tokens, have an accomplice cash out at the inflated rate, then reveal. The net effect depends on the `cashOutTaxRate` and the relative positions. Operator delegation (`HIDE_TOKENS`/`REVEAL_TOKENS` permissions) extends this to permissioned operators acting on behalf of holders.
+- **Hidden tokens must be revealed before use as loan collateral.** `REVHiddenTokens` and `REVLoans` are separate systems. A holder cannot borrow against hidden tokens — they must first reveal (re-mint) them, then borrow. This is by design but may confuse users.
+- **Reveal mints without reserved percent.** `revealTokensOf` calls `mintTokensOf` with `useReservedPercent: false`. This is correct because the tokens were previously burned and are being restored, not newly issued. But it means revealed tokens bypass the reserved-token mechanism entirely.
+- **REVHiddenTokens has mint permission via REVOwner.** The contract is added to `REVOwner.hasMintPermissionFor`. If `REVHiddenTokens` has a vulnerability, it could mint unbounded tokens for any revnet.
+
 ### Auto-issuance overflow potential
 
 - **`REVAutoIssuance.count` is `uint104` (~2.03e31).** Multiple auto-issuances for the same beneficiary in the same stage are summed via `+=` in `_makeRulesetConfigurations`. If cumulative auto-issuances exceed `uint256`, this wraps. In practice, `uint104` inputs limit each addition, but verify no path allows the mapping value to overflow.
@@ -121,7 +128,7 @@ REVOwner sits between the terminal and the actual hooks (buyback hook, 721 hook)
 
 ### Permission escalation through proxy
 
-- **`hasMintPermissionFor` grants mint to four categories.** `REVOwner.hasMintPermissionFor` grants mint to: the loans contract, buyback hook, buyback hook delegates, and suckers. If any of these contracts have a vulnerability that allows arbitrary calls, they can mint unlimited revnet tokens for any revnet.
+- **`hasMintPermissionFor` grants mint to five categories.** `REVOwner.hasMintPermissionFor` grants mint to: the loans contract, the hidden tokens contract, buyback hook, buyback hook delegates, and suckers. If any of these contracts have a vulnerability that allows arbitrary calls, they can mint unlimited revnet tokens for any revnet.
 - **Wildcard permissions.** REVDeployer grants `USE_ALLOWANCE` to `LOANS` with `projectId=0` (wildcard). This means the loans contract can drain surplus from ANY revnet deployed by this deployer, constrained only by the loan logic itself. A bug in `REVLoans._addTo` that miscalculates `addedBorrowAmount` could drain treasuries.
 
 ---
@@ -192,11 +199,17 @@ These MUST hold. Breaking any of them is a finding.
 - **Cash-out fees flow to fee revnet.** If the fee terminal `pay` succeeds, the fee goes to `FEE_REVNET_ID`. If it fails, the fee returns to the originating project via `addToBalanceOf`. Funds are never lost and never kept by the caller.
 - **Loan REV fees flow to REV revnet.** If `feeTerminal.pay` succeeds, the fee goes to `REV_ID`. If it fails (try-catch), the fee amount is zeroed and added to the borrower's payout. The fee is never lost -- it either reaches the REV revnet or goes to the borrower.
 
+### Hidden token accounting
+
+- **Hidden balance conservation.** `totalHiddenOf[revnetId]` == sum of `hiddenBalanceOf[holder][revnetId]` across all holders.
+- **Reveal bounded by hide.** No holder can reveal more tokens than they have hidden. `revealTokensOf` reverts with `REVHiddenTokens_InsufficientHiddenBalance` if `tokenCount > hiddenBalanceOf[caller][revnetId]`.
+- **No double-mint from reveal.** Each hidden token can only be revealed once. Decrementing `hiddenBalanceOf` before minting prevents double-reveal.
+
 ### Privilege isolation
 
 - **Sucker privilege.** Only addresses returning `true` from `SUCKER_REGISTRY.isSuckerOf(projectId, addr)` get 0% cashout tax. No other code path grants this exemption.
-- **Loan ownership.** Only `_ownerOf(loanId)` can call `repayLoan` and `reallocateCollateralFromLoan`. The loan NFT is burned before any state changes in repayment, preventing double-use.
-- **Mint permission.** Only `LOANS`, `BUYBACK_HOOK`, buyback hook delegates (via `BUYBACK_HOOK.hasMintPermissionFor`), and suckers (via `REVOwner._isSuckerOf`) can mint tokens. No other address passes the `REVOwner.hasMintPermissionFor` check.
+- **Loan ownership.** Only `_ownerOf(loanId)` — or an operator with the relevant `JBPermissionIds` (`REPAY_LOAN` for repayment, `REALLOCATE_LOAN` for reallocation) — can call `repayLoan` and `reallocateCollateralFromLoan`. Similarly, `borrowFrom` requires the caller to be the `holder` or to have `OPEN_LOAN` permission. The loan NFT is burned before any state changes in repayment, preventing double-use. Replacement loan NFTs are minted to the original holder/owner, not the operator. However, delegated operators control the `beneficiary` parameter and can direct borrowed funds, returned collateral, or revealed tokens to any address (see §8.5).
+- **Mint permission.** Only `LOANS`, `HIDDEN_TOKENS`, `BUYBACK_HOOK`, buyback hook delegates (via `BUYBACK_HOOK.hasMintPermissionFor`), and suckers (via `REVOwner._isSuckerOf`) can mint tokens. No other address passes the `REVOwner.hasMintPermissionFor` check.
 
 ---
 
@@ -218,6 +231,17 @@ These MUST hold. Breaking any of them is a finding.
 
 `_borrowableAmountFrom` reads live surplus. An attacker could inflate surplus via `addToBalanceOf`, but donations are permanent (no recovery), and the extra borrowable amount is always less than the donation. `pay` increases both surplus AND supply, neutralizing the effect. With non-zero `cashOutTaxRate`, the concave bonding curve makes this even worse for attackers. The attack is self-defeating by construction.
 
-### 8.5 Borrow-repay arbitrage is unprofitable (by design)
+### 8.5 Delegated operators control beneficiary independently of holder/owner (by design)
+
+When a holder grants `OPEN_LOAN`, `REALLOCATE_LOAN`, `REPAY_LOAN`, or `REVEAL_TOKENS` permission to an operator, the operator can set the `beneficiary` parameter to any address — including themselves. This means:
+
+- **`borrowFrom`**: An operator with `OPEN_LOAN` permission burns the holder's tokens as collateral but can direct the borrowed funds to an arbitrary beneficiary.
+- **`reallocateCollateralFromLoan`**: An operator with `REALLOCATE_LOAN` permission can direct the borrowed funds from the new loan to an arbitrary beneficiary.
+- **`repayLoan`**: An operator with `REPAY_LOAN` permission can direct returned collateral tokens to an arbitrary beneficiary.
+- **`revealTokensOf`**: An operator with `REVEAL_TOKENS` permission can direct revealed (re-minted) tokens to an arbitrary beneficiary instead of the original holder.
+
+This is accepted because the JBPermissions delegation model is opt-in: a holder explicitly grants permission to a specific operator for a specific project. The holder trusts the operator to act in their interest. Restricting `beneficiary` to the holder would break legitimate delegation use cases (e.g., automated vaults, multi-sig workflows, portfolio managers). Holders should only grant these permissions to operators they fully trust.
+
+### 8.6 Borrow-repay arbitrage is unprofitable (by design)
 
 A borrower who pays the prepaid fee upfront (minimum 2.5% + REV fee 1% = 3.5%) can repay at any time within the prepaid duration with no additional cost. If the bonding curve value of the collateral increases during the prepaid window, the borrower can repay, recover their collateral, and cash out at the higher value. This is not profitable as a standalone strategy because the 3.5% minimum fee exceeds the expected value gained from short-term surplus fluctuations. For borrowers who need liquidity anyway, it provides free optionality — which is the intended use case.

@@ -77,7 +77,6 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
         mockBuyback = new MockBuybackCashOutRecorder();
         loans = new REVLoans({
             controller: jbController(),
-            projects: jbProjects(),
             revId: feeProjectId,
             owner: address(this),
             permit2: permit2(),
@@ -89,7 +88,8 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
             jbDirectory(),
             feeProjectId,
             IJBSuckerRegistry(address(suckerRegistry)),
-            address(loans)
+            address(loans),
+            address(0)
         );
 
         revDeployer = new REVDeployer{salt: REV_DEPLOYER_SALT}(

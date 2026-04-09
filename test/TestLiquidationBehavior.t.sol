@@ -100,7 +100,6 @@ contract TestLiquidationBehavior is TestBaseWorkflow {
             .addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
-            projects: jbProjects(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
@@ -111,7 +110,8 @@ contract TestLiquidationBehavior is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT)
+            address(LOANS_CONTRACT),
+            address(0)
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -247,7 +247,7 @@ contract TestLiquidationBehavior is TestBaseWorkflow {
         );
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
         vm.prank(user);
-        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee);
+        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee, user);
     }
 
     /// @notice Verify that collateral is burned (not escrowed) — totalCollateralOf increases and loans contract holds
@@ -273,7 +273,7 @@ contract TestLiquidationBehavior is TestBaseWorkflow {
         );
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
         vm.prank(USER);
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(USER), 25);
+        LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(USER), 25, USER);
 
         uint256 totalCollateralAfterBorrow = LOANS_CONTRACT.totalCollateralOf(REVNET_ID);
 

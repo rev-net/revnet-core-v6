@@ -102,7 +102,6 @@ contract TestBurnPermissionRequired is TestBaseWorkflow {
             .addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
-            projects: jbProjects(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
@@ -113,7 +112,8 @@ contract TestBurnPermissionRequired is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT)
+            address(LOANS_CONTRACT),
+            address(0)
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -247,7 +247,7 @@ contract TestBurnPermissionRequired is TestBaseWorkflow {
                 JBPermissionIds.BURN_TOKENS // permissionId
             )
         );
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), 25);
+        LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), 25, user);
     }
 
     /// @notice borrowFrom should succeed when the caller has granted BURN_TOKENS permission.
@@ -274,7 +274,7 @@ contract TestBurnPermissionRequired is TestBaseWorkflow {
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
         vm.prank(user);
         (uint256 loanId, REVLoan memory loan) =
-            LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), 25);
+            LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), 25, user);
 
         assertTrue(loanId > 0, "Loan ID should be non-zero");
         assertTrue(loan.createdAt > 0, "Loan should be created");

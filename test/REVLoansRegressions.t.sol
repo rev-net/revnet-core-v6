@@ -202,7 +202,6 @@ contract REVLoansRegressions is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
-            projects: jbProjects(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
@@ -214,7 +213,8 @@ contract REVLoansRegressions is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT)
+            address(LOANS_CONTRACT),
+            address(0)
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -335,7 +335,7 @@ contract REVLoansRegressions is TestBaseWorkflow {
         );
 
         vm.prank(USER);
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, fakeSource, borrowable, tokens, payable(USER), 500);
+        LOANS_CONTRACT.borrowFrom(REVNET_ID, fakeSource, borrowable, tokens, payable(USER), 500, USER);
     }
 
     /// @notice Verify that the configured loan source (real terminal) is properly registered.

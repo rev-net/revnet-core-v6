@@ -48,13 +48,12 @@ import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 contract REVLoansHarness is REVLoans {
     constructor(
         IJBController controller,
-        IJBProjects projects,
         uint256 revId,
         address owner,
         IPermit2 permit2,
         address trustedForwarder
     )
-        REVLoans(controller, projects, revId, owner, permit2, trustedForwarder)
+        REVLoans(controller, revId, owner, permit2, trustedForwarder)
     {}
 
     /// @notice Expose _totalBorrowedFrom for testing.
@@ -141,7 +140,6 @@ contract TestRevnetRegressions is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoansHarness({
             controller: jbController(),
-            projects: jbProjects(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
@@ -153,7 +151,8 @@ contract TestRevnetRegressions is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT)
+            address(LOANS_CONTRACT),
+            address(0)
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(

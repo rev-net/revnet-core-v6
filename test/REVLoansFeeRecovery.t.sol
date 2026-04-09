@@ -349,7 +349,6 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
-            projects: jbProjects(),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
@@ -361,7 +360,8 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT)
+            address(LOANS_CONTRACT),
+            address(0)
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -450,7 +450,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
         borrowerBalanceBefore = user.balance;
 
         vm.prank(user);
-        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee);
+        (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee, user);
 
         borrowerBalanceAfter = user.balance;
     }
@@ -492,7 +492,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
         // Normal borrow.
         uint256 balBefore = USER.balance;
         vm.prank(USER);
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(USER), 25);
+        LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(USER), 25, USER);
         uint256 normalReceived = USER.balance - balBefore;
 
         // Revert to snapshot — identical state.
@@ -504,7 +504,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
 
         balBefore = USER.balance;
         vm.prank(USER);
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(USER), 25);
+        LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(USER), 25, USER);
         uint256 failReceived = USER.balance - balBefore;
 
         // The borrower with a failed fee terminal should receive MORE than the normal borrower,
@@ -537,7 +537,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
         // Normal borrow.
         uint256 balBefore = USER.balance;
         vm.prank(USER);
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(USER), 25);
+        LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(USER), 25, USER);
         uint256 normalReceived = USER.balance - balBefore;
 
         // Get the actual borrow amount from the loan to compute expected REV fee.
@@ -555,7 +555,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
 
         balBefore = USER.balance;
         vm.prank(USER);
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(USER), 25);
+        LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(USER), 25, USER);
         uint256 failReceived = USER.balance - balBefore;
 
         // The difference should be the REV fee amount.
@@ -594,7 +594,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
         assertEq(allowanceBefore, 0, "No pre-existing allowance");
 
         vm.prank(USER);
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(USER), 25);
+        LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(USER), 25, USER);
 
         // After the borrow, the allowance to the reverting terminal should still be 0
         // (the catch block decreased it).
@@ -630,7 +630,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
         // Normal borrow.
         uint256 tokenBalBefore = TOKEN.balanceOf(USER);
         vm.prank(USER);
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(USER), 25);
+        LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(USER), 25, USER);
         uint256 normalReceived = TOKEN.balanceOf(USER) - tokenBalBefore;
 
         // Revert to snapshot.
@@ -642,7 +642,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
 
         tokenBalBefore = TOKEN.balanceOf(USER);
         vm.prank(USER);
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(USER), 25);
+        LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(USER), 25, USER);
         uint256 failReceived = TOKEN.balanceOf(USER) - tokenBalBefore;
 
         // Failed-fee borrower should receive more tokens.
@@ -699,7 +699,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
             REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 
             vm.prank(borrower);
-            LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(borrower), 25);
+            LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(borrower), 25, borrower);
         }
 
         // After 3 borrows with fee failures, no ETH should be stuck.
@@ -737,7 +737,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
 
         uint256 balanceBefore = borrower.balance;
         vm.prank(borrower);
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(borrower), 25);
+        LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(borrower), 25, borrower);
         uint256 received = borrower.balance - balanceBefore;
 
         // The borrower should always receive something.
