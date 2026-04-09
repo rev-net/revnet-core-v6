@@ -138,7 +138,8 @@ contract TestHiddenTokens is TestBaseWorkflow {
         _grantBurnPermission(USER, REVNET_ID);
     }
 
-    // ──────────────────── Test: Hiding reduces totalSupply ────────────────────
+    // ──────────────────── Test: Hiding reduces totalSupply
+    // ────────────────────
 
     function test_hideTokens_reducesTotalSupply() public {
         // Pay to get tokens.
@@ -170,7 +171,8 @@ contract TestHiddenTokens is TestBaseWorkflow {
         assertEq(HIDDEN_TOKENS.totalHiddenOf(REVNET_ID), hideCount, "Total hidden should match");
     }
 
-    // ──────────────────── Test: Revealing restores tokens ────────────────────
+    // ──────────────────── Test: Revealing restores tokens
+    // ────────────────────
 
     function test_revealTokens_restoresTokens() public {
         // Pay to get tokens.
@@ -203,11 +205,14 @@ contract TestHiddenTokens is TestBaseWorkflow {
         assertEq(HIDDEN_TOKENS.hiddenBalanceOf(USER, REVNET_ID), 0, "Hidden balance should be zero");
         assertEq(HIDDEN_TOKENS.totalHiddenOf(REVNET_ID), 0, "Total hidden should be zero");
         assertEq(
-            jbController().TOKENS().totalBalanceOf(BENEFICIARY, REVNET_ID), hideCount, "Beneficiary should receive tokens"
+            jbController().TOKENS().totalBalanceOf(BENEFICIARY, REVNET_ID),
+            hideCount,
+            "Beneficiary should receive tokens"
         );
     }
 
-    // ──────────────────── Test: Insufficient hidden balance reverts ────────────────────
+    // ──────────────────── Test: Insufficient hidden balance reverts
+    // ────────────────────
 
     function test_revealTokens_revertsOnInsufficientBalance() public {
         // Pay to get tokens.
@@ -240,7 +245,8 @@ contract TestHiddenTokens is TestBaseWorkflow {
         HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hideCount + 1, USER, USER);
     }
 
-    // ──────────────────── Test: Hidden tokens inflate cash out rate ────────────────────
+    // ──────────────────── Test: Hidden tokens inflate cash out rate
+    // ────────────────────
 
     function test_hiddenTokens_inflateCashOutRate() public {
         // Pay to get tokens for 2 users.
@@ -270,7 +276,8 @@ contract TestHiddenTokens is TestBaseWorkflow {
         assertEq(totalSupply, userTokens - hideCount, "Total supply should equal remaining balance");
     }
 
-    // ──────────────────── Test: Events emitted correctly ────────────────────
+    // ──────────────────── Test: Events emitted correctly
+    // ────────────────────
 
     function test_hideTokens_emitsEvent() public {
         uint256 payAmount = 10e18;
@@ -317,7 +324,8 @@ contract TestHiddenTokens is TestBaseWorkflow {
         HIDDEN_TOKENS.revealTokensOf(REVNET_ID, userTokens, BENEFICIARY, USER);
     }
 
-    // ──────────────────── Internal helpers ────────────────────
+    // ──────────────────── Internal helpers
+    // ────────────────────
 
     function _grantBurnPermission(address account, uint256 revnetId) internal {
         uint8[] memory permissionIds = new uint8[](1);
@@ -364,8 +372,7 @@ contract TestHiddenTokens is TestBaseWorkflow {
             configuration: feeConfig,
             terminalConfigurations: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256("FEE")
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")
             }),
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -403,8 +410,7 @@ contract TestHiddenTokens is TestBaseWorkflow {
             configuration: revConfig,
             terminalConfigurations: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256("NANA")
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NANA")
             }),
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()

@@ -18,7 +18,9 @@ interface IREVHiddenTokens {
     /// @param beneficiary The address receiving the revealed tokens.
     /// @param holder The address whose hidden balance is decremented.
     /// @param caller The address that revealed the tokens.
-    event RevealTokens(uint256 indexed revnetId, uint256 tokenCount, address beneficiary, address holder, address caller);
+    event RevealTokens(
+        uint256 indexed revnetId, uint256 tokenCount, address beneficiary, address holder, address caller
+    );
 
     /// @notice The controller that manages revnets using this contract.
     /// @return The controller contract.

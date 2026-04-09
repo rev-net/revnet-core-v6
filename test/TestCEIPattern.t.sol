@@ -389,7 +389,8 @@ contract TestCEIPattern is TestBaseWorkflow {
 
         // Borrow with attacker as beneficiary — attacker's receive() will fire when ETH arrives.
         vm.prank(address(attacker));
-        (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(address(attacker)), 25, address(attacker));
+        (uint256 loanId,) =
+            LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(address(attacker)), 25, address(attacker));
 
         assertEq(loanId, expectedLoanId, "LoanId should match pre-computed value");
 

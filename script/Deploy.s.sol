@@ -389,9 +389,7 @@ contract DeployScript is Script, Sphinx {
             (address _candidateRevloansAddr, bool _candidateRevloansDeployed) = _isDeployed({
                 salt: REVLOANS_SALT,
                 creationCode: type(REVLoans).creationCode,
-                arguments: abi.encode(
-                    core.controller, _candidateId, LOANS_OWNER, PERMIT2, TRUSTED_FORWARDER
-                )
+                arguments: abi.encode(core.controller, _candidateId, LOANS_OWNER, PERMIT2, TRUSTED_FORWARDER)
             });
 
             if (_candidateRevloansDeployed) {
@@ -481,8 +479,7 @@ contract DeployScript is Script, Sphinx {
         REVHiddenTokens revHiddenTokens = _revHiddenTokensExists
             ? REVHiddenTokens(_existingHiddenTokensAddr)
             : new REVHiddenTokens{salt: REVHIDDENTOKENS_SALT}({
-                controller: core.controller,
-                trustedForwarder: TRUSTED_FORWARDER
+                controller: core.controller, trustedForwarder: TRUSTED_FORWARDER
             });
 
         // Deploy REVOwner — the runtime data hook that handles pay and cash out callbacks.

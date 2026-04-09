@@ -860,9 +860,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Note: the operator controls `beneficiary`, so they can direct returned collateral to any address.
         address loanOwner = _ownerOf(loanId);
         _requirePermissionFrom({
-            account: loanOwner,
-            projectId: revnetIdOfLoanWith(loanId),
-            permissionId: JBPermissionIds.REPAY_LOAN
+            account: loanOwner, projectId: revnetIdOfLoanWith(loanId), permissionId: JBPermissionIds.REPAY_LOAN
         });
 
         // Keep a reference to the fee being iterated on.
@@ -1021,9 +1019,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         totalCollateralOf[revnetId] += amount;
 
         // Permanently burn the tokens that are tracked as collateral. These are only re-minted upon repayment.
-        CONTROLLER.burnTokensOf({
-            holder: holder, projectId: revnetId, tokenCount: amount, memo: ""
-        });
+        CONTROLLER.burnTokensOf({holder: holder, projectId: revnetId, tokenCount: amount, memo: ""});
     }
 
     /// @notice Add a new amount to the loan that is greater than the previous amount.

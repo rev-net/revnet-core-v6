@@ -126,8 +126,7 @@ contract NemesisOperatorDelegationTest is TestBaseWorkflow {
         uint256 operatorBalanceBefore = OPERATOR.balance;
 
         vm.prank(OPERATOR);
-        (uint256 loanId,) =
-            LOANS.borrowFrom(REVNET_ID, source, 0, userTokens / 2, payable(OPERATOR), 25, USER);
+        (uint256 loanId,) = LOANS.borrowFrom(REVNET_ID, source, 0, userTokens / 2, payable(OPERATOR), 25, USER);
 
         assertEq(LOANS.ownerOf(loanId), USER, "loan NFT stays with the holder");
         assertGt(OPERATOR.balance, operatorBalanceBefore, "operator receives the borrowed funds");
@@ -169,14 +168,11 @@ contract NemesisOperatorDelegationTest is TestBaseWorkflow {
         permissionIds[0] = permissionId;
 
         vm.prank(account);
-        jbPermissions().setPermissionsFor(
-            account,
-            JBPermissionsData({
-                operator: operator,
-                projectId: uint56(revnetId),
-                permissionIds: permissionIds
-            })
-        );
+        jbPermissions()
+            .setPermissionsFor(
+                account,
+                JBPermissionsData({operator: operator, projectId: uint56(revnetId), permissionIds: permissionIds})
+            );
     }
 
     function _payUserIntoRevnet(uint256 amount) internal returns (uint256 tokenCount) {

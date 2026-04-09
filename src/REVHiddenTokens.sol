@@ -76,6 +76,7 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
         totalHiddenOf[revnetId] += tokenCount;
 
         // Burn the tokens from the holder. The holder must have granted BURN_TOKENS permission.
+        // slither-disable-next-line reentrancy-events
         CONTROLLER.burnTokensOf({holder: holder, projectId: revnetId, tokenCount: tokenCount, memo: ""});
 
         emit HideTokens({revnetId: revnetId, tokenCount: tokenCount, holder: holder, caller: _msgSender()});
@@ -88,7 +89,15 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
     /// @param tokenCount The number of tokens to reveal.
     /// @param beneficiary The address that will receive the revealed tokens.
     /// @param holder The address whose hidden balance to decrement.
-    function revealTokensOf(uint256 revnetId, uint256 tokenCount, address beneficiary, address holder) external override {
+    function revealTokensOf(
+        uint256 revnetId,
+        uint256 tokenCount,
+        address beneficiary,
+        address holder
+    )
+        external
+        override
+    {
         // Only the holder or a permissioned operator can reveal tokens.
         // Note: the operator controls `beneficiary`, so they can direct revealed tokens to any address.
         _requirePermissionFrom({account: holder, projectId: revnetId, permissionId: JBPermissionIds.REVEAL_TOKENS});
@@ -107,20 +116,13 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
         totalHiddenOf[revnetId] -= tokenCount;
 
         // Mint the tokens to the beneficiary without applying the reserved percent.
+        // slither-disable-next-line unused-return,reentrancy-events
         CONTROLLER.mintTokensOf({
-            projectId: revnetId,
-            tokenCount: tokenCount,
-            beneficiary: beneficiary,
-            memo: "",
-            useReservedPercent: false
+            projectId: revnetId, tokenCount: tokenCount, beneficiary: beneficiary, memo: "", useReservedPercent: false
         });
 
         emit RevealTokens({
-            revnetId: revnetId,
-            tokenCount: tokenCount,
-            beneficiary: beneficiary,
-            holder: holder,
-            caller: _msgSender()
+            revnetId: revnetId, tokenCount: tokenCount, beneficiary: beneficiary, holder: holder, caller: _msgSender()
         });
     }
 
