@@ -578,7 +578,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         }
 
         // Store the tiered ERC-721 hook in the owner contract.
-        REVOwner(OWNER).setTiered721HookOf(revnetId, hook);
+        REVOwner(OWNER).setTiered721HookOf({revnetId: revnetId, hook: hook});
 
         // Grant the split operator all 721 permissions (no prevent* flags for default config).
         _extraOperatorPermissions[revnetId].push(JBPermissionIds.ADJUST_721_TIERS);
@@ -702,7 +702,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         });
 
         // Store the tiered ERC-721 hook in the owner contract.
-        REVOwner(OWNER).setTiered721HookOf(revnetId, hook);
+        REVOwner(OWNER).setTiered721HookOf({revnetId: revnetId, hook: hook});
 
         // Give the split operator permission to add and remove tiers unless prevented.
         if (!tiered721HookConfiguration.preventSplitOperatorAdjustingTiers) {
@@ -1063,7 +1063,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         uint256 cashOutDelay = block.timestamp + CASH_OUT_DELAY;
 
         // Store the cash out delay in the owner contract.
-        REVOwner(OWNER).setCashOutDelayOf(revnetId, cashOutDelay);
+        REVOwner(OWNER).setCashOutDelayOf({revnetId: revnetId, cashOutDelay: cashOutDelay});
 
         emit SetCashOutDelay({revnetId: revnetId, cashOutDelay: cashOutDelay, caller: _msgSender()});
     }

@@ -9,8 +9,8 @@ import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
 import {IJBTokenUriResolver} from "@bananapus/core-v6/src/interfaces/IJBTokenUriResolver.sol";
 import {JBSingleAllowance} from "@bananapus/core-v6/src/structs/JBSingleAllowance.sol";
 import {IPermit2} from "@uniswap/permit2/src/interfaces/IPermit2.sol";
-import {REVLoan} from "./../structs/REVLoan.sol";
-import {REVLoanSource} from "./../structs/REVLoanSource.sol";
+import {REVLoan} from "../structs/REVLoan.sol";
+import {REVLoanSource} from "../structs/REVLoanSource.sol";
 
 /// @notice Manages loans against revnet token collateral.
 interface IREVLoans {
