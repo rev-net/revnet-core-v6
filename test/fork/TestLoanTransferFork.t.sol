@@ -3,6 +3,8 @@ pragma solidity 0.8.28;
 
 // forge-lint: disable-next-line(unaliased-plain-import)
 import "./ForkTestBase.sol";
+import {JBPermissioned} from "@bananapus/core-v6/src/abstract/JBPermissioned.sol";
+import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 
 /// @notice Fork tests for transferring loan NFTs and repaying from the new owner.
 ///
@@ -79,9 +81,17 @@ contract TestLoanTransferFork is ForkTestBase {
 
         JBSingleAllowance memory allowance;
 
-        // Original borrower tries to repay — should revert with REVLoans_Unauthorized.
+        // Original borrower tries to repay — should revert with JBPermissioned_Unauthorized.
         vm.prank(BORROWER);
-        vm.expectRevert(abi.encodeWithSelector(REVLoans.REVLoans_Unauthorized.selector, BORROWER, newOwner));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                JBPermissioned.JBPermissioned_Unauthorized.selector,
+                newOwner,
+                BORROWER,
+                revnetId,
+                JBPermissionIds.REPAY_LOAN
+            )
+        );
         LOANS_CONTRACT.repayLoan{value: loan.amount * 2}({
             loanId: loanId,
             maxRepayBorrowAmount: loan.amount * 2,

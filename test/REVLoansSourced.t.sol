@@ -23,6 +23,8 @@ import "@croptop/core-v6/script/helpers/CroptopDeploymentLib.sol";
 // forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/router-terminal-v6/script/helpers/RouterTerminalDeploymentLib.sol";
 
+import {JBPermissioned} from "@bananapus/core-v6/src/abstract/JBPermissioned.sol";
+import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
 import {MockPriceFeed} from "@bananapus/core-v6/test/mock/MockPriceFeed.sol";
@@ -1152,7 +1154,15 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         );
 
         address unauthorized = address(1);
-        vm.expectRevert(abi.encodeWithSelector(REVLoans.REVLoans_Unauthorized.selector, unauthorized, USER));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                JBPermissioned.JBPermissioned_Unauthorized.selector,
+                USER,
+                unauthorized,
+                REVNET_ID,
+                JBPermissionIds.REALLOCATE_LOAN
+            )
+        );
 
         vm.prank(unauthorized);
         LOANS_CONTRACT.reallocateCollateralFromLoan(
@@ -1755,7 +1765,15 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
 
         // call to pay-down the loan
         /* vm.prank(USER); */
-        vm.expectRevert(abi.encodeWithSelector(REVLoans.REVLoans_Unauthorized.selector, address(this), USER));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                JBPermissioned.JBPermissioned_Unauthorized.selector,
+                USER,
+                address(this),
+                REVNET_ID,
+                JBPermissionIds.REPAY_LOAN
+            )
+        );
         LOANS_CONTRACT.repayLoan{value: 0}(loanId, 0, 0, payable(USER), allowance);
     }
 

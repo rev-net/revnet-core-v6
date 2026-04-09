@@ -63,7 +63,7 @@ Use this file when you need revnet-specific risks, state reads, constants, or ex
 | `REVLoans_PermitAllowanceNotEnough(allowanceAmount, requiredAmount)` | When the permit2 allowance is insufficient for the repayment. |
 | `REVLoans_ReallocatingMoreCollateralThanBorrowedAmountAllows(newBorrowAmount, loanAmount)` | When the collateral being transferred out would leave the original loan undercollateralized. |
 | `REVLoans_SourceMismatch()` | When `reallocateCollateralFromLoan` specifies a source that doesn't match the existing loan's source. |
-| `REVLoans_Unauthorized(caller, owner)` | When a non-owner tries to repay or reallocate someone else's loan. |
+| `JBPermissioned_Unauthorized(account, sender, projectId, permissionId)` | When a non-owner without the required permission (`OPEN_LOAN`, `REPAY_LOAN`, or `REALLOCATE_LOAN`) tries to act on someone else's loan. Inherited from `JBPermissioned`. |
 | `REVLoans_UnderMinBorrowAmount(minBorrowAmount, borrowAmount)` | When the actual borrow amount is less than the caller's `minBorrowAmount`. |
 | `REVLoans_ZeroBorrowAmount()` | When a borrow or reallocation would result in zero borrowed funds. |
 | `REVLoans_ZeroCollateralLoanIsInvalid()` | When a loan would end up with zero collateral. |

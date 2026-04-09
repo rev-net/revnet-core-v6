@@ -5,7 +5,7 @@ import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBPayoutTerminal} from "@bananapus/core-v6/src/interfaces/IJBPayoutTerminal.sol";
 import {IJBPermissioned} from "@bananapus/core-v6/src/interfaces/IJBPermissioned.sol";
-import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
+import {JBPermissioned} from "@bananapus/core-v6/src/abstract/JBPermissioned.sol";
 import {IJBPrices} from "@bananapus/core-v6/src/interfaces/IJBPrices.sol";
 import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
 import {IJBTerminal} from "@bananapus/core-v6/src/interfaces/IJBTerminal.sol";
@@ -48,7 +48,7 @@ import {REVLoanSource} from "./structs/REVLoanSource.sol";
 /// cannot be
 /// recouped.
 /// @dev The loaned amounts include the fees taken, meaning the amount paid back is the amount borrowed plus the fees.
-contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
+contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans {
     // A library that parses the packed ruleset metadata into a friendlier format.
     using JBRulesetMetadataResolver for JBRuleset;
 
@@ -74,7 +74,6 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     error REVLoans_PermitAllowanceNotEnough(uint256 allowanceAmount, uint256 requiredAmount);
     error REVLoans_ReallocatingMoreCollateralThanBorrowedAmountAllows(uint256 newBorrowAmount, uint256 loanAmount);
     error REVLoans_SourceMismatch();
-    error REVLoans_Unauthorized(address caller, address owner);
     error REVLoans_UnderMinBorrowAmount(uint256 minBorrowAmount, uint256 borrowAmount);
     error REVLoans_ZeroBorrowAmount();
     error REVLoans_ZeroCollateralLoanIsInvalid();
@@ -110,9 +109,6 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     //*********************************************************************//
     // --------------- public immutable stored properties ---------------- //
     //*********************************************************************//
-
-    /// @notice The permissions contract used for operator delegation checks.
-    IJBPermissions public immutable PERMISSIONS;
 
     /// @notice The permit2 utility.
     IPermit2 public immutable override PERMIT2;
@@ -203,11 +199,11 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
     )
         ERC721("REV Loans", "$REVLOAN")
         ERC2771Context(trustedForwarder)
+        JBPermissioned(IJBPermissioned(address(controller)).PERMISSIONS())
         Ownable(owner)
     {
         CONTROLLER = controller;
         DIRECTORY = controller.DIRECTORY();
-        PERMISSIONS = IJBPermissioned(address(controller)).PERMISSIONS();
         PRICES = controller.PRICES();
         PROJECTS = projects;
         REV_ID = revId;
@@ -663,20 +659,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         returns (uint256 loanId, REVLoan memory)
     {
         // Only the holder or a permissioned operator can open a loan on the holder's behalf.
-        {
-            address sender = _msgSender();
-            if (
-                sender != holder
-                    && !PERMISSIONS.hasPermission({
-                        operator: sender,
-                        account: holder,
-                        projectId: revnetId,
-                        permissionId: JBPermissionIds.OPEN_LOAN,
-                        includeRoot: true,
-                        includeWildcardProjectId: true
-                    })
-            ) revert REVLoans_Unauthorized(sender, holder);
-        }
+        _requirePermissionFrom({account: holder, projectId: revnetId, permissionId: JBPermissionIds.OPEN_LOAN});
 
         // A loan needs to have collateral.
         if (collateralCount == 0) revert REVLoans_ZeroCollateralLoanIsInvalid();
@@ -858,25 +841,12 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         override
         returns (uint256 reallocatedLoanId, uint256 newLoanId, REVLoan memory reallocatedLoan, REVLoan memory newLoan)
     {
-        // Cache the sender to avoid repeated ERC2771 context reads.
-        address sender = _msgSender();
-
         // Keep a reference to the revnet ID of the loan being reallocated.
         uint256 revnetId = revnetIdOfLoanWith(loanId);
 
         // Only the loan owner or a permissioned operator can reallocate.
         address loanOwner = _ownerOf(loanId);
-        if (
-            loanOwner != sender
-                && !PERMISSIONS.hasPermission({
-                    operator: sender,
-                    account: loanOwner,
-                    projectId: revnetId,
-                    permissionId: JBPermissionIds.REALLOCATE_LOAN,
-                    includeRoot: true,
-                    includeWildcardProjectId: true
-                })
-        ) revert REVLoans_Unauthorized(sender, loanOwner);
+        _requirePermissionFrom({account: loanOwner, projectId: revnetId, permissionId: JBPermissionIds.REALLOCATE_LOAN});
 
         // Make sure the loan hasn't expired.
         if (block.timestamp - _loanOf[loanId].createdAt > LOAN_LIQUIDATION_DURATION) {
@@ -938,20 +908,11 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
 
         // Only the loan owner or a permissioned operator can repay.
         address loanOwner = _ownerOf(loanId);
-        {
-            uint256 revnetId_ = revnetIdOfLoanWith(loanId);
-            if (
-                loanOwner != sender
-                    && !PERMISSIONS.hasPermission({
-                        operator: sender,
-                        account: loanOwner,
-                        projectId: revnetId_,
-                        permissionId: JBPermissionIds.REPAY_LOAN,
-                        includeRoot: true,
-                        includeWildcardProjectId: true
-                    })
-            ) revert REVLoans_Unauthorized(sender, loanOwner);
-        }
+        _requirePermissionFrom({
+            account: loanOwner,
+            projectId: revnetIdOfLoanWith(loanId),
+            permissionId: JBPermissionIds.REPAY_LOAN
+        });
 
         // Keep a reference to the fee being iterated on.
         REVLoan storage loan = _loanOf[loanId];
