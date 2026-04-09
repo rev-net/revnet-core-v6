@@ -7,7 +7,7 @@ Admin privileges and their scope in revnet-core-v6. Revnets are designed to be a
 | Item | Details |
 |------|---------|
 | Scope | Autonomous revnet deployment, split-operator powers, loan metadata ownership, hidden token management, and the boundaries imposed by revnet immutability. |
-| Operators | The per-revnet split operator, the global `REVLoans` owner for metadata cosmetics, the protocol-owned `REVDeployer`, loan NFT holders, `REVHiddenTokens` callers, and permissionless callers for open lifecycle actions. |
+| Operators | The per-revnet split operator, the global `REVLoans` owner for metadata cosmetics, the protocol-owned `REVDeployer`, loan NFT holders (or operators with `REPAY_LOAN`/`REALLOCATE_LOAN`/`OPEN_LOAN` permissions), `REVHiddenTokens` callers (or operators with `HIDE_TOKENS`/`REVEAL_TOKENS` permissions), and permissionless callers for open lifecycle actions. |
 | Highest-risk actions | Converting an existing project into a revnet, changing or burning the split operator, and configuring buyback, router, price-feed, or sucker permissions inside the narrow allowed operator surface. |
 | Recovery posture | Revnet economics are intentionally not admin-recoverable. A bad deployment generally means abandoning the revnet and deploying a new one. |
 
@@ -49,8 +49,8 @@ Admin privileges and their scope in revnet-core-v6. Revnets are designed to be a
 
 ### Loan NFT Owner
 
-- **How assigned:** The `_msgSender()` who calls `borrowFrom()` receives the loan ERC-721. Transferable like any ERC-721.
-- **Scope:** Per-loan. Only the current NFT owner can repay the loan, return collateral, or reallocate collateral to a new loan.
+- **How assigned:** The `holder` specified in `borrowFrom()` receives the loan ERC-721. When no operator delegation is used, the caller passes themselves as `holder`. Transferable like any ERC-721.
+- **Scope:** Per-loan. The current NFT owner — or an operator with the relevant `JBPermissionIds` (`REPAY_LOAN`, `REALLOCATE_LOAN`) — can repay the loan, return collateral, or reallocate collateral to a new loan.
 
 ### Anyone (Permissionless)
 
@@ -98,9 +98,9 @@ Optional 721 permissions (granted only if enabled at deployment via `REVDeploy72
 
 | Function | Required Role | Access Control | What It Does |
 |----------|--------------|----------------|-------------|
-| `borrowFrom()` | Anyone (must hold revnet tokens) | None -- but caller's tokens are burned as collateral | Opens a loan against revnet token collateral. |
-| `repayLoan()` | Loan NFT Owner | `_ownerOf(loanId) == _msgSender()` | Repays a loan (partially or fully) and returns collateral. |
-| `reallocateCollateralFromLoan()` | Loan NFT Owner | `_ownerOf(loanId) == _msgSender()` | Splits excess collateral from an existing loan into a new loan. |
+| `borrowFrom()` | Holder or operator with `OPEN_LOAN` | `PERMISSIONS.hasPermission` if caller ≠ holder | Opens a loan against revnet token collateral. The `holder` parameter specifies whose tokens are burned; the loan NFT is minted to `holder`. |
+| `repayLoan()` | Loan NFT Owner or operator with `REPAY_LOAN` | `PERMISSIONS.hasPermission` if caller ≠ owner | Repays a loan (partially or fully) and returns collateral. Replacement loans are minted to the original loan owner. |
+| `reallocateCollateralFromLoan()` | Loan NFT Owner or operator with `REALLOCATE_LOAN` | `PERMISSIONS.hasPermission` if caller ≠ owner | Splits excess collateral from an existing loan into a new loan. Returned collateral and replacement loans go to the original loan owner. |
 | `liquidateExpiredLoansFrom()` | Anyone | None | Liquidates loans that have exceeded the 10-year liquidation duration. Permanently destroys collateral. |
 | `setTokenUriResolver()` | REVLoans Owner | `onlyOwner` (OpenZeppelin Ownable) | Sets the contract that resolves loan NFT metadata URIs. |
 
@@ -133,14 +133,14 @@ The `REVLoans` contract has minimal admin surface by design:
 
 - **All economic parameters are constants.** Loan liquidation duration (10 years), fee percentages (MIN 2.5%, MAX 50%), and the REV fee (1%) are hardcoded as immutable constants. No admin can change them.
 - **The only admin function is `setTokenUriResolver()`**, which controls how loan NFTs render their metadata. This is purely cosmetic and has no effect on loan economics, collateral, or fund flows.
-- **Loan management is permissioned to NFT holders only.** Repayment, collateral reallocation, and refinancing require ownership of the specific loan's ERC-721 NFT.
+- **Loan management is permissioned to NFT holders or delegated operators.** Repayment requires loan NFT ownership or `REPAY_LOAN` permission. Collateral reallocation requires loan NFT ownership or `REALLOCATE_LOAN` permission. Borrowing on behalf of another holder requires `OPEN_LOAN` permission. In all delegated cases, collateral and loan NFTs flow to the original holder/owner, not the operator.
 - **Liquidation is permissionless.** Anyone can call `liquidateExpiredLoansFrom()` for loans past the 10-year duration.
 
 ## Hidden Tokens Administration
 
-The `REVHiddenTokens` contract is fully permissionless with no admin surface:
+The `REVHiddenTokens` contract inherits `JBPermissioned` for operator delegation but has no admin surface:
 
-- **All operations are caller-initiated.** Any token holder can hide or reveal their own tokens. No admin approval is needed.
+- **Operations are holder-initiated or operator-delegated.** Any token holder can hide or reveal their own tokens. An operator with `HIDE_TOKENS` permission can hide tokens on behalf of a holder; an operator with `REVEAL_TOKENS` permission can reveal on their behalf.
 - **No owner or admin role.** The contract has no `Ownable` or privileged functions.
 - **Mint permission is granted via REVOwner.** `REVHiddenTokens` is listed in `REVOwner.hasMintPermissionFor` so it can re-mint tokens on reveal. This is a global immutable set at REVOwner deployment.
 - **BURN_TOKENS permission is per-user.** Each user must individually grant `BURN_TOKENS` permission to the `REVHiddenTokens` contract before hiding tokens.

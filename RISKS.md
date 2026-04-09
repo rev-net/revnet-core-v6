@@ -65,7 +65,7 @@ Read [ARCHITECTURE.md](./ARCHITECTURE.md) and [SKILLS.md](./SKILLS.md) for proto
 
 ### Hidden token supply manipulation
 
-- **Hiding reduces totalSupply, inflating per-token cash-out value.** When a holder hides tokens via `REVHiddenTokens`, those tokens are burned and excluded from `totalSupply`. The bonding curve sees fewer tokens, so each remaining token is worth more on cash-out. A holder with a large position can hide tokens, have an accomplice cash out at the inflated rate, then reveal. The net effect depends on the `cashOutTaxRate` and the relative positions.
+- **Hiding reduces totalSupply, inflating per-token cash-out value.** When a holder hides tokens via `REVHiddenTokens`, those tokens are burned and excluded from `totalSupply`. The bonding curve sees fewer tokens, so each remaining token is worth more on cash-out. A holder with a large position can hide tokens, have an accomplice cash out at the inflated rate, then reveal. The net effect depends on the `cashOutTaxRate` and the relative positions. Operator delegation (`HIDE_TOKENS`/`REVEAL_TOKENS` permissions) extends this to permissioned operators acting on behalf of holders.
 - **Hidden tokens must be revealed before use as loan collateral.** `REVHiddenTokens` and `REVLoans` are separate systems. A holder cannot borrow against hidden tokens — they must first reveal (re-mint) them, then borrow. This is by design but may confuse users.
 - **Reveal mints without reserved percent.** `revealTokensOf` calls `mintTokensOf` with `useReservedPercent: false`. This is correct because the tokens were previously burned and are being restored, not newly issued. But it means revealed tokens bypass the reserved-token mechanism entirely.
 - **REVHiddenTokens has mint permission via REVOwner.** The contract is added to `REVOwner.hasMintPermissionFor`. If `REVHiddenTokens` has a vulnerability, it could mint unbounded tokens for any revnet.
@@ -208,7 +208,7 @@ These MUST hold. Breaking any of them is a finding.
 ### Privilege isolation
 
 - **Sucker privilege.** Only addresses returning `true` from `SUCKER_REGISTRY.isSuckerOf(projectId, addr)` get 0% cashout tax. No other code path grants this exemption.
-- **Loan ownership.** Only `_ownerOf(loanId)` can call `repayLoan` and `reallocateCollateralFromLoan`. The loan NFT is burned before any state changes in repayment, preventing double-use.
+- **Loan ownership.** Only `_ownerOf(loanId)` — or an operator with the relevant `JBPermissionIds` (`REPAY_LOAN` for repayment, `REALLOCATE_LOAN` for reallocation) — can call `repayLoan` and `reallocateCollateralFromLoan`. Similarly, `borrowFrom` requires the caller to be the `holder` or to have `OPEN_LOAN` permission. The loan NFT is burned before any state changes in repayment, preventing double-use. In all delegated cases, collateral and replacement loans flow to the original holder/owner, not the operator.
 - **Mint permission.** Only `LOANS`, `HIDDEN_TOKENS`, `BUYBACK_HOOK`, buyback hook delegates (via `BUYBACK_HOOK.hasMintPermissionFor`), and suckers (via `REVOwner._isSuckerOf`) can mint tokens. No other address passes the `REVOwner.hasMintPermissionFor` check.
 
 ---

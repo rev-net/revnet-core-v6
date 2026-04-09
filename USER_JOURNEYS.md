@@ -51,9 +51,9 @@
 
 **Flow**
 1. The holder grants `BURN_TOKENS` permission to the `REVHiddenTokens` contract for the revnet.
-2. Call `hideTokensOf(revnetId, tokenCount)` to burn the tokens and track the hidden balance.
+2. Call `hideTokensOf(revnetId, tokenCount, holder)` to burn the tokens and track the hidden balance. An operator with `HIDE_TOKENS` permission can call this on behalf of the holder.
 3. The bonding curve now sees a smaller totalSupply, so each remaining token is worth more on cash out.
-4. When the holder wants their tokens back, call `revealTokensOf(revnetId, tokenCount, beneficiary)` to re-mint them.
+4. When the holder wants their tokens back, call `revealTokensOf(revnetId, tokenCount, beneficiary, holder)` to re-mint them. An operator with `REVEAL_TOKENS` permission can call this on behalf of the holder.
 
 **Failure cases that matter:** trying to reveal more tokens than were hidden, forgetting that revealed tokens increase totalSupply again (reducing per-token cash-out value), and not realizing that hidden tokens must be revealed before they can be used as loan collateral.
 
@@ -64,10 +64,10 @@
 **Success:** the holder opens a loan, receives borrowed value, and keeps an NFT loan position representing the debt.
 
 **Flow**
-1. The holder interacts with `REVLoans` using the eligible Revnet token exposure as collateral.
-2. The system burns or escrows the relevant token exposure and mints a loan-position NFT.
+1. The holder (or an operator with `OPEN_LOAN` permission) interacts with `REVLoans` using the eligible Revnet token exposure as collateral. The `holder` parameter specifies whose tokens are burned; the loan NFT is minted to `holder`.
+2. The system burns the relevant token exposure and mints a loan-position NFT to the holder.
 3. Loan terms depend on the live Revnet economics rather than a static side system.
-4. The borrower can later repay, transfer the loan NFT, or face liquidation if conditions require it.
+4. The borrower (or an operator with `REPAY_LOAN` / `REALLOCATE_LOAN` permission) can later repay, reallocate collateral, transfer the loan NFT, or face liquidation if conditions require it.
 
 ## Journey 5: Repay, Transfer, Or Liquidate A Loan Position
 

@@ -92,11 +92,13 @@ Prioritize:
 - array or hook-spec assumptions that depend on non-empty returns
 - split-weight accounting during 721 compositions
 - Permit2 and ERC-2771 assisted loan flows
+- operator delegation abuse: `OPEN_LOAN`, `REPAY_LOAN`, `REALLOCATE_LOAN`, `HIDE_TOKENS`, `REVEAL_TOKENS` permission checks — verify collateral and loan NFTs always flow to the holder/owner, never the operator
 
 The best attacker mindsets here are:
 - a borrower who can move surplus or stage timing before and after borrowing
 - a caller exploiting the fact that revnets are composed from several optional subsystems, not one monolith
 - an operator or deployer helper that retained one capability too many
+- a delegated operator who tricks a holder into granting permission, then exploits the delegation to extract value (e.g., borrowing on behalf of a holder and directing funds to a beneficiary they control)
 
 ## Hotspots
 
@@ -104,7 +106,8 @@ The best attacker mindsets here are:
 - `REVOwner.beforeCashOutRecordedWith`
 - deployer-only linkage between `REVDeployer` and `REVOwner`
 - `REVLoans` borrowable amount, fee accrual, and liquidation logic
-- `REVHiddenTokens.hideTokensOf` and `revealTokensOf` burn/mint symmetry
+- `REVHiddenTokens.hideTokensOf` and `revealTokensOf` burn/mint symmetry and `HIDE_TOKENS`/`REVEAL_TOKENS` permission checks
+- `REVLoans` operator delegation: `OPEN_LOAN`, `REPAY_LOAN`, `REALLOCATE_LOAN` inline permission checks — verify holder/owner receives collateral and loan NFTs in all delegation paths
 - any path that assumes a valid tiered 721 hook or sucker mapping exists
 
 ## Sequences Worth Replaying
