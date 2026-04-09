@@ -232,7 +232,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         (JBRuleset memory currentRuleset,) = CONTROLLER.currentRulesetOf(revnetId);
 
         // If the cash out delay hasn't passed yet, no amount is borrowable.
-        if (_cashOutDelayOf(revnetId, currentRuleset) > block.timestamp) return 0;
+        if (_cashOutDelayOf({revnetId: revnetId, currentRuleset: currentRuleset}) > block.timestamp) return 0;
 
         return _borrowableAmountFrom({
             revnetId: revnetId,
@@ -303,7 +303,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
         // slither-disable-next-line unused-return
         (JBRuleset memory currentRuleset,) = CONTROLLER.currentRulesetOf(revnetId);
 
-        return _cashOutDelayOf(revnetId, currentRuleset);
+        return _cashOutDelayOf({revnetId: revnetId, currentRuleset: currentRuleset});
     }
 
     /// @notice Returns the cash out delay timestamp using a pre-fetched ruleset (avoids redundant external call).
@@ -677,7 +677,7 @@ contract REVLoans is ERC721, ERC2771Context, Ownable, IREVLoans {
 
         // Enforce the cash out delay.
         {
-            uint256 cashOutDelay = _cashOutDelayOf(revnetId, currentRuleset);
+            uint256 cashOutDelay = _cashOutDelayOf({revnetId: revnetId, currentRuleset: currentRuleset});
             if (cashOutDelay > block.timestamp) {
                 revert REVLoans_CashOutDelayNotFinished(cashOutDelay, block.timestamp);
             }
