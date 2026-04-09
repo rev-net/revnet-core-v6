@@ -5,7 +5,6 @@ import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBPayoutTerminal} from "@bananapus/core-v6/src/interfaces/IJBPayoutTerminal.sol";
 import {IJBPrices} from "@bananapus/core-v6/src/interfaces/IJBPrices.sol";
-import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
 import {IJBTokenUriResolver} from "@bananapus/core-v6/src/interfaces/IJBTokenUriResolver.sol";
 import {JBSingleAllowance} from "@bananapus/core-v6/src/structs/JBSingleAllowance.sol";
 import {IPermit2} from "@uniswap/permit2/src/interfaces/IPermit2.sol";
@@ -163,10 +162,6 @@ interface IREVLoans {
     /// @notice The contract that stores prices for each revnet.
     /// @return The prices contract.
     function PRICES() external view returns (IJBPrices);
-
-    /// @notice The contract that mints ERC-721s representing project ownership.
-    /// @return The projects contract.
-    function PROJECTS() external view returns (IJBProjects);
 
     /// @notice The ID of the REV revnet that receives protocol fees from loans.
     /// @return The REV revnet ID.

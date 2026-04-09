@@ -390,7 +390,7 @@ contract DeployScript is Script, Sphinx {
                 salt: REVLOANS_SALT,
                 creationCode: type(REVLoans).creationCode,
                 arguments: abi.encode(
-                    core.controller, core.projects, _candidateId, LOANS_OWNER, PERMIT2, TRUSTED_FORWARDER
+                    core.controller, _candidateId, LOANS_OWNER, PERMIT2, TRUSTED_FORWARDER
                 )
             });
 
@@ -471,7 +471,6 @@ contract DeployScript is Script, Sphinx {
             ? REVLoans(payable(_existingRevloansAddr))
             : new REVLoans{salt: REVLOANS_SALT}({
                 controller: core.controller,
-                projects: core.projects,
                 revId: FEE_PROJECT_ID,
                 owner: LOANS_OWNER,
                 permit2: PERMIT2,

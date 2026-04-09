@@ -208,7 +208,7 @@ These MUST hold. Breaking any of them is a finding.
 ### Privilege isolation
 
 - **Sucker privilege.** Only addresses returning `true` from `SUCKER_REGISTRY.isSuckerOf(projectId, addr)` get 0% cashout tax. No other code path grants this exemption.
-- **Loan ownership.** Only `_ownerOf(loanId)` — or an operator with the relevant `JBPermissionIds` (`REPAY_LOAN` for repayment, `REALLOCATE_LOAN` for reallocation) — can call `repayLoan` and `reallocateCollateralFromLoan`. Similarly, `borrowFrom` requires the caller to be the `holder` or to have `OPEN_LOAN` permission. The loan NFT is burned before any state changes in repayment, preventing double-use. In all delegated cases, collateral and replacement loans flow to the original holder/owner, not the operator.
+- **Loan ownership.** Only `_ownerOf(loanId)` — or an operator with the relevant `JBPermissionIds` (`REPAY_LOAN` for repayment, `REALLOCATE_LOAN` for reallocation) — can call `repayLoan` and `reallocateCollateralFromLoan`. Similarly, `borrowFrom` requires the caller to be the `holder` or to have `OPEN_LOAN` permission. The loan NFT is burned before any state changes in repayment, preventing double-use. Replacement loan NFTs are minted to the original holder/owner, not the operator. However, delegated operators control the `beneficiary` parameter and can direct borrowed funds, returned collateral, or revealed tokens to any address (see §8.5).
 - **Mint permission.** Only `LOANS`, `HIDDEN_TOKENS`, `BUYBACK_HOOK`, buyback hook delegates (via `BUYBACK_HOOK.hasMintPermissionFor`), and suckers (via `REVOwner._isSuckerOf`) can mint tokens. No other address passes the `REVOwner.hasMintPermissionFor` check.
 
 ---
@@ -231,6 +231,17 @@ These MUST hold. Breaking any of them is a finding.
 
 `_borrowableAmountFrom` reads live surplus. An attacker could inflate surplus via `addToBalanceOf`, but donations are permanent (no recovery), and the extra borrowable amount is always less than the donation. `pay` increases both surplus AND supply, neutralizing the effect. With non-zero `cashOutTaxRate`, the concave bonding curve makes this even worse for attackers. The attack is self-defeating by construction.
 
-### 8.5 Borrow-repay arbitrage is unprofitable (by design)
+### 8.5 Delegated operators control beneficiary independently of holder/owner (by design)
+
+When a holder grants `OPEN_LOAN`, `REALLOCATE_LOAN`, `REPAY_LOAN`, or `REVEAL_TOKENS` permission to an operator, the operator can set the `beneficiary` parameter to any address — including themselves. This means:
+
+- **`borrowFrom`**: An operator with `OPEN_LOAN` permission burns the holder's tokens as collateral but can direct the borrowed funds to an arbitrary beneficiary.
+- **`reallocateCollateralFromLoan`**: An operator with `REALLOCATE_LOAN` permission can direct the borrowed funds from the new loan to an arbitrary beneficiary.
+- **`repayLoan`**: An operator with `REPAY_LOAN` permission can direct returned collateral tokens to an arbitrary beneficiary.
+- **`revealTokensOf`**: An operator with `REVEAL_TOKENS` permission can direct revealed (re-minted) tokens to an arbitrary beneficiary instead of the original holder.
+
+This is accepted because the JBPermissions delegation model is opt-in: a holder explicitly grants permission to a specific operator for a specific project. The holder trusts the operator to act in their interest. Restricting `beneficiary` to the holder would break legitimate delegation use cases (e.g., automated vaults, multi-sig workflows, portfolio managers). Holders should only grant these permissions to operators they fully trust.
+
+### 8.6 Borrow-repay arbitrage is unprofitable (by design)
 
 A borrower who pays the prepaid fee upfront (minimum 2.5% + REV fee 1% = 3.5%) can repay at any time within the prepaid duration with no additional cost. If the bonding curve value of the collateral increases during the prepaid window, the borrower can repay, recover their collateral, and cash out at the higher value. This is not profitable as a standalone strategy because the 3.5% minimum fee exceeds the expected value gained from short-term surplus fluctuations. For borrowers who need liquidity anyway, it provides free optionality — which is the intended use case.

@@ -82,12 +82,15 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
     }
 
     /// @notice Reveal previously hidden tokens by re-minting them.
+    /// @dev A delegated operator (with REVEAL_TOKENS permission) can set `beneficiary` to any address, directing
+    /// revealed tokens away from the holder. Grant this permission only to trusted operators.
     /// @param revnetId The ID of the revnet whose tokens to reveal.
     /// @param tokenCount The number of tokens to reveal.
     /// @param beneficiary The address that will receive the revealed tokens.
     /// @param holder The address whose hidden balance to decrement.
     function revealTokensOf(uint256 revnetId, uint256 tokenCount, address beneficiary, address holder) external override {
         // Only the holder or a permissioned operator can reveal tokens.
+        // Note: the operator controls `beneficiary`, so they can direct revealed tokens to any address.
         _requirePermissionFrom({account: holder, projectId: revnetId, permissionId: JBPermissionIds.REVEAL_TOKENS});
 
         uint256 hidden = hiddenBalanceOf[holder][revnetId];
