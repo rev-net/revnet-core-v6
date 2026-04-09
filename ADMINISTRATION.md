@@ -6,8 +6,8 @@ Admin privileges and their scope in revnet-core-v6. Revnets are designed to be a
 
 | Item | Details |
 |------|---------|
-| Scope | Autonomous revnet deployment, split-operator powers, loan metadata ownership, and the boundaries imposed by revnet immutability. |
-| Operators | The per-revnet split operator, the global `REVLoans` owner for metadata cosmetics, the protocol-owned `REVDeployer`, loan NFT holders, and permissionless callers for open lifecycle actions. |
+| Scope | Autonomous revnet deployment, split-operator powers, loan metadata ownership, hidden token management, and the boundaries imposed by revnet immutability. |
+| Operators | The per-revnet split operator, the global `REVLoans` owner for metadata cosmetics, the protocol-owned `REVDeployer`, loan NFT holders, `REVHiddenTokens` callers, and permissionless callers for open lifecycle actions. |
 | Highest-risk actions | Converting an existing project into a revnet, changing or burning the split operator, and configuring buyback, router, price-feed, or sucker permissions inside the narrow allowed operator surface. |
 | Recovery posture | Revnet economics are intentionally not admin-recoverable. A bad deployment generally means abandoning the revnet and deploying a new one. |
 
@@ -123,7 +123,7 @@ Revnets are designed to operate without a traditional project owner. The followi
 - **No approval hooks.** All rulesets are deployed with `approvalHook = address(0)`. There is no mechanism to block or delay stage transitions.
 - **Cash outs cannot be fully disabled.** The deployer enforces `cashOutTaxRate < MAX_CASH_OUT_TAX_RATE` for every stage, guaranteeing that token holders always retain some ability to cash out.
 - **Data hook is REVOwner.** `REVOwner` is set as the data hook (`metadata.dataHook = address(OWNER())`) for all rulesets, ensuring consistent fee and sucker logic without external admin control. REVOwner stores `cashOutDelayOf` and `tiered721HookOf` in its own storage (set by REVDeployer via DEPLOYER-restricted setters during deployment).
-- **Mint permission is restricted.** Only the loans contract, the buyback hook (and its delegates), and registered suckers can mint tokens (as determined by `REVOwner.hasMintPermissionFor`). The split operator cannot mint fungible revnet tokens.
+- **Mint permission is restricted.** Only the loans contract, the hidden tokens contract, the buyback hook (and its delegates), and registered suckers can mint tokens (as determined by `REVOwner.hasMintPermissionFor`). The split operator cannot mint fungible revnet tokens.
 - **No held fee manipulation.** The deployer has no function to process or return held fees arbitrarily.
 - **Owner minting is constrained.** While `allowOwnerMinting = true` is set in ruleset metadata, the "owner" is the `REVDeployer` contract. It only uses this to mint auto-issuance tokens (amounts fixed at deployment) and to return loan collateral.
 
@@ -135,6 +135,15 @@ The `REVLoans` contract has minimal admin surface by design:
 - **The only admin function is `setTokenUriResolver()`**, which controls how loan NFTs render their metadata. This is purely cosmetic and has no effect on loan economics, collateral, or fund flows.
 - **Loan management is permissioned to NFT holders only.** Repayment, collateral reallocation, and refinancing require ownership of the specific loan's ERC-721 NFT.
 - **Liquidation is permissionless.** Anyone can call `liquidateExpiredLoansFrom()` for loans past the 10-year duration.
+
+## Hidden Tokens Administration
+
+The `REVHiddenTokens` contract is fully permissionless with no admin surface:
+
+- **All operations are caller-initiated.** Any token holder can hide or reveal their own tokens. No admin approval is needed.
+- **No owner or admin role.** The contract has no `Ownable` or privileged functions.
+- **Mint permission is granted via REVOwner.** `REVHiddenTokens` is listed in `REVOwner.hasMintPermissionFor` so it can re-mint tokens on reveal. This is a global immutable set at REVOwner deployment.
+- **BURN_TOKENS permission is per-user.** Each user must individually grant `BURN_TOKENS` permission to the `REVHiddenTokens` contract before hiding tokens.
 
 ## Immutable Configuration
 
@@ -171,6 +180,7 @@ The following parameters are set at deployment and can never be changed:
 - `BUYBACK_HOOK` -- the buyback hook (shared immutable with REVDeployer)
 - `DIRECTORY` -- the Juicebox directory (shared immutable with REVDeployer)
 - `FEE_REVNET_ID` -- the project ID that receives cash-out fees (shared immutable)
+- `HIDDEN_TOKENS` -- the hidden tokens contract address (shared immutable)
 - `SUCKER_REGISTRY` -- the sucker registry (shared immutable)
 - `LOANS` -- the loans contract address (shared immutable)
 - `FEE` -- the cash-out fee constant (2.5%)

@@ -17,6 +17,7 @@ In scope:
 - `src/REVDeployer.sol`
 - `src/REVOwner.sol`
 - `src/REVLoans.sol`
+- `src/REVHiddenTokens.sol`
 - `src/interfaces/`
 - `src/structs/`
 - deployment scripts in `script/`
@@ -45,6 +46,7 @@ The repo splits responsibilities:
 - `REVDeployer`: launches revnets, encodes stage configs, manages optional 721 and sucker composition
 - `REVOwner`: runtime data/cash-out hook used by deployed revnets
 - `REVLoans`: loan system that burns collateral on borrow and re-mints on repayment
+- `REVHiddenTokens`: temporary token hiding that burns tokens to exclude from totalSupply and re-mints on reveal
 
 Important composition behavior:
 - revnet payments may be proxied through 721 and buyback hooks
@@ -75,7 +77,10 @@ Fee-free or mint-enabled paths meant for registered omnichain components must no
 6. Collateral burn/remint symmetry holds
 Loan collateral that is burned on borrow and re-minted on repay must not be duplicable, strandable, or recoverable by the wrong party.
 
-7. Stage transitions do not create hidden refinancing windows
+7. Hidden token accounting is sound
+Tokens hidden via REVHiddenTokens must be exactly recoverable on reveal. The hidden balance must not allow minting more tokens than were burned, and totalHiddenOf must equal the sum of all per-holder hidden balances.
+
+8. Stage transitions do not create hidden refinancing windows
 Changes in issuance or cash-out economics across stages must not let a borrower lock in value that the system intended to become unavailable.
 
 ## Threat Model
@@ -99,6 +104,7 @@ The best attacker mindsets here are:
 - `REVOwner.beforeCashOutRecordedWith`
 - deployer-only linkage between `REVDeployer` and `REVOwner`
 - `REVLoans` borrowable amount, fee accrual, and liquidation logic
+- `REVHiddenTokens.hideTokensOf` and `revealTokensOf` burn/mint symmetry
 - any path that assumes a valid tiered 721 hook or sucker mapping exists
 
 ## Sequences Worth Replaying
@@ -108,6 +114,7 @@ The best attacker mindsets here are:
 3. Borrow after surplus inflation, then force or observe surplus contraction before liquidation.
 4. Cash out through a legitimate sucker path versus a near-sucker spoof path.
 5. Any path where `REVOwner` expects hook arrays or external replies to be non-empty.
+6. Hide tokens, have an accomplice cash out at the inflated rate, then reveal — check whether the net outcome is profitable.
 
 ## Finding Bar
 

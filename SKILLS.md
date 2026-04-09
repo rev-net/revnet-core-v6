@@ -13,6 +13,7 @@
 | Deployment and stage config | [`src/REVDeployer.sol`](./src/REVDeployer.sol), [`script/Deploy.s.sol`](./script/Deploy.s.sol) |
 | Runtime owner and data-hook behavior | [`src/REVOwner.sol`](./src/REVOwner.sol) |
 | Loan accounting and liquidation behavior | [`src/REVLoans.sol`](./src/REVLoans.sol) |
+| Temporary token hiding and supply exclusion | [`src/REVHiddenTokens.sol`](./src/REVHiddenTokens.sol) |
 | Types and helpers | [`src/structs/`](./src/structs/), [`src/interfaces/`](./src/interfaces/), [`test/helpers/`](./test/helpers/) |
 | Loan regressions, economics, and forks | [`test/REVLoansRegressions.t.sol`](./test/REVLoansRegressions.t.sol), [`test/TestLongTailEconomics.t.sol`](./test/TestLongTailEconomics.t.sol), [`test/fork/`](./test/fork/), [`test/regression/`](./test/regression/) |
 
@@ -38,6 +39,6 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 
 ## Working Rules
 
-- Start in `REVDeployer` for launch-time behavior, `REVOwner` for runtime hook behavior, and `REVLoans` for collateral and debt accounting.
+- Start in `REVDeployer` for launch-time behavior, `REVOwner` for runtime hook behavior, `REVLoans` for collateral and debt accounting, and `REVHiddenTokens` for temporary supply exclusion.
 - Verify any economic assumption in code or tests before relying on it. Revnet docs carry more economic interpretation than most repos.
 - For anything cross-chain or stage-related, check both the deployer path and the reading-state reference before editing.

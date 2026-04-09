@@ -43,6 +43,20 @@
 2. Call `autoIssueFor(...)` only once the target stage has started.
 3. The stored allocation is consumed so the same stage allocation cannot be claimed twice.
 
+## Journey 3a: Hide Tokens To Increase Cash-Out Value For Remaining Holders
+
+**Starting state:** a holder wants to temporarily exclude some tokens from totalSupply without permanently giving them up.
+
+**Success:** the holder burns tokens via REVHiddenTokens, reducing totalSupply and increasing the per-token cash-out value for everyone else. The holder can reveal (re-mint) their hidden tokens at any time.
+
+**Flow**
+1. The holder grants `BURN_TOKENS` permission to the `REVHiddenTokens` contract for the revnet.
+2. Call `hideTokensOf(revnetId, tokenCount)` to burn the tokens and track the hidden balance.
+3. The bonding curve now sees a smaller totalSupply, so each remaining token is worth more on cash out.
+4. When the holder wants their tokens back, call `revealTokensOf(revnetId, tokenCount, beneficiary)` to re-mint them.
+
+**Failure cases that matter:** trying to reveal more tokens than were hidden, forgetting that revealed tokens increase totalSupply again (reducing per-token cash-out value), and not realizing that hidden tokens must be revealed before they can be used as loan collateral.
+
 ## Journey 4: Borrow Against Revnet Tokens Instead Of Selling Them
 
 **Starting state:** a holder wants liquidity but does not want to exit the Revnet position.

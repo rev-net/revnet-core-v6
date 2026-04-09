@@ -9,9 +9,11 @@ This file describes the verified change from `revnet-core-v5` to the current `re
 - `REVDeployer`
 - `REVOwner`
 - `REVLoans`
+- `REVHiddenTokens`
 - `IREVDeployer`
 - `IREVOwner`
 - `IREVLoans`
+- `IREVHiddenTokens`
 
 ## Summary
 
@@ -27,6 +29,8 @@ This file describes the verified change from `revnet-core-v5` to the current `re
 - `IREVDeployer.deployFor(...)` now has overloads that return `(uint256, IJB721TiersHook)`.
 - `IREVDeployer.BUYBACK_HOOK()`, `LOANS()`, and `OWNER()` are explicit v6 surface area.
 - `IREVOwner` is a new interface and runtime counterpart to the deployer.
+- `IREVHiddenTokens` is a new interface for temporary token hiding (burn to exclude from totalSupply, re-mint on reveal).
+- `REVHiddenTokens` is a new standalone contract that lets holders temporarily hide tokens to increase cash-out value for remaining holders.
 - The old caller-supplied `REVBuybackHookConfig` path is no longer part of the deployer interface.
 
 ## Breaking ABI changes
