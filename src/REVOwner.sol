@@ -59,6 +59,9 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
     /// @notice The Juicebox project ID of the revnet that receives cash out fees.
     uint256 public immutable FEE_REVNET_ID;
 
+    /// @notice The hidden tokens contract used by all revnets.
+    address public immutable HIDDEN_TOKENS;
+
     /// @notice The loan contract used by all revnets.
     address public immutable LOANS;
 
@@ -99,12 +102,14 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
     /// @param feeRevnetId The Juicebox project ID of the fee revnet.
     /// @param suckerRegistry The sucker registry.
     /// @param loans The loan contract address.
+    /// @param hiddenTokens The hidden tokens contract address.
     constructor(
         IJBBuybackHookRegistry buybackHook,
         IJBDirectory directory,
         uint256 feeRevnetId,
         IJBSuckerRegistry suckerRegistry,
-        address loans
+        address loans,
+        address hiddenTokens
     ) {
         BUYBACK_HOOK = buybackHook;
         DIRECTORY = directory;
@@ -112,6 +117,8 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
         SUCKER_REGISTRY = suckerRegistry;
         // slither-disable-next-line missing-zero-check
         LOANS = loans;
+        // slither-disable-next-line missing-zero-check
+        HIDDEN_TOKENS = hiddenTokens;
         _DEPLOYER_BINDER = msg.sender;
     }
 
@@ -302,8 +309,9 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
         override
         returns (bool)
     {
-        // The loans contract, buyback hook (and its delegates), and suckers are allowed to mint the revnet's tokens.
-        return addr == LOANS || addr == address(BUYBACK_HOOK)
+        // The loans contract, hidden tokens contract, buyback hook (and its delegates), and suckers are allowed to mint
+        // the revnet's tokens.
+        return addr == LOANS || addr == HIDDEN_TOKENS || addr == address(BUYBACK_HOOK)
             || BUYBACK_HOOK.hasMintPermissionFor({projectId: revnetId, ruleset: ruleset, addr: addr})
             || _isSuckerOf({revnetId: revnetId, addr: addr});
     }

@@ -472,7 +472,8 @@ contract DeployScript is Script, Sphinx {
                 directory: core.controller.DIRECTORY(),
                 feeRevnetId: FEE_PROJECT_ID,
                 suckerRegistry: suckers.registry,
-                loans: address(revloans)
+                loans: address(revloans),
+                hiddenTokens: address(0)
             });
 
         // Deploy REVDeployer with the REVLoans, buyback hook, and REVOwner addresses.

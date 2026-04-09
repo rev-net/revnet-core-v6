@@ -28,6 +28,7 @@ The key point is that a Revnet is not just "a Juicebox project with presets." It
 | `REVDeployer` | Launches and configures Revnets, stages, split operators, and optional auxiliary features. |
 | `REVOwner` | Runtime data-hook and cash-out-hook surface used by active Revnets. |
 | `REVLoans` | Loan surface that lets users borrow against Revnet tokens with burned collateral and NFT loan positions. |
+| `REVHiddenTokens` | Lets token holders temporarily hide (burn) tokens, excluding them from totalSupply and increasing cash-out value for remaining holders. Hidden tokens can be revealed (re-minted) at any time. |
 
 ## Mental Model
 

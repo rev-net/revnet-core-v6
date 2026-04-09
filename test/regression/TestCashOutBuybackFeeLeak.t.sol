@@ -89,7 +89,8 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
             jbDirectory(),
             feeProjectId,
             IJBSuckerRegistry(address(suckerRegistry)),
-            address(loans)
+            address(loans),
+            address(0)
         );
 
         revDeployer = new REVDeployer{salt: REV_DEPLOYER_SALT}(

@@ -226,7 +226,8 @@ contract REVnet_Integrations is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            makeAddr("loans")
+            makeAddr("loans"),
+            address(0)
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
