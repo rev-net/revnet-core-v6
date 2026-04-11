@@ -16,6 +16,7 @@ import {JBCashOutHookSpecification} from "@bananapus/core-v6/src/structs/JBCashO
 import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
 import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
+import {JBRelayBeneficiary} from "@bananapus/suckers-v6/src/libraries/JBRelayBeneficiary.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {mulDiv} from "@prb/math/src/Common.sol";
@@ -277,6 +278,17 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
         override
         returns (uint256 weight, JBPayHookSpecification[] memory hookSpecifications)
     {
+        // Resolve the relay beneficiary — if the payer is a sucker with relay metadata,
+        // swap the beneficiary so downstream hooks (721, buyback) see the real user.
+        address effectiveBeneficiary = JBRelayBeneficiary.resolve({
+            payer: context.payer,
+            beneficiary: context.beneficiary,
+            projectId: context.projectId,
+            metadata: context.metadata,
+            registry: SUCKER_REGISTRY
+        });
+        bool beneficiarySwapped = effectiveBeneficiary != context.beneficiary;
+
         // Get the 721 hook's spec and total split amount.
         IJB721TiersHook tiered721Hook = tiered721HookOf[context.projectId];
         JBPayHookSpecification memory tiered721HookSpec;
@@ -284,8 +296,16 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
         bool usesTiered721Hook = address(tiered721Hook) != address(0);
         if (usesTiered721Hook) {
             JBPayHookSpecification[] memory specs;
-            // slither-disable-next-line unused-return
-            (, specs) = IJBRulesetDataHook(address(tiered721Hook)).beforePayRecordedWith(context);
+            if (beneficiarySwapped) {
+                // Create memory copy with swapped beneficiary for the 721 hook.
+                JBBeforePayRecordedContext memory hookContext721 = context;
+                hookContext721.beneficiary = effectiveBeneficiary;
+                // slither-disable-next-line unused-return
+                (, specs) = IJBRulesetDataHook(address(tiered721Hook)).beforePayRecordedWith(hookContext721);
+            } else {
+                // slither-disable-next-line unused-return
+                (, specs) = IJBRulesetDataHook(address(tiered721Hook)).beforePayRecordedWith(context);
+            }
             // The 721 hook returns a single spec (itself) whose amount is the total split amount.
             if (specs.length > 0) {
                 tiered721HookSpec = specs[0];
@@ -301,6 +321,8 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
         {
             JBBeforePayRecordedContext memory buybackHookContext = context;
             buybackHookContext.amount.value = projectAmount;
+            // Swap beneficiary for the buyback hook too.
+            if (beneficiarySwapped) buybackHookContext.beneficiary = effectiveBeneficiary;
             (weight, buybackHookSpecs) = BUYBACK_HOOK.beforePayRecordedWith(buybackHookContext);
         }
 
