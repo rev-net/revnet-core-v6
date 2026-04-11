@@ -93,6 +93,17 @@
 2. Use only those surfaces rather than treating the project like a normal owner-governed Juicebox project.
 3. Audit cross-package behavior whenever the Revnet enabled buybacks, 721 hooks, router terminals, or suckers.
 
+## Journey 7: Receive Cross-Chain Payments With Correct Hook Routing
+
+**Starting state:** a sucker pays the Revnet on behalf of a remote user via `payRemote`, and the hooks attached via `REVOwner.beforePayRecordedWith` need to see the real user.
+
+**Success:** the 721 hook and buyback hook see the real remote user as the beneficiary so NFTs mint to and buyback routing benefits the correct person.
+
+**Flow**
+1. The sucker calls `terminal.pay()` with relay-beneficiary metadata.
+2. `REVOwner.beforePayRecordedWith()` resolves the relay beneficiary from the metadata when the payer is a registered sucker.
+3. The swapped beneficiary is forwarded to both the 721 hook and the buyback hook.
+
 ## Hand-Offs
 
 - Use [nana-core-v6](../nana-core-v6/USER_JOURNEYS.md) for the underlying project, terminal, and ruleset mechanics that Revnets package and constrain.
