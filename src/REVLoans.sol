@@ -364,6 +364,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             surplus: totalSurplus + totalBorrowed,
             cashOutCount: collateralCount,
             totalSupply: totalSupply + totalCollateral,
+            taxTotalSupply: totalSupply + totalCollateral,
             cashOutTaxRate: currentStage.cashOutTaxRate()
         });
     }

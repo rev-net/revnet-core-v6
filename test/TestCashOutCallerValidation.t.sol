@@ -355,6 +355,7 @@ contract TestCashOutCallerValidation is TestBaseWorkflow {
             uint256 cashOutTaxRate,
             uint256 cashOutCount,
             uint256 totalSupply,
+            uint256 taxTotalSupply,
             JBCashOutHookSpecification[] memory hookSpecifications
         ) = REV_OWNER.beforeCashOutRecordedWith(context);
 
@@ -364,12 +365,14 @@ contract TestCashOutCallerValidation is TestBaseWorkflow {
             surplus: context.surplus.value,
             cashOutCount: nonFeeCashOutCount,
             totalSupply: context.totalSupply,
+            taxTotalSupply: context.totalSupply,
             cashOutTaxRate: context.cashOutTaxRate
         });
         uint256 feeAmount = JBCashOuts.cashOutFrom({
             surplus: context.surplus.value - postFeeReclaimedAmount,
             cashOutCount: feeCashOutCount,
             totalSupply: context.totalSupply - nonFeeCashOutCount,
+            taxTotalSupply: context.totalSupply - nonFeeCashOutCount,
             cashOutTaxRate: context.cashOutTaxRate
         });
 

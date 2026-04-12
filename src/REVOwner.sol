@@ -15,6 +15,7 @@ import {JBBeforePayRecordedContext} from "@bananapus/core-v6/src/structs/JBBefor
 import {JBCashOutHookSpecification} from "@bananapus/core-v6/src/structs/JBCashOutHookSpecification.sol";
 import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
 import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
+import {IJBSucker} from "@bananapus/suckers-v6/src/interfaces/IJBSucker.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -138,6 +139,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
     /// out.
     /// @return cashOutCount The number of revnet tokens that are cashed out.
     /// @return totalSupply The total revnet token supply.
+    /// @return taxTotalSupply The total supply used for the bonding curve tax (includes cross-chain supply).
     /// @return hookSpecifications The amount of funds and the data to send to cash out hooks (this contract).
     function beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext calldata context)
         external
@@ -147,14 +149,16 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
             uint256 cashOutTaxRate,
             uint256 cashOutCount,
             uint256 totalSupply,
+            uint256 taxTotalSupply,
             JBCashOutHookSpecification[] memory hookSpecifications
         )
     {
         // If the cash out is from a sucker, return the full cash out amount without taxes or fees.
         // This relies on the sucker registry to only contain trusted sucker contracts deployed via
         // the registry's own deploySuckersFor flow — external addresses cannot register as suckers.
+        // taxTotalSupply is irrelevant when cashOutTaxRate is 0.
         if (_isSuckerOf({revnetId: context.projectId, addr: context.holder})) {
-            return (0, context.cashOutCount, context.totalSupply, hookSpecifications);
+            return (0, context.cashOutCount, context.totalSupply, 0, hookSpecifications);
         }
 
         // Keep a reference to the cash out delay of the revnet.
@@ -168,11 +172,17 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
         // Get the terminal that will receive the cash out fee.
         IJBTerminal feeTerminal = DIRECTORY.primaryTerminalOf({projectId: FEE_REVNET_ID, token: context.surplus.token});
 
+        // Compute the tax total supply (local + remote peer chain supplies) for cross-chain-aware bonding curve.
+        taxTotalSupply = _taxTotalSupplyOf({revnetId: context.projectId, localTotalSupply: context.totalSupply});
+
         // If there's no cash out tax (100% cash out tax rate), if there's no fee terminal, or if the beneficiary is
-        // feeless (e.g. the router terminal routing value between projects), proxy directly to the buyback hook.
+        // feeless (e.g. the router terminal routing value between projects), proxy to the buyback hook with our
+        // taxTotalSupply.
         if (context.cashOutTaxRate == 0 || address(feeTerminal) == address(0) || context.beneficiaryIsFeeless) {
             // slither-disable-next-line unused-return
-            return BUYBACK_HOOK.beforeCashOutRecordedWith(context);
+            (cashOutTaxRate, cashOutCount, totalSupply,, hookSpecifications) =
+                BUYBACK_HOOK.beforeCashOutRecordedWith(context);
+            return (cashOutTaxRate, cashOutCount, totalSupply, taxTotalSupply, hookSpecifications);
         }
 
         // Split the cashed-out tokens into a fee portion and a non-fee portion.
@@ -189,6 +199,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
             surplus: context.surplus.value,
             cashOutCount: nonFeeCashOutCount,
             totalSupply: context.totalSupply,
+            taxTotalSupply: taxTotalSupply,
             cashOutTaxRate: context.cashOutTaxRate
         });
 
@@ -197,6 +208,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
             surplus: context.surplus.value - postFeeReclaimedAmount,
             cashOutCount: feeCashOutCount,
             totalSupply: context.totalSupply - nonFeeCashOutCount,
+            taxTotalSupply: taxTotalSupply - nonFeeCashOutCount,
             cashOutTaxRate: context.cashOutTaxRate
         });
 
@@ -206,11 +218,13 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
 
         // Let the buyback hook adjust the cash out parameters and optionally return a hook specification.
         JBCashOutHookSpecification[] memory buybackHookSpecifications;
-        (cashOutTaxRate, cashOutCount, totalSupply, buybackHookSpecifications) =
+        (cashOutTaxRate, cashOutCount, totalSupply,, buybackHookSpecifications) =
             BUYBACK_HOOK.beforeCashOutRecordedWith(buybackHookContext);
 
         // If the fee rounds down to zero, return the buyback hook's response directly — no fee to process.
-        if (feeAmount == 0) return (cashOutTaxRate, cashOutCount, totalSupply, buybackHookSpecifications);
+        if (feeAmount == 0) {
+            return (cashOutTaxRate, cashOutCount, totalSupply, taxTotalSupply, buybackHookSpecifications);
+        }
 
         // Build a hook spec that routes the fee amount to this contract's `afterCashOutRecordedWith` for processing.
         JBCashOutHookSpecification memory feeSpec = JBCashOutHookSpecification({
@@ -232,7 +246,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
             hookSpecifications[0] = feeSpec;
         }
 
-        return (cashOutTaxRate, cashOutCount, totalSupply, hookSpecifications);
+        return (cashOutTaxRate, cashOutCount, totalSupply, taxTotalSupply, hookSpecifications);
     }
 
     /// @notice Before a revnet processes an incoming payment, determine the weight and pay hooks to use.
@@ -433,6 +447,33 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
     /// @return isSucker A flag indicating whether the address is one of the revnet's suckers.
     function _isSuckerOf(uint256 revnetId, address addr) internal view returns (bool) {
         return SUCKER_REGISTRY.isSuckerOf({projectId: revnetId, addr: addr});
+    }
+
+    /// @notice Compute the tax total supply: local supply plus the last-known supply on each peer chain.
+    /// @dev Used to prevent cross-chain arbitrage via the bonding curve tax. The proportional reclaim uses the local
+    /// supply while the tax adjustment uses this global supply, so bridging to an empty chain no longer collapses the
+    /// tax term.
+    /// @param revnetId The ID of the revnet.
+    /// @param localTotalSupply The total token supply on this chain (including pending reserved tokens).
+    /// @return The combined local + remote total supply.
+    function _taxTotalSupplyOf(uint256 revnetId, uint256 localTotalSupply) internal view returns (uint256) {
+        address[] memory suckers = SUCKER_REGISTRY.suckersOf(revnetId);
+        uint256 numberOfSuckers = suckers.length;
+        if (numberOfSuckers == 0) return localTotalSupply;
+
+        uint256 remoteTotalSupply;
+        for (uint256 i; i < numberOfSuckers;) {
+            // Each sucker stores the last-known total supply of its peer chain, updated on each bridge message.
+            try IJBSucker(suckers[i]).peerChainTotalSupply() returns (uint256 peerSupply) {
+                remoteTotalSupply += peerSupply;
+            } catch {}
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        return localTotalSupply + remoteTotalSupply;
     }
 
     //*********************************************************************//
