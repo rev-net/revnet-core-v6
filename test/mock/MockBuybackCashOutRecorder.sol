@@ -38,14 +38,14 @@ contract MockBuybackCashOutRecorder is IJBRulesetDataHook, IJBPayHook, IJBCashOu
             uint256 cashOutTaxRate,
             uint256 cashOutCount,
             uint256 totalSupply,
-            uint256 effectiveSurplus,
+            uint256 effectiveSurplusValue,
             JBCashOutHookSpecification[] memory hookSpecifications
         )
     {
         cashOutTaxRate = JBConstants.MAX_CASH_OUT_TAX_RATE;
         cashOutCount = context.cashOutCount;
         totalSupply = context.totalSupply;
-        effectiveSurplus = 0;
+        effectiveSurplusValue = 0;
         hookSpecifications = new JBCashOutHookSpecification[](1);
         hookSpecifications[0] = JBCashOutHookSpecification({
             hook: IJBCashOutHook(address(this)),

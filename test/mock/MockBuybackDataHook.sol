@@ -44,18 +44,18 @@ contract MockBuybackDataHook is IJBRulesetDataHook, IJBPayHook {
             uint256 cashOutTaxRate,
             uint256 cashOutCount,
             uint256 totalSupply,
-            uint256 effectiveSurplus,
+            uint256 effectiveSurplusValue,
             JBCashOutHookSpecification[] memory hookSpecifications
         )
     {
         cashOutTaxRate = cashOutTaxRateToReturn == 0 ? context.cashOutTaxRate : cashOutTaxRateToReturn;
         cashOutCount = cashOutCountToReturn == 0 ? context.cashOutCount : cashOutCountToReturn;
         totalSupply = totalSupplyToReturn == 0 ? context.totalSupply : totalSupplyToReturn;
-        effectiveSurplus = 0;
+        effectiveSurplusValue = 0;
 
         if (!shouldReturnCashOutHookSpec) {
             hookSpecifications = new JBCashOutHookSpecification[](0);
-            return (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplus, hookSpecifications);
+            return (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplusValue, hookSpecifications);
         }
 
         hookSpecifications = new JBCashOutHookSpecification[](1);

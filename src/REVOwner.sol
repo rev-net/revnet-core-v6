@@ -139,7 +139,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
     /// out.
     /// @return cashOutCount The number of revnet tokens that are cashed out.
     /// @return totalSupply The total token supply across all chains (for both proportional reclaim and tax).
-    /// @return effectiveSurplus The global surplus across all chains for proportional reclaim (0 = use local surplus).
+    /// @return effectiveSurplusValue The global surplus across all chains for proportional reclaim.
     /// @return hookSpecifications The amount of funds and the data to send to cash out hooks (this contract).
     function beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext calldata context)
         external
@@ -149,7 +149,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
             uint256 cashOutTaxRate,
             uint256 cashOutCount,
             uint256 totalSupply,
-            uint256 effectiveSurplus,
+            uint256 effectiveSurplusValue,
             JBCashOutHookSpecification[] memory hookSpecifications
         )
     {
@@ -175,16 +175,16 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
         totalSupply = _taxTotalSupplyOf({revnetId: context.projectId, localTotalSupply: context.totalSupply});
 
         // Compute the cross-chain surplus (local + remote peer chain balances) for proportional reclaim.
-        effectiveSurplus = _taxSurplusOf({revnetId: context.projectId, localSurplus: context.surplus.value});
+        effectiveSurplusValue = _taxSurplusOf({revnetId: context.projectId, localSurplus: context.surplus.value});
 
         // If there's no cash out tax (100% cash out tax rate), if there's no fee terminal, or if the beneficiary is
         // feeless (e.g. the router terminal routing value between projects), proxy to the buyback hook with our
-        // totalSupply and effectiveSurplus.
+        // totalSupply and effectiveSurplusValue.
         if (context.cashOutTaxRate == 0 || address(feeTerminal) == address(0) || context.beneficiaryIsFeeless) {
             // slither-disable-next-line unused-return
             (cashOutTaxRate, cashOutCount,,,hookSpecifications) =
                 BUYBACK_HOOK.beforeCashOutRecordedWith(context);
-            return (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplus, hookSpecifications);
+            return (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplusValue, hookSpecifications);
         }
 
         // Split the cashed-out tokens into a fee portion and a non-fee portion.
@@ -199,7 +199,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
         // Calculate how much surplus the non-fee tokens can reclaim via the bonding curve.
         // Use effective (cross-chain) surplus; cap at local surplus.
         uint256 postFeeReclaimedAmount = JBCashOuts.cashOutFrom({
-            surplus: effectiveSurplus,
+            surplus: effectiveSurplusValue,
             cashOutCount: nonFeeCashOutCount,
             totalSupply: totalSupply,
             cashOutTaxRate: context.cashOutTaxRate
@@ -209,7 +209,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
         // Calculate how much the fee tokens reclaim from the remaining surplus after the non-fee reclaim.
         // Use remaining effective surplus; cap at remaining local surplus.
         uint256 feeAmount = JBCashOuts.cashOutFrom({
-            surplus: effectiveSurplus > postFeeReclaimedAmount ? effectiveSurplus - postFeeReclaimedAmount : 0,
+            surplus: effectiveSurplusValue > postFeeReclaimedAmount ? effectiveSurplusValue - postFeeReclaimedAmount : 0,
             cashOutCount: feeCashOutCount,
             totalSupply: totalSupply - nonFeeCashOutCount,
             cashOutTaxRate: context.cashOutTaxRate
@@ -229,7 +229,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
 
         // If the fee rounds down to zero, return the buyback hook's response directly — no fee to process.
         if (feeAmount == 0) {
-            return (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplus, buybackHookSpecifications);
+            return (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplusValue, buybackHookSpecifications);
         }
 
         // Build a hook spec that routes the fee amount to this contract's `afterCashOutRecordedWith` for processing.
@@ -252,7 +252,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
             hookSpecifications[0] = feeSpec;
         }
 
-        return (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplus, hookSpecifications);
+        return (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplusValue, hookSpecifications);
     }
 
     /// @notice Before a revnet processes an incoming payment, determine the weight and pay hooks to use.
