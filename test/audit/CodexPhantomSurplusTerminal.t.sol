@@ -235,7 +235,6 @@ contract CodexPhantomSurplusTerminalTest is TestBaseWorkflow {
             surplus: realSurplus,
             cashOutCount: collateral,
             totalSupply: userTokens,
-            taxSurplus: 0,
             cashOutTaxRate: taxRate
         });
 

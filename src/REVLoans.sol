@@ -374,13 +374,14 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // for the same collateral changes. A lower cashOutTaxRate in a later stage means more borrowable value per
         // collateral. This is by design: loan value tracks the current bonding curve parameters, just as cash-out
         // value does. Borrowers benefit from decreasing tax rates and are constrained by increasing ones.
-        return JBCashOuts.cashOutFrom({
-            surplus: localSurplus,
+        // Use cross-chain surplus for proportional reclaim, cap at local surplus.
+        uint256 reclaimable = JBCashOuts.cashOutFrom({
+            surplus: _taxSurplusOf(revnetId, localSurplus),
             cashOutCount: collateralCount,
             totalSupply: _taxTotalSupplyOf(revnetId, localSupply),
-            taxSurplus: _taxSurplusOf(revnetId, localSurplus),
             cashOutTaxRate: currentStage.cashOutTaxRate()
         });
+        return reclaimable > localSurplus ? localSurplus : reclaimable;
     }
 
     /// @notice The amount of the loan that should be borrowed for the given collateral amount.

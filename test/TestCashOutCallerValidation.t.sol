@@ -366,14 +366,12 @@ contract TestCashOutCallerValidation is TestBaseWorkflow {
             surplus: context.surplus.value,
             cashOutCount: nonFeeCashOutCount,
             totalSupply: context.totalSupply,
-            taxSurplus: 0,
             cashOutTaxRate: context.cashOutTaxRate
         });
         uint256 feeAmount = JBCashOuts.cashOutFrom({
             surplus: context.surplus.value - postFeeReclaimedAmount,
             cashOutCount: feeCashOutCount,
             totalSupply: context.totalSupply - nonFeeCashOutCount,
-            taxSurplus: 0,
             cashOutTaxRate: context.cashOutTaxRate
         });
 

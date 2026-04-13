@@ -443,13 +443,13 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
         uint256 totalSupply = 0;
         uint256 cashOutTaxRate = 6000;
 
-        uint256 reclaimable = JBCashOuts.cashOutFrom(surplus, cashOutCount, totalSupply, 0, cashOutTaxRate);
+        uint256 reclaimable = JBCashOuts.cashOutFrom(surplus, cashOutCount, totalSupply, cashOutTaxRate);
 
         // Fixed in v6: cashing out 0 tokens always returns 0
         assertEq(reclaimable, 0, "zero cash out returns nothing");
 
         // Normal case: with supply, cashing out 0 still returns 0
-        uint256 normalReclaimable = JBCashOuts.cashOutFrom(surplus, 0, 1000e18, 0, cashOutTaxRate);
+        uint256 normalReclaimable = JBCashOuts.cashOutFrom(surplus, 0, 1000e18, cashOutTaxRate);
         assertEq(normalReclaimable, 0, "Normal: cashing out 0 of non-zero supply returns 0");
     }
 
