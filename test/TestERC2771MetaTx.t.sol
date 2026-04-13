@@ -291,6 +291,7 @@ contract TestERC2771MetaTx is TestBaseWorkflow {
         // Deploy LOANS_CONTRACT with the forwarder as trusted forwarder.
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            suckerRegistry: IJBSuckerRegistry(address(0)),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),

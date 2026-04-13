@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
+import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
 import {IJBPayoutTerminal} from "@bananapus/core-v6/src/interfaces/IJBPayoutTerminal.sol";
 import {IJBPrices} from "@bananapus/core-v6/src/interfaces/IJBPrices.sol";
 import {IJBTokenUriResolver} from "@bananapus/core-v6/src/interfaces/IJBTokenUriResolver.sol";
@@ -166,6 +167,10 @@ interface IREVLoans {
     /// @notice The ID of the REV revnet that receives protocol fees from loans.
     /// @return The REV revnet ID.
     function REV_ID() external view returns (uint256);
+
+    /// @notice The sucker registry used to discover peer chain suckers for cross-chain supply/surplus awareness.
+    /// @return The sucker registry.
+    function SUCKER_REGISTRY() external view returns (IJBSuckerRegistry);
 
     /// @notice The fee percent charged by the REV revnet on each loan, in terms of `JBConstants.MAX_FEE`.
     /// @return The REV prepaid fee percent.

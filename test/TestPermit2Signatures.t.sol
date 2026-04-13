@@ -258,6 +258,7 @@ contract TestPermit2Signatures is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            suckerRegistry: IJBSuckerRegistry(address(0)),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),

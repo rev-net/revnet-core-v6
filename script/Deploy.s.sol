@@ -389,7 +389,7 @@ contract DeployScript is Script, Sphinx {
             (address _candidateRevloansAddr, bool _candidateRevloansDeployed) = _isDeployed({
                 salt: REVLOANS_SALT,
                 creationCode: type(REVLoans).creationCode,
-                arguments: abi.encode(core.controller, _candidateId, LOANS_OWNER, PERMIT2, TRUSTED_FORWARDER)
+                arguments: abi.encode(core.controller, suckers.registry, _candidateId, LOANS_OWNER, PERMIT2, TRUSTED_FORWARDER)
             });
 
             if (_candidateRevloansDeployed) {
@@ -469,6 +469,7 @@ contract DeployScript is Script, Sphinx {
             ? REVLoans(payable(_existingRevloansAddr))
             : new REVLoans{salt: REVLOANS_SALT}({
                 controller: core.controller,
+                suckerRegistry: suckers.registry,
                 revId: FEE_PROJECT_ID,
                 owner: LOANS_OWNER,
                 permit2: PERMIT2,

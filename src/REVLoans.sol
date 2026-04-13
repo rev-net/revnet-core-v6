@@ -3,6 +3,8 @@ pragma solidity 0.8.28;
 
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
+import {IJBSucker} from "@bananapus/suckers-v6/src/interfaces/IJBSucker.sol";
+import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
 import {IJBPayoutTerminal} from "@bananapus/core-v6/src/interfaces/IJBPayoutTerminal.sol";
 import {IJBPermissioned} from "@bananapus/core-v6/src/interfaces/IJBPermissioned.sol";
 import {JBPermissioned} from "@bananapus/core-v6/src/abstract/JBPermissioned.sol";
@@ -124,6 +126,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @notice The ID of the REV revnet that will receive the fees.
     uint256 public immutable override REV_ID;
 
+    /// @notice The sucker registry used to discover peer chain suckers for cross-chain awareness.
+    IJBSuckerRegistry public immutable override SUCKER_REGISTRY;
+
     //*********************************************************************//
     // --------------------- public stored properties -------------------- //
     //*********************************************************************//
@@ -180,12 +185,14 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     //*********************************************************************//
 
     /// @param controller The controller that manages revnets using this loans contract.
+    /// @param suckerRegistry The registry used to discover peer chain suckers for cross-chain supply/surplus awareness.
     /// @param revId The ID of the REV revnet that will receive the fees.
     /// @param owner The owner of the contract that can set the URI resolver.
     /// @param permit2 A permit2 utility.
     /// @param trustedForwarder A trusted forwarder of transactions to this contract.
     constructor(
         IJBController controller,
+        IJBSuckerRegistry suckerRegistry,
         uint256 revId,
         address owner,
         IPermit2 permit2,
@@ -201,6 +208,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         PRICES = controller.PRICES();
         REV_ID = revId;
         PERMIT2 = permit2;
+        SUCKER_REGISTRY = suckerRegistry;
     }
 
     //*********************************************************************//
@@ -355,16 +363,22 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Get a refeerence to the collateral being used to secure loans.
         uint256 totalCollateral = totalCollateralOf[revnetId];
 
+        // The local supply includes both circulating tokens and tokens locked as loan collateral.
+        uint256 localSupply = totalSupply + totalCollateral;
+
+        // The local surplus includes both the treasury surplus and the outstanding borrowed amounts.
+        uint256 localSurplus = totalSurplus + totalBorrowed;
+
         // Proportional — uses the CURRENT stage's cashOutTaxRate.
         // NOTE: When a revnet transitions between stages with different cashOutTaxRate values, the borrowable amount
         // for the same collateral changes. A lower cashOutTaxRate in a later stage means more borrowable value per
         // collateral. This is by design: loan value tracks the current bonding curve parameters, just as cash-out
         // value does. Borrowers benefit from decreasing tax rates and are constrained by increasing ones.
         return JBCashOuts.cashOutFrom({
-            surplus: totalSurplus + totalBorrowed,
+            surplus: localSurplus,
             cashOutCount: collateralCount,
-            totalSupply: totalSupply + totalCollateral,
-            taxTotalSupply: totalSupply + totalCollateral,
+            totalSupply: _taxTotalSupplyOf(revnetId, localSupply),
+            taxSurplus: _taxSurplusOf(revnetId, localSurplus),
             cashOutTaxRate: currentStage.cashOutTaxRate()
         });
     }
@@ -488,6 +502,56 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @return sender The address which sent this call.
     function _msgSender() internal view override(ERC2771Context, Context) returns (address sender) {
         return ERC2771Context._msgSender();
+    }
+
+    /// @notice Compute the global surplus: local surplus plus the last-known surplus on each peer chain.
+    /// @dev Prevents cross-chain arbitrage in loan valuations. Without this, borrowers on a chain where tokens have
+    /// bridged away could borrow against an inflated surplus-to-supply ratio.
+    /// @param revnetId The ID of the revnet.
+    /// @param localSurplus The surplus on this chain (including outstanding borrowed amounts).
+    /// @return The combined local + remote surplus.
+    function _taxSurplusOf(uint256 revnetId, uint256 localSurplus) internal view returns (uint256) {
+        address[] memory suckers = SUCKER_REGISTRY.suckersOf(revnetId);
+        uint256 numberOfSuckers = suckers.length;
+        if (numberOfSuckers == 0) return localSurplus;
+
+        uint256 remoteBalance;
+        for (uint256 i; i < numberOfSuckers;) {
+            try IJBSucker(suckers[i]).peerChainBalance() returns (uint256 peerBalance) {
+                remoteBalance += peerBalance;
+            } catch {}
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        return localSurplus + remoteBalance;
+    }
+
+    /// @notice Compute the global total supply: local supply plus the last-known supply on each peer chain.
+    /// @dev Prevents cross-chain arbitrage in loan valuations. Without this, borrowers on a chain where tokens have
+    /// bridged away could borrow against an inflated surplus-to-supply ratio.
+    /// @param revnetId The ID of the revnet.
+    /// @param localTotalSupply The total supply on this chain (including collateral tokens).
+    /// @return The combined local + remote total supply.
+    function _taxTotalSupplyOf(uint256 revnetId, uint256 localTotalSupply) internal view returns (uint256) {
+        address[] memory suckers = SUCKER_REGISTRY.suckersOf(revnetId);
+        uint256 numberOfSuckers = suckers.length;
+        if (numberOfSuckers == 0) return localTotalSupply;
+
+        uint256 remoteTotalSupply;
+        for (uint256 i; i < numberOfSuckers;) {
+            try IJBSucker(suckers[i]).peerChainTotalSupply() returns (uint256 peerSupply) {
+                remoteTotalSupply += peerSupply;
+            } catch {}
+
+            unchecked {
+                ++i;
+            }
+        }
+
+        return localTotalSupply + remoteTotalSupply;
     }
 
     /// @notice Returns the terminals for a revnet. Consolidates ABI encode/decode to a single site.

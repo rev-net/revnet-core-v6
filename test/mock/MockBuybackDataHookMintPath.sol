@@ -35,14 +35,14 @@ contract MockBuybackDataHookMintPath is IJBRulesetDataHook, IJBPayHook {
             uint256 cashOutTaxRate,
             uint256 cashOutCount,
             uint256 totalSupply,
-            uint256 taxTotalSupply,
+            uint256 taxSurplus,
             JBCashOutHookSpecification[] memory hookSpecifications
         )
     {
         cashOutTaxRate = context.cashOutTaxRate;
         cashOutCount = context.cashOutCount;
         totalSupply = context.totalSupply;
-        taxTotalSupply = context.totalSupply;
+        taxSurplus = 0;
         hookSpecifications = new JBCashOutHookSpecification[](0);
     }
 
