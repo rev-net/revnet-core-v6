@@ -16,6 +16,7 @@ import {JBCashOutHookSpecification} from "@bananapus/core-v6/src/structs/JBCashO
 import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
 import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
 import {IJBSucker} from "@bananapus/suckers-v6/src/interfaces/IJBSucker.sol";
+import {JBTokenAmount} from "@bananapus/core-v6/src/structs/JBTokenAmount.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -172,10 +173,11 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
         IJBTerminal feeTerminal = DIRECTORY.primaryTerminalOf({projectId: FEE_REVNET_ID, token: context.surplus.token});
 
         // Compute the cross-chain total supply (local + remote peer chain supplies) for cross-chain-aware bonding curve.
-        totalSupply = _taxTotalSupplyOf({revnetId: context.projectId, localTotalSupply: context.totalSupply});
+        totalSupply = _omnichainTotalSupplyOf({revnetId: context.projectId, localTotalSupply: context.totalSupply});
 
         // Compute the cross-chain surplus (local + remote peer chain balances) for proportional reclaim.
-        effectiveSurplusValue = _taxSurplusOf({revnetId: context.projectId, localSurplus: context.surplus.value});
+        effectiveSurplusValue =
+            _omnichainSurplusOf({revnetId: context.projectId, localSurplus: context.surplus.value, token: context.surplus.token});
 
         // If there's no cash out tax (100% cash out tax rate), if there's no fee terminal, or if the beneficiary is
         // feeless (e.g. the router terminal routing value between projects), proxy to the buyback hook with our
@@ -460,17 +462,22 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
     /// global surplus so that bridging tokens to an empty chain no longer inflates the surplus-to-supply ratio.
     /// @param revnetId The ID of the revnet.
     /// @param localSurplus The surplus on this chain.
+    /// @param token The token denomination to query peer chain surplus in (should match local surplus denomination).
     /// @return The combined local + remote surplus.
-    function _taxSurplusOf(uint256 revnetId, uint256 localSurplus) internal view returns (uint256) {
+    function _omnichainSurplusOf(uint256 revnetId, uint256 localSurplus, address token) internal view returns (uint256) {
         address[] memory suckers = SUCKER_REGISTRY.suckersOf(revnetId);
         uint256 numberOfSuckers = suckers.length;
         if (numberOfSuckers == 0) return localSurplus;
 
         uint256 remoteBalance;
         for (uint256 i; i < numberOfSuckers;) {
-            // Each sucker stores the last-known surplus of its peer chain, updated on each bridge message.
-            try IJBSucker(suckers[i]).peerChainBalance() returns (uint256 peerBalance) {
-                remoteBalance += peerBalance;
+            // Each sucker stores the last-known surplus of its peer chain per token, updated on each bridge message.
+            address[] memory surplusTokens = new address[](1);
+            surplusTokens[0] = token;
+            try IJBSucker(suckers[i]).peerChainSurplusOf(surplusTokens, 18, uint256(uint160(token))) returns (
+                JBTokenAmount memory amt
+            ) {
+                remoteBalance += amt.value;
             } catch {}
 
             unchecked {
@@ -481,7 +488,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
         return localSurplus + remoteBalance;
     }
 
-    function _taxTotalSupplyOf(uint256 revnetId, uint256 localTotalSupply) internal view returns (uint256) {
+    function _omnichainTotalSupplyOf(uint256 revnetId, uint256 localTotalSupply) internal view returns (uint256) {
         address[] memory suckers = SUCKER_REGISTRY.suckersOf(revnetId);
         uint256 numberOfSuckers = suckers.length;
         if (numberOfSuckers == 0) return localTotalSupply;

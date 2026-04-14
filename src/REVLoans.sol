@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBSucker} from "@bananapus/suckers-v6/src/interfaces/IJBSucker.sol";
+import {JBTokenAmount} from "@bananapus/core-v6/src/structs/JBTokenAmount.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
 import {IJBPayoutTerminal} from "@bananapus/core-v6/src/interfaces/IJBPayoutTerminal.sol";
 import {IJBPermissioned} from "@bananapus/core-v6/src/interfaces/IJBPermissioned.sol";
@@ -376,9 +377,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // value does. Borrowers benefit from decreasing tax rates and are constrained by increasing ones.
         // Use cross-chain surplus for proportional reclaim, cap at local surplus.
         uint256 reclaimable = JBCashOuts.cashOutFrom({
-            surplus: _taxSurplusOf(revnetId, localSurplus),
+            surplus: _omnichainSurplusOf(revnetId, localSurplus, address(uint160(currency))),
             cashOutCount: collateralCount,
-            totalSupply: _taxTotalSupplyOf(revnetId, localSupply),
+            totalSupply: _omnichainTotalSupplyOf(revnetId, localSupply),
             cashOutTaxRate: currentStage.cashOutTaxRate()
         });
         return reclaimable > localSurplus ? localSurplus : reclaimable;
@@ -510,16 +511,21 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// bridged away could borrow against an inflated surplus-to-supply ratio.
     /// @param revnetId The ID of the revnet.
     /// @param localSurplus The surplus on this chain (including outstanding borrowed amounts).
+    /// @param token The token denomination to query peer chain surplus in (should match local surplus denomination).
     /// @return The combined local + remote surplus.
-    function _taxSurplusOf(uint256 revnetId, uint256 localSurplus) internal view returns (uint256) {
+    function _omnichainSurplusOf(uint256 revnetId, uint256 localSurplus, address token) internal view returns (uint256) {
         address[] memory suckers = SUCKER_REGISTRY.suckersOf(revnetId);
         uint256 numberOfSuckers = suckers.length;
         if (numberOfSuckers == 0) return localSurplus;
 
         uint256 remoteBalance;
         for (uint256 i; i < numberOfSuckers;) {
-            try IJBSucker(suckers[i]).peerChainBalance() returns (uint256 peerBalance) {
-                remoteBalance += peerBalance;
+            address[] memory surplusTokens = new address[](1);
+            surplusTokens[0] = token;
+            try IJBSucker(suckers[i]).peerChainSurplusOf(surplusTokens, 18, uint256(uint160(token))) returns (
+                JBTokenAmount memory amt
+            ) {
+                remoteBalance += amt.value;
             } catch {}
 
             unchecked {
@@ -536,7 +542,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @param revnetId The ID of the revnet.
     /// @param localTotalSupply The total supply on this chain (including collateral tokens).
     /// @return The combined local + remote total supply.
-    function _taxTotalSupplyOf(uint256 revnetId, uint256 localTotalSupply) internal view returns (uint256) {
+    function _omnichainTotalSupplyOf(uint256 revnetId, uint256 localTotalSupply) internal view returns (uint256) {
         address[] memory suckers = SUCKER_REGISTRY.suckersOf(revnetId);
         uint256 numberOfSuckers = suckers.length;
         if (numberOfSuckers == 0) return localTotalSupply;
