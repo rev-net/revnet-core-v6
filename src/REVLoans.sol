@@ -375,7 +375,8 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // value does. Borrowers benefit from decreasing tax rates and are constrained by increasing ones.
         // Use cross-chain surplus for proportional reclaim, cap at local surplus.
         uint256 reclaimable = JBCashOuts.cashOutFrom({
-            surplus: localSurplus + SUCKER_REGISTRY.remoteSurplusOf(revnetId, 18, currency),
+            surplus: localSurplus
+                + SUCKER_REGISTRY.remoteSurplusOf({projectId: revnetId, decimals: 18, currency: currency}),
             cashOutCount: collateralCount,
             totalSupply: localSupply + SUCKER_REGISTRY.remoteTotalSupplyOf(revnetId),
             cashOutTaxRate: currentStage.cashOutTaxRate()

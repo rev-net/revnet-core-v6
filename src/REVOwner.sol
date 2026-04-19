@@ -171,11 +171,16 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
         IJBTerminal feeTerminal = DIRECTORY.primaryTerminalOf({projectId: FEE_REVNET_ID, token: context.surplus.token});
 
         // Compute the cross-chain total supply (local + remote peer chain supplies) for cross-chain-aware bonding curve.
-        totalSupply = context.totalSupply + SUCKER_REGISTRY.remoteTotalSupplyOf(context.projectId);
+        totalSupply = context.totalSupply
+            + SUCKER_REGISTRY.remoteTotalSupplyOf(context.projectId);
 
         // Compute the cross-chain surplus (local + remote peer chain balances) for proportional reclaim.
         effectiveSurplusValue = context.surplus.value
-            + SUCKER_REGISTRY.remoteSurplusOf(context.projectId, context.surplus.decimals, uint256(uint160(context.surplus.token)));
+            + SUCKER_REGISTRY.remoteSurplusOf({
+                projectId: context.projectId,
+                decimals: context.surplus.decimals,
+                currency: uint256(uint160(context.surplus.token))
+            });
 
         // If there's no cash out tax (100% cash out tax rate), if there's no fee terminal, or if the beneficiary is
         // feeless (e.g. the router terminal routing value between projects), proxy to the buyback hook with our
@@ -214,6 +219,9 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
             totalSupply: totalSupply - nonFeeCashOutCount,
             cashOutTaxRate: context.cashOutTaxRate
         });
+        // Cap the fee reclaim at remaining local surplus. The bonding curve uses the cross-chain effective surplus,
+        // which can exceed what's actually held locally. Without this cap, the terminal would try to send more than
+        // it has.
         if (feeAmount > context.surplus.value - postFeeReclaimedAmount) {
             feeAmount = context.surplus.value - postFeeReclaimedAmount;
         }
