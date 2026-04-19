@@ -209,6 +209,8 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
             totalSupply: totalSupply,
             cashOutTaxRate: context.cashOutTaxRate
         });
+        // Cap at local surplus — the bonding curve uses cross-chain effective surplus which can exceed what this
+        // chain's terminal actually holds.
         if (postFeeReclaimedAmount > context.surplus.value) postFeeReclaimedAmount = context.surplus.value;
 
         // Calculate how much the fee tokens reclaim from the remaining surplus after the non-fee reclaim.

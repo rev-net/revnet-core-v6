@@ -1102,7 +1102,14 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
 
         // Try to pay the REV fee. If it fails, revFeeAmount is zeroed so the borrower receives it instead.
         if (revFeeAmount > 0) {
-            if (!_tryPayFee(feeTerminal, REV_ID, loan.source.token, revFeeAmount, beneficiary, revnetId)) {
+            if (!_tryPayFee({
+                    terminal: feeTerminal,
+                    projectId: REV_ID,
+                    token: loan.source.token,
+                    amount: revFeeAmount,
+                    beneficiary: beneficiary,
+                    metadataProjectId: revnetId
+                })) {
                 revFeeAmount = 0;
             }
         }
@@ -1195,9 +1202,14 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
 
         // Try to pay the source fee. If it fails, transfer the amount to the beneficiary instead.
         if (sourceFeeAmount > 0) {
-            if (!_tryPayFee(
-                    IJBTerminal(address(sourceTerminal)), revnetId, sourceToken, sourceFeeAmount, beneficiary, REV_ID
-                )) {
+            if (!_tryPayFee({
+                    terminal: IJBTerminal(address(sourceTerminal)),
+                    projectId: revnetId,
+                    token: sourceToken,
+                    amount: sourceFeeAmount,
+                    beneficiary: beneficiary,
+                    metadataProjectId: REV_ID
+                })) {
                 _transferFrom({from: address(this), to: beneficiary, token: sourceToken, amount: sourceFeeAmount});
             }
         }
