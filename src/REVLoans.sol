@@ -1100,33 +1100,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             ? 0
             : JBFees.feeAmountFrom({amountBeforeFee: addedBorrowAmount, feePercent: REV_PREPAID_FEE_PERCENT});
 
+        // Try to pay the REV fee. If it fails, revFeeAmount is zeroed so the borrower receives it instead.
         if (revFeeAmount > 0) {
-            // Increase the allowance for the fee terminal.
-            uint256 payValue =
-                _beforeTransferTo({to: address(feeTerminal), token: loan.source.token, amount: revFeeAmount});
-
-            // Pay the fee. Send the REV to the beneficiary. If fee payment fails, give the amount back to the borrower.
-            // NOTE: When terminal.pay() reverts (e.g. due to a misconfigured terminal or paused payments),
-            // the REV fee is refunded to the borrower, resulting in an effectively interest-free loan for the
-            // REV fee portion. This is acceptable — it requires a broken/misconfigured fee terminal and the
-            // borrower still pays the source fee and protocol fee.
-            // slither-disable-next-line arbitrary-send-eth,unused-return
-            try feeTerminal.pay{value: payValue}({
-                projectId: REV_ID,
-                token: loan.source.token,
-                amount: revFeeAmount,
-                beneficiary: beneficiary,
-                minReturnedTokens: 0,
-                memo: "",
-                metadata: bytes(abi.encodePacked(revnetId))
-            }) {}
-            catch (bytes memory) {
-                // If the fee can't be processed, decrease the ERC-20 allowance and zero out the fee
-                // so the borrower receives it instead.
-                if (loan.source.token != JBConstants.NATIVE_TOKEN) {
-                    IERC20(loan.source.token)
-                        .safeDecreaseAllowance({spender: address(feeTerminal), requestedDecrease: revFeeAmount});
-                }
+            if (!_tryPayFee(feeTerminal, REV_ID, loan.source.token, revFeeAmount, beneficiary, revnetId)) {
                 revFeeAmount = 0;
             }
         }
@@ -1217,36 +1193,49 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             });
         }
 
-        // If there is a source fee, pay it. Wrapped in try-catch so a reverting source terminal
-        // cannot block all loan operations (matching the REV fee pattern above).
+        // Try to pay the source fee. If it fails, transfer the amount to the beneficiary instead.
         if (sourceFeeAmount > 0) {
-            // Increase the allowance for the source terminal.
-            uint256 payValue =
-                _beforeTransferTo({to: address(sourceTerminal), token: sourceToken, amount: sourceFeeAmount});
-
-            // Pay the fee. If it fails, reclaim the allowance and give the amount back to the borrower.
-            // NOTE: When terminal.pay() reverts (e.g. due to a misconfigured terminal or paused payments),
-            // the source fee is refunded to the borrower, resulting in an effectively interest-free loan for the
-            // source fee portion. This is acceptable — it requires a broken/misconfigured source terminal and
-            // the borrower still pays the REV fee and protocol fee.
-            // slither-disable-next-line unused-return,arbitrary-send-eth
-            try sourceTerminal.pay{value: payValue}({
-                projectId: revnetId,
-                token: sourceToken,
-                amount: sourceFeeAmount,
-                beneficiary: beneficiary,
-                minReturnedTokens: 0,
-                memo: "",
-                metadata: bytes(abi.encodePacked(REV_ID))
-            }) {}
-            catch (bytes memory) {
-                // If the fee can't be processed, decrease the ERC-20 allowance and return the amount
-                // to the beneficiary instead.
-                if (sourceToken != JBConstants.NATIVE_TOKEN) {
-                    IERC20(sourceToken)
-                        .safeDecreaseAllowance({spender: address(sourceTerminal), requestedDecrease: sourceFeeAmount});
-                }
+            if (!_tryPayFee(IJBTerminal(address(sourceTerminal)), revnetId, sourceToken, sourceFeeAmount, beneficiary, REV_ID)) {
                 _transferFrom({from: address(this), to: beneficiary, token: sourceToken, amount: sourceFeeAmount});
+            }
+        }
+    }
+
+    /// @notice Attempts to pay a fee to a terminal. On failure, cleans up the ERC-20 allowance and returns false.
+    /// @param terminal The terminal to pay the fee to.
+    /// @param projectId The project receiving the fee.
+    /// @param token The token being used to pay the fee.
+    /// @param amount The fee amount.
+    /// @param beneficiary The address to credit for the fee payment.
+    /// @param metadataProjectId The project ID encoded in the payment metadata.
+    /// @return success Whether the fee was successfully paid.
+    function _tryPayFee(
+        IJBTerminal terminal,
+        uint256 projectId,
+        address token,
+        uint256 amount,
+        address beneficiary,
+        uint256 metadataProjectId
+    )
+        internal
+        returns (bool success)
+    {
+        uint256 payValue = _beforeTransferTo({to: address(terminal), token: token, amount: amount});
+
+        // slither-disable-next-line arbitrary-send-eth,unused-return
+        try terminal.pay{value: payValue}({
+            projectId: projectId,
+            token: token,
+            amount: amount,
+            beneficiary: beneficiary,
+            minReturnedTokens: 0,
+            memo: "",
+            metadata: bytes(abi.encodePacked(metadataProjectId))
+        }) {
+            success = true;
+        } catch (bytes memory) {
+            if (token != JBConstants.NATIVE_TOKEN) {
+                IERC20(token).safeDecreaseAllowance({spender: address(terminal), requestedDecrease: amount});
             }
         }
     }
