@@ -15,8 +15,6 @@ import {JBBeforePayRecordedContext} from "@bananapus/core-v6/src/structs/JBBefor
 import {JBCashOutHookSpecification} from "@bananapus/core-v6/src/structs/JBCashOutHookSpecification.sol";
 import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
 import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
-import {IJBSucker} from "@bananapus/suckers-v6/src/interfaces/IJBSucker.sol";
-import {JBDenominatedAmount} from "@bananapus/suckers-v6/src/structs/JBDenominatedAmount.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -173,11 +171,11 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
         IJBTerminal feeTerminal = DIRECTORY.primaryTerminalOf({projectId: FEE_REVNET_ID, token: context.surplus.token});
 
         // Compute the cross-chain total supply (local + remote peer chain supplies) for cross-chain-aware bonding curve.
-        totalSupply = _omnichainTotalSupplyOf({revnetId: context.projectId, localTotalSupply: context.totalSupply});
+        totalSupply = context.totalSupply + SUCKER_REGISTRY.remoteTotalSupplyOf(context.projectId);
 
         // Compute the cross-chain surplus (local + remote peer chain balances) for proportional reclaim.
-        effectiveSurplusValue =
-            _omnichainSurplusOf({revnetId: context.projectId, localSurplus: context.surplus.value, token: context.surplus.token});
+        effectiveSurplusValue = context.surplus.value
+            + SUCKER_REGISTRY.remoteSurplusOf(context.projectId, context.surplus.decimals, uint256(uint160(context.surplus.token)));
 
         // If there's no cash out tax (100% cash out tax rate), if there's no fee terminal, or if the beneficiary is
         // feeless (e.g. the router terminal routing value between projects), proxy to the buyback hook with our
@@ -455,56 +453,6 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
     /// @return isSucker A flag indicating whether the address is one of the revnet's suckers.
     function _isSuckerOf(uint256 revnetId, address addr) internal view returns (bool) {
         return SUCKER_REGISTRY.isSuckerOf({projectId: revnetId, addr: addr});
-    }
-
-    /// @notice Compute the global surplus: local surplus plus the last-known surplus on each peer chain.
-    /// @dev Used to prevent cross-chain arbitrage via the bonding curve. The proportional reclaim base uses this
-    /// global surplus so that bridging tokens to an empty chain no longer inflates the surplus-to-supply ratio.
-    /// @param revnetId The ID of the revnet.
-    /// @param localSurplus The surplus on this chain.
-    /// @param token The token denomination to query peer chain surplus in (should match local surplus denomination).
-    /// @return The combined local + remote surplus.
-    function _omnichainSurplusOf(uint256 revnetId, uint256 localSurplus, address token) internal view returns (uint256) {
-        address[] memory suckers = SUCKER_REGISTRY.suckersOf(revnetId);
-        uint256 numberOfSuckers = suckers.length;
-        if (numberOfSuckers == 0) return localSurplus;
-
-        uint256 remoteBalance;
-        for (uint256 i; i < numberOfSuckers;) {
-            // Each sucker stores the last-known surplus of its peer chain as ETH-denominated (18 decimals),
-            // converted to the requested currency/decimals using the local JBPrices oracle.
-            try IJBSucker(suckers[i]).peerChainSurplusOf(18, uint256(uint160(token))) returns (
-                JBDenominatedAmount memory amt
-            ) {
-                remoteBalance += amt.value;
-            } catch {}
-
-            unchecked {
-                ++i;
-            }
-        }
-
-        return localSurplus + remoteBalance;
-    }
-
-    function _omnichainTotalSupplyOf(uint256 revnetId, uint256 localTotalSupply) internal view returns (uint256) {
-        address[] memory suckers = SUCKER_REGISTRY.suckersOf(revnetId);
-        uint256 numberOfSuckers = suckers.length;
-        if (numberOfSuckers == 0) return localTotalSupply;
-
-        uint256 remoteTotalSupply;
-        for (uint256 i; i < numberOfSuckers;) {
-            // Each sucker stores the last-known total supply of its peer chain, updated on each bridge message.
-            try IJBSucker(suckers[i]).peerChainTotalSupply() returns (uint256 peerSupply) {
-                remoteTotalSupply += peerSupply;
-            } catch {}
-
-            unchecked {
-                ++i;
-            }
-        }
-
-        return localTotalSupply + remoteTotalSupply;
     }
 
     //*********************************************************************//

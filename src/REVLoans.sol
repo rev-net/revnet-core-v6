@@ -3,8 +3,6 @@ pragma solidity 0.8.28;
 
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
-import {IJBSucker} from "@bananapus/suckers-v6/src/interfaces/IJBSucker.sol";
-import {JBDenominatedAmount} from "@bananapus/suckers-v6/src/structs/JBDenominatedAmount.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
 import {IJBPayoutTerminal} from "@bananapus/core-v6/src/interfaces/IJBPayoutTerminal.sol";
 import {IJBPermissioned} from "@bananapus/core-v6/src/interfaces/IJBPermissioned.sol";
@@ -377,9 +375,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // value does. Borrowers benefit from decreasing tax rates and are constrained by increasing ones.
         // Use cross-chain surplus for proportional reclaim, cap at local surplus.
         uint256 reclaimable = JBCashOuts.cashOutFrom({
-            surplus: _omnichainSurplusOf(revnetId, localSurplus, address(uint160(currency))),
+            surplus: localSurplus + SUCKER_REGISTRY.remoteSurplusOf(revnetId, 18, currency),
             cashOutCount: collateralCount,
-            totalSupply: _omnichainTotalSupplyOf(revnetId, localSupply),
+            totalSupply: localSupply + SUCKER_REGISTRY.remoteTotalSupplyOf(revnetId),
             cashOutTaxRate: currentStage.cashOutTaxRate()
         });
         return reclaimable > localSurplus ? localSurplus : reclaimable;
@@ -504,61 +502,6 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @return sender The address which sent this call.
     function _msgSender() internal view override(ERC2771Context, Context) returns (address sender) {
         return ERC2771Context._msgSender();
-    }
-
-    /// @notice Compute the global surplus: local surplus plus the last-known surplus on each peer chain.
-    /// @dev Prevents cross-chain arbitrage in loan valuations. Without this, borrowers on a chain where tokens have
-    /// bridged away could borrow against an inflated surplus-to-supply ratio.
-    /// @param revnetId The ID of the revnet.
-    /// @param localSurplus The surplus on this chain (including outstanding borrowed amounts).
-    /// @param token The token denomination to query peer chain surplus in (should match local surplus denomination).
-    /// @return The combined local + remote surplus.
-    function _omnichainSurplusOf(uint256 revnetId, uint256 localSurplus, address token) internal view returns (uint256) {
-        address[] memory suckers = SUCKER_REGISTRY.suckersOf(revnetId);
-        uint256 numberOfSuckers = suckers.length;
-        if (numberOfSuckers == 0) return localSurplus;
-
-        uint256 remoteBalance;
-        for (uint256 i; i < numberOfSuckers;) {
-            // Each sucker stores the last-known surplus of its peer chain as ETH-denominated (18 decimals),
-            // converted to the requested currency/decimals using the local JBPrices oracle.
-            try IJBSucker(suckers[i]).peerChainSurplusOf(18, uint256(uint160(token))) returns (
-                JBDenominatedAmount memory amt
-            ) {
-                remoteBalance += amt.value;
-            } catch {}
-
-            unchecked {
-                ++i;
-            }
-        }
-
-        return localSurplus + remoteBalance;
-    }
-
-    /// @notice Compute the global total supply: local supply plus the last-known supply on each peer chain.
-    /// @dev Prevents cross-chain arbitrage in loan valuations. Without this, borrowers on a chain where tokens have
-    /// bridged away could borrow against an inflated surplus-to-supply ratio.
-    /// @param revnetId The ID of the revnet.
-    /// @param localTotalSupply The total supply on this chain (including collateral tokens).
-    /// @return The combined local + remote total supply.
-    function _omnichainTotalSupplyOf(uint256 revnetId, uint256 localTotalSupply) internal view returns (uint256) {
-        address[] memory suckers = SUCKER_REGISTRY.suckersOf(revnetId);
-        uint256 numberOfSuckers = suckers.length;
-        if (numberOfSuckers == 0) return localTotalSupply;
-
-        uint256 remoteTotalSupply;
-        for (uint256 i; i < numberOfSuckers;) {
-            try IJBSucker(suckers[i]).peerChainTotalSupply() returns (uint256 peerSupply) {
-                remoteTotalSupply += peerSupply;
-            } catch {}
-
-            unchecked {
-                ++i;
-            }
-        }
-
-        return localTotalSupply + remoteTotalSupply;
     }
 
     /// @notice Returns the terminals for a revnet. Consolidates ABI encode/decode to a single site.
