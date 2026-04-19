@@ -1195,7 +1195,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
 
         // Try to pay the source fee. If it fails, transfer the amount to the beneficiary instead.
         if (sourceFeeAmount > 0) {
-            if (!_tryPayFee(IJBTerminal(address(sourceTerminal)), revnetId, sourceToken, sourceFeeAmount, beneficiary, REV_ID)) {
+            if (!_tryPayFee(
+                    IJBTerminal(address(sourceTerminal)), revnetId, sourceToken, sourceFeeAmount, beneficiary, REV_ID
+                )) {
                 _transferFrom({from: address(this), to: beneficiary, token: sourceToken, amount: sourceFeeAmount});
             }
         }
