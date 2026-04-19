@@ -176,7 +176,14 @@ contract CodexPhantomSurplusTerminalTest is TestBaseWorkflow {
         SUCKER_REGISTRY = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
         HOOK_STORE = new JB721TiersHookStore();
         EXAMPLE_HOOK = new JB721TiersHook(
-            jbDirectory(), jbPermissions(), jbPrices(), jbRulesets(), HOOK_STORE, jbSplits(), IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer())), multisig()
+            jbDirectory(),
+            jbPermissions(),
+            jbPrices(),
+            jbRulesets(),
+            HOOK_STORE,
+            jbSplits(),
+            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer())),
+            multisig()
         );
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
@@ -227,22 +234,19 @@ contract CodexPhantomSurplusTerminalTest is TestBaseWorkflow {
         PHANTOM_TERMINAL.setFakeSurplus(phantomSurplus);
 
         vm.prank(USER);
-        uint256 userTokens =
-            jbMultiTerminal().pay{value: realSurplus}(REVNET_ID, JBConstants.NATIVE_TOKEN, realSurplus, USER, 0, "", "");
+        uint256 userTokens = jbMultiTerminal().pay{value: realSurplus}(
+            REVNET_ID, JBConstants.NATIVE_TOKEN, realSurplus, USER, 0, "", ""
+        );
 
         uint256 collateral = userTokens / 10;
         uint256 taxRate = 5000;
 
         uint256 honestBorrowable = JBCashOuts.cashOutFrom({
-            surplus: realSurplus,
-            cashOutCount: collateral,
-            totalSupply: userTokens,
-            cashOutTaxRate: taxRate
+            surplus: realSurplus, cashOutCount: collateral, totalSupply: userTokens, cashOutTaxRate: taxRate
         });
 
-        uint256 inflatedBorrowable = LOANS.borrowableAmountFrom(
-            REVNET_ID, collateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        uint256 inflatedBorrowable =
+            LOANS.borrowableAmountFrom(REVNET_ID, collateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         assertGt(inflatedBorrowable, honestBorrowable, "phantom terminal should inflate borrow quote");
         assertLe(inflatedBorrowable, realSurplus, "PoC should remain payable by the honest terminal");
@@ -353,8 +357,10 @@ contract CodexPhantomSurplusTerminalTest is TestBaseWorkflow {
         permissionIds[0] = JBPermissionIds.BURN_TOKENS;
 
         vm.prank(account);
-        jbPermissions().setPermissionsFor(
-            account, JBPermissionsData({operator: operator, projectId: uint56(revnetId), permissionIds: permissionIds})
-        );
+        jbPermissions()
+            .setPermissionsFor(
+                account,
+                JBPermissionsData({operator: operator, projectId: uint56(revnetId), permissionIds: permissionIds})
+            );
     }
 }

@@ -71,7 +71,14 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
         suckerRegistry = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
         hookStore = new JB721TiersHookStore();
         exampleHook = new JB721TiersHook(
-            jbDirectory(), jbPermissions(), jbPrices(), jbRulesets(), hookStore, jbSplits(), IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer())), multisig()
+            jbDirectory(),
+            jbPermissions(),
+            jbPrices(),
+            jbRulesets(),
+            hookStore,
+            jbSplits(),
+            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer())),
+            multisig()
         );
         addressRegistry = new JBAddressRegistry();
         hookDeployer = new JB721TiersHookDeployer(exampleHook, hookStore, addressRegistry, multisig());

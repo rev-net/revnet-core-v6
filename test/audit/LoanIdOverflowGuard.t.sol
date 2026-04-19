@@ -131,7 +131,14 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
 
         // Deploy the example 721 hook (needed as the implementation for the deployer).
         EXAMPLE_HOOK = new JB721TiersHook(
-            jbDirectory(), jbPermissions(), jbPrices(), jbRulesets(), HOOK_STORE, jbSplits(), IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer())), multisig()
+            jbDirectory(),
+            jbPermissions(),
+            jbPrices(),
+            jbRulesets(),
+            HOOK_STORE,
+            jbSplits(),
+            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer())),
+            multisig()
         );
 
         // Deploy the address registry (used by the hook deployer).

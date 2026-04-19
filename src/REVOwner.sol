@@ -170,9 +170,9 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
         // Get the terminal that will receive the cash out fee.
         IJBTerminal feeTerminal = DIRECTORY.primaryTerminalOf({projectId: FEE_REVNET_ID, token: context.surplus.token});
 
-        // Compute the cross-chain total supply (local + remote peer chain supplies) for cross-chain-aware bonding curve.
-        totalSupply = context.totalSupply
-            + SUCKER_REGISTRY.remoteTotalSupplyOf(context.projectId);
+        // Compute the cross-chain total supply (local + remote peer chain supplies) for cross-chain-aware bonding
+        // curve.
+        totalSupply = context.totalSupply + SUCKER_REGISTRY.remoteTotalSupplyOf(context.projectId);
 
         // Compute the cross-chain surplus (local + remote peer chain balances) for proportional reclaim.
         effectiveSurplusValue = context.surplus.value
@@ -187,8 +187,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
         // totalSupply and effectiveSurplusValue.
         if (context.cashOutTaxRate == 0 || address(feeTerminal) == address(0) || context.beneficiaryIsFeeless) {
             // slither-disable-next-line unused-return
-            (cashOutTaxRate, cashOutCount,,,hookSpecifications) =
-                BUYBACK_HOOK.beforeCashOutRecordedWith(context);
+            (cashOutTaxRate, cashOutCount,,, hookSpecifications) = BUYBACK_HOOK.beforeCashOutRecordedWith(context);
             return (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplusValue, hookSpecifications);
         }
 
@@ -214,7 +213,9 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
         // Calculate how much the fee tokens reclaim from the remaining surplus after the non-fee reclaim.
         // Use remaining effective surplus; cap at remaining local surplus.
         uint256 feeAmount = JBCashOuts.cashOutFrom({
-            surplus: effectiveSurplusValue > postFeeReclaimedAmount ? effectiveSurplusValue - postFeeReclaimedAmount : 0,
+            surplus: effectiveSurplusValue > postFeeReclaimedAmount
+                ? effectiveSurplusValue - postFeeReclaimedAmount
+                : 0,
             cashOutCount: feeCashOutCount,
             totalSupply: totalSupply - nonFeeCashOutCount,
             cashOutTaxRate: context.cashOutTaxRate

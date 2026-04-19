@@ -213,7 +213,14 @@ contract REVnet_Integrations is TestBaseWorkflow {
         HOOK_STORE = new JB721TiersHookStore();
 
         EXAMPLE_HOOK = new JB721TiersHook(
-            jbDirectory(), jbPermissions(), jbPrices(), jbRulesets(), HOOK_STORE, jbSplits(), IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer())), multisig()
+            jbDirectory(),
+            jbPermissions(),
+            jbPrices(),
+            jbRulesets(),
+            HOOK_STORE,
+            jbSplits(),
+            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer())),
+            multisig()
         );
 
         ADDRESS_REGISTRY = new JBAddressRegistry();
