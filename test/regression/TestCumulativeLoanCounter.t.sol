@@ -42,6 +42,7 @@ import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/
 import {REVEmpty721Config} from "../helpers/REVEmpty721Config.sol";
 import {REVOwner} from "../../src/REVOwner.sol";
 import {IREVDeployer} from "../../src/interfaces/IREVDeployer.sol";
+import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
 
 /// @notice totalLoansBorrowedFor is a cumulative counter, not an active loan count.
 /// @dev The rename from numberOfLoansFor to totalLoansBorrowedFor clarifies that the counter only increments
@@ -113,7 +114,7 @@ contract TestCumulativeLoanCounter is TestBaseWorkflow {
             );
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
-            suckerRegistry: IJBSuckerRegistry(address(0)),
+            suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),

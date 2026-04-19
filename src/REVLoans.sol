@@ -374,12 +374,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // collateral. This is by design: loan value tracks the current bonding curve parameters, just as cash-out
         // value does. Borrowers benefit from decreasing tax rates and are constrained by increasing ones.
         // Add cross-chain remote values for proportional reclaim.
-        uint256 omnichainSurplus = localSurplus;
-        uint256 omnichainSupply = localSupply;
-        if (address(SUCKER_REGISTRY) != address(0)) {
-            omnichainSurplus += SUCKER_REGISTRY.remoteSurplusOf({projectId: revnetId, decimals: 18, currency: currency});
-            omnichainSupply += SUCKER_REGISTRY.remoteTotalSupplyOf(revnetId);
-        }
+        uint256 omnichainSurplus =
+            localSurplus + SUCKER_REGISTRY.remoteSurplusOf({projectId: revnetId, decimals: 18, currency: currency});
+        uint256 omnichainSupply = localSupply + SUCKER_REGISTRY.remoteTotalSupplyOf(revnetId);
         uint256 reclaimable = JBCashOuts.cashOutFrom({
             surplus: omnichainSurplus,
             cashOutCount: collateralCount,
