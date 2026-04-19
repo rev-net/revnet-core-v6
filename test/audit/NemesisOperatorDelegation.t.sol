@@ -41,6 +41,7 @@ import {REVStageConfig} from "../../src/structs/REVStageConfig.sol";
 import {REVAutoIssuance} from "../../src/structs/REVAutoIssuance.sol";
 import {REVSuckerDeploymentConfig} from "../../src/structs/REVSuckerDeploymentConfig.sol";
 import {IREVDeployer} from "../../src/interfaces/IREVDeployer.sol";
+import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
 
 contract NemesisOperatorDelegationTest is TestBaseWorkflow {
     bytes32 internal constant REV_DEPLOYER_SALT = "REVDeployer";
@@ -89,7 +90,7 @@ contract NemesisOperatorDelegationTest is TestBaseWorkflow {
 
         LOANS = new REVLoans({
             controller: jbController(),
-            suckerRegistry: IJBSuckerRegistry(address(0)),
+            suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),

@@ -44,6 +44,7 @@ import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
+import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
 /// @notice Contract that reenters REVLoans when it receives ETH during a borrow payout.
 /// Records the loan state it observes during reentrancy to verify CEI correctness.
@@ -145,7 +146,7 @@ contract TestCEIPattern is TestBaseWorkflow {
             .addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
-            suckerRegistry: IJBSuckerRegistry(address(0)),
+            suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),

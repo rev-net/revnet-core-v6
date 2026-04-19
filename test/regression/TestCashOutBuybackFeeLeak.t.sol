@@ -39,6 +39,7 @@ import {REVEmpty721Config} from "../helpers/REVEmpty721Config.sol";
 import {MockBuybackCashOutRecorder} from "../mock/MockBuybackCashOutRecorder.sol";
 import {REVOwner} from "../../src/REVOwner.sol";
 import {IREVDeployer} from "../../src/interfaces/IREVDeployer.sol";
+import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
 
 /// @title TestCashOutBuybackFeeLeak
 /// @notice Proves the buyback hook callback receives only the non-fee cashOutCount (not the full count).
@@ -86,7 +87,7 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
         mockBuyback = new MockBuybackCashOutRecorder();
         loans = new REVLoans({
             controller: jbController(),
-            suckerRegistry: IJBSuckerRegistry(address(0)),
+            suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: feeProjectId,
             owner: address(this),
             permit2: permit2(),

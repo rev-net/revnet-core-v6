@@ -49,6 +49,7 @@ import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSp
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
+import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
 /// @notice A terminal mock that always reverts on pay(), used to simulate fee payment failure.
 contract RevertingFeeTerminal is ERC165, IJBPayoutTerminal {
@@ -358,7 +359,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
-            suckerRegistry: IJBSuckerRegistry(address(0)),
+            suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
