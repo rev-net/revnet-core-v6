@@ -296,8 +296,6 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
         {
             JBBeforePayRecordedContext memory buybackHookContext = context;
             buybackHookContext.amount.value = projectAmount;
-            // Swap beneficiary for the buyback hook too.
-            if (beneficiarySwapped) buybackHookContext.beneficiary = effectiveBeneficiary;
             (weight, buybackHookSpecs) = BUYBACK_HOOK.beforePayRecordedWith(buybackHookContext);
         }
 
