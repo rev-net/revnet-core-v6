@@ -22,6 +22,8 @@ import {JB721TiersHook} from "@bananapus/721-hook-v6/src/JB721TiersHook.sol";
 import {JB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
 import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStore.sol";
 import {IJB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHookDeployer.sol";
+import "@bananapus/721-hook-v6/src/JB721CheckpointsDeployer.sol";
+import {IJB721CheckpointsDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721CheckpointsDeployer.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 import {JBSuckerRegistry} from "@bananapus/suckers-v6/src/JBSuckerRegistry.sol";
@@ -69,7 +71,14 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
         suckerRegistry = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
         hookStore = new JB721TiersHookStore();
         exampleHook = new JB721TiersHook(
-            jbDirectory(), jbPermissions(), jbPrices(), jbRulesets(), hookStore, jbSplits(), multisig()
+            jbDirectory(),
+            jbPermissions(),
+            jbPrices(),
+            jbRulesets(),
+            hookStore,
+            jbSplits(),
+            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer())),
+            multisig()
         );
         addressRegistry = new JBAddressRegistry();
         hookDeployer = new JB721TiersHookDeployer(exampleHook, hookStore, addressRegistry, multisig());

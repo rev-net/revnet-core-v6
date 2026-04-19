@@ -32,6 +32,8 @@ import {JBSuckerRegistry} from "@bananapus/suckers-v6/src/JBSuckerRegistry.sol";
 import {JB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
 import {JB721TiersHook} from "@bananapus/721-hook-v6/src/JB721TiersHook.sol";
 import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStore.sol";
+import "@bananapus/721-hook-v6/src/JB721CheckpointsDeployer.sol";
+import {IJB721CheckpointsDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721CheckpointsDeployer.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
@@ -92,7 +94,14 @@ contract TestLongTailEconomics is TestBaseWorkflow {
         SUCKER_REGISTRY = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
         HOOK_STORE = new JB721TiersHookStore();
         EXAMPLE_HOOK = new JB721TiersHook(
-            jbDirectory(), jbPermissions(), jbPrices(), jbRulesets(), HOOK_STORE, jbSplits(), multisig()
+            jbDirectory(),
+            jbPermissions(),
+            jbPrices(),
+            jbRulesets(),
+            HOOK_STORE,
+            jbSplits(),
+            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer())),
+            multisig()
         );
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());

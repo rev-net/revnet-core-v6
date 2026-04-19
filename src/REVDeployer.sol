@@ -833,6 +833,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         // Store the cash out delay of the revnet if its stages are already in progress.
         // This prevents cash out liquidity/arbitrage issues for existing revnets which
         // are deploying to a new chain.
+        // slither-disable-next-line reentrancy-events
         _setCashOutDelayIfNeeded({revnetId: revnetId, firstStageConfig: configuration.stageConfigurations[0]});
 
         // Deploy the revnet's ERC-20 token.

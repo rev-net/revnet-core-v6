@@ -42,6 +42,8 @@ import {JB721TierConfig} from "@bananapus/721-hook-v6/src/structs/JB721TierConfi
 import {JB721TierConfigFlags} from "@bananapus/721-hook-v6/src/structs/JB721TierConfigFlags.sol";
 import {JB721InitTiersConfig} from "@bananapus/721-hook-v6/src/structs/JB721InitTiersConfig.sol";
 import {IJB721TokenUriResolver} from "@bananapus/721-hook-v6/src/interfaces/IJB721TokenUriResolver.sol";
+import "@bananapus/721-hook-v6/src/JB721CheckpointsDeployer.sol";
+import {IJB721CheckpointsDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721CheckpointsDeployer.sol";
 import {REVDeploy721TiersHookConfig} from "../src/structs/REVDeploy721TiersHookConfig.sol";
 import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
@@ -294,7 +296,14 @@ contract TestSplitWeightFork is TestBaseWorkflow {
         SUCKER_REGISTRY = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
         HOOK_STORE = new JB721TiersHookStore();
         EXAMPLE_HOOK = new JB721TiersHook(
-            jbDirectory(), jbPermissions(), jbPrices(), jbRulesets(), HOOK_STORE, jbSplits(), multisig()
+            jbDirectory(),
+            jbPermissions(),
+            jbPrices(),
+            jbRulesets(),
+            HOOK_STORE,
+            jbSplits(),
+            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer())),
+            multisig()
         );
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());

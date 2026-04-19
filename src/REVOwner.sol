@@ -139,6 +139,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
     /// out.
     /// @return cashOutCount The number of revnet tokens that are cashed out.
     /// @return totalSupply The total revnet token supply.
+    /// @return effectiveSurplusValue The surplus value to use for the bonding curve calculation.
     /// @return hookSpecifications The amount of funds and the data to send to cash out hooks (this contract).
     function beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext calldata context)
         external
@@ -148,6 +149,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
             uint256 cashOutTaxRate,
             uint256 cashOutCount,
             uint256 totalSupply,
+            uint256 effectiveSurplusValue,
             JBCashOutHookSpecification[] memory hookSpecifications
         )
     {
@@ -155,7 +157,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
         // This relies on the sucker registry to only contain trusted sucker contracts deployed via
         // the registry's own deploySuckersFor flow — external addresses cannot register as suckers.
         if (_isSuckerOf({revnetId: context.projectId, addr: context.holder})) {
-            return (0, context.cashOutCount, context.totalSupply, hookSpecifications);
+            return (0, context.cashOutCount, context.totalSupply, context.surplus.value, hookSpecifications);
         }
 
         // Keep a reference to the cash out delay of the revnet.
@@ -207,11 +209,13 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
 
         // Let the buyback hook adjust the cash out parameters and optionally return a hook specification.
         JBCashOutHookSpecification[] memory buybackHookSpecifications;
-        (cashOutTaxRate, cashOutCount, totalSupply, buybackHookSpecifications) =
+        (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplusValue, buybackHookSpecifications) =
             BUYBACK_HOOK.beforeCashOutRecordedWith(buybackHookContext);
 
         // If the fee rounds down to zero, return the buyback hook's response directly — no fee to process.
-        if (feeAmount == 0) return (cashOutTaxRate, cashOutCount, totalSupply, buybackHookSpecifications);
+        if (feeAmount == 0) {
+            return (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplusValue, buybackHookSpecifications);
+        }
 
         // Build a hook spec that routes the fee amount to this contract's `afterCashOutRecordedWith` for processing.
         JBCashOutHookSpecification memory feeSpec = JBCashOutHookSpecification({
@@ -233,7 +237,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
             hookSpecifications[0] = feeSpec;
         }
 
-        return (cashOutTaxRate, cashOutCount, totalSupply, hookSpecifications);
+        return (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplusValue, hookSpecifications);
     }
 
     /// @notice Before a revnet processes an incoming payment, determine the weight and pay hooks to use.
