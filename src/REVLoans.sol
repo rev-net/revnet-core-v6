@@ -373,14 +373,20 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // for the same collateral changes. A lower cashOutTaxRate in a later stage means more borrowable value per
         // collateral. This is by design: loan value tracks the current bonding curve parameters, just as cash-out
         // value does. Borrowers benefit from decreasing tax rates and are constrained by increasing ones.
-        // Use cross-chain surplus for proportional reclaim, cap at local surplus.
+        // Add cross-chain remote values for proportional reclaim.
+        uint256 omnichainSurplus = localSurplus;
+        uint256 omnichainSupply = localSupply;
+        if (address(SUCKER_REGISTRY) != address(0)) {
+            omnichainSurplus += SUCKER_REGISTRY.remoteSurplusOf({projectId: revnetId, decimals: 18, currency: currency});
+            omnichainSupply += SUCKER_REGISTRY.remoteTotalSupplyOf(revnetId);
+        }
         uint256 reclaimable = JBCashOuts.cashOutFrom({
-            surplus: localSurplus
-                + SUCKER_REGISTRY.remoteSurplusOf({projectId: revnetId, decimals: 18, currency: currency}),
+            surplus: omnichainSurplus,
             cashOutCount: collateralCount,
-            totalSupply: localSupply + SUCKER_REGISTRY.remoteTotalSupplyOf(revnetId),
+            totalSupply: omnichainSupply,
             cashOutTaxRate: currentStage.cashOutTaxRate()
         });
+        // Cap at local surplus — can't borrow more than what this chain's terminals actually hold.
         return reclaimable > localSurplus ? localSurplus : reclaimable;
     }
 
