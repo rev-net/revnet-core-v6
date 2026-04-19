@@ -16,7 +16,7 @@ import {JBCashOutHookSpecification} from "@bananapus/core-v6/src/structs/JBCashO
 import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
 import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
 import {IJBSucker} from "@bananapus/suckers-v6/src/interfaces/IJBSucker.sol";
-import {JBTokenAmount} from "@bananapus/core-v6/src/structs/JBTokenAmount.sol";
+import {JBDenominatedAmount} from "@bananapus/suckers-v6/src/structs/JBDenominatedAmount.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -158,7 +158,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
         // This relies on the sucker registry to only contain trusted sucker contracts deployed via
         // the registry's own deploySuckersFor flow — external addresses cannot register as suckers.
         if (_isSuckerOf({revnetId: context.projectId, addr: context.holder})) {
-            return (0, context.cashOutCount, context.totalSupply, 0, hookSpecifications);
+            return (0, context.cashOutCount, context.totalSupply, context.surplus.value, hookSpecifications);
         }
 
         // Keep a reference to the cash out delay of the revnet.
@@ -471,11 +471,10 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
 
         uint256 remoteBalance;
         for (uint256 i; i < numberOfSuckers;) {
-            // Each sucker stores the last-known surplus of its peer chain per token, updated on each bridge message.
-            address[] memory surplusTokens = new address[](1);
-            surplusTokens[0] = token;
-            try IJBSucker(suckers[i]).peerChainSurplusOf(surplusTokens, 18, uint256(uint160(token))) returns (
-                JBTokenAmount memory amt
+            // Each sucker stores the last-known surplus of its peer chain as ETH-denominated (18 decimals),
+            // converted to the requested currency/decimals using the local JBPrices oracle.
+            try IJBSucker(suckers[i]).peerChainSurplusOf(18, uint256(uint160(token))) returns (
+                JBDenominatedAmount memory amt
             ) {
                 remoteBalance += amt.value;
             } catch {}

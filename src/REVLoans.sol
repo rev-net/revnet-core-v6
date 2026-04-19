@@ -4,7 +4,7 @@ pragma solidity 0.8.28;
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBSucker} from "@bananapus/suckers-v6/src/interfaces/IJBSucker.sol";
-import {JBTokenAmount} from "@bananapus/core-v6/src/structs/JBTokenAmount.sol";
+import {JBDenominatedAmount} from "@bananapus/suckers-v6/src/structs/JBDenominatedAmount.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
 import {IJBPayoutTerminal} from "@bananapus/core-v6/src/interfaces/IJBPayoutTerminal.sol";
 import {IJBPermissioned} from "@bananapus/core-v6/src/interfaces/IJBPermissioned.sol";
@@ -520,10 +520,10 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
 
         uint256 remoteBalance;
         for (uint256 i; i < numberOfSuckers;) {
-            address[] memory surplusTokens = new address[](1);
-            surplusTokens[0] = token;
-            try IJBSucker(suckers[i]).peerChainSurplusOf(surplusTokens, 18, uint256(uint160(token))) returns (
-                JBTokenAmount memory amt
+            // Each sucker stores the last-known surplus of its peer chain as ETH-denominated (18 decimals),
+            // converted to the requested currency/decimals using the local JBPrices oracle.
+            try IJBSucker(suckers[i]).peerChainSurplusOf(18, uint256(uint160(token))) returns (
+                JBDenominatedAmount memory amt
             ) {
                 remoteBalance += amt.value;
             } catch {}
