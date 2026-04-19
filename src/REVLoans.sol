@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
+import {JBPermissioned} from "@bananapus/core-v6/src/abstract/JBPermissioned.sol";
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBPayoutTerminal} from "@bananapus/core-v6/src/interfaces/IJBPayoutTerminal.sol";
 import {IJBPermissioned} from "@bananapus/core-v6/src/interfaces/IJBPermissioned.sol";
-import {JBPermissioned} from "@bananapus/core-v6/src/abstract/JBPermissioned.sol";
 import {IJBPrices} from "@bananapus/core-v6/src/interfaces/IJBPrices.sol";
 import {IJBTerminal} from "@bananapus/core-v6/src/interfaces/IJBTerminal.sol";
 import {IJBTokenUriResolver} from "@bananapus/core-v6/src/interfaces/IJBTokenUriResolver.sol";
-import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {JBCashOuts} from "@bananapus/core-v6/src/libraries/JBCashOuts.sol";
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBFees} from "@bananapus/core-v6/src/libraries/JBFees.sol";
@@ -18,6 +17,8 @@ import {JBSurplus} from "@bananapus/core-v6/src/libraries/JBSurplus.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
 import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
 import {JBSingleAllowance} from "@bananapus/core-v6/src/structs/JBSingleAllowance.sol";
+import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
+import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -124,6 +125,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @notice The ID of the REV revnet that will receive the fees.
     uint256 public immutable override REV_ID;
 
+    /// @notice The sucker registry used to discover peer chain suckers for cross-chain awareness.
+    IJBSuckerRegistry public immutable override SUCKER_REGISTRY;
+
     //*********************************************************************//
     // --------------------- public stored properties -------------------- //
     //*********************************************************************//
@@ -180,12 +184,14 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     //*********************************************************************//
 
     /// @param controller The controller that manages revnets using this loans contract.
+    /// @param suckerRegistry The registry used to discover peer chain suckers for cross-chain supply/surplus awareness.
     /// @param revId The ID of the REV revnet that will receive the fees.
     /// @param owner The owner of the contract that can set the URI resolver.
     /// @param permit2 A permit2 utility.
     /// @param trustedForwarder A trusted forwarder of transactions to this contract.
     constructor(
         IJBController controller,
+        IJBSuckerRegistry suckerRegistry,
         uint256 revId,
         address owner,
         IPermit2 permit2,
@@ -201,6 +207,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         PRICES = controller.PRICES();
         REV_ID = revId;
         PERMIT2 = permit2;
+        SUCKER_REGISTRY = suckerRegistry;
     }
 
     //*********************************************************************//
@@ -355,17 +362,32 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Get a refeerence to the collateral being used to secure loans.
         uint256 totalCollateral = totalCollateralOf[revnetId];
 
+        // The local supply includes both circulating tokens and tokens locked as loan collateral.
+        uint256 localSupply = totalSupply + totalCollateral;
+
+        // The local surplus includes both the treasury surplus and the outstanding borrowed amounts.
+        uint256 localSurplus = totalSurplus + totalBorrowed;
+
         // Proportional — uses the CURRENT stage's cashOutTaxRate.
         // NOTE: When a revnet transitions between stages with different cashOutTaxRate values, the borrowable amount
         // for the same collateral changes. A lower cashOutTaxRate in a later stage means more borrowable value per
         // collateral. This is by design: loan value tracks the current bonding curve parameters, just as cash-out
         // value does. Borrowers benefit from decreasing tax rates and are constrained by increasing ones.
-        return JBCashOuts.cashOutFrom({
-            surplus: totalSurplus + totalBorrowed,
+        // Add cross-chain remote values for proportional reclaim.
+        uint256 omnichainSurplus = localSurplus;
+        uint256 omnichainSupply = localSupply;
+        if (address(SUCKER_REGISTRY) != address(0)) {
+            omnichainSurplus += SUCKER_REGISTRY.remoteSurplusOf({projectId: revnetId, decimals: 18, currency: currency});
+            omnichainSupply += SUCKER_REGISTRY.remoteTotalSupplyOf(revnetId);
+        }
+        uint256 reclaimable = JBCashOuts.cashOutFrom({
+            surplus: omnichainSurplus,
             cashOutCount: collateralCount,
-            totalSupply: totalSupply + totalCollateral,
+            totalSupply: omnichainSupply,
             cashOutTaxRate: currentStage.cashOutTaxRate()
         });
+        // Cap at local surplus — can't borrow more than what this chain's terminals actually hold.
+        return reclaimable > localSurplus ? localSurplus : reclaimable;
     }
 
     /// @notice The amount of the loan that should be borrowed for the given collateral amount.
@@ -1078,33 +1100,16 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             ? 0
             : JBFees.feeAmountFrom({amountBeforeFee: addedBorrowAmount, feePercent: REV_PREPAID_FEE_PERCENT});
 
+        // Try to pay the REV fee. If it fails, revFeeAmount is zeroed so the borrower receives it instead.
         if (revFeeAmount > 0) {
-            // Increase the allowance for the fee terminal.
-            uint256 payValue =
-                _beforeTransferTo({to: address(feeTerminal), token: loan.source.token, amount: revFeeAmount});
-
-            // Pay the fee. Send the REV to the beneficiary. If fee payment fails, give the amount back to the borrower.
-            // NOTE: When terminal.pay() reverts (e.g. due to a misconfigured terminal or paused payments),
-            // the REV fee is refunded to the borrower, resulting in an effectively interest-free loan for the
-            // REV fee portion. This is acceptable — it requires a broken/misconfigured fee terminal and the
-            // borrower still pays the source fee and protocol fee.
-            // slither-disable-next-line arbitrary-send-eth,unused-return
-            try feeTerminal.pay{value: payValue}({
-                projectId: REV_ID,
-                token: loan.source.token,
-                amount: revFeeAmount,
-                beneficiary: beneficiary,
-                minReturnedTokens: 0,
-                memo: "",
-                metadata: bytes(abi.encodePacked(revnetId))
-            }) {}
-            catch (bytes memory) {
-                // If the fee can't be processed, decrease the ERC-20 allowance and zero out the fee
-                // so the borrower receives it instead.
-                if (loan.source.token != JBConstants.NATIVE_TOKEN) {
-                    IERC20(loan.source.token)
-                        .safeDecreaseAllowance({spender: address(feeTerminal), requestedDecrease: revFeeAmount});
-                }
+            if (!_tryPayFee({
+                    terminal: feeTerminal,
+                    projectId: REV_ID,
+                    token: loan.source.token,
+                    amount: revFeeAmount,
+                    beneficiary: beneficiary,
+                    metadataProjectId: revnetId
+                })) {
                 revFeeAmount = 0;
             }
         }
@@ -1195,35 +1200,16 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             });
         }
 
-        // If there is a source fee, pay it. Wrapped in try-catch so a reverting source terminal
-        // cannot block all loan operations (matching the REV fee pattern above).
+        // Try to pay the source fee. If it fails, transfer the amount to the beneficiary instead.
         if (sourceFeeAmount > 0) {
-            // Increase the allowance for the source terminal.
-            uint256 payValue =
-                _beforeTransferTo({to: address(sourceTerminal), token: sourceToken, amount: sourceFeeAmount});
-
-            // Pay the fee. If it fails, reclaim the allowance and give the amount back to the borrower.
-            // NOTE: When terminal.pay() reverts (e.g. due to a misconfigured terminal or paused payments),
-            // the source fee is refunded to the borrower, resulting in an effectively interest-free loan for the
-            // source fee portion. This is acceptable — it requires a broken/misconfigured source terminal and
-            // the borrower still pays the REV fee and protocol fee.
-            // slither-disable-next-line unused-return,arbitrary-send-eth
-            try sourceTerminal.pay{value: payValue}({
-                projectId: revnetId,
-                token: sourceToken,
-                amount: sourceFeeAmount,
-                beneficiary: beneficiary,
-                minReturnedTokens: 0,
-                memo: "",
-                metadata: bytes(abi.encodePacked(REV_ID))
-            }) {}
-            catch (bytes memory) {
-                // If the fee can't be processed, decrease the ERC-20 allowance and return the amount
-                // to the beneficiary instead.
-                if (sourceToken != JBConstants.NATIVE_TOKEN) {
-                    IERC20(sourceToken)
-                        .safeDecreaseAllowance({spender: address(sourceTerminal), requestedDecrease: sourceFeeAmount});
-                }
+            if (!_tryPayFee({
+                    terminal: IJBTerminal(address(sourceTerminal)),
+                    projectId: revnetId,
+                    token: sourceToken,
+                    amount: sourceFeeAmount,
+                    beneficiary: beneficiary,
+                    metadataProjectId: REV_ID
+                })) {
                 _transferFrom({from: address(this), to: beneficiary, token: sourceToken, amount: sourceFeeAmount});
             }
         }
@@ -1515,6 +1501,45 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Otherwise, attempt to use the `permit2` method.
         // forge-lint: disable-next-line(unsafe-typecast)
         PERMIT2.transferFrom({from: from, to: to, amount: uint160(amount), token: token});
+    }
+
+    /// @notice Attempts to pay a fee to a terminal. On failure, cleans up the ERC-20 allowance and returns false.
+    /// @param terminal The terminal to pay the fee to.
+    /// @param projectId The project receiving the fee.
+    /// @param token The token being used to pay the fee.
+    /// @param amount The fee amount.
+    /// @param beneficiary The address to credit for the fee payment.
+    /// @param metadataProjectId The project ID encoded in the payment metadata.
+    /// @return success Whether the fee was successfully paid.
+    function _tryPayFee(
+        IJBTerminal terminal,
+        uint256 projectId,
+        address token,
+        uint256 amount,
+        address beneficiary,
+        uint256 metadataProjectId
+    )
+        internal
+        returns (bool success)
+    {
+        uint256 payValue = _beforeTransferTo({to: address(terminal), token: token, amount: amount});
+
+        // slither-disable-next-line arbitrary-send-eth,unused-return
+        try terminal.pay{value: payValue}({
+            projectId: projectId,
+            token: token,
+            amount: amount,
+            beneficiary: beneficiary,
+            minReturnedTokens: 0,
+            memo: "",
+            metadata: bytes(abi.encodePacked(metadataProjectId))
+        }) {
+            success = true;
+        } catch (bytes memory) {
+            if (token != JBConstants.NATIVE_TOKEN) {
+                IERC20(token).safeDecreaseAllowance({spender: address(terminal), requestedDecrease: amount});
+            }
+        }
     }
 
     fallback() external payable {}

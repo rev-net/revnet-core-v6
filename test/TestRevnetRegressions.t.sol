@@ -38,6 +38,8 @@ import {JBSuckerRegistry} from "@bananapus/suckers-v6/src/JBSuckerRegistry.sol";
 import {JB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
 import {JB721TiersHook} from "@bananapus/721-hook-v6/src/JB721TiersHook.sol";
 import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStore.sol";
+import {JB721CheckpointsDeployer} from "@bananapus/721-hook-v6/src/JB721CheckpointsDeployer.sol";
+import {IJB721CheckpointsDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721CheckpointsDeployer.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 import {REVOwner} from "../src/REVOwner.sol";
@@ -48,12 +50,13 @@ import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 contract REVLoansHarness is REVLoans {
     constructor(
         IJBController controller,
+        IJBSuckerRegistry suckerRegistry,
         uint256 revId,
         address owner,
         IPermit2 permit2,
         address trustedForwarder
     )
-        REVLoans(controller, revId, owner, permit2, trustedForwarder)
+        REVLoans(controller, suckerRegistry, revId, owner, permit2, trustedForwarder)
     {}
 
     /// @notice Expose _totalBorrowedFrom for testing.
@@ -131,7 +134,14 @@ contract TestRevnetRegressions is TestBaseWorkflow {
         SUCKER_REGISTRY = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
         HOOK_STORE = new JB721TiersHookStore();
         EXAMPLE_HOOK = new JB721TiersHook(
-            jbDirectory(), jbPermissions(), jbPrices(), jbRulesets(), HOOK_STORE, jbSplits(), multisig()
+            jbDirectory(),
+            jbPermissions(),
+            jbPrices(),
+            jbRulesets(),
+            HOOK_STORE,
+            jbSplits(),
+            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer())),
+            multisig()
         );
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
@@ -140,6 +150,7 @@ contract TestRevnetRegressions is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoansHarness({
             controller: jbController(),
+            suckerRegistry: IJBSuckerRegistry(address(0)),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
