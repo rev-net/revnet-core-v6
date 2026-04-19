@@ -172,16 +172,13 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
 
         // Compute the cross-chain total supply (local + remote peer chain supplies) for cross-chain-aware bonding
         // curve.
-        totalSupply = context.totalSupply;
-        effectiveSurplusValue = context.surplus.value;
-        if (address(SUCKER_REGISTRY) != address(0)) {
-            totalSupply += SUCKER_REGISTRY.remoteTotalSupplyOf(context.projectId);
-            effectiveSurplusValue += SUCKER_REGISTRY.remoteSurplusOf({
+        totalSupply = context.totalSupply + SUCKER_REGISTRY.remoteTotalSupplyOf(context.projectId);
+        effectiveSurplusValue = context.surplus.value
+            + SUCKER_REGISTRY.remoteSurplusOf({
                 projectId: context.projectId,
                 decimals: context.surplus.decimals,
                 currency: uint256(uint160(context.surplus.token))
             });
-        }
 
         // If there's no cash out tax (100% cash out tax rate), if there's no fee terminal, or if the beneficiary is
         // feeless (e.g. the router terminal routing value between projects), proxy to the buyback hook with our

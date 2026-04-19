@@ -46,6 +46,7 @@ import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
 import {REVStageConfig} from "../../src/structs/REVStageConfig.sol";
 import {REVAutoIssuance} from "../../src/structs/REVStageConfig.sol";
 import {REVSuckerDeploymentConfig} from "../../src/structs/REVSuckerDeploymentConfig.sol";
+import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
 
 contract PhantomSurplusTerminal is ERC165, IJBPayoutTerminal {
     uint256 public fakeSurplus;
@@ -191,7 +192,7 @@ contract CodexPhantomSurplusTerminalTest is TestBaseWorkflow {
         MOCK_BUYBACK = new MockBuybackDataHook();
         LOANS = new REVLoans({
             controller: jbController(),
-            suckerRegistry: IJBSuckerRegistry(address(0)),
+            suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),

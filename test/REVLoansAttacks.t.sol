@@ -48,6 +48,7 @@ import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
 import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
+import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
 /// @notice A malicious terminal that re-enters REVLoans during fee payment in _adjust().
 /// @dev Reentrancy during pay() callback in _adjust.
@@ -393,7 +394,7 @@ contract REVLoansAttacks is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
-            suckerRegistry: IJBSuckerRegistry(address(0)),
+            suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),

@@ -44,6 +44,7 @@ import {REVEmpty721Config} from "../helpers/REVEmpty721Config.sol";
 import {IJBPrices} from "@bananapus/core-v6/src/interfaces/IJBPrices.sol";
 import {REVOwner} from "../../src/REVOwner.sol";
 import {IREVDeployer} from "../../src/interfaces/IREVDeployer.sol";
+import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
 
 /// @notice Verifies that `_totalBorrowedFrom` gracefully handles zero-price feeds.
 /// @dev When a cross-currency price feed returns 0 (e.g., inverse truncation at low decimals), the affected source
@@ -123,7 +124,7 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
-            suckerRegistry: IJBSuckerRegistry(address(0)),
+            suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),

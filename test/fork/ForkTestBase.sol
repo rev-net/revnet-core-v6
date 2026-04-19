@@ -76,6 +76,7 @@ import {StateLibrary} from "@uniswap/v4-core/src/libraries/StateLibrary.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {REVOwner} from "../../src/REVOwner.sol";
 import {IREVDeployer} from "../../src/interfaces/IREVDeployer.sol";
+import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
 
 /// @notice Helper that adds liquidity to a V4 pool via the unlock/callback pattern.
 contract LiquidityHelper is IUnlockCallback {
@@ -337,7 +338,7 @@ abstract contract ForkTestBase is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
-            suckerRegistry: IJBSuckerRegistry(address(0)),
+            suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
             permit2: permit2(),
