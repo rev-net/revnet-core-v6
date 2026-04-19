@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
+import {JBPermissioned} from "@bananapus/core-v6/src/abstract/JBPermissioned.sol";
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
-import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
 import {IJBPayoutTerminal} from "@bananapus/core-v6/src/interfaces/IJBPayoutTerminal.sol";
 import {IJBPermissioned} from "@bananapus/core-v6/src/interfaces/IJBPermissioned.sol";
-import {JBPermissioned} from "@bananapus/core-v6/src/abstract/JBPermissioned.sol";
 import {IJBPrices} from "@bananapus/core-v6/src/interfaces/IJBPrices.sol";
 import {IJBTerminal} from "@bananapus/core-v6/src/interfaces/IJBTerminal.sol";
 import {IJBTokenUriResolver} from "@bananapus/core-v6/src/interfaces/IJBTokenUriResolver.sol";
-import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {JBCashOuts} from "@bananapus/core-v6/src/libraries/JBCashOuts.sol";
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBFees} from "@bananapus/core-v6/src/libraries/JBFees.sol";
@@ -19,6 +17,8 @@ import {JBSurplus} from "@bananapus/core-v6/src/libraries/JBSurplus.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
 import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
 import {JBSingleAllowance} from "@bananapus/core-v6/src/structs/JBSingleAllowance.sol";
+import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
+import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -1215,45 +1215,6 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         }
     }
 
-    /// @notice Attempts to pay a fee to a terminal. On failure, cleans up the ERC-20 allowance and returns false.
-    /// @param terminal The terminal to pay the fee to.
-    /// @param projectId The project receiving the fee.
-    /// @param token The token being used to pay the fee.
-    /// @param amount The fee amount.
-    /// @param beneficiary The address to credit for the fee payment.
-    /// @param metadataProjectId The project ID encoded in the payment metadata.
-    /// @return success Whether the fee was successfully paid.
-    function _tryPayFee(
-        IJBTerminal terminal,
-        uint256 projectId,
-        address token,
-        uint256 amount,
-        address beneficiary,
-        uint256 metadataProjectId
-    )
-        internal
-        returns (bool success)
-    {
-        uint256 payValue = _beforeTransferTo({to: address(terminal), token: token, amount: amount});
-
-        // slither-disable-next-line arbitrary-send-eth,unused-return
-        try terminal.pay{value: payValue}({
-            projectId: projectId,
-            token: token,
-            amount: amount,
-            beneficiary: beneficiary,
-            minReturnedTokens: 0,
-            memo: "",
-            metadata: bytes(abi.encodePacked(metadataProjectId))
-        }) {
-            success = true;
-        } catch (bytes memory) {
-            if (token != JBConstants.NATIVE_TOKEN) {
-                IERC20(token).safeDecreaseAllowance({spender: address(terminal), requestedDecrease: amount});
-            }
-        }
-    }
-
     /// @notice Logic to be triggered before transferring tokens from this contract.
     /// @param to The address the transfer is going to.
     /// @param token The token being transferred.
@@ -1540,6 +1501,45 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Otherwise, attempt to use the `permit2` method.
         // forge-lint: disable-next-line(unsafe-typecast)
         PERMIT2.transferFrom({from: from, to: to, amount: uint160(amount), token: token});
+    }
+
+    /// @notice Attempts to pay a fee to a terminal. On failure, cleans up the ERC-20 allowance and returns false.
+    /// @param terminal The terminal to pay the fee to.
+    /// @param projectId The project receiving the fee.
+    /// @param token The token being used to pay the fee.
+    /// @param amount The fee amount.
+    /// @param beneficiary The address to credit for the fee payment.
+    /// @param metadataProjectId The project ID encoded in the payment metadata.
+    /// @return success Whether the fee was successfully paid.
+    function _tryPayFee(
+        IJBTerminal terminal,
+        uint256 projectId,
+        address token,
+        uint256 amount,
+        address beneficiary,
+        uint256 metadataProjectId
+    )
+        internal
+        returns (bool success)
+    {
+        uint256 payValue = _beforeTransferTo({to: address(terminal), token: token, amount: amount});
+
+        // slither-disable-next-line arbitrary-send-eth,unused-return
+        try terminal.pay{value: payValue}({
+            projectId: projectId,
+            token: token,
+            amount: amount,
+            beneficiary: beneficiary,
+            minReturnedTokens: 0,
+            memo: "",
+            metadata: bytes(abi.encodePacked(metadataProjectId))
+        }) {
+            success = true;
+        } catch (bytes memory) {
+            if (token != JBConstants.NATIVE_TOKEN) {
+                IERC20(token).safeDecreaseAllowance({spender: address(terminal), requestedDecrease: amount});
+            }
+        }
     }
 
     fallback() external payable {}
