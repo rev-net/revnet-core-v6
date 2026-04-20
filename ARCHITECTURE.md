@@ -6,16 +6,16 @@
 
 ## System Overview
 
-`REVDeployer` handles launch-time shape, staged rulesets, hook wiring, and runtime wrapper behavior. `REVOwner` provides the owner-like runtime policy surface for pay and cash-out hooks after launch. `REVLoans` manages burn-collateral loan positions represented as ERC-721 loans. `REVHiddenTokens` lets holders burn tokens to exclude them from total supply until they reveal them again.
+`REVDeployer` handles launch-time shape, staged rulesets, hook wiring, and runtime wrapper behavior. `REVOwner` provides the owner-like runtime policy surface for pay and cash-out hooks after launch. `REVLoans` manages burn-collateral loan positions represented as NFTs. `REVHiddenTokens` lets holders burn tokens to exclude them from visible supply until they reveal them again.
 
 ## Core Invariants
 
 - Revnets are intended to be ownerless after deployment; easy admin recovery paths would violate the product model.
 - Stage configuration is effectively permanent once queued.
-- Loan collateral is burned, not escrowed, and supply-sensitive logic must treat it as real destruction until repayment.
-- Hidden tokens are burned, not escrowed, and reduce total supply until revealed.
+- Loan collateral is burned, not escrowed.
+- Hidden tokens are burned, not escrowed, and reduce visible supply until revealed.
 - `REVOwner` and `REVDeployer` are tightly coupled; their setup order matters.
-- Cash-out delay affects both exits and borrowing power. If the current stage delays cash out, `REVLoans` should treat borrowability as zero until that delay expires.
+- Cash-out delay affects both exits and borrowing power.
 - Cross-chain supply and surplus are part of revnet economics. Local payouts and loans must not ignore remote sucker snapshots.
 
 ## Modules
@@ -62,17 +62,17 @@ borrower
 
 ## Accounting Model
 
-The repo does not replace core treasury accounting. Its critical economic logic is the interaction between staged revnet configuration, burned-collateral loan state, hidden-token supply exclusion, and omnichain revnet state imported from suckers.
+The repo does not replace core treasury accounting. Its critical economic logic is the interaction between staged revnet config, burned-collateral loan state, hidden-token supply exclusion, and omnichain revnet state imported from suckers.
 
-`REVOwner` also composes payment and cash-out hooks. On pay, it merges 721-tier split forwarding with buyback-hook behavior and scales mint weight so the terminal only mints against the share actually entering the project. On cash out, it uses omnichain supply and surplus for reclaim math, exempts trusted suckers from tax and fee routing, and may append a fee hook spec that forwards rev fees to the fee revnet.
+`REVOwner` also composes payment and cash-out hooks. On pay, it can merge 721-tier split forwarding with buyback-hook behavior and scale mint weight so the terminal only mints against the share that actually enters the project. On cash out, it can use omnichain supply and surplus for reclaim math, exempt trusted suckers, and append fee-hook specs.
 
 ## Security Model
 
 - The highest-risk interactions sit where stage economics, treasury state, and loan borrowability meet.
-- Ownerlessness removes convenient operational recovery from misconfiguration.
+- Ownerlessness removes convenient recovery from misconfiguration.
 - Hidden-token and burned-collateral semantics materially affect supply-sensitive pricing.
-- `REVOwner` is a live runtime policy surface, not just a launch helper. Cash-out delay, buyback composition, sucker exemptions, and fee routing all pass through it.
-- Rev cash-out fees stack on top of protocol-fee behavior rather than replacing it. Fee semantics should be reviewed with terminal behavior, not in isolation.
+- `REVOwner` is a live runtime policy surface, not just a launch helper.
+- Rev cash-out fees stack on top of protocol-fee behavior rather than replacing it.
 
 ## Safe Change Guide
 
@@ -80,8 +80,7 @@ The repo does not replace core treasury accounting. Its critical economic logic 
 - If stage semantics change, inspect loan math, cash-out behavior, and downstream fee expectations together.
 - Do not casually add mutable admin escape hatches.
 - If you change borrowability, re-check cash-out-delay gating, omnichain surplus inputs, and local-surplus caps together.
-- If you change hook composition, re-check 721 split handling, buyback hook assumptions, and which callers retain mint permission through `REVOwner`.
-- If loan calculations change, review flash-loan and surplus-sensitive behavior adversarially.
+- If you change hook composition, re-check 721 split handling, buyback assumptions, and mint-permission flows.
 
 ## Canonical Checks
 

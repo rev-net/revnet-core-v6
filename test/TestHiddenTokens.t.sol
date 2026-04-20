@@ -171,6 +171,8 @@ contract TestHiddenTokens is TestBaseWorkflow {
 
         uint256 totalSupplyBefore = jbController().TOKENS().totalSupplyOf(REVNET_ID);
 
+        _allowHolderToHide(USER, REVNET_ID);
+
         // Hide half the tokens.
         uint256 hideCount = userTokens / 2;
         vm.prank(USER);
@@ -202,23 +204,23 @@ contract TestHiddenTokens is TestBaseWorkflow {
         uint256 userTokensBefore = jbController().TOKENS().totalBalanceOf(USER, REVNET_ID);
         uint256 totalSupplyBefore = jbController().TOKENS().totalSupplyOf(REVNET_ID);
 
+        _allowHolderToHide(USER, REVNET_ID);
+
         // Hide tokens.
         uint256 hideCount = userTokensBefore / 2;
         vm.prank(USER);
         HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hideCount, USER);
 
-        // Reveal tokens to beneficiary.
+        // Reveal tokens back to USER.
         vm.prank(USER);
-        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hideCount, BENEFICIARY, USER);
+        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hideCount, USER);
 
         uint256 totalSupplyAfter = jbController().TOKENS().totalSupplyOf(REVNET_ID);
         assertEq(totalSupplyAfter, totalSupplyBefore, "Total supply should be restored");
         assertEq(HIDDEN_TOKENS.hiddenBalanceOf(USER, REVNET_ID), 0, "Hidden balance should be zero");
         assertEq(HIDDEN_TOKENS.totalHiddenOf(REVNET_ID), 0, "Total hidden should be zero");
         assertEq(
-            jbController().TOKENS().totalBalanceOf(BENEFICIARY, REVNET_ID),
-            hideCount,
-            "Beneficiary should receive tokens"
+            jbController().TOKENS().totalBalanceOf(USER, REVNET_ID), userTokensBefore, "User should receive tokens"
         );
     }
 
@@ -242,6 +244,8 @@ contract TestHiddenTokens is TestBaseWorkflow {
         uint256 userTokens = jbController().TOKENS().totalBalanceOf(USER, REVNET_ID);
         uint256 hideCount = userTokens / 4;
 
+        _allowHolderToHide(USER, REVNET_ID);
+
         // Hide some tokens.
         vm.prank(USER);
         HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hideCount, USER);
@@ -253,7 +257,7 @@ contract TestHiddenTokens is TestBaseWorkflow {
                 REVHiddenTokens.REVHiddenTokens_InsufficientHiddenBalance.selector, hideCount, hideCount + 1
             )
         );
-        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hideCount + 1, USER, USER);
+        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hideCount + 1, USER);
     }
 
     // ──────────────────── Test: Hidden tokens inflate cash out rate
@@ -274,6 +278,8 @@ contract TestHiddenTokens is TestBaseWorkflow {
         });
 
         uint256 userTokens = jbController().TOKENS().totalBalanceOf(USER, REVNET_ID);
+
+        _allowHolderToHide(USER, REVNET_ID);
 
         // Hide half the user's tokens.
         uint256 hideCount = userTokens / 2;
@@ -305,6 +311,8 @@ contract TestHiddenTokens is TestBaseWorkflow {
 
         uint256 userTokens = jbController().TOKENS().totalBalanceOf(USER, REVNET_ID);
 
+        _allowHolderToHide(USER, REVNET_ID);
+
         vm.prank(USER);
         vm.expectEmit(true, false, false, true);
         emit IREVHiddenTokens.HideTokens(REVNET_ID, userTokens, USER, USER);
@@ -326,13 +334,43 @@ contract TestHiddenTokens is TestBaseWorkflow {
 
         uint256 userTokens = jbController().TOKENS().totalBalanceOf(USER, REVNET_ID);
 
+        _allowHolderToHide(USER, REVNET_ID);
+
         vm.prank(USER);
         HIDDEN_TOKENS.hideTokensOf(REVNET_ID, userTokens, USER);
 
         vm.prank(USER);
         vm.expectEmit(true, false, false, true);
-        emit IREVHiddenTokens.RevealTokens(REVNET_ID, userTokens, BENEFICIARY, USER, USER);
-        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, userTokens, BENEFICIARY, USER);
+        emit IREVHiddenTokens.RevealTokens(REVNET_ID, userTokens, USER, USER);
+        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, userTokens, USER);
+    }
+
+    function test_setTokenHidingAllowedFor_allowsHolderToHide() public {
+        uint256 payAmount = 10e18;
+
+        vm.prank(USER);
+        jbMultiTerminal().pay{value: payAmount}({
+            projectId: REVNET_ID,
+            token: JBConstants.NATIVE_TOKEN,
+            amount: payAmount,
+            beneficiary: USER,
+            minReturnedTokens: 0,
+            memo: "",
+            metadata: ""
+        });
+
+        uint256 userTokens = jbController().TOKENS().totalBalanceOf(USER, REVNET_ID);
+        uint256 hideCount = userTokens / 2;
+
+        _allowHolderToHide(USER, REVNET_ID);
+
+        vm.prank(USER);
+        HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hideCount, USER);
+
+        vm.prank(USER);
+        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hideCount, USER);
+
+        assertEq(jbController().TOKENS().totalBalanceOf(USER, REVNET_ID), userTokens, "User balance should be restored");
     }
 
     // ──────────────────── Internal helpers
@@ -349,6 +387,11 @@ contract TestHiddenTokens is TestBaseWorkflow {
         });
         vm.prank(account);
         jbPermissions().setPermissionsFor(account, permissionsData);
+    }
+
+    function _allowHolderToHide(address holder, uint256 revnetId) internal {
+        vm.prank(address(REV_DEPLOYER));
+        HIDDEN_TOKENS.setTokenHidingAllowedFor(revnetId, holder, true);
     }
 
     function _deployFeeProject() internal {

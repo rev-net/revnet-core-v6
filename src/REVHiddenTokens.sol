@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBPermissioned} from "@bananapus/core-v6/src/interfaces/IJBPermissioned.sol";
 import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
+import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
 import {JBPermissioned} from "@bananapus/core-v6/src/abstract/JBPermissioned.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
@@ -11,14 +12,17 @@ import {Context} from "@openzeppelin/contracts/utils/Context.sol";
 
 import {IREVHiddenTokens} from "./interfaces/IREVHiddenTokens.sol";
 
-/// @notice Allows revnet token holders to temporarily hide (burn) tokens, excluding them from totalSupply and
-/// increasing cash-out value for remaining holders. Hidden tokens can be revealed (re-minted) at any time.
+/// @notice Allows authorized operators to hide (burn) revnet tokens on behalf of holders, excluding them from
+/// governance weight. Hidden tokens are burned from circulating supply, so they also stop contributing to
+/// cash-out and borrow valuations until revealed again.
+/// Hidden tokens can be revealed (re-minted) at any time.
 contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
     //*********************************************************************//
     // --------------------------- custom errors ------------------------- //
     //*********************************************************************//
 
     error REVHiddenTokens_InsufficientHiddenBalance(uint256 hiddenBalance, uint256 requested);
+    error REVHiddenTokens_Unauthorized(uint256 revnetId, address caller);
 
     //*********************************************************************//
     // --------------- public immutable stored properties ---------------- //
@@ -26,6 +30,9 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
 
     /// @notice The controller that manages revnets using this contract.
     IJBController public immutable override CONTROLLER;
+
+    /// @notice The projects contract used to resolve revnet owners.
+    IJBProjects public immutable PROJECTS;
 
     //*********************************************************************//
     // --------------------- public stored properties -------------------- //
@@ -39,6 +46,11 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
     /// @notice The total number of hidden tokens for a revnet.
     /// @custom:param revnetId The ID of the revnet.
     mapping(uint256 revnetId => uint256 count) public override totalHiddenOf;
+
+    /// @notice Whether a holder is allowed to hide their own tokens.
+    /// @custom:param holder The holder whose tokens are being managed.
+    /// @custom:param revnetId The ID of the revnet.
+    mapping(address holder => mapping(uint256 revnetId => bool isAllowed)) public override tokenHidingIsAllowedFor;
 
     //*********************************************************************//
     // -------------------------- constructor ---------------------------- //
@@ -54,20 +66,27 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
         JBPermissioned(IJBPermissioned(address(controller)).PERMISSIONS())
     {
         CONTROLLER = controller;
+        PROJECTS = controller.PROJECTS();
     }
 
-    //*********************************************************************//
-    // --------------------- external transactions ----------------------- //
-    //*********************************************************************//
-
     /// @notice Hide tokens by burning them and tracking them for later reveal.
+    /// @dev The caller must be the holder. Hiding is allowed for holders on the operator-managed allowlist,
+    /// and also for holders who are themselves the project owner or an operator with `HIDE_TOKENS`.
     /// @dev The holder must have granted BURN_TOKENS permission to this contract.
     /// @param revnetId The ID of the revnet whose tokens to hide.
     /// @param tokenCount The number of tokens to hide.
     /// @param holder The address whose tokens to hide.
     function hideTokensOf(uint256 revnetId, uint256 tokenCount, address holder) external override {
-        // Only the holder or a permissioned operator can hide tokens.
-        _requirePermissionFrom({account: holder, projectId: revnetId, permissionId: JBPermissionIds.HIDE_TOKENS});
+        address caller = _msgSender();
+        if (caller != holder) revert REVHiddenTokens_Unauthorized(revnetId, caller);
+
+        bool isAllowlistedHolder = tokenHidingIsAllowedFor[holder][revnetId];
+        bool isPermissionedOperator =
+            _hasPermissionFrom(caller, PROJECTS.ownerOf(revnetId), revnetId, JBPermissionIds.HIDE_TOKENS);
+
+        if (!isAllowlistedHolder && !isPermissionedOperator) {
+            revert REVHiddenTokens_Unauthorized(revnetId, caller);
+        }
 
         // Increment the holder's hidden balance.
         hiddenBalanceOf[holder][revnetId] += tokenCount;
@@ -83,24 +102,14 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
     }
 
     /// @notice Reveal previously hidden tokens by re-minting them.
-    /// @dev A delegated operator (with REVEAL_TOKENS permission) can set `beneficiary` to any address, directing
-    /// revealed tokens away from the holder. Grant this permission only to trusted operators.
+    /// @dev Any holder can reveal their own hidden tokens without special permissions.
+    /// Revealed tokens always return to the holder.
     /// @param revnetId The ID of the revnet whose tokens to reveal.
     /// @param tokenCount The number of tokens to reveal.
-    /// @param beneficiary The address that will receive the revealed tokens.
     /// @param holder The address whose hidden balance to decrement.
-    function revealTokensOf(
-        uint256 revnetId,
-        uint256 tokenCount,
-        address beneficiary,
-        address holder
-    )
-        external
-        override
-    {
-        // Only the holder or a permissioned operator can reveal tokens.
-        // Note: the operator controls `beneficiary`, so they can direct revealed tokens to any address.
-        _requirePermissionFrom({account: holder, projectId: revnetId, permissionId: JBPermissionIds.REVEAL_TOKENS});
+    function revealTokensOf(uint256 revnetId, uint256 tokenCount, address holder) external override {
+        address caller = _msgSender();
+        if (caller != holder) revert REVHiddenTokens_Unauthorized(revnetId, caller);
 
         uint256 hidden = hiddenBalanceOf[holder][revnetId];
 
@@ -118,12 +127,25 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
         // Mint the tokens to the beneficiary without applying the reserved percent.
         // slither-disable-next-line unused-return,reentrancy-events
         CONTROLLER.mintTokensOf({
-            projectId: revnetId, tokenCount: tokenCount, beneficiary: beneficiary, memo: "", useReservedPercent: false
+            projectId: revnetId, tokenCount: tokenCount, beneficiary: holder, memo: "", useReservedPercent: false
         });
 
-        emit RevealTokens({
-            revnetId: revnetId, tokenCount: tokenCount, beneficiary: beneficiary, holder: holder, caller: _msgSender()
+        emit RevealTokens({revnetId: revnetId, tokenCount: tokenCount, holder: holder, caller: _msgSender()});
+    }
+
+    /// @notice Allow or disallow a holder to hide their own tokens.
+    /// @dev The caller must have `HIDE_TOKENS` permission for the revnet.
+    /// @param revnetId The ID of the revnet.
+    /// @param holder The holder to update.
+    /// @param isAllowed Whether the holder should be allowed.
+    function setTokenHidingAllowedFor(uint256 revnetId, address holder, bool isAllowed) external override {
+        _requirePermissionFrom({
+            account: PROJECTS.ownerOf(revnetId), projectId: revnetId, permissionId: JBPermissionIds.HIDE_TOKENS
         });
+
+        tokenHidingIsAllowedFor[holder][revnetId] = isAllowed;
+
+        emit SetTokenHidingAllowed({revnetId: revnetId, holder: holder, isAllowed: isAllowed});
     }
 
     //*********************************************************************//
