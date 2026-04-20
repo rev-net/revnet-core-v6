@@ -174,7 +174,11 @@ contract MockSuckerRegistryWithRemote {
 
     function allowSuckerDeployers(address[] calldata) external pure {}
 
-    function deploySuckersFor(uint256, bytes32, JBSuckerDeployerConfig[] calldata)
+    function deploySuckersFor(
+        uint256,
+        bytes32,
+        JBSuckerDeployerConfig[] calldata
+    )
         external
         pure
         returns (address[] memory suckers)
@@ -266,9 +270,10 @@ contract TestAuditFixVerification is TestBaseWorkflow {
         // Feed returns price in 6 decimals.
         MockPriceFeed priceFeed = new MockPriceFeed(5e14, 18);
         vm.prank(multisig());
-        jbPrices().addPriceFeedFor(
-            0, uint32(uint160(address(USDC_TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed
-        );
+        jbPrices()
+            .addPriceFeedFor(
+                0, uint32(uint160(address(USDC_TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed
+            );
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
@@ -334,9 +339,8 @@ contract TestAuditFixVerification is TestBaseWorkflow {
         assertGt(tokens, 0, "User should have tokens");
 
         // Query borrowable amount in 6 decimals (USDC-like).
-        uint256 borrowable6 = LOANS_CONTRACT.borrowableAmountFrom(
-            REVNET_ID, tokens, 6, uint32(uint160(address(USDC_TOKEN)))
-        );
+        uint256 borrowable6 =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 6, uint32(uint160(address(USDC_TOKEN))));
 
         // Query borrowable amount in 18 decimals (ETH).
         uint256 borrowable18 =
@@ -412,9 +416,8 @@ contract TestAuditFixVerification is TestBaseWorkflow {
         // Get the local supply and surplus for comparison.
         uint256 localSupply = jbController().totalTokenSupplyWithReservedTokensOf(REVNET_ID);
         // The local surplus can be queried via the terminal.
-        uint256 localSurplus = jbMultiTerminal().currentSurplusOf(
-            REVNET_ID, new address[](0), 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        uint256 localSurplus = jbMultiTerminal()
+            .currentSurplusOf(REVNET_ID, new address[](0), 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // Build a context simulating a cash out call (as the terminal would).
         JBBeforeCashOutRecordedContext memory context = JBBeforeCashOutRecordedContext({
@@ -439,9 +442,8 @@ contract TestAuditFixVerification is TestBaseWorkflow {
         // Call beforeCashOutRecordedWith on the REV_OWNER (data hook).
         // Note: REVOwner.beforeCashOutRecordedWith is `view` but our mock records state via SSTORE,
         // so we need to use a staticcall-breaking trick. We use low-level call to bypass the view restriction.
-        (bool success, bytes memory retdata) = address(REV_OWNER).call(
-            abi.encodeWithSelector(REV_OWNER.beforeCashOutRecordedWith.selector, context)
-        );
+        (bool success, bytes memory retdata) =
+            address(REV_OWNER).call(abi.encodeWithSelector(REV_OWNER.beforeCashOutRecordedWith.selector, context));
         assertTrue(success, "beforeCashOutRecordedWith should succeed");
 
         // Decode the return to verify it does not revert and to inspect what the buyback hook saw.
@@ -584,7 +586,8 @@ contract TestAuditFixVerification is TestBaseWorkflow {
     }
 
     //*********************************************************************//
-    // ──────────────── Internal helpers ──────────────── //
+    // ──────────────── Internal helpers
+    // ──────────────── //
     //*********************************************************************//
 
     function _grantBurnPermission(address account, uint256 revnetId) internal {
@@ -603,11 +606,8 @@ contract TestAuditFixVerification is TestBaseWorkflow {
     function _grantHiddenTokensPermission(address operator, uint256 revnetId) internal {
         uint8[] memory permissionIds = new uint8[](1);
         permissionIds[0] = JBPermissionIds.HIDE_TOKENS;
-        JBPermissionsData memory permissionsData = JBPermissionsData({
-            operator: operator,
-            projectId: uint56(revnetId),
-            permissionIds: permissionIds
-        });
+        JBPermissionsData memory permissionsData =
+            JBPermissionsData({operator: operator, projectId: uint56(revnetId), permissionIds: permissionIds});
         vm.prank(address(REV_DEPLOYER));
         jbPermissions().setPermissionsFor(address(REV_DEPLOYER), permissionsData);
     }

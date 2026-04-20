@@ -10,7 +10,9 @@ interface IREVHiddenTokens {
     /// @param holder The holder whose tokens the delegate can manage.
     /// @param delegate The address being allowed or disallowed.
     /// @param isAllowed Whether the delegate is allowed.
-    event SetTokenHidingAllowance(uint256 indexed revnetId, address indexed holder, address indexed delegate, bool isAllowed);
+    event SetTokenHidingAllowance(
+        uint256 indexed revnetId, address indexed holder, address indexed delegate, bool isAllowed
+    );
 
     /// @notice Emitted when tokens are hidden (burned and tracked for later reveal).
     /// @param revnetId The ID of the revnet whose tokens are hidden.

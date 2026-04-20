@@ -219,7 +219,9 @@ contract TestHiddenTokens is TestBaseWorkflow {
         assertEq(totalSupplyAfter, totalSupplyBefore, "Total supply should be restored");
         assertEq(HIDDEN_TOKENS.hiddenBalanceOf(USER, REVNET_ID), 0, "Hidden balance should be zero");
         assertEq(HIDDEN_TOKENS.totalHiddenOf(REVNET_ID), 0, "Total hidden should be zero");
-        assertEq(jbController().TOKENS().totalBalanceOf(USER, REVNET_ID), userTokensBefore, "User should receive tokens");
+        assertEq(
+            jbController().TOKENS().totalBalanceOf(USER, REVNET_ID), userTokensBefore, "User should receive tokens"
+        );
     }
 
     // ──────────────────── Test: Insufficient hidden balance reverts
@@ -394,15 +396,11 @@ contract TestHiddenTokens is TestBaseWorkflow {
     function _grantHiddenTokensPermission(address operator, uint256 revnetId) internal {
         uint8[] memory permissionIds = new uint8[](1);
         permissionIds[0] = JBPermissionIds.HIDE_TOKENS;
-        JBPermissionsData memory permissionsData = JBPermissionsData({
-            operator: operator,
-            projectId: uint56(revnetId),
-            permissionIds: permissionIds
-        });
+        JBPermissionsData memory permissionsData =
+            JBPermissionsData({operator: operator, projectId: uint56(revnetId), permissionIds: permissionIds});
         vm.prank(address(REV_DEPLOYER));
         jbPermissions().setPermissionsFor(address(REV_DEPLOYER), permissionsData);
     }
-
 
     function _deployFeeProject() internal {
         JBAccountingContext[] memory acc = new JBAccountingContext[](1);

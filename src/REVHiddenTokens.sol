@@ -54,8 +54,7 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
     /// @custom:param delegate The delegate address.
     mapping(address holder => mapping(uint256 revnetId => mapping(address delegate => bool isAllowed)))
         public
-        override
-        tokenHidingIsAllowedFor;
+        override tokenHidingIsAllowedFor;
 
     //*********************************************************************//
     // -------------------------- constructor ---------------------------- //
@@ -163,16 +162,12 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
     function setTokenHidingAllowanceOf(uint256 revnetId, address delegate, bool isAllowed) external override {
         address caller = _msgSender();
         _requirePermissionFrom({
-            account: PROJECTS.ownerOf(revnetId),
-            projectId: revnetId,
-            permissionId: JBPermissionIds.HIDE_TOKENS
+            account: PROJECTS.ownerOf(revnetId), projectId: revnetId, permissionId: JBPermissionIds.HIDE_TOKENS
         });
 
         tokenHidingIsAllowedFor[caller][revnetId][delegate] = isAllowed;
 
-        emit SetTokenHidingAllowance({
-            revnetId: revnetId, holder: caller, delegate: delegate, isAllowed: isAllowed
-        });
+        emit SetTokenHidingAllowance({revnetId: revnetId, holder: caller, delegate: delegate, isAllowed: isAllowed});
     }
 
     //*********************************************************************//
@@ -186,9 +181,7 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
     function _requireCanManageHiddenTokensOf(uint256 revnetId, address holder, address caller) internal view {
         if (caller == holder) {
             _requirePermissionFrom({
-                account: PROJECTS.ownerOf(revnetId),
-                projectId: revnetId,
-                permissionId: JBPermissionIds.HIDE_TOKENS
+                account: PROJECTS.ownerOf(revnetId), projectId: revnetId, permissionId: JBPermissionIds.HIDE_TOKENS
             });
             return;
         }

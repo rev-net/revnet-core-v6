@@ -179,7 +179,9 @@ contract NemesisOperatorDelegationTest is TestBaseWorkflow {
         _grantOperatorHidePermission(USER);
 
         vm.prank(OPERATOR);
-        vm.expectRevert(abi.encodeWithSelector(REVHiddenTokens.REVHiddenTokens_Unauthorized.selector, REVNET_ID, OPERATOR));
+        vm.expectRevert(
+            abi.encodeWithSelector(REVHiddenTokens.REVHiddenTokens_Unauthorized.selector, REVNET_ID, OPERATOR)
+        );
         HIDDEN_TOKENS.hideTokensOf(REVNET_ID, userTokens / 2, USER);
     }
 
@@ -196,7 +198,9 @@ contract NemesisOperatorDelegationTest is TestBaseWorkflow {
         HIDDEN_TOKENS.setTokenHidingAllowanceOf(REVNET_ID, OPERATOR, false);
 
         vm.prank(OPERATOR);
-        vm.expectRevert(abi.encodeWithSelector(REVHiddenTokens.REVHiddenTokens_Unauthorized.selector, REVNET_ID, OPERATOR));
+        vm.expectRevert(
+            abi.encodeWithSelector(REVHiddenTokens.REVHiddenTokens_Unauthorized.selector, REVNET_ID, OPERATOR)
+        );
         HIDDEN_TOKENS.hideTokensOf(REVNET_ID, userTokens / 2, USER);
     }
 
@@ -231,10 +235,11 @@ contract NemesisOperatorDelegationTest is TestBaseWorkflow {
         permissionIds[0] = JBPermissionIds.HIDE_TOKENS;
 
         vm.prank(address(REV_DEPLOYER));
-        jbPermissions().setPermissionsFor(
-            address(REV_DEPLOYER),
-            JBPermissionsData({operator: delegate, projectId: uint56(REVNET_ID), permissionIds: permissionIds})
-        );
+        jbPermissions()
+            .setPermissionsFor(
+                address(REV_DEPLOYER),
+                JBPermissionsData({operator: delegate, projectId: uint56(REVNET_ID), permissionIds: permissionIds})
+            );
     }
 
     function _deployFeeProject() internal {
