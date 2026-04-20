@@ -1,6 +1,6 @@
 # Revnet Core
 
-`@rev-net/core-v6` deploys and operates Revnets: Juicebox project shapes with staged economics, optional tiered NFTs, cross-chain support, buyback integration, and token-collateralized loans.
+`@rev-net/core-v6` deploys and operates Revnets: Juicebox project shapes with staged economics, optional tiered NFTs, cross-chain support, buyback integration, hidden-token mechanics, and token-collateralized loans.
 
 Docs: <https://docs.juicebox.money>
 Architecture: [ARCHITECTURE.md](./ARCHITECTURE.md)  
@@ -18,13 +18,12 @@ This package provides:
 
 - a deployer that launches Revnets and stores their long-lived configuration
 - a runtime hook that mediates pay, cash-out, mint-permission, and delayed-cash-out behavior
-- an ERC-721 loan system that burns token collateral on borrow and remints on repayment
+- a loan system that burns token collateral on borrow and remints on repayment
+- a hidden-token system that temporarily removes tokens from visible supply
 
 It also composes with the 721 hook stack, buyback hook, router terminal, Croptop, and suckers where needed.
 
-Use this repo when the product is a treasury-backed network with encoded stage transitions and a tightly constrained post-launch admin surface. Do not use it when governance, mutable operator control, or simple project deployment is the goal.
-
-The key point is that a Revnet is not just "a Juicebox project with presets." It is a project shape whose admin surface is intentionally collapsed into deployment-time configuration plus constrained runtime operators, even though the deployer contract still retains the project NFT.
+Use this repo when the product is a treasury-backed network with encoded stage transitions and a tightly constrained post-launch admin surface. Do not use it when the goal is ordinary governance or a simple project deploy.
 
 ## Key Contracts
 
@@ -33,48 +32,38 @@ The key point is that a Revnet is not just "a Juicebox project with presets." It
 | `REVDeployer` | Launches and configures Revnets, stages, split operators, and optional auxiliary features. |
 | `REVOwner` | Runtime data-hook and cash-out-hook surface used by active Revnets. |
 | `REVLoans` | Loan surface that lets users borrow against Revnet tokens with burned collateral and NFT loan positions. |
-| `REVHiddenTokens` | Lets token holders temporarily hide (burn) tokens, excluding them from totalSupply and increasing cash-out value for remaining holders. Hidden tokens can be revealed (re-minted) at any time. |
+| `REVHiddenTokens` | Lets token holders temporarily hide tokens, excluding them from visible supply until reveal. |
 
 ## Mental Model
 
 Read the package in two halves:
 
 1. deployment-time shape: `REVDeployer` decides what the network will be allowed to do
-2. runtime enforcement: `REVOwner` and `REVLoans` decide how that shape behaves over time
+2. runtime enforcement: `REVOwner`, `REVLoans`, and `REVHiddenTokens` decide how that shape behaves over time
 
-That split matters because most mistakes are one of these:
-
-- assuming a deploy-time parameter can be changed later
-- assuming a runtime hook is only advisory rather than economically binding
-
-The shortest useful reading order is:
-
-1. `REVDeployer`
-2. `REVOwner`
-3. `REVLoans`
-4. any integrated hook or bridge repo the deployment enables
+Most mistakes come from assuming a deploy-time parameter can be changed later or that a runtime hook is only advisory.
 
 ## Read These Files First
 
 1. `src/REVDeployer.sol`
 2. `src/REVOwner.sol`
 3. `src/REVLoans.sol`
-4. the integrated hook or bridge repo used by the deployment
+4. `src/REVHiddenTokens.sol`
+5. the integrated hook or bridge repo used by the deployment
 
 ## Integration Traps
 
-- the deployer holding the project NFT is not an implementation detail; it is part of the ownership model
+- the deployer holding the project NFT is part of the ownership model, not an implementation detail
 - split operators are constrained, not equivalent to general protocol governance
-- the loan system depends on live revnet economics, so it should be reviewed together with the runtime hook and treasury assumptions
-- optional integrations like buybacks, 721 hooks, and suckers are compositional, but they materially change the resulting network
+- the loan system depends on live revnet economics and should be reviewed together with the runtime hook
+- optional integrations like buybacks, 721 hooks, and suckers materially change the resulting network
 
 ## Where State Lives
 
 - deployment-time configuration and operator envelope live in `REVDeployer`
 - runtime pay and cash-out behavior live in `REVOwner`
 - loan positions and loan-specific state live in `REVLoans`
-
-Do not audit those contracts in isolation if the deployment enables cross-package features; the composed network is the real product.
+- hidden-token state lives in `REVHiddenTokens`
 
 ## High-Signal Tests
 
@@ -107,7 +96,7 @@ Useful scripts:
 
 ## Deployment Notes
 
-Revnet deployment assumes the core protocol, 721 hook, buyback hook, router terminal, suckers, and Croptop packages are available. Revnets are intentionally unowned in the direct human-EOA sense after deployment, but the deployer contract itself retains the project NFT and remains part of the ownership model.
+Revnet deployment assumes the core protocol, 721 hook, buyback hook, router terminal, suckers, and Croptop packages are available. Revnets are intentionally unowned in the direct human sense after deployment, but the deployer contract itself remains part of the ownership model.
 
 ## Repository Layout
 
@@ -116,6 +105,7 @@ src/
   REVDeployer.sol
   REVOwner.sol
   REVLoans.sol
+  REVHiddenTokens.sol
   interfaces/
   structs/
 test/
@@ -128,14 +118,12 @@ script/
 ## Risks And Notes
 
 - Revnets are intentionally hard to change after launch, so bad stage design is expensive
-- `REVLoans` relies on live treasury conditions and is therefore sensitive to surplus and pricing assumptions
-- the deployer and runtime hook have a tight relationship that should be treated as one design, not two independent contracts
-- burned-collateral lending is operationally different from escrowed-collateral lending and needs clear integrator expectations
-
-The usual review failure mode is to focus on the loans or the stages in isolation. The real system is the combination of stage economics, runtime hook behavior, and who is still allowed to act after deployment.
+- `REVLoans` relies on live treasury conditions and is sensitive to surplus and pricing assumptions
+- the deployer and runtime hook should be treated as one design, not two separate systems
+- burned-collateral lending is operationally different from escrowed-collateral lending
 
 ## For AI Agents
 
-- Describe Revnets as treasury-backed Juicebox project shapes with encoded stage transitions, not as simple deploy presets.
-- Read `REVDeployer`, `REVOwner`, and `REVLoans` together before answering economic or admin-surface questions.
+- Describe Revnets as treasury-backed Juicebox project shapes with encoded stage transitions, not as simple presets.
+- Read `REVDeployer`, `REVOwner`, `REVLoans`, and `REVHiddenTokens` together before answering economic or admin-surface questions.
 - If a deployment enables buybacks, 721 hooks, or suckers, inspect those sibling repos before making definitive claims.

@@ -155,7 +155,8 @@ contract NemesisOperatorDelegationTest is TestBaseWorkflow {
         _grantPermission(USER, REVNET_ID, address(HIDDEN_TOKENS), JBPermissionIds.BURN_TOKENS);
         _grantPermission(USER, REVNET_ID, OPERATOR, JBPermissionIds.REVEAL_TOKENS);
 
-        vm.prank(USER);
+        // The split operator (multisig) has HIDE_TOKENS permission from the project owner.
+        vm.prank(multisig());
         HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hiddenCount, USER);
 
         vm.prank(OPERATOR);

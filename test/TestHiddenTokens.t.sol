@@ -171,9 +171,9 @@ contract TestHiddenTokens is TestBaseWorkflow {
 
         uint256 totalSupplyBefore = jbController().TOKENS().totalSupplyOf(REVNET_ID);
 
-        // Hide half the tokens.
+        // Hide half the tokens. The split operator (multisig) has HIDE_TOKENS permission.
         uint256 hideCount = userTokens / 2;
-        vm.prank(USER);
+        vm.prank(multisig());
         HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hideCount, USER);
 
         uint256 totalSupplyAfter = jbController().TOKENS().totalSupplyOf(REVNET_ID);
@@ -202,12 +202,12 @@ contract TestHiddenTokens is TestBaseWorkflow {
         uint256 userTokensBefore = jbController().TOKENS().totalBalanceOf(USER, REVNET_ID);
         uint256 totalSupplyBefore = jbController().TOKENS().totalSupplyOf(REVNET_ID);
 
-        // Hide tokens.
+        // Hide tokens. The split operator (multisig) has HIDE_TOKENS permission.
         uint256 hideCount = userTokensBefore / 2;
-        vm.prank(USER);
+        vm.prank(multisig());
         HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hideCount, USER);
 
-        // Reveal tokens to beneficiary.
+        // Reveal tokens to beneficiary. USER is the holder so passes permission check.
         vm.prank(USER);
         HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hideCount, BENEFICIARY, USER);
 
@@ -242,8 +242,8 @@ contract TestHiddenTokens is TestBaseWorkflow {
         uint256 userTokens = jbController().TOKENS().totalBalanceOf(USER, REVNET_ID);
         uint256 hideCount = userTokens / 4;
 
-        // Hide some tokens.
-        vm.prank(USER);
+        // Hide some tokens. The split operator (multisig) has HIDE_TOKENS permission.
+        vm.prank(multisig());
         HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hideCount, USER);
 
         // Try to reveal more than hidden — should revert.
@@ -275,9 +275,9 @@ contract TestHiddenTokens is TestBaseWorkflow {
 
         uint256 userTokens = jbController().TOKENS().totalBalanceOf(USER, REVNET_ID);
 
-        // Hide half the user's tokens.
+        // Hide half the user's tokens. The split operator (multisig) has HIDE_TOKENS permission.
         uint256 hideCount = userTokens / 2;
-        vm.prank(USER);
+        vm.prank(multisig());
         HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hideCount, USER);
 
         // The remaining tokens now represent a larger share of totalSupply.
@@ -305,9 +305,9 @@ contract TestHiddenTokens is TestBaseWorkflow {
 
         uint256 userTokens = jbController().TOKENS().totalBalanceOf(USER, REVNET_ID);
 
-        vm.prank(USER);
+        vm.prank(multisig());
         vm.expectEmit(true, false, false, true);
-        emit IREVHiddenTokens.HideTokens(REVNET_ID, userTokens, USER, USER);
+        emit IREVHiddenTokens.HideTokens(REVNET_ID, userTokens, USER, multisig());
         HIDDEN_TOKENS.hideTokensOf(REVNET_ID, userTokens, USER);
     }
 
@@ -326,7 +326,7 @@ contract TestHiddenTokens is TestBaseWorkflow {
 
         uint256 userTokens = jbController().TOKENS().totalBalanceOf(USER, REVNET_ID);
 
-        vm.prank(USER);
+        vm.prank(multisig());
         HIDDEN_TOKENS.hideTokensOf(REVNET_ID, userTokens, USER);
 
         vm.prank(USER);
@@ -350,6 +350,7 @@ contract TestHiddenTokens is TestBaseWorkflow {
         vm.prank(account);
         jbPermissions().setPermissionsFor(account, permissionsData);
     }
+
 
     function _deployFeeProject() internal {
         JBAccountingContext[] memory acc = new JBAccountingContext[](1);

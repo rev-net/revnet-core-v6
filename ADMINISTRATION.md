@@ -4,83 +4,70 @@
 
 | Item | Details |
 | --- | --- |
-| Scope | Revnet deployment shape, split-operator runtime authority, and cosmetic `REVLoans` ownership |
-| Control posture | Mostly immutable economics with a narrow runtime operator |
-| Highest-risk actions | Deploying the wrong stage design, assigning the wrong split operator, and overestimating `REVLoans` owner power |
-| Recovery posture | Core economic mistakes require new revnets; some optional integrations can be corrected by the split operator |
+| Scope | Revnet deployment shape, bounded runtime operators, loan-owner cosmetics, and optional integration control surfaces |
+| Control posture | Intentionally narrow and mostly deployment-defined |
+| Highest-risk actions | Bad stage design, wrong split-operator assignment, and misunderstanding which runtime surfaces stay live after launch |
+| Recovery posture | Usually replacement, not patching; the design intentionally avoids easy admin escape hatches |
 
 ## Purpose
 
-`revnet-core-v6` is designed to minimize ongoing human control. The core split is between deployment-time shape, the limited split-operator role, the globally owned-but-cosmetic `REVLoans` metadata surface, and the intentionally ownerless project pattern enforced through `REVDeployer` and `REVOwner`.
+`revnet-core-v6` is designed to collapse ordinary post-launch governance into deployment-time decisions plus a small set of bounded runtime roles. The main administration task is understanding which power still exists and which power was intentionally removed.
 
 ## Control Model
 
-- Deployment-time configuration is the real place where revnet economics are chosen.
-- The split operator is the only intended human-controlled runtime role for a revnet.
-- `REVLoans` owner only controls loan NFT metadata rendering.
-- `REVDeployer` holds the project NFT structurally, not as a discretionary human admin.
-- Many economically sensitive behaviors are intentionally not mutable after deployment.
+- `REVDeployer` holds the project NFT and therefore remains part of the ownership model.
+- Revnet economics are mainly fixed at deployment through staged rulesets.
+- `REVOwner` provides live runtime policy, but not broad human governance.
+- Split operators can hold narrow powers depending on stage and deployment config.
+- `REVLoans` has a cosmetic global owner surface, but loan economics are still bounded by revnet logic.
 
 ## Roles
 
 | Role | How Assigned | Scope | Notes |
 | --- | --- | --- | --- |
-| Split operator | `REVConfig.splitOperator` at deployment | Per revnet | Narrow runtime operator surface |
-| `REVLoans` owner | `Ownable(owner)` on `REVLoans` | Global | Cosmetic metadata role, not economic admin |
-| Loan NFT owner | ERC-721 loan ownership | Per loan | Can repay or reallocate subject to checks |
-| Hidden-token caller or delegate | Holder or delegated permission | Per holder | Manages hide and reveal flows |
-| Anyone | No assignment | Global or per revnet | Some lifecycle functions are permissionless |
+| `REVDeployer` | Deployed singleton | Global launcher and project-NFT holder | Part of the ownership model |
+| Split operator | Deployment config | Per revnet | Holds only the allowed operator envelope |
+| Auto-issuance beneficiary | Deployment config | Per stage | Can receive preconfigured stage issuance |
+| Borrower or delegated loan operator | Token holder plus permission | Per holder or loan | Can open or manage loans within loan rules |
+| `REVLoans` owner | Constructor owner | Global cosmetic/admin surface | Does not turn Revnets back into ordinary governed projects |
 
 ## Privileged Surfaces
 
-| Contract | Function | Who Can Call | Effect |
-| --- | --- | --- | --- |
-| `REVDeployer` | `deployFor(...)` | Anyone for new deployments, or current owner for conversion path | Creates or converts a project into a revnet |
-| `REVDeployer` | `deploySuckersFor(...)` | Split operator | Adds sucker infra where the revnet config allows it |
-| `REVDeployer` | `setSplitOperatorOf(...)` | Current split operator | Replaces or burns the split-operator role |
-| `REVLoans` | `setTokenUriResolver(...)` | `REVLoans` owner | Cosmetic loan-NFT metadata control |
-| `REVLoans` | `borrowFrom(...)`, `repayLoan(...)`, `reallocateCollateralFromLoan(...)` | Holder or delegated loan operator | Position-level administration, not protocol-level governance |
+- `deployFor(...)` defines the revnet's long-lived shape
+- split-operator paths can manage only the permissions left open by deployment
+- `autoIssueFor(...)` consumes preconfigured stage issuance
+- loan operators can redirect borrowed value if a holder delegates loan permissions
+- hidden-token flows require the holder's permission grant and mint permission wiring through `REVOwner`
 
 ## Immutable And One-Way
 
-- Stage schedule and core economics are chosen at deployment and then fixed.
-- Converting an existing project into a revnet is effectively irreversible.
-- Burning the split-operator role to `address(0)` is final.
-- `REVDeployer` structurally retains project-NFT ownership in the design.
-- Expired loans can eventually liquidate into permanently lost collateral if they are not repaid within the long liquidation window.
+- Stage configuration is effectively permanent after deployment.
+- The deployer-held project NFT is not a normal owner-recovery tool.
+- Loan collateral is burned at borrow time and only reminted through repayment or documented flows.
+- Hidden-token balances change visible supply until reveal.
 
 ## Operational Notes
 
-- Use the split operator only for the intentionally narrow surfaces left mutable.
-- Treat buyback, router, sucker, and optional 721 adjustments as operational extensions around a fixed economic core.
-- Keep `REVLoans` owner power limited to URI resolver maintenance.
-- Treat loan operations as position management with real long-tail irreversibility; after the liquidation duration expires, collateral recovery is no longer available.
+- Treat revnet launch as the real governance decision.
+- Validate stage timing, split-operator scope, and optional integrations before deployment.
+- Review cash-out delay, hidden-token semantics, and loan permissions together.
+- Do not assume there is a broad admin override for bad economics after launch.
 
 ## Machine Notes
 
-- Do not infer broad control from `REVDeployer` holding the project NFT; the design is intentionally constrained.
-- Treat `src/REVDeployer.sol`, `src/REVOwner.sol`, and `src/REVLoans.sol` together when crawling authority.
-- If stage config or split-operator assumptions differ from deployed state, stop; those are foundational revnet assumptions, not cosmetic metadata.
+- Do not describe Revnets as fully adminless if the deployer-held NFT still matters for the trust model.
+- Also do not describe them as ordinary owner-controlled projects. The point is that the available control surface is intentionally narrow.
+- If a question is about runtime cash-outs, buybacks, or mint permissions, inspect `REVOwner` before inferring behavior from deployment prose.
 
 ## Recovery
 
-- Wrong stage design is not realistically recoverable in place; deploy a new revnet.
-- Wrong optional integration can sometimes be corrected if the split operator still has the required scoped power.
-- There is no broad admin escape hatch that can rewrite revnet economics after launch.
-- Liquidated loan collateral is not an admin-recoverable asset; recovery must happen before liquidation through borrower action.
+- If launch-time economics are wrong, recovery usually means replacement, not in-place repair.
+- If optional integrations are misconfigured, fix only where the code still exposes a valid path.
+- If the design intentionally omitted a recovery path, do not invent one in documentation or ops guidance.
 
 ## Admin Boundaries
 
-- The split operator cannot rewrite issuance schedule, cash-out tax, or stage timing.
-- `REVLoans` owner cannot redirect collateral or treasury funds.
-- `REVDeployer` cannot act like a normal human owner despite holding the project NFT.
-- Nobody can change the revnet's fundamental staged design after deployment.
-- Nobody can administratively restore collateral after an expired loan has been liquidated.
-
-## Source Map
-
-- `src/REVDeployer.sol`
-- `src/REVOwner.sol`
-- `src/REVLoans.sol`
-- `src/REVHiddenTokens.sol`
-- `test/`
+- No ordinary owner can casually rewrite staged economics after launch.
+- Split operators are not general-purpose governors.
+- Loan mechanics, hidden-token mechanics, and cash-out policy remain bounded by the deployed revnet logic.
+- This repo should not be documented as if it had a normal mutable project-owner model.
