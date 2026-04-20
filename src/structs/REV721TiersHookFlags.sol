@@ -6,7 +6,6 @@ pragma solidity ^0.8.0;
 /// @custom:member noNewTiersWithOwnerMinting A flag indicating if new tiers with owner minting are forbidden.
 /// @custom:member preventOverspending A flag indicating if payments exceeding the price of minted NFTs should be
 /// prevented.
-// forge-lint: disable-next-line(pascal-case-struct)
 struct REV721TiersHookFlags {
     bool noNewTiersWithReserves;
     bool noNewTiersWithVotes;

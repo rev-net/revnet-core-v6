@@ -28,6 +28,8 @@ Read [ARCHITECTURE.md](./ARCHITECTURE.md) and [SKILLS.md](./SKILLS.md) for proto
 - **Bonding curve is the sole collateral oracle.** `REVLoans` uses `JBCashOuts.cashOutFrom` to value collateral. There is no external price oracle, no liquidation margin, and no health factor. The borrowable amount equals the cash-out value at the moment of borrowing.
 - **Juicebox core contracts are correct.** `JBController`, `JBMultiTerminal`, `JBTerminalStore`, `JBTokens`, `JBPrices` -- a bug in any of these is a bug in every revnet.
 - **Buyback hook operates correctly.** `BUYBACK_HOOK` handles swap-vs-mint routing. All revnets from the same deployer share one instance. Failure falls back to direct minting (not a revert), so the failure mode is economic inefficiency, not fund loss.
+- **Buyback pool auto-initialization is best-effort, not guaranteed.** `REVDeployer._tryInitializeBuybackPoolFor` silently catches `initializePoolFor(...)` failures. That means a revnet can deploy successfully while the expected default buyback pool is missing, misconfigured, or already initialized differently. Operators must verify pool state after deployment instead of assuming launch implies the buyback pool is ready.
+- **REVOwner expects at most one buyback cash-out hook spec.** In `beforeCashOutRecordedWith`, `REVOwner` keeps only `buybackHookSpecifications[0]` when composing the buyback path with the rev fee hook. If a future buyback hook implementation returns multiple cash-out hook specs, the additional specs are silently dropped.
 - **Suckers are honest bridges.** Suckers get 0% cashout tax in `beforeCashOutRecordedWith`. A compromised or malicious sucker registered in `SUCKER_REGISTRY` can extract funds from any revnet at zero cost.
 - **Auto-issuance beneficiaries are set at deployment.** Beneficiary addresses are baked into the stage configuration. If a beneficiary address is a contract that becomes compromised, or an EOA whose keys are lost, those auto-issuance tokens are either captured or permanently unclaimable.
 - **REVLoans contract address is immutable per deployer.** `LOANS` is set once in the REVDeployer constructor (and shared as an immutable on REVOwner) with wildcard `USE_ALLOWANCE` permission (`projectId=0`). If the loans contract has a vulnerability, every revnet's surplus is exposed.
@@ -93,7 +95,7 @@ Read [ARCHITECTURE.md](./ARCHITECTURE.md) and [SKILLS.md](./SKILLS.md) for proto
 ### Loan source rotation after deployment
 
 - **Loan sources grow monotonically.** `_loanSourcesOf[revnetId]` is append-only. Each new `(terminal, token)` pair used for borrowing adds an entry. Entries are never removed, even if all loans from that source are repaid. `_totalBorrowedFrom` iterates the entire array on every borrow/repay.
-- **Removed terminals remain as loan sources.** If a terminal is de-registered from `JBDirectory` (via migration), existing loans from that terminal remain valid (the loan struct stores a direct reference to the terminal contract). New borrows against that terminal are blocked by `DIRECTORY.isTerminalOf` check in `borrowFrom`. But `_totalBorrowedFrom` still queries the de-registered terminal's `accountingContextForTokenOf` -- verify this doesn't revert.
+- **Removed terminals remain as loan sources.** If a terminal is de-registered from `JBDirectory` (via migration), existing loans from that terminal remain valid because each loan stores a direct terminal reference. New borrows against that terminal are blocked by the `DIRECTORY.isTerminalOf` check in `borrowFrom`, but `_totalBorrowedFrom` still queries the old terminal's `accountingContextForTokenOf`. On current core terminals that call returns the stored accounting context rather than reverting, so debt accounting continues to depend on that legacy terminal's retained token configuration even after directory migration.
 
 ### `reallocateCollateralFromLoan` sandwich potential
 
@@ -193,6 +195,7 @@ These MUST hold. Breaking any of them is a finding.
 - **Stage progression monotonicity.** `startsAtOrAfter` values strictly increase between stages. The first stage can be 0 (mapped to `block.timestamp`).
 - **Auto-issuance single-claim.** Each `(revnetId, stageId, beneficiary)` can only be claimed once. `amountToAutoIssue` is zeroed BEFORE the external `mintTokensOf` call (CEI pattern).
 - **Split percentages.** Per-stage `splitPercent > 0` requires `splits.length > 0`. Split percentages are validated by `JBSplits` in core (must sum to <= `SPLITS_TOTAL_PERCENT`).
+- **Buyback pool readiness is not implied by successful deployment.** `deployFor` can finish even when `_tryInitializeBuybackPoolFor` failed internally. Post-deploy verification must check the actual buyback pool registration and initialization state rather than inferring success from the absence of a revert.
 
 ### Fee flows
 
@@ -245,3 +248,7 @@ This is accepted because the JBPermissions delegation model is opt-in: a holder 
 ### 8.6 Borrow-repay arbitrage is unprofitable (by design)
 
 A borrower who pays the prepaid fee upfront (minimum 2.5% + REV fee 1% = 3.5%) can repay at any time within the prepaid duration with no additional cost. If the bonding curve value of the collateral increases during the prepaid window, the borrower can repay, recover their collateral, and cash out at the higher value. This is not profitable as a standalone strategy because the 3.5% minimum fee exceeds the expected value gained from short-term surplus fluctuations. For borrowers who need liquidity anyway, it provides free optionality — which is the intended use case.
+
+### 8.7 REVOwner only forwards the first buyback cash-out hook spec
+
+When `REVOwner.beforeCashOutRecordedWith` combines the buyback hook response with its own rev-fee hook spec, it only preserves the first element of `buybackHookSpecifications`. This is accepted because the current buyback-hook design is expected to return at most one cash-out hook spec. The trade-off is forward-compatibility risk: if a future buyback hook starts returning multiple cash-out hook specs, revnets using this owner contract will silently drop the extras unless `REVOwner` is updated too.

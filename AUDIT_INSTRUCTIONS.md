@@ -2,7 +2,7 @@
 
 Revnets are autonomous Juicebox projects with staged economics and token-collateralized loans. Audit this repo as both a privileged deployer layer and a live economic system.
 
-## Objective
+## Audit Objective
 
 Find issues that:
 - let a participant borrow more than intended against revnet collateral
@@ -40,7 +40,7 @@ Read in this order:
 `REVDeployer` explains why that behavior exists.
 `REVLoans` is where those economics are turned into extractable collateral value.
 
-## System Model
+## Security Model
 
 The repo splits responsibilities:
 - `REVDeployer`: launches revnets, encodes stage configs, manages optional 721 and sucker composition
@@ -56,6 +56,22 @@ Important composition behavior:
 Two mental models help here:
 - `REVDeployer` is mostly a launch-time authority that permanently shapes economics
 - `REVOwner` is a runtime hook that can make a launched revnet behave very differently from a plain Juicebox project
+
+## Roles And Privileges
+
+| Role | Powers | How constrained |
+|------|--------|-----------------|
+| Revnet launcher | Set the stage schedule and optional compositions | Must not retain hidden runtime privilege |
+| `REVOwner` | Alter payment and cash-out behavior at runtime | Must remain narrowly scoped to documented economics |
+| Borrower or operator | Open, repay, reallocate, hide, or reveal with delegated permissions | Must not redirect collateral or proceeds away from the holder |
+
+## Integration Assumptions
+
+| Dependency | Assumption | What breaks if wrong |
+|------------|------------|----------------------|
+| `nana-core-v6` | Surplus and issuance accounting remain coherent | Borrow limits and stage economics become unsound |
+| `nana-721-hook-v6` and `nana-buyback-hook-v6` | Optional composition does not distort accounting unexpectedly | Runtime economics diverge from the stage design |
+| `nana-suckers-v6` | Omnichain privilege surfaces identify real suckers only | Fee-free or mint exemptions widen |
 
 ## Critical Invariants
 
@@ -83,24 +99,7 @@ Tokens hidden via REVHiddenTokens must be exactly recoverable on reveal. The hid
 8. Stage transitions do not create hidden refinancing windows
 Changes in issuance or cash-out economics across stages must not let a borrower lock in value that the system intended to become unavailable.
 
-## Threat Model
-
-Prioritize:
-- surplus manipulation before and after borrowing
-- stage-boundary timing attacks
-- cash-out delay bypasses
-- array or hook-spec assumptions that depend on non-empty returns
-- split-weight accounting during 721 compositions
-- Permit2 and ERC-2771 assisted loan flows
-- operator delegation abuse: `OPEN_LOAN`, `REPAY_LOAN`, `REALLOCATE_LOAN`, `HIDE_TOKENS`, `REVEAL_TOKENS` permission checks — verify collateral and loan NFTs always flow to the holder/owner, never the operator
-
-The best attacker mindsets here are:
-- a borrower who can move surplus or stage timing before and after borrowing
-- a caller exploiting the fact that revnets are composed from several optional subsystems, not one monolith
-- an operator or deployer helper that retained one capability too many
-- a delegated operator who tricks a holder into granting permission, then exploits the delegation to extract value (e.g., borrowing on behalf of a holder and directing funds to a beneficiary they control)
-
-## Hotspots
+## Attack Surfaces
 
 - `REVOwner.beforePayRecordedWith`
 - `REVOwner.beforeCashOutRecordedWith`
@@ -110,35 +109,19 @@ The best attacker mindsets here are:
 - `REVLoans` operator delegation: `OPEN_LOAN`, `REPAY_LOAN`, `REALLOCATE_LOAN` inline permission checks — verify holder/owner receives collateral and loan NFTs in all delegation paths
 - any path that assumes a valid tiered 721 hook or sucker mapping exists
 
-## Sequences Worth Replaying
+Replay these sequences:
+1. pay into a revnet with 721 and buyback composition enabled and inspect weight scaling
+2. borrow near a stage boundary, then repay, refinance, or liquidate in the next stage
+3. borrow after surplus inflation, then contract surplus before liquidation
+4. cash out through a legitimate sucker path versus a near-sucker spoof path
+5. hide tokens, let another actor cash out, then reveal
 
-1. Pay into a revnet with 721 and buyback composition enabled, then inspect how weight is scaled before and after hook specs are consumed.
-2. Borrow near a stage boundary, then repay, refinance, or liquidate after the next stage becomes active.
-3. Borrow after surplus inflation, then force or observe surplus contraction before liquidation.
-4. Cash out through a legitimate sucker path versus a near-sucker spoof path.
-5. Any path where `REVOwner` expects hook arrays or external replies to be non-empty.
-6. Hide tokens, have an accomplice cash out at the inflated rate, then reveal — check whether the net outcome is profitable.
+## Accepted Risks Or Behaviors
 
-## Finding Bar
+- Composition is the default audit target here, not an edge case.
 
-The best findings in this repo usually prove one of these:
-- a revnet mints or redeems on economics different from the stage schedule users think they are on
-- the runtime hook scales payment or cash-out accounting incorrectly during composition
-- the loan system can externalize loss to the treasury through timing, surplus movement, or fee math
-- a deployer-only or operator-only assumption survives launch and remains exploitable at runtime
+## Verification
 
-## Build And Verification
-
-Standard workflow:
 - `npm install`
 - `forge build`
 - `forge test`
-
-Current tests emphasize:
-- lifecycle and invincibility properties
-- loan invariants and attacks
-- fee recovery
-- split-weight adjustments
-- regressions around low-severity edge cases
-
-Strong findings in this repo usually combine economics and composition: a bug is especially valuable if it only appears once a revnet is wired into the rest of the ecosystem.

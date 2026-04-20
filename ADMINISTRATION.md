@@ -1,237 +1,86 @@
 # Administration
 
-Admin privileges and their scope in revnet-core-v6. Revnets are designed to be autonomous Juicebox projects with no traditional owner. This document covers what privileged operations exist, who can perform them, and -- critically -- what is intentionally made impossible.
-
 ## At A Glance
 
 | Item | Details |
-|------|---------|
-| Scope | Autonomous revnet deployment, split-operator powers, loan metadata ownership, hidden token management, and the boundaries imposed by revnet immutability. |
-| Operators | The per-revnet split operator, the global `REVLoans` owner for metadata cosmetics, the protocol-owned `REVDeployer`, loan NFT holders (or operators with `REPAY_LOAN`/`REALLOCATE_LOAN`/`OPEN_LOAN` permissions), `REVHiddenTokens` callers (or operators with `HIDE_TOKENS`/`REVEAL_TOKENS` permissions), and permissionless callers for open lifecycle actions. |
-| Highest-risk actions | Converting an existing project into a revnet, changing or burning the split operator, and configuring buyback, router, price-feed, or sucker permissions inside the narrow allowed operator surface. |
-| Recovery posture | Revnet economics are intentionally not admin-recoverable. A bad deployment generally means abandoning the revnet and deploying a new one. |
+| --- | --- |
+| Scope | Revnet deployment shape, split-operator runtime authority, and cosmetic `REVLoans` ownership |
+| Control posture | Mostly immutable economics with a narrow runtime operator |
+| Highest-risk actions | Deploying the wrong stage design, assigning the wrong split operator, and overestimating `REVLoans` owner power |
+| Recovery posture | Core economic mistakes require new revnets; some optional integrations can be corrected by the split operator |
 
-## Routine Operations
+## Purpose
 
-- Use the split operator only for the limited post-launch surfaces the protocol deliberately leaves mutable: reserved-token split routing, selected hook metadata, router selection, and related operator-scoped settings.
-- Keep `REVLoans` owner actions limited to URI resolver maintenance; that role should never be treated as an economic admin.
-- Treat `deploySuckersFor`, buyback configuration, and router-terminal changes as operational extensions around a fixed revnet, not as tools to rewrite the revnet's stage economics.
-- If autonomy is the goal, consider relinquishing the split operator to `address(0)` only after all intended mutable integrations are finalized.
+`revnet-core-v6` is designed to minimize ongoing human control. The core split is between deployment-time shape, the limited split-operator role, the globally owned-but-cosmetic `REVLoans` metadata surface, and the intentionally ownerless project pattern enforced through `REVDeployer` and `REVOwner`.
 
-## One-Way Or High-Risk Actions
+## Control Model
 
-- Deploying a revnet or converting an existing project into one is irreversible from an ownership and stage-design perspective.
-- Setting the split operator to `address(0)` permanently burns the human-controlled role.
-- Stage schedules, issuance curves, cash-out tax rates, and core economic parameters are fixed at deployment.
-
-## Recovery Notes
-
-- There is no admin escape hatch for broken revnet stage design. The recovery path is a new revnet deployment with corrected parameters.
-- If an auxiliary integration such as a buyback hook or sucker is wrong but the split operator still has the relevant scoped power, fix that integration without expecting to change the underlying revnet economics.
+- Deployment-time configuration is the real place where revnet economics are chosen.
+- The split operator is the only intended human-controlled runtime role for a revnet.
+- `REVLoans` owner only controls loan NFT metadata rendering.
+- `REVDeployer` holds the project NFT structurally, not as a discretionary human admin.
+- Many economically sensitive behaviors are intentionally not mutable after deployment.
 
 ## Roles
 
-### Split Operator
+| Role | How Assigned | Scope | Notes |
+| --- | --- | --- | --- |
+| Split operator | `REVConfig.splitOperator` at deployment | Per revnet | Narrow runtime operator surface |
+| `REVLoans` owner | `Ownable(owner)` on `REVLoans` | Global | Cosmetic metadata role, not economic admin |
+| Loan NFT owner | ERC-721 loan ownership | Per loan | Can repay or reallocate subject to checks |
+| Hidden-token caller or delegate | Holder or delegated permission | Per holder | Manages hide and reveal flows |
+| Anyone | No assignment | Global or per revnet | Some lifecycle functions are permissionless |
 
-- **How assigned:** Specified at deployment via `REVConfig.splitOperator`. After deployment, only the current split operator can transfer the role to a new address by calling `setSplitOperatorOf()`.
-- **Scope:** Per-revnet. Each revnet has at most one split operator. The operator is the only human-controlled role in a deployed revnet.
-- **Can be permanently relinquished:** The split operator can transfer the role to `address(0)` via `setSplitOperatorOf()`, which permanently relinquishes operator powers. Permissions are granted to the zero address (which cannot execute transactions), effectively burning them. This is irreversible.
+## Privileged Surfaces
 
-### REVLoans Owner (Ownable)
+| Contract | Function | Who Can Call | Effect |
+| --- | --- | --- | --- |
+| `REVDeployer` | `deployFor(...)` | Anyone for new deployments, or current owner for conversion path | Creates or converts a project into a revnet |
+| `REVDeployer` | `deploySuckersFor(...)` | Split operator | Adds sucker infra where the revnet config allows it |
+| `REVDeployer` | `setSplitOperatorOf(...)` | Current split operator | Replaces or burns the split-operator role |
+| `REVLoans` | `setTokenUriResolver(...)` | `REVLoans` owner | Cosmetic loan-NFT metadata control |
+| `REVLoans` | `borrowFrom(...)`, `repayLoan(...)`, `reallocateCollateralFromLoan(...)` | Holder or delegated loan operator | Position-level administration, not protocol-level governance |
 
-- **How assigned:** Set at `REVLoans` contract deployment via the `owner` constructor parameter. Transferable via OpenZeppelin `Ownable.transferOwnership()`.
-- **Scope:** Global across all revnets using this loans contract. Controls only the loan NFT metadata URI resolver -- has no power over loan parameters, collateral, or funds.
+## Immutable And One-Way
 
-### REVDeployer (as Juicebox project owner)
+- Stage schedule and core economics are chosen at deployment and then fixed.
+- Converting an existing project into a revnet is effectively irreversible.
+- Burning the split-operator role to `address(0)` is final.
+- `REVDeployer` structurally retains project-NFT ownership in the design.
+- Expired loans can eventually liquidate into permanently lost collateral if they are not repaid within the long liquidation window.
 
-- **How assigned:** Automatic. When a revnet is deployed, the `REVDeployer` contract becomes the permanent owner of the Juicebox project NFT. If initializing an existing project, the caller's project NFT is irreversibly transferred to `REVDeployer`.
-- **Scope:** The deployer holds the project NFT and uses its owner authority to enforce revnet rules. It acts as a protocol-level constraint layer, not as a discretionary admin. No human can exercise this ownership.
+## Operational Notes
 
-### Loan NFT Owner
+- Use the split operator only for the intentionally narrow surfaces left mutable.
+- Treat buyback, router, sucker, and optional 721 adjustments as operational extensions around a fixed economic core.
+- Keep `REVLoans` owner power limited to URI resolver maintenance.
+- Treat loan operations as position management with real long-tail irreversibility; after the liquidation duration expires, collateral recovery is no longer available.
 
-- **How assigned:** The `holder` specified in `borrowFrom()` receives the loan ERC-721. When no operator delegation is used, the caller passes themselves as `holder`. Transferable like any ERC-721.
-- **Scope:** Per-loan. The current NFT owner — or an operator with the relevant `JBPermissionIds` (`REPAY_LOAN`, `REALLOCATE_LOAN`) — can repay the loan, return collateral, or reallocate collateral to a new loan.
+## Machine Notes
 
-### Anyone (Permissionless)
+- Do not infer broad control from `REVDeployer` holding the project NFT; the design is intentionally constrained.
+- Treat `src/REVDeployer.sol`, `src/REVOwner.sol`, and `src/REVLoans.sol` together when crawling authority.
+- If stage config or split-operator assumptions differ from deployed state, stop; those are foundational revnet assumptions, not cosmetic metadata.
 
-- **Scope:** Several functions are callable by any address with no access control, as documented in the Privileged Functions tables below.
+## Recovery
 
-## Privileged Functions
-
-### REVDeployer
-
-| Function | Required Role | Permission ID | What It Does |
-|----------|--------------|---------------|-------------|
-| `deployFor()` | Anyone (new revnet) or Juicebox project owner (existing project) | None | Deploys a new revnet or irreversibly converts an existing Juicebox project into a revnet. Both variants deploy a tiered ERC-721 hook: the 4-arg variant deploys a default empty hook; the 6-arg variant deploys a hook with pre-configured tiers and optional croptop posting rules. |
-| `deploySuckersFor()` | Split Operator | Checked via `_checkIfIsSplitOperatorOf()` | Deploys new cross-chain suckers for an existing revnet. Also requires the current ruleset's `extraMetadata` bit 2 to be set (allows deploying suckers). |
-| `setSplitOperatorOf()` | Split Operator | Checked via `_checkIfIsSplitOperatorOf()` | Replaces the current split operator with a new address. Revokes all operator permissions from the caller and grants them to the new address. |
-| `autoIssueFor()` | Anyone | None | Mints pre-configured auto-issuance tokens for a beneficiary once the relevant stage has started. Amounts are set at deployment and can only be claimed once. |
-| `burnHeldTokensOf()` | Anyone | None | Burns any of a revnet's tokens held by the `REVDeployer` contract (e.g., from reserved token splits that did not sum to 100%). |
-| `afterCashOutRecordedWith()` | Anyone (called by terminal) | None | **Note: This function lives on REVOwner, not REVDeployer.** Processes cash-out fees. No caller validation needed because a non-terminal caller would only be donating their own funds. |
-
-### Split Operator Permissions (granted via JBPermissions)
-
-The split operator receives the following Juicebox permission IDs, scoped to its revnet:
-
-| Permission ID | What It Allows |
-|---------------|----------------|
-| `SET_SPLIT_GROUPS` | Change how reserved tokens are distributed among split recipients. |
-| `SET_BUYBACK_POOL` | Configure which Uniswap V4 pool is used for the buyback hook. |
-| `SET_BUYBACK_TWAP` | Adjust the TWAP window for the buyback hook. |
-| `SET_PROJECT_URI` | Update the revnet's metadata URI. |
-| `ADD_PRICE_FEED` | Add a new price feed for the revnet. |
-| `SUCKER_SAFETY` | Manage sucker safety settings (e.g., emergency hatch). |
-| `SET_BUYBACK_HOOK` | Configure the buyback hook. |
-| `SET_ROUTER_TERMINAL` | Set the router terminal. |
-| `SET_TOKEN_METADATA` | Update the revnet token's name and symbol. |
-
-Optional 721 permissions (granted only if enabled at deployment via `REVDeploy721TiersHookConfig`):
-
-| Permission ID | Deployment Flag | What It Allows |
-|---------------|----------------|----------------|
-| `ADJUST_721_TIERS` | `preventSplitOperatorAdjustingTiers` | Add or remove ERC-721 tiers. Allowed unless prevented. |
-| `SET_721_METADATA` | `preventSplitOperatorUpdatingMetadata` | Update ERC-721 tier metadata. Allowed unless prevented. |
-| `MINT_721` | `preventSplitOperatorMinting` | Mint ERC-721s without payment from tiers with `allowOwnerMint`. Allowed unless prevented. |
-| `SET_721_DISCOUNT_PERCENT` | `preventSplitOperatorIncreasingDiscountPercent` | Increase the discount percentage of a tier. Allowed unless prevented. |
-
-### REVLoans
-
-| Function | Required Role | Access Control | What It Does |
-|----------|--------------|----------------|-------------|
-| `borrowFrom()` | Holder or operator with `OPEN_LOAN` | `PERMISSIONS.hasPermission` if caller ≠ holder | Opens a loan against revnet token collateral. The `holder` parameter specifies whose tokens are burned; the loan NFT is minted to `holder`. |
-| `repayLoan()` | Loan NFT Owner or operator with `REPAY_LOAN` | `PERMISSIONS.hasPermission` if caller ≠ owner | Repays a loan (partially or fully) and returns collateral. Replacement loans are minted to the original loan owner. |
-| `reallocateCollateralFromLoan()` | Loan NFT Owner or operator with `REALLOCATE_LOAN` | `PERMISSIONS.hasPermission` if caller ≠ owner | Splits excess collateral from an existing loan into a new loan. Returned collateral and replacement loans go to the original loan owner. |
-| `liquidateExpiredLoansFrom()` | Anyone | None | Liquidates loans that have exceeded the 10-year liquidation duration. Permanently destroys collateral. |
-| `setTokenUriResolver()` | REVLoans Owner | `onlyOwner` (OpenZeppelin Ownable) | Sets the contract that resolves loan NFT metadata URIs. |
-
-### Constructor-Level Permissions (set once at deployment)
-
-These permissions are granted in the `REVDeployer` constructor and apply globally (wildcard `projectId = 0`):
-
-| Grantee | Permission ID | Purpose |
-|---------|---------------|---------|
-| `SUCKER_REGISTRY` | `MAP_SUCKER_TOKEN` | Allows the sucker registry to map tokens for all revnets. |
-| `LOANS` | `USE_ALLOWANCE` | Allows the loans contract to use surplus allowance from all revnets to fund loans. |
-| `BUYBACK_HOOK` | `SET_BUYBACK_POOL` | Allows the buyback hook registry to configure Uniswap V4 pools for all revnets. |
-
-## Autonomous Design
-
-Revnets are designed to operate without a traditional project owner. The following mechanisms enforce autonomy:
-
-- **Ownership transfer is permanent.** When a revnet is deployed, the Juicebox project NFT is transferred to the `REVDeployer` contract. No human holds the project NFT. There is no function to transfer it back.
-- **No ruleset queuing.** The `REVDeployer` does not expose any function to queue new rulesets after deployment. The stage progression is fully determined at deploy time. Nobody -- not the split operator, not the deployer, not anyone -- can change the issuance schedule, cash-out tax rates, or stage timing after deployment.
-- **No approval hooks.** All rulesets are deployed with `approvalHook = address(0)`. There is no mechanism to block or delay stage transitions.
-- **Cash outs cannot be fully disabled.** The deployer enforces `cashOutTaxRate < MAX_CASH_OUT_TAX_RATE` for every stage, guaranteeing that token holders always retain some ability to cash out.
-- **Data hook is REVOwner.** `REVOwner` is set as the data hook (`metadata.dataHook = address(OWNER())`) for all rulesets, ensuring consistent fee and sucker logic without external admin control. REVOwner stores `cashOutDelayOf` and `tiered721HookOf` in its own storage (set by REVDeployer via DEPLOYER-restricted setters during deployment).
-- **Mint permission is restricted.** Only the loans contract, the hidden tokens contract, the buyback hook (and its delegates), and registered suckers can mint tokens (as determined by `REVOwner.hasMintPermissionFor`). The split operator cannot mint fungible revnet tokens.
-- **No held fee manipulation.** The deployer has no function to process or return held fees arbitrarily.
-- **Owner minting is constrained.** While `allowOwnerMinting = true` is set in ruleset metadata, the "owner" is the `REVDeployer` contract. It only uses this to mint auto-issuance tokens (amounts fixed at deployment) and to return loan collateral.
-
-## Loan Administration
-
-The `REVLoans` contract has minimal admin surface by design:
-
-- **All economic parameters are constants.** Loan liquidation duration (10 years), fee percentages (MIN 2.5%, MAX 50%), and the REV fee (1%) are hardcoded as immutable constants. No admin can change them.
-- **The only admin function is `setTokenUriResolver()`**, which controls how loan NFTs render their metadata. This is purely cosmetic and has no effect on loan economics, collateral, or fund flows.
-- **Loan management is permissioned to NFT holders or delegated operators.** Repayment requires loan NFT ownership or `REPAY_LOAN` permission. Collateral reallocation requires loan NFT ownership or `REALLOCATE_LOAN` permission. Borrowing on behalf of another holder requires `OPEN_LOAN` permission. In all delegated cases, collateral and loan NFTs flow to the original holder/owner, not the operator.
-- **Liquidation is permissionless.** Anyone can call `liquidateExpiredLoansFrom()` for loans past the 10-year duration.
-
-## Hidden Tokens Administration
-
-The `REVHiddenTokens` contract inherits `JBPermissioned` for operator delegation but has no admin surface:
-
-- **Operations are holder-initiated or operator-delegated.** Any token holder can hide or reveal their own tokens. An operator with `HIDE_TOKENS` permission can hide tokens on behalf of a holder; an operator with `REVEAL_TOKENS` permission can reveal on their behalf.
-- **No owner or admin role.** The contract has no `Ownable` or privileged functions.
-- **Mint permission is granted via REVOwner.** `REVHiddenTokens` is listed in `REVOwner.hasMintPermissionFor` so it can re-mint tokens on reveal. This is a global immutable set at REVOwner deployment.
-- **BURN_TOKENS permission is per-user.** Each user must individually grant `BURN_TOKENS` permission to the `REVHiddenTokens` contract before hiding tokens.
-
-## Immutable Configuration
-
-The following parameters are set at deployment and can never be changed:
-
-### REVDeployer (per-revnet, set at `deployFor` time)
-- Stage schedule (start times, issuance rates, cut frequencies, cut percentages)
-- Cash-out tax rates per stage
-- Split percentages per stage
-- Auto-issuance amounts and beneficiaries
-- Base currency
-- ERC-20 token name and symbol
-- Encoded configuration hash (used for cross-chain sucker deployment verification)
-
-### REVDeployer (global, set at contract deployment)
-- `CONTROLLER` -- the Juicebox controller
-- `DIRECTORY` -- the Juicebox directory
-- `PROJECTS` -- the Juicebox projects NFT contract
-- `PERMISSIONS` -- the Juicebox permissions contract
-- `SUCKER_REGISTRY` -- the sucker registry
-- `BUYBACK_HOOK` -- the buyback hook / data hook
-- `HOOK_DEPLOYER` -- the 721 tiers hook deployer
-- `PUBLISHER` -- the croptop publisher
-- `LOANS` -- the loans contract address
-- `FEE_REVNET_ID` -- the project ID that receives cash-out fees
-- `FEE` -- the cash-out fee (2.5%)
-- `CASH_OUT_DELAY` -- 30 days for cross-chain deployments
-- `DEFAULT_BUYBACK_POOL_FEE` -- 10,000 (1% Uniswap V4 fee tier)
-- `DEFAULT_BUYBACK_TICK_SPACING` -- 200
-- `DEFAULT_BUYBACK_TWAP_WINDOW` -- 2 days
-- `OWNER()` -- view returning the REVOwner address
-
-### REVOwner (global, set at contract deployment)
-- `BUYBACK_HOOK` -- the buyback hook (shared immutable with REVDeployer)
-- `DIRECTORY` -- the Juicebox directory (shared immutable with REVDeployer)
-- `FEE_REVNET_ID` -- the project ID that receives cash-out fees (shared immutable)
-- `HIDDEN_TOKENS` -- the hidden tokens contract address (shared immutable)
-- `SUCKER_REGISTRY` -- the sucker registry (shared immutable)
-- `LOANS` -- the loans contract address (shared immutable)
-- `FEE` -- the cash-out fee constant (2.5%)
-- `DEPLOYER` -- the REVDeployer address (storage variable, set once by the REVOwner initializer account using the precomputed canonical deployer address)
-
-### REVLoans (global, set at contract deployment)
-- `CONTROLLER`, `DIRECTORY`, `PRICES`, `PROJECTS` -- protocol infrastructure
-- `REV_ID` -- the REV revnet that receives loan fees
-- `PERMIT2` -- the permit2 contract
-- `LOAN_LIQUIDATION_DURATION` -- 10 years (3650 days)
-- `MIN_PREPAID_FEE_PERCENT` -- 2.5% (`25` out of `MAX_FEE = 1000`)
-- `MAX_PREPAID_FEE_PERCENT` -- 50% (`500` out of `MAX_FEE = 1000`)
-- `REV_PREPAID_FEE_PERCENT` -- 1% (`10` out of `MAX_FEE = 1000`)
+- Wrong stage design is not realistically recoverable in place; deploy a new revnet.
+- Wrong optional integration can sometimes be corrected if the split operator still has the required scoped power.
+- There is no broad admin escape hatch that can rewrite revnet economics after launch.
+- Liquidated loan collateral is not an admin-recoverable asset; recovery must happen before liquidation through borrower action.
 
 ## Admin Boundaries
 
-What admins **cannot** do -- this is the most important section for understanding revnet security guarantees:
+- The split operator cannot rewrite issuance schedule, cash-out tax, or stage timing.
+- `REVLoans` owner cannot redirect collateral or treasury funds.
+- `REVDeployer` cannot act like a normal human owner despite holding the project NFT.
+- Nobody can change the revnet's fundamental staged design after deployment.
+- Nobody can administratively restore collateral after an expired loan has been liquidated.
 
-### The Split Operator Cannot:
-- Change issuance rates, schedules, or weight decay
-- Modify cash-out tax rates
-- Queue new rulesets or stages
-- Pause or disable cash outs
-- Mint fungible revnet tokens (only 721 minting if explicitly enabled at deploy)
-- Access or redirect treasury funds (no payout limit control)
-- Upgrade or migrate the revnet's controller
-- Change the revnet's terminals
-- Transfer the project NFT
-- Modify fund access limits or surplus allowances
-- Change the data hook or approval hook
-- Affect loan parameters or collateral
+## Source Map
 
-### The REVLoans Owner Cannot:
-- Change loan interest rates, fees, or liquidation timing
-- Access or redirect collateral or borrowed funds
-- Prevent loan creation, repayment, or liquidation
-- Mint or burn tokens
-- Affect any revnet's configuration
-
-### The REVDeployer Contract Cannot (even though it holds the project NFT):
-- Queue new rulesets (no public or internal function exists for this)
-- Transfer the project NFT to any other address
-- Change terminals or the controller
-- Modify fund access limits after deployment
-- Override the data hook logic
-- Selectively block cash outs (beyond the time-limited `CASH_OUT_DELAY` for cross-chain deployments)
-
-### Nobody Can:
-- Change a revnet's stage schedule after deployment
-- Prevent token holders from eventually cashing out
-- Extract funds from the treasury without going through the bonding curve
-- Modify the fee structure (2.5% cash-out fee, loan fees)
-- Change which contract is the data hook for a revnet (always REVOwner)
-- Alter auto-issuance amounts after deployment (they can only be claimed, not changed)
+- `src/REVDeployer.sol`
+- `src/REVOwner.sol`
+- `src/REVLoans.sol`
+- `src/REVHiddenTokens.sol`
+- `test/`

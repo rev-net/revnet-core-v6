@@ -1,13 +1,18 @@
 # Revnet Core
 
-`@rev-net/core-v6` deploys and operates Revnets: autonomous Juicebox projects with staged economics, optional tiered NFTs, cross-chain support, buyback integration, and token-collateralized loans.
+`@rev-net/core-v6` deploys and operates Revnets: Juicebox project shapes with staged economics, optional tiered NFTs, cross-chain support, buyback integration, and token-collateralized loans.
 
-Docs: <https://docs.juicebox.money>
-Architecture: [ARCHITECTURE.md](./ARCHITECTURE.md)
+Docs: <https://docs.juicebox.money>  
+Architecture: [ARCHITECTURE.md](./ARCHITECTURE.md)  
+User journeys: [USER_JOURNEYS.md](./USER_JOURNEYS.md)  
+Skills: [SKILLS.md](./SKILLS.md)  
+Risks: [RISKS.md](./RISKS.md)  
+Administration: [ADMINISTRATION.md](./ADMINISTRATION.md)  
+Audit instructions: [AUDIT_INSTRUCTIONS.md](./AUDIT_INSTRUCTIONS.md)
 
 ## Overview
 
-A Revnet is meant to run without a human owner after launch. Its economics are encoded up front as a sequence of stages, and the runtime hook plus loan system enforce those rules over time.
+A Revnet is meant to minimize human administration after launch. Its economics are encoded up front as a sequence of stages, and the runtime hook plus loan system enforce those rules over time.
 
 This package provides:
 
@@ -17,9 +22,9 @@ This package provides:
 
 It also composes with the 721 hook stack, buyback hook, router terminal, Croptop, and suckers where needed.
 
-Use this repo when the product is an autonomous treasury-backed network with encoded stage transitions. Do not use it when governance, mutable operator control, or simple project deployment is the goal.
+Use this repo when the product is a treasury-backed network with encoded stage transitions and a tightly constrained post-launch admin surface. Do not use it when governance, mutable operator control, or simple project deployment is the goal.
 
-The key point is that a Revnet is not just "a Juicebox project with presets." It is a project shape whose admin surface is intentionally collapsed into deployment-time configuration plus constrained runtime operators.
+The key point is that a Revnet is not just "a Juicebox project with presets." It is a project shape whose admin surface is intentionally collapsed into deployment-time configuration plus constrained runtime operators, even though the deployer contract still retains the project NFT.
 
 ## Key Contracts
 
@@ -71,6 +76,14 @@ The shortest useful reading order is:
 
 Do not audit those contracts in isolation if the deployment enables cross-package features; the composed network is the real product.
 
+## High-Signal Tests
+
+1. `test/REVLifecycle.t.sol`
+2. `test/REVLoans.invariants.t.sol`
+3. `test/TestLongTailEconomics.t.sol`
+4. `test/fork/TestLoanBorrowFork.t.sol`
+5. `test/audit/CodexPhantomSurplusTerminal.t.sol`
+
 ## Install
 
 ```bash
@@ -94,7 +107,7 @@ Useful scripts:
 
 ## Deployment Notes
 
-Revnet deployment assumes the core protocol, 721 hook, buyback hook, router terminal, suckers, and Croptop packages are available. Every Revnet is intentionally unowned after deployment in the human sense; the deployer contract itself retains the project NFT.
+Revnet deployment assumes the core protocol, 721 hook, buyback hook, router terminal, suckers, and Croptop packages are available. Revnets are intentionally unowned in the direct human-EOA sense after deployment, but the deployer contract itself retains the project NFT and remains part of the ownership model.
 
 ## Repository Layout
 
@@ -120,3 +133,9 @@ script/
 - burned-collateral lending is operationally different from escrowed-collateral lending and needs clear integrator expectations
 
 The usual review failure mode is to focus on the loans or the stages in isolation. The real system is the combination of stage economics, runtime hook behavior, and who is still allowed to act after deployment.
+
+## For AI Agents
+
+- Describe Revnets as treasury-backed Juicebox project shapes with encoded stage transitions, not as simple deploy presets.
+- Read `REVDeployer`, `REVOwner`, and `REVLoans` together before answering economic or admin-surface questions.
+- If a deployment enables buybacks, 721 hooks, or suckers, inspect those sibling repos before making definitive claims.
