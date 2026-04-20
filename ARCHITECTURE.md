@@ -2,39 +2,51 @@
 
 ## Purpose
 
-`revnet-core-v6` defines an autonomous Juicebox project pattern with staged, precommitted economics and token-collateralized loans. A revnet is intentionally ownerless after deployment: project behavior follows its queued stages and integrated hooks rather than ongoing governance.
+`revnet-core-v6` defines an autonomous Juicebox project pattern with staged, precommitted economics and token-collateralized loans. A revnet is intentionally ownerless after deployment in the human sense: behavior follows staged configuration and constrained runtime hooks instead of ongoing governance.
 
-## Boundaries
+## System Overview
 
-- `REVDeployer` owns launch-time configuration and runtime wrapper behavior.
-- `REVOwner` owns owner-like data-hook behavior for revnet projects.
-- `REVLoans` owns the loan lifecycle.
-- `REVHiddenTokens` owns temporary token hiding and supply exclusion.
-- The repo composes several sibling repos instead of reimplementing them.
+`REVDeployer` handles launch-time shape, staged rulesets, hook wiring, and runtime wrapper behavior. `REVOwner` provides the owner-like runtime policy surface for pay and cash-out hooks after launch. `REVLoans` manages burn-collateral loan positions represented as ERC-721 loans. `REVHiddenTokens` lets holders burn tokens to exclude them from total supply until they reveal them again.
 
-## Main Components
+## Core Invariants
 
-| Component | Responsibility |
-| --- | --- |
-| `REVDeployer` | Launches revnets, queues staged rulesets, wires hooks, grants operator permissions, and exposes runtime wrapper behavior |
-| `REVOwner` | Ownerless policy surface plugged into revnet rulesets |
-| `REVLoans` | Burn-collateral borrow/repay/liquidate flow represented as ERC-721 loans |
-| `REVHiddenTokens` | Temporary token hiding: burn to exclude from totalSupply, re-mint on reveal |
-| config structs | Stage, auto-issuance, loan source, and 721-hook configuration surfaces |
+- Revnets are intended to be ownerless after deployment; easy admin recovery paths would violate the product model.
+- Stage configuration is effectively permanent once queued.
+- Loan collateral is burned, not escrowed, and supply-sensitive logic must treat it as real destruction until repayment.
+- Hidden tokens are burned, not escrowed, and reduce total supply until revealed.
+- `REVOwner` and `REVDeployer` are tightly coupled; their setup order matters.
+- Cash-out delay affects both exits and borrowing power. If the current stage delays cash out, `REVLoans` should treat borrowability as zero until that delay expires.
+- Cross-chain supply and surplus are part of revnet economics. Local payouts and loans must not ignore remote sucker snapshots.
 
-## Runtime Model
+## Modules
+
+| Module | Responsibility | Notes |
+| --- | --- | --- |
+| `REVDeployer` | Launch, staged rulesets, hook wiring, permissions, runtime wrapper behavior | Launch-time and runtime wrapper |
+| `REVOwner` | Runtime owner-like policy surface | Hook-facing policy |
+| `REVLoans` | Borrow, repay, and liquidate burned-collateral loan positions | Economic core |
+| `REVHiddenTokens` | Temporary supply exclusion through burn and reveal | Supply-sensitive utility |
+| config structs | Stage, loan-source, auto-issuance, and hook config | Launch-time inputs |
+
+## Trust Boundaries
+
+- Treasury and ruleset mechanics remain rooted in `nana-core-v6`.
+- Optional integrations come from `nana-buyback-hook-v6`, `nana-router-terminal-v6`, `nana-suckers-v6`, and `nana-721-hook-v6`.
+- This repo composes those systems into an ownerless product shape instead of reimplementing them.
+
+## Critical Flows
 
 ### Revnet Lifecycle
 
 ```text
 creator
-  -> deploys a revnet with a fixed sequence of stages
+  -> deploys a revnet with a fixed stage sequence
 stage transitions
-  -> happen automatically over time through ruleset activation
+  -> activate automatically over time through rulesets
 participants
-  -> pay in, receive tokens, cash out, and interact with downstream hooks
+  -> pay in, receive tokens, cash out, and interact with enabled integrations
 operators or permissionless callers
-  -> perform bounded maintenance actions such as auto-issuance claims
+  -> perform bounded maintenance such as auto-issuance claims
 ```
 
 ### Loan Lifecycle
@@ -42,35 +54,50 @@ operators or permissionless callers
 ```text
 borrower
   -> burns revnet tokens as collateral
-  -> receives funds from the treasury through REVLoans
+  -> borrowability is computed from the current stage, omnichain supply/surplus, and local liquidity caps
+  -> receives treasury-backed funds through REVLoans
   -> later repays to remint collateral
-  -> or gets liquidated after the long expiration window
+  -> or is liquidated after the expiration window
 ```
 
-## Critical Invariants
+## Accounting Model
 
-- The project is designed to be ownerless after deployment. "Easy" admin recovery paths would break the product thesis.
-- Stage configuration is effectively permanent once queued.
-- Loan collateral is burned, not escrowed. Supply-sensitive logic must treat that as real destruction until repayment.
-- Hidden tokens are burned, not escrowed. They reduce totalSupply until revealed. This interacts with bonding curve valuations.
-- `REVOwner` and `REVDeployer` are tightly coupled. Their setup order is part of correctness.
+The repo does not replace core treasury accounting. Its critical economic logic is the interaction between staged revnet configuration, burned-collateral loan state, hidden-token supply exclusion, and omnichain revnet state imported from suckers.
 
-## Where Complexity Lives
+`REVOwner` also composes payment and cash-out hooks. On pay, it merges 721-tier split forwarding with buyback-hook behavior and scales mint weight so the terminal only mints against the share actually entering the project. On cash out, it uses omnichain supply and surplus for reclaim math, exempts trusted suckers from tax and fee routing, and may append a fee hook spec that forwards rev fees to the fee revnet.
 
-- Revnets span deployment-time guarantees, runtime hook behavior, and loan-state transitions.
-- The most subtle risks sit where treasury state, stage economics, and loan borrowability interact.
-- Ownerlessness is a feature, but it also removes easy operational recovery from misconfiguration.
+## Security Model
 
-## Dependencies
-
-- `nana-core-v6` for treasury and ruleset mechanics
-- `nana-buyback-hook-v6`, `nana-suckers-v6`, `nana-router-terminal-v6`, and optionally `nana-721-hook-v6` for composed features
-- `croptop-core-v6` and other product repos when revnets are used as economic backends
+- The highest-risk interactions sit where stage economics, treasury state, and loan borrowability meet.
+- Ownerlessness removes convenient operational recovery from misconfiguration.
+- Hidden-token and burned-collateral semantics materially affect supply-sensitive pricing.
+- `REVOwner` is a live runtime policy surface, not just a launch helper. Cash-out delay, buyback composition, sucker exemptions, and fee routing all pass through it.
+- Rev cash-out fees stack on top of protocol-fee behavior rather than replacing it. Fee semantics should be reviewed with terminal behavior, not in isolation.
 
 ## Safe Change Guide
 
-- Treat deployer-time behavior and runtime wrapper behavior as one system.
-- Any change to stage semantics should be checked against loan math, cash-out semantics, and downstream fee-project expectations.
+- Review deploy-time behavior and runtime wrapper behavior together.
+- If stage semantics change, inspect loan math, cash-out behavior, and downstream fee expectations together.
 - Do not casually add mutable admin escape hatches.
-- Flash-loan and surplus-sensitive logic deserves adversarial review whenever loan calculations change.
-- If a change affects borrowability or repayment, test both sourced and unsourced loan paths.
+- If you change borrowability, re-check cash-out-delay gating, omnichain surplus inputs, and local-surplus caps together.
+- If you change hook composition, re-check 721 split handling, buyback hook assumptions, and which callers retain mint permission through `REVOwner`.
+- If loan calculations change, review flash-loan and surplus-sensitive behavior adversarially.
+
+## Canonical Checks
+
+- cash-out-delay interaction with loans:
+  `test/TestLoansCashOutDelay.t.sol`
+- stage transitions and borrowability drift:
+  `test/TestStageTransitionBorrowable.t.sol`
+- omnichain or phantom-surplus edge cases:
+  `test/audit/CodexPhantomSurplusTerminal.t.sol`
+
+## Source Map
+
+- `src/REVDeployer.sol`
+- `src/REVOwner.sol`
+- `src/REVLoans.sol`
+- `src/REVHiddenTokens.sol`
+- `test/TestLoansCashOutDelay.t.sol`
+- `test/TestStageTransitionBorrowable.t.sol`
+- `test/audit/CodexPhantomSurplusTerminal.t.sol`

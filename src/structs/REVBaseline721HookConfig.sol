@@ -14,7 +14,6 @@ import {REV721TiersHookFlags} from "./REV721TiersHookFlags.sol";
 /// @custom:member tiersConfig The tier configuration for the NFT collection.
 /// @custom:member flags A set of flags that configure the 721 hook. Omits `issueTokensForSplits` since revnets
 /// always force it to `false`.
-// forge-lint: disable-next-line(pascal-case-struct)
 struct REVBaseline721HookConfig {
     string name;
     string symbol;

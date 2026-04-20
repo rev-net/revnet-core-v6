@@ -9,7 +9,6 @@ import {REVStageConfig} from "./REVStageConfig.sol";
 /// @custom:member splitOperator The address that will receive the token premint and initial production split,
 /// and who is allowed to change who the operator is. Only the operator can replace itself after deployment.
 /// @custom:member stageConfigurations The periods of changing constraints.
-// forge-lint: disable-next-line(pascal-case-struct)
 struct REVConfig {
     REVDescription description;
     uint32 baseCurrency;

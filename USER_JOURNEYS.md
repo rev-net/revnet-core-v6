@@ -1,108 +1,212 @@
 # User Journeys
 
-## Who This Repo Serves
+## Repo Purpose
+
+This repo packages autonomous Revnets: staged Juicebox projects whose runtime behavior is intentionally constrained
+after launch. It owns deploy-time stage encoding, runtime enforcement, hidden-token mechanics, and lending against
+Revnet token exposure. It does not turn the project back into an ordinary owner-governed treasury after deployment.
+
+## Primary Actors
 
 - teams launching autonomous Revnets with encoded stage transitions
 - participants buying, holding, and cashing out Revnet exposure over time
 - borrowers using Revnet tokens as collateral instead of selling them
 - operators working inside the narrow post-launch envelope the deployer allows
 
+## Key Surfaces
+
+- `REVDeployer`: launch-time packaging, stage config, and operator envelope
+- `REVOwner`: runtime pay and cash-out behavior for active Revnets
+- `REVLoans`: borrowing, repayment, transfer, reallocation, and liquidation
+- `REVHiddenTokens`: temporarily hide and later reveal token supply
+- `autoIssueFor(...)`, `hideTokensOf(...)`, `revealTokensOf(...)`, `borrowFrom(...)`: high-signal runtime entrypoints
+
 ## Journey 1: Launch A Revnet With Its Long-Lived Rules Encoded Up Front
 
-**Starting state:** you know the stage schedule, issuance behavior, optional integrations, and runtime controls the Revnet should allow.
+**Actor:** launch team.
 
-**Success:** the Revnet launches as a Juicebox project whose deploy-time shape already encodes its economic envelope.
+**Intent:** deploy a Revnet whose economic envelope is encoded up front and stays bounded afterward.
 
-**Flow**
-1. Use `REVDeployer` with the staged config, split operators, and optional integrations such as 721 hooks, buyback routing, router terminal support, or suckers.
-2. The deployer launches the underlying project and keeps the ownership model aligned with the Revnet runtime contracts.
-3. Stage config, issuance behavior, and auxiliary surfaces are committed as part of the launch instead of being left to human operators later.
-4. The network can now accept payments and transition across stages without ordinary project-owner governance.
+**Preconditions**
+- the team knows the stage schedule, issuance behavior, operator envelope, and optional integrations
+- the team accepts that many choices become expensive or impossible to change later
+
+**Main Flow**
+1. Use `REVDeployer` with the staged config, split operators, and optional integrations.
+2. The deployer launches the underlying project and preserves the intended ownership model.
+3. Stage and auxiliary behavior are committed at launch instead of left to ordinary owner discretion.
+4. The Revnet can now accept payments and progress through stages under the encoded rules.
+
+**Failure Modes**
+- teams assume deploy-time parameters can be revisited casually
+- optional integrations are enabled without auditing their effect on the resulting network
+
+**Postconditions**
+- the Revnet launches with its long-lived stage envelope encoded up front
 
 ## Journey 2: Participate In The Revnet Across Stage Transitions
 
-**Starting state:** the Revnet is live and a participant wants to pay in, hold exposure, or cash out later.
+**Actor:** participant.
 
-**Success:** participation follows the current stage's rules without requiring the user to reason about every deploy-time parameter directly.
+**Intent:** buy, hold, and exit Revnet exposure across stage changes.
 
-**Flow**
-1. Users pay through the configured terminal or router surface.
-2. `REVOwner` enforces runtime behavior such as pay handling, cash-out rules, delayed exits, and other stage-sensitive constraints.
-3. As stages advance, later pays and cash outs follow the newly active parameters while the project identity stays constant.
+**Preconditions**
+- the Revnet is already live
+- the participant understands active stage parameters can change behavior over time
 
-**Failure cases that matter:** assuming a stage parameter is mutable when it is fixed at launch, misreading delayed cash-out behavior, and forgetting that optional integrations materially change the participant experience.
+**Main Flow**
+1. Pay through the configured terminal or router.
+2. Let `REVOwner` enforce runtime behavior such as pay handling, delayed exits, and stage-sensitive constraints.
+3. As stages advance, later pays and exits follow the new active parameters while identity stays constant.
+
+**Failure Modes**
+- stage parameters are misread as mutable when they are fixed
+- delayed cash-out behavior is misunderstood
+- optional integrations materially change the participant experience in ways the caller ignored
+
+**Postconditions**
+- the participant's buys and exits now follow the active stage's constraints
 
 ## Journey 3: Claim Stage-Based Auto-Issuance When It Becomes Available
 
-**Starting state:** the Revnet was deployed with auto-issuance allocations for one or more beneficiaries.
+**Actor:** auto-issuance beneficiary.
 
-**Success:** the beneficiary claims the right amount for the right stage only after that stage is actually live.
+**Intent:** claim stage-specific issuance only when it is actually live.
 
-**Flow**
-1. Check `amountToAutoIssue(...)` for the revnet, stage, and beneficiary.
-2. Call `autoIssueFor(...)` only once the target stage has started.
-3. The stored allocation is consumed so the same stage allocation cannot be claimed twice.
+**Preconditions**
+- the Revnet was deployed with auto-issuance allocations
+- the target stage has started
+
+**Main Flow**
+1. Check `amountToAutoIssue(...)`.
+2. Call `autoIssueFor(...)` once the stage is active.
+3. The stored allocation is consumed and cannot be claimed twice.
+
+**Failure Modes**
+- callers try to claim before the stage is active
+- reviewers assume auto-issuance is a generic mint path rather than a bounded stage allocation
+
+**Postconditions**
+- the stage allocation is either claimed once or remains reserved until it becomes valid
 
 ## Journey 3a: Hide Tokens To Increase Cash-Out Value For Remaining Holders
 
-**Starting state:** a holder wants to temporarily exclude some tokens from totalSupply without permanently giving them up.
+**Actor:** holder or authorized operator.
 
-**Success:** the holder burns tokens via REVHiddenTokens, reducing totalSupply and increasing the per-token cash-out value for everyone else. The holder can reveal (re-mint) their hidden tokens at any time.
+**Intent:** remove tokens from visible supply temporarily and later restore them.
 
-**Flow**
-1. The holder grants `BURN_TOKENS` permission to the `REVHiddenTokens` contract for the revnet.
-2. Call `hideTokensOf(revnetId, tokenCount, holder)` to burn the tokens and track the hidden balance. An operator with `HIDE_TOKENS` permission can call this on behalf of the holder.
-3. The bonding curve now sees a smaller totalSupply, so each remaining token is worth more on cash out.
-4. When the holder wants their tokens back, call `revealTokensOf(revnetId, tokenCount, beneficiary, holder)` to re-mint them. An operator with `REVEAL_TOKENS` permission can call this on behalf of the holder.
+**Preconditions**
+- the holder granted the required permissions
+- the holder accepts the supply and collateral implications of hiding tokens
 
-**Failure cases that matter:** trying to reveal more tokens than were hidden, forgetting that revealed tokens increase totalSupply again (reducing per-token cash-out value), and not realizing that hidden tokens must be revealed before they can be used as loan collateral.
+**Main Flow**
+1. Grant `BURN_TOKENS` to `REVHiddenTokens`.
+2. Call `hideTokensOf(...)` to burn tokens and track the hidden balance.
+3. The lower visible supply changes per-token cash-out value.
+4. Later call `revealTokensOf(...)` to re-mint hidden tokens.
+
+**Failure Modes**
+- more tokens are revealed than were hidden
+- holders forget revealed tokens increase visible supply again
+- hidden tokens are assumed to remain usable as loan collateral
+
+**Postconditions**
+- visible supply is reduced or restored according to the holder's hidden-token state
 
 ## Journey 4: Borrow Against Revnet Tokens Instead Of Selling Them
 
-**Starting state:** a holder wants liquidity but does not want to exit the Revnet position.
+**Actor:** holder or delegated loan operator.
 
-**Success:** the holder opens a loan, receives borrowed value, and keeps an NFT loan position representing the debt.
+**Intent:** borrow against Revnet exposure instead of selling it.
 
-**Flow**
-1. The holder (or an operator with `OPEN_LOAN` permission) interacts with `REVLoans` using the eligible Revnet token exposure as collateral. The `holder` parameter specifies whose tokens are burned; the loan NFT is minted to `holder`.
-2. The system burns the relevant token exposure and mints a loan-position NFT to the holder.
-3. Loan terms depend on the live Revnet economics rather than a static side system.
-4. The borrower (or an operator with `REPAY_LOAN` / `REALLOCATE_LOAN` permission) can later repay, reallocate collateral, transfer the loan NFT, or face liquidation if conditions require it.
+**Preconditions**
+- the holder has eligible Revnet token exposure
+- the holder trusts any delegated operator with `OPEN_LOAN`
+
+**Main Flow**
+1. Interact with `REVLoans` using eligible token exposure as collateral.
+2. The system burns the collateralized token exposure and mints a loan NFT.
+3. Borrowed value is issued under live Revnet economics.
+4. The borrower can later repay, reallocate, transfer, or face liquidation.
+
+**Failure Modes**
+- delegated operators redirect value in ways the holder did not intend
+- reviewers model the loan system as escrowed collateral when it is burned-collateral lending
+
+**Postconditions**
+- collateralized exposure is transformed into a live loan position under Revnet economics
 
 ## Journey 5: Repay, Transfer, Or Liquidate A Loan Position
 
-**Starting state:** a loan already exists and either the borrower or another actor needs to change its state.
+**Actor:** borrower, loan owner, or liquidator.
 
-**Success:** the debt path settles cleanly and the collateral outcome matches the Revnet's current rules.
+**Intent:** change or settle an existing loan position.
 
-**Flow**
-1. Repayment burns the debt and remints or releases the collateralized Revnet token position.
-2. Transfers move the loan NFT, not the original collateralized exposure.
-3. Liquidation consumes the loan under the rules encoded by `REVLoans` and the current Revnet state.
+**Preconditions**
+- a loan already exists
+- the actor has the rights or economic incentives required for the chosen path
 
-**Edge conditions that change user experience:** cross-ruleset loan behavior, zero-amount or zero-price edge cases, and sourced versus unsourced loan paths.
+**Main Flow**
+1. Repay to burn debt and restore the collateralized exposure.
+2. Transfer the loan NFT if ownership of the debt position should move.
+3. Liquidate if the encoded conditions permit it.
+
+**Failure Modes**
+- cross-ruleset behavior is misread
+- zero-value or sourced-versus-unsourced paths are handled incorrectly by integrations
+
+**Postconditions**
+- the loan position is repaid, transferred, or liquidated according to the chosen path
 
 ## Journey 6: Operate Inside The Bounded Post-Launch Control Envelope
 
-**Starting state:** the Revnet is live and an operator wants to use whatever ongoing controls the deployment allowed.
+**Actor:** operator with ongoing powers.
 
-**Success:** the operator can use sanctioned controls without escaping the "autonomous after launch" model.
+**Intent:** use the sanctioned post-launch controls without violating the autonomous model.
 
-**Flow**
-1. Review what `REVDeployer` allowed for split operators, stage evolution, and auxiliary integrations.
-2. Use only those surfaces rather than treating the project like a normal owner-governed Juicebox project.
-3. Audit cross-package behavior whenever the Revnet enabled buybacks, 721 hooks, router terminals, or suckers.
+**Preconditions**
+- the Revnet is live
+- the operator knows exactly which controls the deployment left available
+
+**Main Flow**
+1. Review what `REVDeployer` allowed.
+2. Use only those sanctioned surfaces.
+3. Audit cross-package behavior whenever optional integrations are enabled.
+
+**Failure Modes**
+- operators behave as though the Revnet were a normal owner-governed project
+- reviewers inspect controls in isolation and miss integrated runtime behavior
+
+**Postconditions**
+- post-launch control remains inside the bounded envelope the deployment left available
 
 ## Journey 7: Receive Cross-Chain Payments With Correct Hook Routing
 
-**Starting state:** a sucker pays the Revnet on behalf of a remote user via `payRemote`, and the hooks attached via `REVOwner.beforePayRecordedWith` need to see the real user.
+**Actor:** remote participant or integrator using suckers.
 
-**Success:** the 721 hook and buyback hook see the real remote user as the beneficiary so NFTs mint to and buyback routing benefits the correct person.
+**Intent:** preserve the real beneficiary during cross-chain payments into a Revnet.
 
-**Flow**
+**Preconditions**
+- the Revnet is configured with suckers and optional hooks that depend on the beneficiary
+- relay-beneficiary metadata is provided correctly
+
+**Main Flow**
 1. The sucker calls `terminal.pay()` with relay-beneficiary metadata.
-2. `REVOwner.beforePayRecordedWith()` resolves the relay beneficiary from the metadata when the payer is a registered sucker.
-3. The swapped beneficiary is forwarded to both the 721 hook and the buyback hook.
+2. `REVOwner.beforePayRecordedWith()` resolves the real beneficiary when the payer is a registered sucker.
+3. Downstream hooks observe the remote user rather than the sucker contract.
+
+**Failure Modes**
+- relay metadata is absent or malformed
+- downstream hooks accidentally attribute minting or routing to the sucker instead of the user
+
+**Postconditions**
+- cross-chain payments preserve the intended remote beneficiary through the Revnet hook stack
+
+## Trust Boundaries
+
+- `REVDeployer` is trusted for the launch-time envelope the Revnet will live inside
+- `REVOwner` is economically binding runtime logic, not advisory middleware
+- optional integrations such as 721 hooks, buybacks, router terminals, and suckers materially alter the resulting network
 
 ## Hand-Offs
 
