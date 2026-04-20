@@ -148,7 +148,7 @@ contract NemesisOperatorDelegationTest is TestBaseWorkflow {
         );
     }
 
-    function test_hiddenTokensPermissionedHolderCanAllowDelegate() public {
+    function test_hiddenTokensPermissionedHolderCanAllowDelegateToHide() public {
         uint256 userTokens = _payUserIntoRevnet(10e18);
         uint256 hiddenCount = userTokens / 2;
 
@@ -162,6 +162,12 @@ contract NemesisOperatorDelegationTest is TestBaseWorkflow {
         HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hiddenCount, USER);
 
         vm.prank(OPERATOR);
+        vm.expectRevert(
+            abi.encodeWithSelector(REVHiddenTokens.REVHiddenTokens_Unauthorized.selector, REVNET_ID, OPERATOR)
+        );
+        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hiddenCount, USER, USER);
+
+        vm.prank(USER);
         HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hiddenCount, USER, USER);
 
         assertEq(HIDDEN_TOKENS.hiddenBalanceOf(USER, REVNET_ID), 0, "holder hidden balance was consumed");

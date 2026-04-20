@@ -98,8 +98,8 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
     }
 
     /// @notice Reveal previously hidden tokens by re-minting them.
-    /// @dev Callers with `HIDE_TOKENS` permission can reveal their own tokens and can explicitly allow delegates
-    /// to reveal tokens on their behalf. Revealed tokens always return to the holder.
+    /// @dev Any holder can reveal their own hidden tokens without special permissions.
+    /// Revealed tokens always return to the holder.
     /// @param revnetId The ID of the revnet whose tokens to reveal.
     /// @param tokenCount The number of tokens to reveal.
     /// @param beneficiary The address that will receive the revealed tokens.
@@ -114,7 +114,7 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
         override
     {
         address caller = _msgSender();
-        _requireCanManageHiddenTokensOf({revnetId: revnetId, holder: holder, caller: caller});
+        if (caller != holder) revert REVHiddenTokens_Unauthorized(revnetId, caller);
         if (beneficiary != holder) revert REVHiddenTokens_InvalidBeneficiary(beneficiary, holder);
 
         uint256 hidden = hiddenBalanceOf[holder][revnetId];

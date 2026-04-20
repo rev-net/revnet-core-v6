@@ -345,7 +345,7 @@ contract TestHiddenTokens is TestBaseWorkflow {
         HIDDEN_TOKENS.revealTokensOf(REVNET_ID, userTokens, USER, USER);
     }
 
-    function test_setTokenHidingAllowance_allowsDelegateToHideAndReveal() public {
+    function test_setTokenHidingAllowance_allowsDelegateToHide() public {
         uint256 payAmount = 10e18;
         address delegate = makeAddr("delegate");
 
@@ -372,6 +372,12 @@ contract TestHiddenTokens is TestBaseWorkflow {
         HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hideCount, USER);
 
         vm.prank(delegate);
+        vm.expectRevert(
+            abi.encodeWithSelector(REVHiddenTokens.REVHiddenTokens_Unauthorized.selector, REVNET_ID, delegate)
+        );
+        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hideCount, USER, USER);
+
+        vm.prank(USER);
         HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hideCount, USER, USER);
 
         assertEq(jbController().TOKENS().totalBalanceOf(USER, REVNET_ID), userTokens, "User balance should be restored");
