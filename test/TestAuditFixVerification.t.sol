@@ -196,7 +196,7 @@ contract MockSuckerRegistryWithRemote {
 /// @notice Tests verifying audit fix correctness for C-1, H-3, and C-5/A14.
 /// C-1: `_borrowableAmountFrom` passes `decimals` parameter (not hardcoded 18) to `remoteSurplusOf`.
 /// H-3: `REVOwner.beforeCashOutRecordedWith` forwards cross-chain-adjusted context to buyback hook.
-/// A14: `REVHiddenTokens` has operator gating and `totalSupplyIncludingHiddenOf` view.
+/// A14: `REVHiddenTokens` has operator gating and hidden tokens reduce economic supply until revealed.
 contract TestAuditFixVerification is TestBaseWorkflow {
     // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
@@ -502,8 +502,8 @@ contract TestAuditFixVerification is TestBaseWorkflow {
         HIDDEN_TOKENS.hideTokensOf(REVNET_ID, userTokens / 2, USER);
     }
 
-    /// @notice A14: `totalSupplyIncludingHiddenOf` includes hidden tokens.
-    function test_A14_totalSupplyIncludingHidden_includesHiddenTokens() public {
+    /// @notice A14: Hiding tokens reduces the live token supply used for economic calculations.
+    function test_A14_hidingTokens_reducesLiveSupply() public {
         // Pay to get tokens.
         uint256 payAmount = 10e18;
         vm.prank(USER);
@@ -519,10 +519,6 @@ contract TestAuditFixVerification is TestBaseWorkflow {
 
         uint256 userTokens = jbController().TOKENS().totalBalanceOf(USER, REVNET_ID);
         uint256 totalSupplyBefore = jbController().totalTokenSupplyWithReservedTokensOf(REVNET_ID);
-        uint256 includingHiddenBefore = HIDDEN_TOKENS.totalSupplyIncludingHiddenOf(REVNET_ID);
-
-        // Before hiding, totalSupplyIncludingHiddenOf == totalSupply (no hidden tokens yet).
-        assertEq(includingHiddenBefore, totalSupplyBefore, "Before hiding: including should equal total supply");
 
         _grantHiddenTokensPermission(USER, REVNET_ID);
 
@@ -535,20 +531,12 @@ contract TestAuditFixVerification is TestBaseWorkflow {
         uint256 totalSupplyAfter = jbController().totalTokenSupplyWithReservedTokensOf(REVNET_ID);
         assertEq(totalSupplyAfter, totalSupplyBefore - hideCount, "Raw total supply should decrease");
 
-        // But totalSupplyIncludingHiddenOf should include the hidden tokens.
-        uint256 includingHiddenAfter = HIDDEN_TOKENS.totalSupplyIncludingHiddenOf(REVNET_ID);
-        assertEq(
-            includingHiddenAfter,
-            totalSupplyAfter + hideCount,
-            "Including hidden should add hidden back to total supply"
-        );
-        assertEq(includingHiddenAfter, totalSupplyBefore, "Including hidden should equal original total supply");
+        assertEq(HIDDEN_TOKENS.hiddenBalanceOf(USER, REVNET_ID), hideCount, "Hidden balance should be tracked");
+        assertEq(HIDDEN_TOKENS.totalHiddenOf(REVNET_ID), hideCount, "Total hidden should be tracked");
     }
 
-    /// @notice A14: After hiding, the total supply for valuation is unchanged (economic neutrality).
-    /// The `totalSupplyIncludingHiddenOf` value should match the pre-hide total supply,
-    /// ensuring that hiding tokens does not inflate per-token cash-out value.
-    function test_A14_hiddenTokens_economicNeutrality() public {
+    /// @notice A14: After hiding, economic supply is reduced until tokens are revealed.
+    function test_A14_hiddenTokens_reduceEconomicSupply() public {
         // Pay to get tokens for the user.
         uint256 payAmount = 10e18;
         vm.prank(USER);
@@ -572,13 +560,9 @@ contract TestAuditFixVerification is TestBaseWorkflow {
         vm.prank(USER);
         HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hideCount, USER);
 
-        // The total supply for valuation purposes (including hidden) should be unchanged.
-        uint256 valuationSupply = HIDDEN_TOKENS.totalSupplyIncludingHiddenOf(REVNET_ID);
-        assertEq(valuationSupply, totalSupplyBefore, "Valuation supply unchanged after hiding (economic neutrality)");
-
-        // The raw totalSupply should be reduced (governance effect).
+        // The live totalSupply should be reduced, which also reduces economic supply.
         uint256 rawSupply = jbController().totalTokenSupplyWithReservedTokensOf(REVNET_ID);
-        assertEq(rawSupply, totalSupplyBefore - hideCount, "Raw supply decreased (governance effect)");
+        assertEq(rawSupply, totalSupplyBefore - hideCount, "Economic supply should decrease after hiding");
 
         // The hidden balance should be correctly tracked.
         assertEq(HIDDEN_TOKENS.hiddenBalanceOf(USER, REVNET_ID), hideCount, "Hidden balance tracked");
