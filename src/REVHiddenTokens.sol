@@ -71,15 +71,21 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
     }
 
     /// @notice Hide tokens by burning them and tracking them for later reveal.
-    /// @dev Only an allowlisted holder can hide their own tokens.
+    /// @dev An allowlisted holder can hide their own tokens. The project owner and operators with
+    /// `HIDE_TOKENS` can also hide tokens for any holder.
     /// @dev The holder must have granted BURN_TOKENS permission to this contract.
     /// @param revnetId The ID of the revnet whose tokens to hide.
     /// @param tokenCount The number of tokens to hide.
     /// @param holder The address whose tokens to hide.
     function hideTokensOf(uint256 revnetId, uint256 tokenCount, address holder) external override {
         address caller = _msgSender();
-        if (caller != holder) revert REVHiddenTokens_Unauthorized(revnetId, caller);
-        if (!tokenHidingIsAllowedFor[holder][revnetId]) revert REVHiddenTokens_Unauthorized(revnetId, caller);
+        bool isHolderHidingOwnTokens = caller == holder && tokenHidingIsAllowedFor[holder][revnetId];
+        bool isPermissionedOperator =
+            _hasPermissionFrom(caller, PROJECTS.ownerOf(revnetId), revnetId, JBPermissionIds.HIDE_TOKENS);
+
+        if (!isHolderHidingOwnTokens && !isPermissionedOperator) {
+            revert REVHiddenTokens_Unauthorized(revnetId, caller);
+        }
 
         // Increment the holder's hidden balance.
         hiddenBalanceOf[holder][revnetId] += tokenCount;

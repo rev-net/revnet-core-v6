@@ -169,6 +169,24 @@ contract NemesisOperatorDelegationTest is TestBaseWorkflow {
         );
     }
 
+    function test_hiddenTokensPermissionedOperatorCanHideForHolder() public {
+        uint256 userTokens = _payUserIntoRevnet(10e18);
+        uint256 hiddenCount = userTokens / 2;
+
+        _grantPermission(USER, REVNET_ID, address(HIDDEN_TOKENS), JBPermissionIds.BURN_TOKENS);
+        _grantOperatorHidePermission(OPERATOR);
+
+        vm.prank(OPERATOR);
+        HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hiddenCount, USER);
+
+        assertEq(HIDDEN_TOKENS.hiddenBalanceOf(USER, REVNET_ID), hiddenCount, "holder hidden balance was updated");
+        assertEq(
+            jbController().TOKENS().totalBalanceOf(USER, REVNET_ID),
+            userTokens - hiddenCount,
+            "holder's visible balance was reduced"
+        );
+    }
+
     function test_hiddenTokensDelegateCannotHideAnotherHoldersTokens() public {
         uint256 userTokens = _payUserIntoRevnet(10e18);
 
@@ -192,9 +210,7 @@ contract NemesisOperatorDelegationTest is TestBaseWorkflow {
         HIDDEN_TOKENS.setTokenHidingAllowedFor(REVNET_ID, USER, false);
 
         vm.prank(USER);
-        vm.expectRevert(
-            abi.encodeWithSelector(REVHiddenTokens.REVHiddenTokens_Unauthorized.selector, REVNET_ID, USER)
-        );
+        vm.expectRevert(abi.encodeWithSelector(REVHiddenTokens.REVHiddenTokens_Unauthorized.selector, REVNET_ID, USER));
         HIDDEN_TOKENS.hideTokensOf(REVNET_ID, userTokens / 2, USER);
     }
 
@@ -227,6 +243,18 @@ contract NemesisOperatorDelegationTest is TestBaseWorkflow {
     function _allowHolderToHide(address holder) internal {
         vm.prank(address(REV_DEPLOYER));
         HIDDEN_TOKENS.setTokenHidingAllowedFor(REVNET_ID, holder, true);
+    }
+
+    function _grantOperatorHidePermission(address operator) internal {
+        uint8[] memory permissionIds = new uint8[](1);
+        permissionIds[0] = JBPermissionIds.HIDE_TOKENS;
+
+        vm.prank(address(REV_DEPLOYER));
+        jbPermissions()
+            .setPermissionsFor(
+                address(REV_DEPLOYER),
+                JBPermissionsData({operator: operator, projectId: uint56(REVNET_ID), permissionIds: permissionIds})
+            );
     }
 
     function _deployFeeProject() internal {

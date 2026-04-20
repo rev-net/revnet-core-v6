@@ -31,7 +31,7 @@ This file describes the verified change from `revnet-core-v5` to the current `re
   - `REALLOCATE_LOAN` (37) — reallocate loan collateral on behalf of a loan owner via `REVLoans.reallocateCollateralFromLoan`
   - `REPAY_LOAN` (38) — repay a loan on behalf of a loan owner via `REVLoans.repayLoan`
   - `REVEAL_TOKENS` (39) — legacy permission id; hidden-token reveal no longer depends on it
-- `REVHiddenTokens` now inherits `JBPermissioned` and accepts a `holder` parameter on `hideTokensOf` and `revealTokensOf`. Hiding is gated by an operator-managed holder allowlist. Revealing is holder-only and does not require special permission.
+- `REVHiddenTokens` now inherits `JBPermissioned` and accepts a `holder` parameter on `hideTokensOf` and `revealTokensOf`. Hiding is available to an operator-managed holder allowlist, and also to the project owner or any operator with `HIDE_TOKENS`. Revealing is holder-only and does not require special permission.
 - `REVLoans.borrowFrom` now accepts a `holder` parameter. The loan NFT is minted to `holder`, and collateral is burned from `holder`. An operator with `OPEN_LOAN` permission can borrow on behalf of a holder.
 - `REVLoans.repayLoan` now allows permissioned operators with `REPAY_LOAN` to repay on behalf of the loan NFT owner. Replacement loans are minted to the original loan owner.
 - `REVLoans.reallocateCollateralFromLoan` now allows permissioned operators with `REALLOCATE_LOAN` to reallocate on behalf of the loan NFT owner. Returned collateral and replacement loans go to the original loan owner.
