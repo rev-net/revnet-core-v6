@@ -956,6 +956,16 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             configuration.description.salt
         );
 
+        // Include terminal addresses in the hash so cross-chain expansions must use the same terminals.
+        // Terminal addresses are deterministic across chains. Accounting contexts are excluded because
+        // token addresses (e.g. USDC) legitimately differ per chain.
+        for (uint256 i; i < terminalConfigurations.length;) {
+            encodedConfiguration = abi.encode(encodedConfiguration, terminalConfigurations[i].terminal);
+            unchecked {
+                ++i;
+            }
+        }
+
         // Initialize fund access limit groups for the loan contract.
         JBFundAccessLimitGroup[] memory fundAccessLimitGroups =
             _makeLoanFundAccessLimits({terminalConfigurations: terminalConfigurations});
