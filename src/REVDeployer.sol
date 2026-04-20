@@ -1065,6 +1065,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         uint256 cashOutDelay = block.timestamp + CASH_OUT_DELAY;
 
         // Store the cash out delay in the owner contract.
+        // slither-disable-next-line reentrancy-events
         REVOwner(OWNER).setCashOutDelayOf({revnetId: revnetId, cashOutDelay: cashOutDelay});
 
         emit SetCashOutDelay({revnetId: revnetId, cashOutDelay: cashOutDelay, caller: _msgSender()});

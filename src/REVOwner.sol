@@ -233,6 +233,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
 
         // Let the buyback hook adjust the cash out parameters and optionally return a hook specification.
         JBCashOutHookSpecification[] memory buybackHookSpecifications;
+        // slither-disable-next-line unused-return
         (cashOutTaxRate, cashOutCount,,, buybackHookSpecifications) =
             BUYBACK_HOOK.beforeCashOutRecordedWith(buybackHookContext);
 
