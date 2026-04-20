@@ -5,14 +5,11 @@ import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol
 
 /// @notice Manages hiding (burning) and revealing (re-minting) revnet tokens to exclude them from totalSupply.
 interface IREVHiddenTokens {
-    /// @notice Emitted when a holder allows or disallows a delegate to manage hidden tokens.
+    /// @notice Emitted when a holder is allowed or disallowed to hide their own tokens.
     /// @param revnetId The ID of the revnet.
-    /// @param holder The holder whose tokens the delegate can manage.
-    /// @param delegate The address being allowed or disallowed.
-    /// @param isAllowed Whether the delegate is allowed.
-    event SetTokenHidingAllowance(
-        uint256 indexed revnetId, address indexed holder, address indexed delegate, bool isAllowed
-    );
+    /// @param holder The holder whose tokens are being allowed or disallowed.
+    /// @param isAllowed Whether the holder is allowed.
+    event SetTokenHidingAllowed(uint256 indexed revnetId, address indexed holder, bool isAllowed);
 
     /// @notice Emitted when tokens are hidden (burned and tracked for later reveal).
     /// @param revnetId The ID of the revnet whose tokens are hidden.
@@ -46,12 +43,11 @@ interface IREVHiddenTokens {
     /// @return The total hidden token count.
     function totalHiddenOf(uint256 revnetId) external view returns (uint256);
 
-    /// @notice Whether a delegate is allowed to hide and reveal a holder's tokens.
+    /// @notice Whether a holder is allowed to hide their own tokens.
     /// @param holder The holder whose tokens are being managed.
     /// @param revnetId The ID of the revnet.
-    /// @param delegate The delegate address.
-    /// @return Whether the delegate is allowed.
-    function tokenHidingIsAllowedFor(address holder, uint256 revnetId, address delegate) external view returns (bool);
+    /// @return Whether the holder is allowed.
+    function tokenHidingIsAllowedFor(address holder, uint256 revnetId) external view returns (bool);
 
     /// @notice Hide tokens by burning them and tracking them for later reveal.
     /// @dev The holder must have granted BURN_TOKENS permission to this contract.
@@ -67,10 +63,10 @@ interface IREVHiddenTokens {
     /// @param holder The address whose hidden balance to decrement.
     function revealTokensOf(uint256 revnetId, uint256 tokenCount, address beneficiary, address holder) external;
 
-    /// @notice Allow or disallow a delegate to hide and reveal the caller's tokens.
+    /// @notice Allow or disallow a holder to hide their own tokens.
     /// @dev The caller must have `HIDE_TOKENS` permission for the revnet.
     /// @param revnetId The ID of the revnet.
-    /// @param delegate The delegate to update.
-    /// @param isAllowed Whether the delegate should be allowed.
-    function setTokenHidingAllowanceOf(uint256 revnetId, address delegate, bool isAllowed) external;
+    /// @param holder The holder to update.
+    /// @param isAllowed Whether the holder should be allowed.
+    function setTokenHidingAllowedFor(uint256 revnetId, address holder, bool isAllowed) external;
 }

@@ -171,7 +171,7 @@ contract TestHiddenTokens is TestBaseWorkflow {
 
         uint256 totalSupplyBefore = jbController().TOKENS().totalSupplyOf(REVNET_ID);
 
-        _grantHiddenTokensPermission(USER, REVNET_ID);
+        _allowHolderToHide(USER, REVNET_ID);
 
         // Hide half the tokens.
         uint256 hideCount = userTokens / 2;
@@ -204,7 +204,7 @@ contract TestHiddenTokens is TestBaseWorkflow {
         uint256 userTokensBefore = jbController().TOKENS().totalBalanceOf(USER, REVNET_ID);
         uint256 totalSupplyBefore = jbController().TOKENS().totalSupplyOf(REVNET_ID);
 
-        _grantHiddenTokensPermission(USER, REVNET_ID);
+        _allowHolderToHide(USER, REVNET_ID);
 
         // Hide tokens.
         uint256 hideCount = userTokensBefore / 2;
@@ -244,7 +244,7 @@ contract TestHiddenTokens is TestBaseWorkflow {
         uint256 userTokens = jbController().TOKENS().totalBalanceOf(USER, REVNET_ID);
         uint256 hideCount = userTokens / 4;
 
-        _grantHiddenTokensPermission(USER, REVNET_ID);
+        _allowHolderToHide(USER, REVNET_ID);
 
         // Hide some tokens.
         vm.prank(USER);
@@ -279,7 +279,7 @@ contract TestHiddenTokens is TestBaseWorkflow {
 
         uint256 userTokens = jbController().TOKENS().totalBalanceOf(USER, REVNET_ID);
 
-        _grantHiddenTokensPermission(USER, REVNET_ID);
+        _allowHolderToHide(USER, REVNET_ID);
 
         // Hide half the user's tokens.
         uint256 hideCount = userTokens / 2;
@@ -311,7 +311,7 @@ contract TestHiddenTokens is TestBaseWorkflow {
 
         uint256 userTokens = jbController().TOKENS().totalBalanceOf(USER, REVNET_ID);
 
-        _grantHiddenTokensPermission(USER, REVNET_ID);
+        _allowHolderToHide(USER, REVNET_ID);
 
         vm.prank(USER);
         vm.expectEmit(true, false, false, true);
@@ -334,7 +334,7 @@ contract TestHiddenTokens is TestBaseWorkflow {
 
         uint256 userTokens = jbController().TOKENS().totalBalanceOf(USER, REVNET_ID);
 
-        _grantHiddenTokensPermission(USER, REVNET_ID);
+        _allowHolderToHide(USER, REVNET_ID);
 
         vm.prank(USER);
         HIDDEN_TOKENS.hideTokensOf(REVNET_ID, userTokens, USER);
@@ -345,9 +345,8 @@ contract TestHiddenTokens is TestBaseWorkflow {
         HIDDEN_TOKENS.revealTokensOf(REVNET_ID, userTokens, USER, USER);
     }
 
-    function test_setTokenHidingAllowance_allowsDelegateToHide() public {
+    function test_setTokenHidingAllowedFor_allowsHolderToHide() public {
         uint256 payAmount = 10e18;
-        address delegate = makeAddr("delegate");
 
         vm.prank(USER);
         jbMultiTerminal().pay{value: payAmount}({
@@ -363,19 +362,10 @@ contract TestHiddenTokens is TestBaseWorkflow {
         uint256 userTokens = jbController().TOKENS().totalBalanceOf(USER, REVNET_ID);
         uint256 hideCount = userTokens / 2;
 
-        _grantHiddenTokensPermission(USER, REVNET_ID);
+        _allowHolderToHide(USER, REVNET_ID);
 
         vm.prank(USER);
-        HIDDEN_TOKENS.setTokenHidingAllowanceOf(REVNET_ID, delegate, true);
-
-        vm.prank(delegate);
         HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hideCount, USER);
-
-        vm.prank(delegate);
-        vm.expectRevert(
-            abi.encodeWithSelector(REVHiddenTokens.REVHiddenTokens_Unauthorized.selector, REVNET_ID, delegate)
-        );
-        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hideCount, USER, USER);
 
         vm.prank(USER);
         HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hideCount, USER, USER);
@@ -399,13 +389,9 @@ contract TestHiddenTokens is TestBaseWorkflow {
         jbPermissions().setPermissionsFor(account, permissionsData);
     }
 
-    function _grantHiddenTokensPermission(address operator, uint256 revnetId) internal {
-        uint8[] memory permissionIds = new uint8[](1);
-        permissionIds[0] = JBPermissionIds.HIDE_TOKENS;
-        JBPermissionsData memory permissionsData =
-            JBPermissionsData({operator: operator, projectId: uint56(revnetId), permissionIds: permissionIds});
+    function _allowHolderToHide(address holder, uint256 revnetId) internal {
         vm.prank(address(REV_DEPLOYER));
-        jbPermissions().setPermissionsFor(address(REV_DEPLOYER), permissionsData);
+        HIDDEN_TOKENS.setTokenHidingAllowedFor(revnetId, holder, true);
     }
 
     function _deployFeeProject() internal {

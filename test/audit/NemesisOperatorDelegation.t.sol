@@ -148,24 +148,15 @@ contract NemesisOperatorDelegationTest is TestBaseWorkflow {
         );
     }
 
-    function test_hiddenTokensPermissionedHolderCanAllowDelegateToHide() public {
+    function test_hiddenTokensOperatorCanAllowHolderToHideOwnTokens() public {
         uint256 userTokens = _payUserIntoRevnet(10e18);
         uint256 hiddenCount = userTokens / 2;
 
         _grantPermission(USER, REVNET_ID, address(HIDDEN_TOKENS), JBPermissionIds.BURN_TOKENS);
-        _grantOperatorHidePermission(USER);
+        _allowHolderToHide(USER);
 
         vm.prank(USER);
-        HIDDEN_TOKENS.setTokenHidingAllowanceOf(REVNET_ID, OPERATOR, true);
-
-        vm.prank(OPERATOR);
         HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hiddenCount, USER);
-
-        vm.prank(OPERATOR);
-        vm.expectRevert(
-            abi.encodeWithSelector(REVHiddenTokens.REVHiddenTokens_Unauthorized.selector, REVNET_ID, OPERATOR)
-        );
-        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hiddenCount, USER, USER);
 
         vm.prank(USER);
         HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hiddenCount, USER, USER);
@@ -182,7 +173,7 @@ contract NemesisOperatorDelegationTest is TestBaseWorkflow {
         uint256 userTokens = _payUserIntoRevnet(10e18);
 
         _grantPermission(USER, REVNET_ID, address(HIDDEN_TOKENS), JBPermissionIds.BURN_TOKENS);
-        _grantOperatorHidePermission(USER);
+        _allowHolderToHide(USER);
 
         vm.prank(OPERATOR);
         vm.expectRevert(
@@ -191,21 +182,18 @@ contract NemesisOperatorDelegationTest is TestBaseWorkflow {
         HIDDEN_TOKENS.hideTokensOf(REVNET_ID, userTokens / 2, USER);
     }
 
-    function test_hiddenTokensOperatorCanDisallowPreviousDelegate() public {
+    function test_hiddenTokensOperatorCanDisallowHolder() public {
         uint256 userTokens = _payUserIntoRevnet(10e18);
 
         _grantPermission(USER, REVNET_ID, address(HIDDEN_TOKENS), JBPermissionIds.BURN_TOKENS);
-        _grantOperatorHidePermission(USER);
+        _allowHolderToHide(USER);
+
+        vm.prank(address(REV_DEPLOYER));
+        HIDDEN_TOKENS.setTokenHidingAllowedFor(REVNET_ID, USER, false);
 
         vm.prank(USER);
-        HIDDEN_TOKENS.setTokenHidingAllowanceOf(REVNET_ID, OPERATOR, true);
-
-        vm.prank(USER);
-        HIDDEN_TOKENS.setTokenHidingAllowanceOf(REVNET_ID, OPERATOR, false);
-
-        vm.prank(OPERATOR);
         vm.expectRevert(
-            abi.encodeWithSelector(REVHiddenTokens.REVHiddenTokens_Unauthorized.selector, REVNET_ID, OPERATOR)
+            abi.encodeWithSelector(REVHiddenTokens.REVHiddenTokens_Unauthorized.selector, REVNET_ID, USER)
         );
         HIDDEN_TOKENS.hideTokensOf(REVNET_ID, userTokens / 2, USER);
     }
@@ -236,16 +224,9 @@ contract NemesisOperatorDelegationTest is TestBaseWorkflow {
         assertGt(tokenCount, 0, "payment should mint revnet tokens");
     }
 
-    function _grantOperatorHidePermission(address delegate) internal {
-        uint8[] memory permissionIds = new uint8[](1);
-        permissionIds[0] = JBPermissionIds.HIDE_TOKENS;
-
+    function _allowHolderToHide(address holder) internal {
         vm.prank(address(REV_DEPLOYER));
-        jbPermissions()
-            .setPermissionsFor(
-                address(REV_DEPLOYER),
-                JBPermissionsData({operator: delegate, projectId: uint56(REVNET_ID), permissionIds: permissionIds})
-            );
+        HIDDEN_TOKENS.setTokenHidingAllowedFor(REVNET_ID, holder, true);
     }
 
     function _deployFeeProject() internal {

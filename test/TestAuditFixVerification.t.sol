@@ -520,7 +520,7 @@ contract TestAuditFixVerification is TestBaseWorkflow {
         uint256 userTokens = jbController().TOKENS().totalBalanceOf(USER, REVNET_ID);
         uint256 totalSupplyBefore = jbController().totalTokenSupplyWithReservedTokensOf(REVNET_ID);
 
-        _grantHiddenTokensPermission(USER, REVNET_ID);
+        _allowHolderToHide(USER, REVNET_ID);
 
         // Hide half the tokens via a split-operator delegate.
         uint256 hideCount = userTokens / 2;
@@ -553,7 +553,7 @@ contract TestAuditFixVerification is TestBaseWorkflow {
         uint256 userTokens = jbController().TOKENS().totalBalanceOf(USER, REVNET_ID);
         uint256 totalSupplyBefore = jbController().totalTokenSupplyWithReservedTokensOf(REVNET_ID);
 
-        _grantHiddenTokensPermission(USER, REVNET_ID);
+        _allowHolderToHide(USER, REVNET_ID);
 
         // Hide 80% of the user's tokens.
         uint256 hideCount = (userTokens * 80) / 100;
@@ -587,13 +587,9 @@ contract TestAuditFixVerification is TestBaseWorkflow {
         jbPermissions().setPermissionsFor(account, permissionsData);
     }
 
-    function _grantHiddenTokensPermission(address operator, uint256 revnetId) internal {
-        uint8[] memory permissionIds = new uint8[](1);
-        permissionIds[0] = JBPermissionIds.HIDE_TOKENS;
-        JBPermissionsData memory permissionsData =
-            JBPermissionsData({operator: operator, projectId: uint56(revnetId), permissionIds: permissionIds});
+    function _allowHolderToHide(address holder, uint256 revnetId) internal {
         vm.prank(address(REV_DEPLOYER));
-        jbPermissions().setPermissionsFor(address(REV_DEPLOYER), permissionsData);
+        HIDDEN_TOKENS.setTokenHidingAllowedFor(revnetId, holder, true);
     }
 
     function _deployFeeProject() internal {

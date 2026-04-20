@@ -107,20 +107,23 @@ This repo packages autonomous Revnets: staged Juicebox projects whose runtime be
 
 **Preconditions**
 
-- the holder granted the required permissions
+- the holder granted `BURN_TOKENS` to `REVHiddenTokens`
+- an operator with `HIDE_TOKENS` has allowlisted the holder for hidden-token actions
 - the holder accepts the supply and collateral implications of hiding tokens
 
 **Main Flow**
 
 1. Grant `BURN_TOKENS` to `REVHiddenTokens`.
-2. Call `hideTokensOf(...)` to burn tokens and track the hidden balance.
-3. The lower visible supply changes per-token cash-out value.
-4. Later call `revealTokensOf(...)` to remint hidden tokens.
+2. An operator calls `setTokenHidingAllowedFor(...)` to allow the holder to hide their own tokens.
+3. The holder calls `hideTokensOf(...)` to burn tokens and track the hidden balance.
+4. The lower visible supply changes per-token cash-out value.
+5. Later, the holder calls `revealTokensOf(...)` to remint hidden tokens back to themselves.
 
 **Failure Modes**
 
 - more tokens are revealed than were hidden
-- holders forget that revealed tokens increase visible supply again
+- holders attempt to hide tokens without being allowlisted
+- non-holders attempt to reveal hidden tokens
 - hidden tokens are assumed to remain usable as loan collateral
 
 **Postconditions**

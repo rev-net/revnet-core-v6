@@ -48,13 +48,10 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
     /// @custom:param revnetId The ID of the revnet.
     mapping(uint256 revnetId => uint256 count) public override totalHiddenOf;
 
-    /// @notice Whether a delegate is allowed to hide and reveal a holder's tokens.
+    /// @notice Whether a holder is allowed to hide their own tokens.
     /// @custom:param holder The holder whose tokens are being managed.
     /// @custom:param revnetId The ID of the revnet.
-    /// @custom:param delegate The delegate address.
-    mapping(address holder => mapping(uint256 revnetId => mapping(address delegate => bool isAllowed)))
-        public
-        override tokenHidingIsAllowedFor;
+    mapping(address holder => mapping(uint256 revnetId => bool isAllowed)) public override tokenHidingIsAllowedFor;
 
     //*********************************************************************//
     // -------------------------- constructor ---------------------------- //
@@ -74,15 +71,15 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
     }
 
     /// @notice Hide tokens by burning them and tracking them for later reveal.
-    /// @dev Callers with `HIDE_TOKENS` permission can hide their own tokens and can explicitly allow delegates
-    /// to hide tokens on their behalf.
+    /// @dev Only an allowlisted holder can hide their own tokens.
     /// @dev The holder must have granted BURN_TOKENS permission to this contract.
     /// @param revnetId The ID of the revnet whose tokens to hide.
     /// @param tokenCount The number of tokens to hide.
     /// @param holder The address whose tokens to hide.
     function hideTokensOf(uint256 revnetId, uint256 tokenCount, address holder) external override {
         address caller = _msgSender();
-        _requireCanManageHiddenTokensOf({revnetId: revnetId, holder: holder, caller: caller});
+        if (caller != holder) revert REVHiddenTokens_Unauthorized(revnetId, caller);
+        if (!tokenHidingIsAllowedFor[holder][revnetId]) revert REVHiddenTokens_Unauthorized(revnetId, caller);
 
         // Increment the holder's hidden balance.
         hiddenBalanceOf[holder][revnetId] += tokenCount;
@@ -141,41 +138,19 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
         });
     }
 
-    /// @notice Allow or disallow a delegate to hide and reveal the caller's tokens.
+    /// @notice Allow or disallow a holder to hide their own tokens.
     /// @dev The caller must have `HIDE_TOKENS` permission for the revnet.
     /// @param revnetId The ID of the revnet.
-    /// @param delegate The delegate to update.
-    /// @param isAllowed Whether the delegate should be allowed.
-    function setTokenHidingAllowanceOf(uint256 revnetId, address delegate, bool isAllowed) external override {
-        address caller = _msgSender();
+    /// @param holder The holder to update.
+    /// @param isAllowed Whether the holder should be allowed.
+    function setTokenHidingAllowedFor(uint256 revnetId, address holder, bool isAllowed) external override {
         _requirePermissionFrom({
             account: PROJECTS.ownerOf(revnetId), projectId: revnetId, permissionId: JBPermissionIds.HIDE_TOKENS
         });
 
-        tokenHidingIsAllowedFor[caller][revnetId][delegate] = isAllowed;
+        tokenHidingIsAllowedFor[holder][revnetId] = isAllowed;
 
-        emit SetTokenHidingAllowance({revnetId: revnetId, holder: caller, delegate: delegate, isAllowed: isAllowed});
-    }
-
-    //*********************************************************************//
-    // -------------------------- internal views ------------------------- //
-    //*********************************************************************//
-
-    /// @notice Require the caller to be allowed to manage hidden tokens for the specified holder.
-    /// @param revnetId The ID of the revnet.
-    /// @param holder The holder whose tokens are being managed.
-    /// @param caller The caller attempting to manage the holder's hidden tokens.
-    function _requireCanManageHiddenTokensOf(uint256 revnetId, address holder, address caller) internal view {
-        if (caller == holder) {
-            _requirePermissionFrom({
-                account: PROJECTS.ownerOf(revnetId), projectId: revnetId, permissionId: JBPermissionIds.HIDE_TOKENS
-            });
-            return;
-        }
-
-        if (!tokenHidingIsAllowedFor[holder][revnetId][caller]) {
-            revert REVHiddenTokens_Unauthorized(revnetId, caller);
-        }
+        emit SetTokenHidingAllowed({revnetId: revnetId, holder: holder, isAllowed: isAllowed});
     }
 
     //*********************************************************************//

@@ -102,5 +102,6 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 
 | Function | Permissions | What it does |
 |----------|------------|-------------|
-| `REVHiddenTokens.hideTokensOf(holder, revnetId, tokenCount)` | Holder or delegated permission | Burns visible tokens, increases hidden balance, and lowers visible supply. |
-| `REVHiddenTokens.revealTokensOf(holder, revnetId, tokenCount, beneficiary)` | Holder or delegated permission | Re-mints previously hidden tokens to a beneficiary and reduces hidden balance. |
+| `REVHiddenTokens.hideTokensOf(revnetId, tokenCount, holder)` | Allowlisted holder only | Burns visible tokens, increases hidden balance, and lowers visible supply. |
+| `REVHiddenTokens.revealTokensOf(revnetId, tokenCount, beneficiary, holder)` | Holder only | Re-mints previously hidden tokens back to the holder and reduces hidden balance. |
+| `REVHiddenTokens.setTokenHidingAllowedFor(revnetId, holder, isAllowed)` | Operator with `HIDE_TOKENS` | Allows or revokes a holder's ability to hide their own tokens. |
