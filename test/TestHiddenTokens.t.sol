@@ -213,7 +213,7 @@ contract TestHiddenTokens is TestBaseWorkflow {
 
         // Reveal tokens back to USER.
         vm.prank(USER);
-        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hideCount, USER, USER);
+        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hideCount, USER);
 
         uint256 totalSupplyAfter = jbController().TOKENS().totalSupplyOf(REVNET_ID);
         assertEq(totalSupplyAfter, totalSupplyBefore, "Total supply should be restored");
@@ -257,7 +257,7 @@ contract TestHiddenTokens is TestBaseWorkflow {
                 REVHiddenTokens.REVHiddenTokens_InsufficientHiddenBalance.selector, hideCount, hideCount + 1
             )
         );
-        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hideCount + 1, USER, USER);
+        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hideCount + 1, USER);
     }
 
     // ──────────────────── Test: Hidden tokens inflate cash out rate
@@ -341,8 +341,8 @@ contract TestHiddenTokens is TestBaseWorkflow {
 
         vm.prank(USER);
         vm.expectEmit(true, false, false, true);
-        emit IREVHiddenTokens.RevealTokens(REVNET_ID, userTokens, USER, USER, USER);
-        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, userTokens, USER, USER);
+        emit IREVHiddenTokens.RevealTokens(REVNET_ID, userTokens, USER, USER);
+        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, userTokens, USER);
     }
 
     function test_setTokenHidingAllowedFor_allowsHolderToHide() public {
@@ -368,7 +368,7 @@ contract TestHiddenTokens is TestBaseWorkflow {
         HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hideCount, USER);
 
         vm.prank(USER);
-        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hideCount, USER, USER);
+        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hideCount, USER);
 
         assertEq(jbController().TOKENS().totalBalanceOf(USER, REVNET_ID), userTokens, "User balance should be restored");
     }

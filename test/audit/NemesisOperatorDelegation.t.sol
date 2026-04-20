@@ -159,7 +159,7 @@ contract NemesisOperatorDelegationTest is TestBaseWorkflow {
         HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hiddenCount, USER);
 
         vm.prank(USER);
-        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hiddenCount, USER, USER);
+        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hiddenCount, USER);
 
         assertEq(HIDDEN_TOKENS.hiddenBalanceOf(USER, REVNET_ID), 0, "holder hidden balance was consumed");
         assertEq(
@@ -169,21 +169,31 @@ contract NemesisOperatorDelegationTest is TestBaseWorkflow {
         );
     }
 
-    function test_hiddenTokensPermissionedOperatorCanHideForHolder() public {
-        uint256 userTokens = _payUserIntoRevnet(10e18);
-        uint256 hiddenCount = userTokens / 2;
+    function test_hiddenTokensPermissionedOperatorCanHideOwnTokens() public {
+        vm.deal(OPERATOR, 10e18);
+        vm.prank(OPERATOR);
+        uint256 operatorTokens = jbMultiTerminal().pay{value: 10e18}({
+            projectId: REVNET_ID,
+            token: JBConstants.NATIVE_TOKEN,
+            amount: 10e18,
+            beneficiary: OPERATOR,
+            minReturnedTokens: 0,
+            memo: "",
+            metadata: ""
+        });
+        uint256 hiddenCount = operatorTokens / 2;
 
-        _grantPermission(USER, REVNET_ID, address(HIDDEN_TOKENS), JBPermissionIds.BURN_TOKENS);
+        _grantPermission(OPERATOR, REVNET_ID, address(HIDDEN_TOKENS), JBPermissionIds.BURN_TOKENS);
         _grantOperatorHidePermission(OPERATOR);
 
         vm.prank(OPERATOR);
-        HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hiddenCount, USER);
+        HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hiddenCount, OPERATOR);
 
-        assertEq(HIDDEN_TOKENS.hiddenBalanceOf(USER, REVNET_ID), hiddenCount, "holder hidden balance was updated");
+        assertEq(HIDDEN_TOKENS.hiddenBalanceOf(OPERATOR, REVNET_ID), hiddenCount, "operator hidden balance was updated");
         assertEq(
-            jbController().TOKENS().totalBalanceOf(USER, REVNET_ID),
-            userTokens - hiddenCount,
-            "holder's visible balance was reduced"
+            jbController().TOKENS().totalBalanceOf(OPERATOR, REVNET_ID),
+            operatorTokens - hiddenCount,
+            "operator's visible balance was reduced"
         );
     }
 
