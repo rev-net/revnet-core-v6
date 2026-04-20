@@ -4,12 +4,12 @@ pragma solidity 0.8.28;
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBPermissioned} from "@bananapus/core-v6/src/interfaces/IJBPermissioned.sol";
 import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
+import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
 import {JBPermissioned} from "@bananapus/core-v6/src/abstract/JBPermissioned.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import {Context} from "@openzeppelin/contracts/utils/Context.sol";
 
-import {IREVDeployer} from "./interfaces/IREVDeployer.sol";
 import {IREVHiddenTokens} from "./interfaces/IREVHiddenTokens.sol";
 
 /// @notice Allows authorized operators to hide (burn) revnet tokens on behalf of holders, excluding them from
@@ -21,10 +21,8 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
     // --------------------------- custom errors ------------------------- //
     //*********************************************************************//
 
-    error REVHiddenTokens_AlreadyInitialized();
     error REVHiddenTokens_InsufficientHiddenBalance(uint256 hiddenBalance, uint256 requested);
-    error REVHiddenTokens_InvalidBeneficiary(address beneficiary, address caller);
-    error REVHiddenTokens_InvalidHolder(address holder, address caller);
+    error REVHiddenTokens_InvalidBeneficiary(address beneficiary, address holder);
     error REVHiddenTokens_Unauthorized(uint256 revnetId, address caller);
 
     //*********************************************************************//
@@ -34,8 +32,8 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
     /// @notice The controller that manages revnets using this contract.
     IJBController public immutable override CONTROLLER;
 
-    /// @notice The deployer that tracks each revnet's split operator.
-    IREVDeployer public DEPLOYER;
+    /// @notice The projects contract used to resolve revnet owners.
+    IJBProjects public immutable PROJECTS;
 
     //*********************************************************************//
     // --------------------- public stored properties -------------------- //
@@ -50,8 +48,14 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
     /// @custom:param revnetId The ID of the revnet.
     mapping(uint256 revnetId => uint256 count) public override totalHiddenOf;
 
-    /// @notice The account allowed to bind the canonical deployer exactly once.
-    address private immutable _DEPLOYER_BINDER;
+    /// @notice Whether a delegate is allowed to hide and reveal a holder's tokens.
+    /// @custom:param holder The holder whose tokens are being managed.
+    /// @custom:param revnetId The ID of the revnet.
+    /// @custom:param delegate The delegate address.
+    mapping(address holder => mapping(uint256 revnetId => mapping(address delegate => bool isAllowed)))
+        public
+        override
+        tokenHidingIsAllowedFor;
 
     //*********************************************************************//
     // -------------------------- constructor ---------------------------- //
@@ -67,7 +71,7 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
         JBPermissioned(IJBPermissioned(address(controller)).PERMISSIONS())
     {
         CONTROLLER = controller;
-        _DEPLOYER_BINDER = msg.sender;
+        PROJECTS = controller.PROJECTS();
     }
 
     //*********************************************************************//
@@ -83,35 +87,16 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
         supply = CONTROLLER.totalTokenSupplyWithReservedTokensOf(revnetId) + totalHiddenOf[revnetId];
     }
 
-    /// @notice Bind the canonical deployer exactly once.
-    /// @param deployer The revnet deployer.
-    function setDeployer(IREVDeployer deployer) external {
-        if (msg.sender != _DEPLOYER_BINDER) revert REVHiddenTokens_Unauthorized(0, msg.sender);
-        if (address(DEPLOYER) != address(0)) revert REVHiddenTokens_AlreadyInitialized();
-
-        DEPLOYER = deployer;
-    }
-
-    //*********************************************************************//
-    // --------------------- external transactions ----------------------- //
-    //*********************************************************************//
-
     /// @notice Hide tokens by burning them and tracking them for later reveal.
-    /// @dev Only the revnet's split operator or an address the split operator has authorized can hide tokens.
-    /// Callers can only hide their own tokens.
+    /// @dev Callers with `HIDE_TOKENS` permission can hide their own tokens and can explicitly allow delegates
+    /// to hide tokens on their behalf.
     /// @dev The holder must have granted BURN_TOKENS permission to this contract.
     /// @param revnetId The ID of the revnet whose tokens to hide.
     /// @param tokenCount The number of tokens to hide.
     /// @param holder The address whose tokens to hide.
     function hideTokensOf(uint256 revnetId, uint256 tokenCount, address holder) external override {
         address caller = _msgSender();
-        if (holder != caller) revert REVHiddenTokens_InvalidHolder(holder, caller);
-
-        _requirePermissionFrom({
-            account: DEPLOYER.splitOperatorOf(revnetId),
-            projectId: revnetId,
-            permissionId: JBPermissionIds.HIDE_TOKENS
-        });
+        _requireCanManageHiddenTokensOf({revnetId: revnetId, holder: holder, caller: caller});
 
         // Increment the holder's hidden balance.
         hiddenBalanceOf[holder][revnetId] += tokenCount;
@@ -127,8 +112,8 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
     }
 
     /// @notice Reveal previously hidden tokens by re-minting them.
-    /// @dev Only the revnet's split operator or an address the split operator has authorized can reveal tokens.
-    /// Callers can only reveal their own hidden balance back to themselves.
+    /// @dev Callers with `HIDE_TOKENS` permission can reveal their own tokens and can explicitly allow delegates
+    /// to reveal tokens on their behalf. Revealed tokens always return to the holder.
     /// @param revnetId The ID of the revnet whose tokens to reveal.
     /// @param tokenCount The number of tokens to reveal.
     /// @param beneficiary The address that will receive the revealed tokens.
@@ -143,14 +128,8 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
         override
     {
         address caller = _msgSender();
-        if (holder != caller) revert REVHiddenTokens_InvalidHolder(holder, caller);
-        if (beneficiary != caller) revert REVHiddenTokens_InvalidBeneficiary(beneficiary, caller);
-
-        _requirePermissionFrom({
-            account: DEPLOYER.splitOperatorOf(revnetId),
-            projectId: revnetId,
-            permissionId: JBPermissionIds.HIDE_TOKENS
-        });
+        _requireCanManageHiddenTokensOf({revnetId: revnetId, holder: holder, caller: caller});
+        if (beneficiary != holder) revert REVHiddenTokens_InvalidBeneficiary(beneficiary, holder);
 
         uint256 hidden = hiddenBalanceOf[holder][revnetId];
 
@@ -174,6 +153,49 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
         emit RevealTokens({
             revnetId: revnetId, tokenCount: tokenCount, beneficiary: beneficiary, holder: holder, caller: _msgSender()
         });
+    }
+
+    /// @notice Allow or disallow a delegate to hide and reveal the caller's tokens.
+    /// @dev The caller must have `HIDE_TOKENS` permission for the revnet.
+    /// @param revnetId The ID of the revnet.
+    /// @param delegate The delegate to update.
+    /// @param isAllowed Whether the delegate should be allowed.
+    function setTokenHidingAllowanceOf(uint256 revnetId, address delegate, bool isAllowed) external override {
+        address caller = _msgSender();
+        _requirePermissionFrom({
+            account: PROJECTS.ownerOf(revnetId),
+            projectId: revnetId,
+            permissionId: JBPermissionIds.HIDE_TOKENS
+        });
+
+        tokenHidingIsAllowedFor[caller][revnetId][delegate] = isAllowed;
+
+        emit SetTokenHidingAllowance({
+            revnetId: revnetId, holder: caller, delegate: delegate, isAllowed: isAllowed
+        });
+    }
+
+    //*********************************************************************//
+    // -------------------------- internal views ------------------------- //
+    //*********************************************************************//
+
+    /// @notice Require the caller to be allowed to manage hidden tokens for the specified holder.
+    /// @param revnetId The ID of the revnet.
+    /// @param holder The holder whose tokens are being managed.
+    /// @param caller The caller attempting to manage the holder's hidden tokens.
+    function _requireCanManageHiddenTokensOf(uint256 revnetId, address holder, address caller) internal view {
+        if (caller == holder) {
+            _requirePermissionFrom({
+                account: PROJECTS.ownerOf(revnetId),
+                projectId: revnetId,
+                permissionId: JBPermissionIds.HIDE_TOKENS
+            });
+            return;
+        }
+
+        if (!tokenHidingIsAllowedFor[holder][revnetId][caller]) {
+            revert REVHiddenTokens_Unauthorized(revnetId, caller);
+        }
     }
 
     //*********************************************************************//

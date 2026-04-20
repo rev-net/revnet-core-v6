@@ -518,9 +518,6 @@ contract DeployScript is Script, Sphinx {
         if (address(revOwner.DEPLOYER()) == address(0)) {
             revOwner.setDeployer(IREVDeployer(_deployerAddr));
         }
-        if (address(revHiddenTokens.DEPLOYER()) == address(0)) {
-            revHiddenTokens.setDeployer(IREVDeployer(_deployerAddr));
-        }
         REVDeployer _basicDeployer = _deployerIsDeployed
             ? REVDeployer(payable(_deployerAddr))
             : new REVDeployer{salt: DEPLOYER_SALT}({

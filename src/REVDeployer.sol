@@ -158,10 +158,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     // slither-disable-next-line uninitialized-state
     mapping(uint256 revnetId => uint256[]) internal _extraOperatorPermissions;
 
-    /// @notice The current split operator for each revnet.
-    /// @custom:param revnetId The ID of the revnet to get the split operator for.
-    mapping(uint256 revnetId => address operator) public override splitOperatorOf;
-
     //*********************************************************************//
     // -------------------------- constructor ---------------------------- //
     //*********************************************************************//
@@ -237,7 +233,14 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @param addr The address to check.
     /// @return flag A flag indicating whether the address is the revnet's split operator.
     function isSplitOperatorOf(uint256 revnetId, address addr) public view override returns (bool) {
-        return splitOperatorOf[revnetId] == addr;
+        return PERMISSIONS.hasPermissions({
+            operator: addr,
+            account: address(this),
+            projectId: revnetId,
+            permissionIds: _splitOperatorPermissionIndexesOf(revnetId),
+            includeRoot: false,
+            includeWildcardProjectId: false
+        });
     }
 
     /// @notice Indicates if this contract adheres to the specified interface.
@@ -1124,7 +1127,5 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         _setPermissionsFor({
             account: address(this), operator: operator, revnetId: revnetId, permissionIds: permissionIds
         });
-
-        splitOperatorOf[revnetId] = operator;
     }
 }

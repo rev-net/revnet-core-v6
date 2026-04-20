@@ -302,7 +302,6 @@ contract TestAuditFixVerification is TestBaseWorkflow {
             address(REV_OWNER)
         );
 
-        HIDDEN_TOKENS.setDeployer(REV_DEPLOYER);
         REV_OWNER.setDeployer(REV_DEPLOYER);
 
         vm.prank(multisig());
@@ -609,8 +608,8 @@ contract TestAuditFixVerification is TestBaseWorkflow {
             projectId: uint56(revnetId),
             permissionIds: permissionIds
         });
-        vm.prank(multisig());
-        jbPermissions().setPermissionsFor(multisig(), permissionsData);
+        vm.prank(address(REV_DEPLOYER));
+        jbPermissions().setPermissionsFor(address(REV_DEPLOYER), permissionsData);
     }
 
     function _deployFeeProject() internal {

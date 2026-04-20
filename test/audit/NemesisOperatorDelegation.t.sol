@@ -117,7 +117,6 @@ contract NemesisOperatorDelegationTest is TestBaseWorkflow {
             address(REV_OWNER)
         );
 
-        HIDDEN_TOKENS.setDeployer(REV_DEPLOYER);
         REV_OWNER.setDeployer(IREVDeployer(REV_DEPLOYER));
 
         vm.prank(multisig());
@@ -149,24 +148,27 @@ contract NemesisOperatorDelegationTest is TestBaseWorkflow {
         );
     }
 
-    function test_hiddenTokensDelegateCanOnlyHideAndRevealOwnTokens() public {
-        uint256 operatorTokens = _payOperatorIntoRevnet(10e18);
-        uint256 hiddenCount = operatorTokens / 2;
+    function test_hiddenTokensPermissionedHolderCanAllowDelegate() public {
+        uint256 userTokens = _payUserIntoRevnet(10e18);
+        uint256 hiddenCount = userTokens / 2;
 
-        _grantPermission(OPERATOR, REVNET_ID, address(HIDDEN_TOKENS), JBPermissionIds.BURN_TOKENS);
-        _grantOperatorHidePermission(OPERATOR);
+        _grantPermission(USER, REVNET_ID, address(HIDDEN_TOKENS), JBPermissionIds.BURN_TOKENS);
+        _grantOperatorHidePermission(USER);
+
+        vm.prank(USER);
+        HIDDEN_TOKENS.setTokenHidingAllowanceOf(REVNET_ID, OPERATOR, true);
 
         vm.prank(OPERATOR);
-        HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hiddenCount, OPERATOR);
+        HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hiddenCount, USER);
 
         vm.prank(OPERATOR);
-        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hiddenCount, OPERATOR, OPERATOR);
+        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hiddenCount, USER, USER);
 
-        assertEq(HIDDEN_TOKENS.hiddenBalanceOf(OPERATOR, REVNET_ID), 0, "operator hidden balance was consumed");
+        assertEq(HIDDEN_TOKENS.hiddenBalanceOf(USER, REVNET_ID), 0, "holder hidden balance was consumed");
         assertEq(
-            jbController().TOKENS().totalBalanceOf(OPERATOR, REVNET_ID),
-            operatorTokens,
-            "operator gets their own revealed tokens back"
+            jbController().TOKENS().totalBalanceOf(USER, REVNET_ID),
+            userTokens,
+            "holder gets their own revealed tokens back"
         );
     }
 
@@ -174,25 +176,28 @@ contract NemesisOperatorDelegationTest is TestBaseWorkflow {
         uint256 userTokens = _payUserIntoRevnet(10e18);
 
         _grantPermission(USER, REVNET_ID, address(HIDDEN_TOKENS), JBPermissionIds.BURN_TOKENS);
-        _grantOperatorHidePermission(OPERATOR);
+        _grantOperatorHidePermission(USER);
 
         vm.prank(OPERATOR);
-        vm.expectRevert(
-            abi.encodeWithSelector(REVHiddenTokens.REVHiddenTokens_InvalidHolder.selector, USER, OPERATOR)
-        );
+        vm.expectRevert(abi.encodeWithSelector(REVHiddenTokens.REVHiddenTokens_Unauthorized.selector, REVNET_ID, OPERATOR));
         HIDDEN_TOKENS.hideTokensOf(REVNET_ID, userTokens / 2, USER);
     }
 
     function test_hiddenTokensOperatorCanDisallowPreviousDelegate() public {
-        uint256 operatorTokens = _payOperatorIntoRevnet(10e18);
+        uint256 userTokens = _payUserIntoRevnet(10e18);
 
-        _grantPermission(OPERATOR, REVNET_ID, address(HIDDEN_TOKENS), JBPermissionIds.BURN_TOKENS);
-        _grantOperatorHidePermission(OPERATOR);
-        _revokeOperatorHidePermission(OPERATOR);
+        _grantPermission(USER, REVNET_ID, address(HIDDEN_TOKENS), JBPermissionIds.BURN_TOKENS);
+        _grantOperatorHidePermission(USER);
+
+        vm.prank(USER);
+        HIDDEN_TOKENS.setTokenHidingAllowanceOf(REVNET_ID, OPERATOR, true);
+
+        vm.prank(USER);
+        HIDDEN_TOKENS.setTokenHidingAllowanceOf(REVNET_ID, OPERATOR, false);
 
         vm.prank(OPERATOR);
-        vm.expectRevert();
-        HIDDEN_TOKENS.hideTokensOf(REVNET_ID, operatorTokens / 2, OPERATOR);
+        vm.expectRevert(abi.encodeWithSelector(REVHiddenTokens.REVHiddenTokens_Unauthorized.selector, REVNET_ID, OPERATOR));
+        HIDDEN_TOKENS.hideTokensOf(REVNET_ID, userTokens / 2, USER);
     }
 
     function _grantPermission(address account, uint256 revnetId, address operator, uint8 permissionId) internal {
@@ -221,35 +226,14 @@ contract NemesisOperatorDelegationTest is TestBaseWorkflow {
         assertGt(tokenCount, 0, "payment should mint revnet tokens");
     }
 
-    function _payOperatorIntoRevnet(uint256 amount) internal returns (uint256 tokenCount) {
-        vm.deal(OPERATOR, amount);
-        vm.prank(OPERATOR);
-        tokenCount = jbMultiTerminal().pay{value: amount}({
-            projectId: REVNET_ID,
-            token: JBConstants.NATIVE_TOKEN,
-            amount: amount,
-            beneficiary: OPERATOR,
-            minReturnedTokens: 0,
-            memo: "",
-            metadata: ""
-        });
-        assertGt(tokenCount, 0, "payment should mint revnet tokens");
-    }
-
     function _grantOperatorHidePermission(address delegate) internal {
         uint8[] memory permissionIds = new uint8[](1);
         permissionIds[0] = JBPermissionIds.HIDE_TOKENS;
 
-        vm.prank(multisig());
+        vm.prank(address(REV_DEPLOYER));
         jbPermissions().setPermissionsFor(
-            multisig(), JBPermissionsData({operator: delegate, projectId: uint56(REVNET_ID), permissionIds: permissionIds})
-        );
-    }
-
-    function _revokeOperatorHidePermission(address delegate) internal {
-        vm.prank(multisig());
-        jbPermissions().setPermissionsFor(
-            multisig(), JBPermissionsData({operator: delegate, projectId: uint56(REVNET_ID), permissionIds: new uint8[](0)})
+            address(REV_DEPLOYER),
+            JBPermissionsData({operator: delegate, projectId: uint56(REVNET_ID), permissionIds: permissionIds})
         );
     }
 

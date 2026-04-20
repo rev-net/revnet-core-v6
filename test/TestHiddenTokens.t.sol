@@ -139,7 +139,6 @@ contract TestHiddenTokens is TestBaseWorkflow {
             address(REV_OWNER)
         );
 
-        HIDDEN_TOKENS.setDeployer(REV_DEPLOYER);
         REV_OWNER.setDeployer(REV_DEPLOYER);
 
         vm.prank(multisig());
@@ -344,6 +343,38 @@ contract TestHiddenTokens is TestBaseWorkflow {
         HIDDEN_TOKENS.revealTokensOf(REVNET_ID, userTokens, USER, USER);
     }
 
+    function test_setTokenHidingAllowance_allowsDelegateToHideAndReveal() public {
+        uint256 payAmount = 10e18;
+        address delegate = makeAddr("delegate");
+
+        vm.prank(USER);
+        jbMultiTerminal().pay{value: payAmount}({
+            projectId: REVNET_ID,
+            token: JBConstants.NATIVE_TOKEN,
+            amount: payAmount,
+            beneficiary: USER,
+            minReturnedTokens: 0,
+            memo: "",
+            metadata: ""
+        });
+
+        uint256 userTokens = jbController().TOKENS().totalBalanceOf(USER, REVNET_ID);
+        uint256 hideCount = userTokens / 2;
+
+        _grantHiddenTokensPermission(USER, REVNET_ID);
+
+        vm.prank(USER);
+        HIDDEN_TOKENS.setTokenHidingAllowanceOf(REVNET_ID, delegate, true);
+
+        vm.prank(delegate);
+        HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hideCount, USER);
+
+        vm.prank(delegate);
+        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hideCount, USER, USER);
+
+        assertEq(jbController().TOKENS().totalBalanceOf(USER, REVNET_ID), userTokens, "User balance should be restored");
+    }
+
     // ──────────────────── Internal helpers
     // ────────────────────
 
@@ -368,8 +399,8 @@ contract TestHiddenTokens is TestBaseWorkflow {
             projectId: uint56(revnetId),
             permissionIds: permissionIds
         });
-        vm.prank(multisig());
-        jbPermissions().setPermissionsFor(multisig(), permissionsData);
+        vm.prank(address(REV_DEPLOYER));
+        jbPermissions().setPermissionsFor(address(REV_DEPLOYER), permissionsData);
     }
 
 
