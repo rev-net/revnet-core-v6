@@ -11,14 +11,17 @@ import {Context} from "@openzeppelin/contracts/utils/Context.sol";
 
 import {IREVHiddenTokens} from "./interfaces/IREVHiddenTokens.sol";
 
-/// @notice Allows revnet token holders to temporarily hide (burn) tokens, excluding them from totalSupply and
-/// increasing cash-out value for remaining holders. Hidden tokens can be revealed (re-minted) at any time.
+/// @notice Allows authorized operators to hide (burn) revnet tokens on behalf of holders, excluding them from
+/// governance weight. Hidden tokens remain counted in totalSupply for cash-out/borrow valuations (via
+/// `totalSupplyIncludingHiddenOf`) so hiding has NO economic benefit — it only reduces governance power.
+/// Hidden tokens can be revealed (re-minted) at any time.
 contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
     //*********************************************************************//
     // --------------------------- custom errors ------------------------- //
     //*********************************************************************//
 
     error REVHiddenTokens_InsufficientHiddenBalance(uint256 hiddenBalance, uint256 requested);
+    error REVHiddenTokens_Unauthorized(uint256 revnetId, address caller);
 
     //*********************************************************************//
     // --------------- public immutable stored properties ---------------- //
@@ -57,17 +60,34 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
     }
 
     //*********************************************************************//
+    // ----------------------- public views ------------------------------ //
+    //*********************************************************************//
+
+    /// @notice The total token supply including hidden tokens for a revnet.
+    /// @dev Use this for cash-out and borrow valuation calculations instead of raw totalSupply.
+    /// Hidden tokens are added back so that hiding has no economic benefit — only governance effect.
+    /// @param revnetId The ID of the revnet.
+    /// @return supply The total supply including both circulating and hidden tokens.
+    function totalSupplyIncludingHiddenOf(uint256 revnetId) public view override returns (uint256 supply) {
+        supply = CONTROLLER.totalTokenSupplyWithReservedTokensOf(revnetId) + totalHiddenOf[revnetId];
+    }
+
+    //*********************************************************************//
     // --------------------- external transactions ----------------------- //
     //*********************************************************************//
 
     /// @notice Hide tokens by burning them and tracking them for later reveal.
+    /// @dev Only the project owner or an operator authorized by the project owner (e.g. the split operator) can hide
+    /// tokens. This prevents unilateral supply manipulation by holders.
     /// @dev The holder must have granted BURN_TOKENS permission to this contract.
     /// @param revnetId The ID of the revnet whose tokens to hide.
     /// @param tokenCount The number of tokens to hide.
     /// @param holder The address whose tokens to hide.
     function hideTokensOf(uint256 revnetId, uint256 tokenCount, address holder) external override {
-        // Only the holder or a permissioned operator can hide tokens.
-        _requirePermissionFrom({account: holder, projectId: revnetId, permissionId: JBPermissionIds.HIDE_TOKENS});
+        // Require the caller is the project owner or has HIDE_TOKENS permission from the project owner.
+        // This operator-gates the feature so holders cannot unilaterally manipulate supply for economic gain.
+        address projectOwner = CONTROLLER.PROJECTS().ownerOf(revnetId);
+        _requirePermissionFrom({account: projectOwner, projectId: revnetId, permissionId: JBPermissionIds.HIDE_TOKENS});
 
         // Increment the holder's hidden balance.
         hiddenBalanceOf[holder][revnetId] += tokenCount;

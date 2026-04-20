@@ -37,6 +37,13 @@ interface IREVHiddenTokens {
     /// @return The total hidden token count.
     function totalHiddenOf(uint256 revnetId) external view returns (uint256);
 
+    /// @notice The total token supply including hidden tokens for a revnet.
+    /// @dev Use this for cash-out and borrow valuation calculations. Hidden tokens are added back into totalSupply
+    /// so that hiding has no economic benefit — only governance effect.
+    /// @param revnetId The ID of the revnet.
+    /// @return supply The total supply including both circulating and hidden tokens.
+    function totalSupplyIncludingHiddenOf(uint256 revnetId) external view returns (uint256 supply);
+
     /// @notice Hide tokens by burning them and tracking them for later reveal.
     /// @dev The holder must have granted BURN_TOKENS permission to this contract.
     /// @param revnetId The ID of the revnet whose tokens to hide.

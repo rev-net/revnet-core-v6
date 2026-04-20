@@ -184,8 +184,13 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
         // feeless (e.g. the router terminal routing value between projects), proxy to the buyback hook with our
         // totalSupply and effectiveSurplusValue.
         if (context.cashOutTaxRate == 0 || address(feeTerminal) == address(0) || context.beneficiaryIsFeeless) {
+            // Build a modified context with cross-chain-adjusted values so the buyback hook sees the global state
+            // for its swap-vs-passthrough routing decision.
+            JBBeforeCashOutRecordedContext memory routedContext = context;
+            routedContext.totalSupply = totalSupply;
+            routedContext.surplus.value = effectiveSurplusValue;
             // slither-disable-next-line unused-return
-            (cashOutTaxRate, cashOutCount,,, hookSpecifications) = BUYBACK_HOOK.beforeCashOutRecordedWith(context);
+            (cashOutTaxRate, cashOutCount,,, hookSpecifications) = BUYBACK_HOOK.beforeCashOutRecordedWith(routedContext);
             return (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplusValue, hookSpecifications);
         }
 
@@ -227,9 +232,12 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
             feeAmount = context.surplus.value - postFeeReclaimedAmount;
         }
 
-        // Build a context for the buyback hook using only the non-fee token count.
+        // Build a context for the buyback hook using the non-fee token count and cross-chain-adjusted values
+        // so the buyback hook sees the global state for its swap-vs-passthrough routing decision.
         JBBeforeCashOutRecordedContext memory buybackHookContext = context;
         buybackHookContext.cashOutCount = nonFeeCashOutCount;
+        buybackHookContext.totalSupply = totalSupply;
+        buybackHookContext.surplus.value = effectiveSurplusValue;
 
         // Let the buyback hook adjust the cash out parameters and optionally return a hook specification.
         JBCashOutHookSpecification[] memory buybackHookSpecifications;
