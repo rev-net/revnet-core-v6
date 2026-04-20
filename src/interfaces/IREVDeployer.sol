@@ -141,6 +141,11 @@ interface IREVDeployer {
     /// @return A flag indicating whether the address is the revnet's split operator.
     function isSplitOperatorOf(uint256 revnetId, address addr) external view returns (bool);
 
+    /// @notice The current split operator of a revnet.
+    /// @param revnetId The ID of the revnet.
+    /// @return The split operator.
+    function splitOperatorOf(uint256 revnetId) external view returns (address);
+
     /// @notice The loan contract used by all revnets.
     /// @return The loans contract address.
     function LOANS() external view returns (address);
