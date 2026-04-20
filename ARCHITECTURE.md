@@ -82,6 +82,18 @@ The repo does not replace core treasury accounting. Its critical economic logic 
 - If you change borrowability, re-check cash-out-delay gating, omnichain surplus inputs, and local-surplus caps together.
 - If you change hook composition, re-check 721 split handling, buyback assumptions, and mint-permission flows.
 
+## Cross-Chain Configuration Hash
+
+`REVDeployer` produces an `encodedConfigurationHash` for each revnet that determines sucker deployment salts. This hash commits the revnet's identity across chains. It includes:
+
+- `baseCurrency`, `description.name`, `description.ticker`, `description.salt`
+- Terminal addresses (order-sensitive)
+- Stage parameters (timing, issuance, splits, tax rates, auto-issuances)
+
+Terminal addresses are included because they are deployed deterministically at the same address across chains. Accounting contexts (token addresses) are excluded because tokens like USDC legitimately differ per chain.
+
+This means a revnet can only expand to a new chain if it uses the exact same terminal contract it used on the host chain. Different terminal addresses produce a different hash, preventing accidental cross-chain mismatches in sucker deployments.
+
 ## Canonical Checks
 
 - cash-out-delay interaction with loans:
@@ -90,6 +102,8 @@ The repo does not replace core treasury accounting. Its critical economic logic 
   `test/TestStageTransitionBorrowable.t.sol`
 - omnichain or phantom-surplus edge cases:
   `test/audit/CodexPhantomSurplusTerminal.t.sol`
+- terminal encoding in configuration hash:
+  `test/TestTerminalEncodingInHash.t.sol`
 
 ## Source Map
 
