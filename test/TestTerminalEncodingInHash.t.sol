@@ -142,8 +142,7 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
             configuration: _baseRevConfig("DIFF_TERM"),
             terminalConfigurations: _terminalConfigs(jbMultiTerminal()),
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256("A")
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("A")
             }),
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -155,8 +154,7 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
             configuration: _baseRevConfig("DIFF_TERM"),
             terminalConfigurations: _terminalConfigs(jbMultiTerminal2()),
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256("B")
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("B")
             }),
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -176,8 +174,7 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
             configuration: _baseRevConfig("VERIFY"),
             terminalConfigurations: _terminalConfigs(jbMultiTerminal()),
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256("VERIFY")
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("VERIFY")
             }),
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -217,9 +214,7 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
         JBTerminalConfig[] memory tcAB = new JBTerminalConfig[](2);
         JBAccountingContext[] memory acc = new JBAccountingContext[](1);
         acc[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         tcAB[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
         tcAB[1] = JBTerminalConfig({terminal: jbMultiTerminal2(), accountingContextsToAccept: acc});
@@ -229,8 +224,7 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
             configuration: _baseRevConfig("ORDER"),
             terminalConfigurations: tcAB,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256("AB")
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("AB")
             }),
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -246,8 +240,7 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
             configuration: _baseRevConfig("ORDER"),
             terminalConfigurations: tcBA,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256("BA")
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("BA")
             }),
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -259,7 +252,9 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
         assertNotEq(hashAB, hashBA, "Terminal order must affect the configuration hash");
     }
 
-    // ─── Helpers ─────────────────────────────────────────────────────────────── //
+    // ─── Helpers
+    // ───────────────────────────────────────────────────────────────
+    // //
 
     function _baseRevConfig(bytes32 salt) internal view returns (REVConfig memory) {
         REVStageConfig[] memory stages = new REVStageConfig[](1);
@@ -285,9 +280,7 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
     function _terminalConfigs(IJBMultiTerminal terminal) internal pure returns (JBTerminalConfig[] memory tc) {
         JBAccountingContext[] memory acc = new JBAccountingContext[](1);
         acc[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         tc = new JBTerminalConfig[](1);
         tc[0] = JBTerminalConfig({terminal: terminal, accountingContextsToAccept: acc});
@@ -296,9 +289,7 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
     function _deployFeeProject() internal {
         JBAccountingContext[] memory acc = new JBAccountingContext[](1);
         acc[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
         tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
@@ -326,8 +317,7 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
             configuration: feeConfig,
             terminalConfigurations: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: keccak256("FEE")
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")
             }),
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
