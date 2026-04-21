@@ -11,7 +11,7 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 import {REVOwner} from "../../src/REVOwner.sol";
 
-/// @notice Regression test for L-17: REVOwner.supportsInterface omits IERC165.
+/// @notice Regression test for missing IERC165 support: REVOwner.supportsInterface omits IERC165.
 contract AuditFixL17Test is Test {
     REVOwner revOwner;
 
