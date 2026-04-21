@@ -16,6 +16,7 @@ import {JBCashOutHookSpecification} from "@bananapus/core-v6/src/structs/JBCashO
 import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
 import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {mulDiv} from "@prb/math/src/Common.sol";
@@ -458,7 +459,8 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
     /// @dev See `IERC165.supportsInterface`.
     /// @return A flag indicating if the provided interface ID is supported.
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
-        return interfaceId == type(IJBRulesetDataHook).interfaceId || interfaceId == type(IJBCashOutHook).interfaceId;
+        return interfaceId == type(IERC165).interfaceId || interfaceId == type(IJBRulesetDataHook).interfaceId
+            || interfaceId == type(IJBCashOutHook).interfaceId;
     }
 
     //*********************************************************************//
