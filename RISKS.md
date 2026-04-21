@@ -87,3 +87,11 @@ The model assumes that attempts to inflate surplus through donations are not pro
 ### 8.5 Omnichain terminal expansion inherits remote-chain trust
 
 A project that expands to a new chain can register additional terminals on that chain. Because borrowability calculations aggregate surplus from all registered terminals across all chains, a compromised or misconfigured terminal on a remote chain can corrupt the project's surplus accounting globally. This is mitigated by including terminal addresses in the `encodedConfigurationHash` — cross-chain expansions via suckers must use the exact same terminal address as the host chain. Terminal addresses are deterministic across chains (same CREATE2 deployment), so this prevents expansions from silently using a different terminal. Project operators should still treat each chain expansion as a trust-boundary decision since bridge integrity and network assumptions remain outside protocol control.
+
+### 8.6 Cross-chain surplus staleness (M-33)
+
+`REVLoans._borrowableAmountFrom` and `REVOwner.beforeCashOutRecordedWith` add `remoteSurplusOf()` and `remoteTotalSupplyOf()` to local values. These remote values update only when `toRemote()` is called on the peer chain -- no heartbeat or staleness check. Stale data can inflate per-token borrowable amounts when remote supply has grown since the last bridge message. Primary safeguard: borrowable is capped at `localSurplus` (REVLoans line 386-387), preventing extraction beyond what the local terminal holds.
+
+### 8.7 REVLoans CEI violation in `_adjust` (L-12)
+
+In `REVLoans._adjust`, `totalCollateralOf[revnetId]` is incremented after external calls (`useAllowanceOf`, fee payment). A reentrant `borrowFrom` would see a lower `totalCollateralOf`. This is documented inline (lines 1128-1132) and requires an adversarial pay hook on the revnet's own terminal -- a trust-level configuration that is not realistic in standard deployments.
