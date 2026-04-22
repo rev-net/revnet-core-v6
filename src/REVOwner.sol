@@ -348,10 +348,11 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
         override
         returns (bool)
     {
-        // The loans contract, hidden tokens contract, buyback hook registry (and its allowed hook implementations), and
-        // suckers are allowed to mint the revnet's tokens.
+        // The loans contract, hidden tokens contract, buyback hook (and its delegates), and suckers are allowed to mint
+        // the revnet's tokens.
         return addr == LOANS || addr == HIDDEN_TOKENS || addr == address(BUYBACK_HOOK)
-            || BUYBACK_HOOK.isHookAllowed(IJBRulesetDataHook(addr)) || _isSuckerOf({revnetId: revnetId, addr: addr});
+            || BUYBACK_HOOK.hasMintPermissionFor({projectId: revnetId, ruleset: ruleset, addr: addr})
+            || _isSuckerOf({revnetId: revnetId, addr: addr});
     }
 
     //*********************************************************************//
