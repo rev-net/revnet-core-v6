@@ -970,6 +970,12 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         JBFundAccessLimitGroup[] memory fundAccessLimitGroups =
             _makeLoanFundAccessLimits({terminalConfigurations: terminalConfigurations});
 
+        // Track the previous stage's effective start time for ordering validation.
+        // When stage 0 uses `startsAtOrAfter == 0`, the effective value is `block.timestamp`.
+        // Subsequent stages must be validated against this normalized value, not the raw calldata,
+        // so that cross-chain deployments can reproduce the same encoded configuration hash.
+        uint256 previousStageStart;
+
         // Iterate through each stage to set up its ruleset.
         for (uint256 i; i < configuration.stageConfigurations.length;) {
             // Set the stage being iterated on.
@@ -981,11 +987,18 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
                 revert REVDeployer_MustHaveSplits();
             }
 
+            // Compute the effective start time for this stage.
+            uint256 effectiveStart = (i == 0 && stageConfiguration.startsAtOrAfter == 0)
+                ? block.timestamp
+                : stageConfiguration.startsAtOrAfter;
+
             // If the stage's start time is not after the previous stage's start time, revert.
-            if (i > 0 && stageConfiguration.startsAtOrAfter <= configuration.stageConfigurations[i - 1].startsAtOrAfter)
-            {
+            if (i > 0 && effectiveStart <= previousStageStart) {
                 revert REVDeployer_StageTimesMustIncrease();
             }
+
+            // Store for the next iteration's ordering check.
+            previousStageStart = effectiveStart;
 
             // Make sure the revnet doesn't prevent cashouts all together.
             if (stageConfiguration.cashOutTaxRate >= JBConstants.MAX_CASH_OUT_TAX_RATE) {
@@ -1004,13 +1017,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             // Add the stage's properties to the byte-encoded configuration.
             encodedConfiguration = abi.encode(
                 encodedConfiguration,
-                // If no start time is provided for the first stage, use the current block's timestamp.
-                // In the future, revnets deployed on other networks can match this revnet's encoded stage by specifying
-                // the
-                // same start time.
-                (i == 0 && stageConfiguration.startsAtOrAfter == 0)
-                    ? block.timestamp
-                    : stageConfiguration.startsAtOrAfter,
+                // Use the effective start time (normalized from 0 to block.timestamp for the first stage).
+                // Cross-chain deployments reproduce the hash by specifying the origin chain's timestamp.
+                effectiveStart,
                 stageConfiguration.splitPercent,
                 stageConfiguration.initialIssuance,
                 stageConfiguration.issuanceCutFrequency,

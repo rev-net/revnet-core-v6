@@ -76,6 +76,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     error REVLoans_SourceMismatch();
     error REVLoans_UnderMinBorrowAmount(uint256 minBorrowAmount, uint256 borrowAmount);
     error REVLoans_ZeroBorrowAmount();
+    error REVLoans_CrossCurrencySourceUnsupported(uint32 currency, address token);
     error REVLoans_ZeroCollateralLoanIsInvalid();
 
     //*********************************************************************//
@@ -543,16 +544,17 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             // Get a reference to the token being iterated on.
             REVLoanSource storage source = sources[i];
 
+            // Get a reference to the amount of tokens loaned out.
+            uint256 tokensLoaned = totalBorrowedFrom[revnetId][source.terminal][source.token];
+
+            // Skip if no tokens are loaned from this source. Checked before the external call below to avoid
+            // reverting on stale sources whose terminals may no longer support this token.
+            if (tokensLoaned == 0) continue;
+
             // Get a reference to the accounting context for the source.
             // slither-disable-next-line calls-loop
             JBAccountingContext memory accountingContext =
                 source.terminal.accountingContextForTokenOf({projectId: revnetId, token: source.token});
-
-            // Get a reference to the amount of tokens loaned out.
-            uint256 tokensLoaned = totalBorrowedFrom[revnetId][source.terminal][source.token];
-
-            // Skip if no tokens are loaned from this source.
-            if (tokensLoaned == 0) continue;
 
             // Normalize the token amount from the source's decimals to the target decimals.
             uint256 normalizedTokens;
@@ -632,6 +634,18 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Make sure the source terminal is registered in the directory for this revnet.
         if (!DIRECTORY.isTerminalOf({projectId: revnetId, terminal: IJBTerminal(address(source.terminal))})) {
             revert REVLoans_InvalidTerminal(address(source.terminal), revnetId);
+        }
+
+        // Ensure the source terminal accounts in the token's own currency.
+        // Fee calculations and token transfers assume accounting units == token units.
+        // Cross-currency terminals (e.g. USD-denominated ETH) would cause unit mismatches
+        // in fee arithmetic and loan disbursement.
+        {
+            JBAccountingContext memory sourceAccounting =
+                source.terminal.accountingContextForTokenOf({projectId: revnetId, token: source.token});
+            if (sourceAccounting.currency != uint32(uint160(source.token))) {
+                revert REVLoans_CrossCurrencySourceUnsupported(sourceAccounting.currency, source.token);
+            }
         }
 
         // Make sure the prepaid fee percent is between `MIN_PREPAID_FEE_PERCENT` and `MAX_PREPAID_FEE_PERCENT`. Meaning
@@ -1225,6 +1239,14 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         return 0;
     }
 
+    /// @notice Clears any token allowance granted by `_beforeTransferTo`.
+    /// @param to The address that was granted the allowance.
+    /// @param token The token whose allowance should be cleared.
+    function _afterTransferTo(address to, address token) internal {
+        if (token == JBConstants.NATIVE_TOKEN) return;
+        IERC20(token).forceApprove({spender: to, value: 0});
+    }
+
     /// @notice Reallocates collateral from a loan by making a new loan based on the original, with reduced collateral.
     /// @param loanId The ID of the loan to reallocate collateral from.
     /// @param revnetId The ID of the revnet the loan is from.
@@ -1334,6 +1356,8 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             memo: "",
             metadata: bytes(abi.encodePacked(REV_ID))
         });
+
+        _afterTransferTo({to: address(loan.source.terminal), token: loan.source.token});
     }
 
     /// @notice Pays down a loan.
@@ -1532,6 +1556,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             metadata: bytes(abi.encodePacked(metadataProjectId))
         }) {
             success = true;
+            _afterTransferTo({to: address(terminal), token: token});
         } catch (bytes memory) {
             if (token != JBConstants.NATIVE_TOKEN) {
                 IERC20(token).safeDecreaseAllowance({spender: address(terminal), requestedDecrease: amount});
