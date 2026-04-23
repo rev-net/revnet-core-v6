@@ -2,10 +2,8 @@
 pragma solidity 0.8.28;
 
 /// @title TestLoansAndDeployerFixes
-/// @notice Regression tests for approval cleanup, cross-currency validation, stale source skip, and stage ordering.
+/// @notice Regression tests for approval cleanup, stale source skip, and stage ordering.
 
-import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBTerminal} from "@bananapus/core-v6/src/interfaces/IJBTerminal.sol";
@@ -13,8 +11,6 @@ import {IJBPayoutTerminal} from "@bananapus/core-v6/src/interfaces/IJBPayoutTerm
 import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
-import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
-import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
 import {JBSingleAllowance} from "@bananapus/core-v6/src/structs/JBSingleAllowance.sol";
 import {JBSplit} from "@bananapus/core-v6/src/structs/JBSplit.sol";
 import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.sol";
@@ -27,118 +23,8 @@ import {REVDescription} from "../../src/structs/REVDescription.sol";
 import {REVSuckerDeploymentConfig} from "../../src/structs/REVSuckerDeploymentConfig.sol";
 import {REVDeployer} from "../../src/REVDeployer.sol";
 import {REVLoans} from "../../src/REVLoans.sol";
-import {IREVLoans} from "../../src/interfaces/IREVLoans.sol";
 import {REVEmpty721Config} from "../helpers/REVEmpty721Config.sol";
 import {REVLoansFeeRecovery, FeeRecoveryProjectConfig} from "../REVLoansFeeRecovery.t.sol";
-
-// ============================================================================
-// A terminal that reports cross-currency accounting
-// (e.g. token=ETH but currency=2 for USD).
-// ============================================================================
-
-contract CrossCurrencyTerminal is ERC165, IJBPayoutTerminal {
-    address public immutable token;
-    uint32 public immutable crossCurrency;
-
-    constructor(address _token, uint32 _crossCurrency) {
-        token = _token;
-        crossCurrency = _crossCurrency;
-    }
-
-    function pay(
-        uint256,
-        address,
-        uint256,
-        address,
-        uint256,
-        string calldata,
-        bytes calldata
-    )
-        external
-        payable
-        override
-        returns (uint256)
-    {
-        return 0;
-    }
-
-    function accountingContextForTokenOf(uint256, address) external view override returns (JBAccountingContext memory) {
-        // Return a cross-currency context: token is ETH but currency is USD (2).
-        return JBAccountingContext({token: token, decimals: 18, currency: crossCurrency});
-    }
-
-    function accountingContextsOf(uint256) external pure override returns (JBAccountingContext[] memory) {
-        return new JBAccountingContext[](0);
-    }
-
-    function addAccountingContextsFor(uint256, JBAccountingContext[] calldata) external override {}
-
-    function addToBalanceOf(
-        uint256,
-        address,
-        uint256,
-        bool,
-        string calldata,
-        bytes calldata
-    )
-        external
-        payable
-        override
-    {}
-
-    function currentSurplusOf(uint256, address[] calldata, uint256, uint256) external pure override returns (uint256) {
-        return 0;
-    }
-
-    function migrateBalanceOf(uint256, address, IJBTerminal) external pure override returns (uint256) {
-        return 0;
-    }
-
-    function sendPayoutsOf(uint256, address, uint256, uint256, uint256) external pure override returns (uint256) {
-        return 0;
-    }
-
-    function useAllowanceOf(
-        uint256,
-        address,
-        uint256,
-        uint256,
-        uint256,
-        address payable,
-        address payable,
-        string calldata
-    )
-        external
-        pure
-        override
-        returns (uint256)
-    {
-        return 0;
-    }
-
-    function previewPayFor(
-        uint256,
-        address,
-        uint256,
-        address,
-        bytes calldata
-    )
-        external
-        pure
-        override
-        returns (JBRuleset memory, uint256, uint256, JBPayHookSpecification[] memory)
-    {
-        JBRuleset memory ruleset;
-        return (ruleset, 0, 0, new JBPayHookSpecification[](0));
-    }
-
-    function supportsInterface(bytes4 interfaceId) public view override(ERC165, IERC165) returns (bool) {
-        return interfaceId == type(IJBTerminal).interfaceId || interfaceId == type(IJBPayoutTerminal).interfaceId
-            || super.supportsInterface(interfaceId);
-    }
-
-    receive() external payable {}
-}
 
 // ============================================================================
 // Main test contract — extends REVLoansFeeRecovery to reuse full setup.
@@ -301,104 +187,6 @@ contract TestLoansAndDeployerFixes is REVLoansFeeRecovery {
             0,
             "Stale allowance to terminal after ERC20 repayment"
         );
-    }
-
-    // ========================================================================
-    // Cross-Currency Source Rejection
-    // ========================================================================
-    // borrowFrom must revert with REVLoans_CrossCurrencySourceUnsupported when
-    // the source terminal's accountingContext has currency != uint32(uint160(token)).
-    // ========================================================================
-
-    /// @notice Borrowing from a terminal whose accounting context uses a cross-currency
-    /// (token=ETH but currency=2/USD) must revert.
-    function test_crossCurrencySourceReverts() public {
-        // Deploy a cross-currency terminal: token is ETH, but currency is 2 (USD).
-        CrossCurrencyTerminal crossTerminal = new CrossCurrencyTerminal(JBConstants.NATIVE_TOKEN, 2);
-
-        // Mock the directory to report this terminal as valid for the revnet.
-        vm.mockCall(
-            address(jbDirectory()),
-            abi.encodeWithSelector(IJBDirectory.isTerminalOf.selector, REVNET_ID, address(crossTerminal)),
-            abi.encode(true)
-        );
-
-        // Pay into revnet normally to get tokens for collateral.
-        vm.prank(USER);
-        uint256 tokenCount =
-            jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
-
-        // Use noExpect variant: the borrow reverts before burn so the permission call never fires.
-        _mockLoanPermissionNoExpect(USER);
-
-        REVLoanSource memory crossSource =
-            REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: IJBPayoutTerminal(address(crossTerminal))});
-
-        // Expect the cross-currency revert.
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                REVLoans.REVLoans_CrossCurrencySourceUnsupported.selector, uint32(2), JBConstants.NATIVE_TOKEN
-            )
-        );
-        vm.prank(USER);
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, crossSource, 0, tokenCount, payable(USER), 25, USER);
-    }
-
-    /// @notice Verify that borrowing from a same-currency terminal still works (sanity check).
-    function test_sameCurrencySourceSucceeds() public {
-        vm.prank(USER);
-        uint256 tokenCount =
-            jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
-
-        _mockLoanPermission(USER);
-
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
-
-        uint256 balBefore = USER.balance;
-        vm.prank(USER);
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(USER), 25, USER);
-        uint256 received = USER.balance - balBefore;
-
-        assertGt(received, 0, "Same-currency borrow should succeed and return funds");
-    }
-
-    /// @notice Cross-currency rejection also applies to ERC20 tokens with mismatched currency.
-    function test_crossCurrencyERC20SourceReverts() public {
-        // Deploy a cross-currency terminal for TOKEN: token=TOKEN but currency=1 (ETH).
-        CrossCurrencyTerminal crossTerminal =
-            new CrossCurrencyTerminal(address(TOKEN), uint32(uint160(JBConstants.NATIVE_TOKEN)));
-
-        // Mock the directory to report this terminal as valid.
-        vm.mockCall(
-            address(jbDirectory()),
-            abi.encodeWithSelector(IJBDirectory.isTerminalOf.selector, REVNET_ID, address(crossTerminal)),
-            abi.encode(true)
-        );
-
-        // Fund user and pay into revnet.
-        uint256 payAmount = 1_000_000;
-        deal(address(TOKEN), USER, payAmount);
-        vm.startPrank(USER);
-        TOKEN.approve(address(jbMultiTerminal()), payAmount);
-        uint256 tokenCount = jbMultiTerminal().pay(REVNET_ID, address(TOKEN), payAmount, USER, 0, "", "");
-        vm.stopPrank();
-
-        // Use noExpect variant: the borrow reverts before burn so the permission call never fires.
-        _mockLoanPermissionNoExpect(USER);
-
-        REVLoanSource memory crossSource =
-            REVLoanSource({token: address(TOKEN), terminal: IJBPayoutTerminal(address(crossTerminal))});
-
-        // Expect the cross-currency revert.
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                REVLoans.REVLoans_CrossCurrencySourceUnsupported.selector,
-                uint32(uint160(JBConstants.NATIVE_TOKEN)),
-                address(TOKEN)
-            )
-        );
-        vm.prank(USER);
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, crossSource, 0, tokenCount, payable(USER), 25, USER);
     }
 
     // ========================================================================

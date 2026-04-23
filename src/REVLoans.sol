@@ -76,7 +76,6 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     error REVLoans_SourceMismatch();
     error REVLoans_UnderMinBorrowAmount(uint256 minBorrowAmount, uint256 borrowAmount);
     error REVLoans_ZeroBorrowAmount();
-    error REVLoans_CrossCurrencySourceUnsupported(uint32 currency, address token);
     error REVLoans_ZeroCollateralLoanIsInvalid();
 
     //*********************************************************************//
@@ -634,18 +633,6 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Make sure the source terminal is registered in the directory for this revnet.
         if (!DIRECTORY.isTerminalOf({projectId: revnetId, terminal: IJBTerminal(address(source.terminal))})) {
             revert REVLoans_InvalidTerminal(address(source.terminal), revnetId);
-        }
-
-        // Ensure the source terminal accounts in the token's own currency.
-        // Fee calculations and token transfers assume accounting units == token units.
-        // Cross-currency terminals (e.g. USD-denominated ETH) would cause unit mismatches
-        // in fee arithmetic and loan disbursement.
-        {
-            JBAccountingContext memory sourceAccounting =
-                source.terminal.accountingContextForTokenOf({projectId: revnetId, token: source.token});
-            if (sourceAccounting.currency != uint32(uint160(source.token))) {
-                revert REVLoans_CrossCurrencySourceUnsupported(sourceAccounting.currency, source.token);
-            }
         }
 
         // Make sure the prepaid fee percent is between `MIN_PREPAID_FEE_PERCENT` and `MAX_PREPAID_FEE_PERCENT`. Meaning

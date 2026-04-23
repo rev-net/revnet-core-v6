@@ -798,7 +798,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         if (shouldDeployNewRevnet) {
             // If we're deploying a new revnet, launch a Juicebox project for it.
             // Sanity check that we deployed the `revnetId` that we expected to deploy.
-            // slither-disable-next-line reentrancy-benign,reentrancy-events
+            // slither-disable-next-line incorrect-equality,reentrancy-benign,reentrancy-events
             assert(
                 CONTROLLER.launchProjectFor({
                     owner: address(this),
