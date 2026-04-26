@@ -14,9 +14,8 @@ contract CodexRemoteLoanAccountingGap is TestAuditFixVerification {
         uint256 payAmount = 100 ether;
 
         vm.prank(USER);
-        uint256 tokens = jbMultiTerminal().pay{value: payAmount}(
-            REVNET_ID, JBConstants.NATIVE_TOKEN, payAmount, USER, 0, "", ""
-        );
+        uint256 tokens =
+            jbMultiTerminal().pay{value: payAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, payAmount, USER, 0, "", "");
 
         // Simulate a peer chain that started from 100 ETH / 100k tokens, then originated a loan against
         // 50k burned-collateral tokens. The registry only exports the raw post-loan values, not the
@@ -28,13 +27,12 @@ contract CodexRemoteLoanAccountingGap is TestAuditFixVerification {
         MOCK_SUCKER_REGISTRY.setRemoteValues(remoteRawSupply, remoteRawSurplus);
 
         uint256 collateral = tokens / 10;
-        uint256 actualBorrowable = LOANS_CONTRACT.borrowableAmountFrom(
-            REVNET_ID, collateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        uint256 actualBorrowable =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, collateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         uint256 localSupply = jbController().totalTokenSupplyWithReservedTokensOf(REVNET_ID);
-        uint256 localSurplus =
-            jbMultiTerminal().currentSurplusOf(REVNET_ID, new address[](0), 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        uint256 localSurplus = jbMultiTerminal()
+            .currentSurplusOf(REVNET_ID, new address[](0), 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         uint256 correctedBorrowable = JBCashOuts.cashOutFrom({
             surplus: localSurplus + remoteRawSurplus + remoteLoanDebt,
