@@ -18,7 +18,8 @@ import {JBFees} from "@bananapus/core-v6/src/libraries/JBFees.sol";
 ///
 /// Run with: FOUNDRY_PROFILE=fork forge test --match-contract TestLoanAdversarialFork -vvv
 contract TestLoanAdversarialFork is ForkTestBase {
-    // ───────────────────────── Shared state ─────────────────────────
+    // ───────────────────────── Shared state
+    // ─────────────────────────
 
     uint256 revnetId;
     uint256 constant STAGE_DURATION = 30 days;
