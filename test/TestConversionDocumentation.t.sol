@@ -286,11 +286,8 @@ contract TestConversionDocumentation is TestBaseWorkflow {
         vm.prank(USER);
         jbController()
             .launchRulesetsFor({
-                projectId: projectId,
-                rulesetConfigurations: rulesetConfigs,
-                terminalConfigurations: termConfigs,
-                memo: ""
-            });
+            projectId: projectId, rulesetConfigurations: rulesetConfigs, terminalConfigurations: termConfigs, memo: ""
+        });
 
         // Now try to convert this project to a revnet — should revert.
         // Approve NFT to REV_DEPLOYER.

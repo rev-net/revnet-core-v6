@@ -265,14 +265,14 @@ contract REVLifecycle_Local is TestBaseWorkflow {
         vm.prank(USER1);
         uint256 reclaimed = jbMultiTerminal()
             .cashOutTokensOf({
-                holder: USER1,
-                projectId: REVNET_ID,
-                cashOutCount: cashOutAmount,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(USER1),
-                metadata: ""
-            });
+            holder: USER1,
+            projectId: REVNET_ID,
+            cashOutCount: cashOutAmount,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(USER1),
+            metadata: ""
+        });
         assertGt(reclaimed, 0, "should reclaim some ETH");
 
         // Total supply should decrease after cash out
@@ -311,14 +311,14 @@ contract REVLifecycle_Local is TestBaseWorkflow {
         vm.prank(USER1);
         uint256 reclaimedStage0 = jbMultiTerminal()
             .cashOutTokensOf({
-                holder: USER1,
-                projectId: REVNET_ID,
-                cashOutCount: halfTokens,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(USER1),
-                metadata: ""
-            });
+            holder: USER1,
+            projectId: REVNET_ID,
+            cashOutCount: halfTokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(USER1),
+            metadata: ""
+        });
         assertGt(reclaimedStage0, 0, "should reclaim in stage 0");
 
         // Cash out tax with 50% rate means you get less than proportional share
@@ -344,14 +344,14 @@ contract REVLifecycle_Local is TestBaseWorkflow {
         vm.prank(USER1);
         uint256 reclaimed = jbMultiTerminal()
             .cashOutTokensOf({
-                holder: USER1,
-                projectId: REVNET_ID,
-                cashOutCount: tokens,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(USER1),
-                metadata: ""
-            });
+            holder: USER1,
+            projectId: REVNET_ID,
+            cashOutCount: tokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(USER1),
+            metadata: ""
+        });
 
         // With 50% cash out tax and single holder, reclaiming full supply
         // should return less than full amount (due to tax)
@@ -386,14 +386,14 @@ contract REVLifecycle_Local is TestBaseWorkflow {
         vm.prank(USER1);
         uint256 reclaimed1 = jbMultiTerminal()
             .cashOutTokensOf({
-                holder: USER1,
-                projectId: REVNET_ID,
-                cashOutCount: tokens1,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(USER1),
-                metadata: ""
-            });
+            holder: USER1,
+            projectId: REVNET_ID,
+            cashOutCount: tokens1,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(USER1),
+            metadata: ""
+        });
 
         // Should reclaim proportional share (minus tax)
         assertGt(reclaimed1, 0, "user1 should reclaim some ETH");

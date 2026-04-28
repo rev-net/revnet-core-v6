@@ -143,14 +143,8 @@ contract TestLoanERC20Fork is ForkTestBase {
         vm.prank(payer);
         tokensReceived = jbMultiTerminal()
             .pay({
-                projectId: id,
-                token: USDC,
-                amount: amount,
-                beneficiary: payer,
-                minReturnedTokens: 0,
-                memo: "",
-                metadata: ""
-            });
+            projectId: id, token: USDC, amount: amount, beneficiary: payer, minReturnedTokens: 0, memo: "", metadata: ""
+        });
     }
 
     // ───────────────────────── USDC Loan Helpers

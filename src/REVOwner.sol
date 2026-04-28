@@ -397,8 +397,8 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
             if (context.forwardedAmount.token != JBConstants.NATIVE_TOKEN) {
                 IERC20(context.forwardedAmount.token)
                     .safeDecreaseAllowance({
-                        spender: address(feeTerminal), requestedDecrease: context.forwardedAmount.value
-                    });
+                    spender: address(feeTerminal), requestedDecrease: context.forwardedAmount.value
+                });
             }
 
             // If the fee can't be processed, return the funds to the project.

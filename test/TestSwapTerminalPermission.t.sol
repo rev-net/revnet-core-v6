@@ -206,24 +206,24 @@ contract TestSwapTerminalPermission is TestBaseWorkflow {
     function test_splitOperator_hasRegistryPermissions() public view {
         bool hasBuybackHook = jbPermissions()
             .hasPermission({
-                operator: multisig(),
-                account: address(REV_DEPLOYER),
-                projectId: TEST_REVNET_ID,
-                permissionId: JBPermissionIds.SET_BUYBACK_HOOK,
-                includeRoot: false,
-                includeWildcardProjectId: false
-            });
+            operator: multisig(),
+            account: address(REV_DEPLOYER),
+            projectId: TEST_REVNET_ID,
+            permissionId: JBPermissionIds.SET_BUYBACK_HOOK,
+            includeRoot: false,
+            includeWildcardProjectId: false
+        });
         assertTrue(hasBuybackHook, "Split operator should have SET_BUYBACK_HOOK permission");
 
         bool hasRouterTerminal = jbPermissions()
             .hasPermission({
-                operator: multisig(),
-                account: address(REV_DEPLOYER),
-                projectId: TEST_REVNET_ID,
-                permissionId: JBPermissionIds.SET_ROUTER_TERMINAL,
-                includeRoot: false,
-                includeWildcardProjectId: false
-            });
+            operator: multisig(),
+            account: address(REV_DEPLOYER),
+            projectId: TEST_REVNET_ID,
+            permissionId: JBPermissionIds.SET_ROUTER_TERMINAL,
+            includeRoot: false,
+            includeWildcardProjectId: false
+        });
         assertTrue(hasRouterTerminal, "Split operator should have SET_ROUTER_TERMINAL permission");
     }
 
@@ -244,13 +244,13 @@ contract TestSwapTerminalPermission is TestBaseWorkflow {
         for (uint256 i = 0; i < expectedPermissions.length; i++) {
             bool hasPermission = jbPermissions()
                 .hasPermission({
-                    operator: multisig(),
-                    account: address(REV_DEPLOYER),
-                    projectId: TEST_REVNET_ID,
-                    permissionId: expectedPermissions[i],
-                    includeRoot: false,
-                    includeWildcardProjectId: false
-                });
+                operator: multisig(),
+                account: address(REV_DEPLOYER),
+                projectId: TEST_REVNET_ID,
+                permissionId: expectedPermissions[i],
+                includeRoot: false,
+                includeWildcardProjectId: false
+            });
             assertTrue(
                 hasPermission,
                 string.concat(
