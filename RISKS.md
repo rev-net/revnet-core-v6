@@ -95,3 +95,13 @@ A project that expands to a new chain can register additional terminals on that 
 ### 8.7 REVLoans CEI violation in `_adjust`
 
 In `REVLoans._adjust`, `totalCollateralOf[revnetId]` is incremented after external calls (`useAllowanceOf`, fee payment). A reentrant `borrowFrom` would see a lower `totalCollateralOf`. This is documented inline (lines 1128-1132) and requires an adversarial pay hook on the revnet's own terminal -- a trust-level configuration that is not realistic in standard deployments.
+
+### 8.8 Remote loan corrections not reflected in local borrowability
+
+`_borrowableAmountFrom` adds back local `totalBorrowed` and `totalCollateral` to reconstitute pre-loan economic state for the bonding curve. However, remote chain snapshots (built by `JBSuckerLib.buildSnapshotMessage`) capture raw surplus/supply WITHOUT loan corrections from the remote chain. This is accepted because:
+
+1. Suckers are a general-purpose bridging layer and should not need knowledge of revnet-specific loan mechanics.
+2. The `localSurplus` cap (REVLoans line 386-387) prevents extraction beyond what the local terminal actually holds.
+3. The over-lending exposure is bounded by the difference between corrected and uncorrected remote values, which is proportional to remote outstanding loans — typically a small fraction of total surplus.
+
+Project operators deploying cross-chain revnets with active loan markets on multiple chains should understand that local borrowability calculations do not account for remote outstanding loans.
