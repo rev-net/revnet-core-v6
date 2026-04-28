@@ -45,14 +45,14 @@ contract TestCashOutFork is ForkTestBase {
         vm.prank(PAYER);
         jbMultiTerminal()
             .cashOutTokensOf({
-                holder: PAYER,
-                projectId: revnetId,
-                cashOutCount: cashOutCount,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(PAYER),
-                metadata: ""
-            });
+            holder: PAYER,
+            projectId: revnetId,
+            cashOutCount: cashOutCount,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(PAYER),
+            metadata: ""
+        });
 
         // Payer received ETH (via buyback hook swap).
         uint256 ethReceived = PAYER.balance - payerEthBefore;
@@ -82,14 +82,14 @@ contract TestCashOutFork is ForkTestBase {
         vm.prank(PAYER);
         uint256 reclaimedAmount = jbMultiTerminal()
             .cashOutTokensOf({
-                holder: PAYER,
-                projectId: highTaxRevnet,
-                cashOutCount: cashOutCount,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(PAYER),
-                metadata: ""
-            });
+            holder: PAYER,
+            projectId: highTaxRevnet,
+            cashOutCount: cashOutCount,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(PAYER),
+            metadata: ""
+        });
 
         // With 90% tax rate, reclaim should be very small relative to surplus.
         uint256 terminalBalance = _terminalBalance(highTaxRevnet, JBConstants.NATIVE_TOKEN);
@@ -125,14 +125,14 @@ contract TestCashOutFork is ForkTestBase {
         vm.prank(sucker);
         uint256 reclaimedAmount = jbMultiTerminal()
             .cashOutTokensOf({
-                holder: sucker,
-                projectId: revnetId,
-                cashOutCount: suckerTokens,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(sucker),
-                metadata: ""
-            });
+            holder: sucker,
+            projectId: revnetId,
+            cashOutCount: suckerTokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(sucker),
+            metadata: ""
+        });
 
         // Full pro-rata reclaim (0% tax).
         uint256 expectedReclaim = (surplus * suckerTokens) / totalSupply;
@@ -183,14 +183,14 @@ contract TestCashOutFork is ForkTestBase {
             vm.prank(PAYER);
             jbMultiTerminal()
                 .cashOutTokensOf({
-                    holder: PAYER,
-                    projectId: splitRevnetId,
-                    cashOutCount: payerTokens,
-                    tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                    minTokensReclaimed: 0,
-                    beneficiary: payable(PAYER),
-                    metadata: ""
-                });
+                holder: PAYER,
+                projectId: splitRevnetId,
+                cashOutCount: payerTokens,
+                tokenToReclaim: JBConstants.NATIVE_TOKEN,
+                minTokensReclaimed: 0,
+                beneficiary: payable(PAYER),
+                metadata: ""
+            });
 
             assertGt(PAYER.balance, payerEthBefore, "payer should receive ETH after tier split cashout");
         }
@@ -220,14 +220,14 @@ contract TestCashOutFork is ForkTestBase {
         vm.expectRevert();
         jbMultiTerminal()
             .cashOutTokensOf({
-                holder: PAYER,
-                projectId: delayRevnet,
-                cashOutCount: payerTokens,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(PAYER),
-                metadata: ""
-            });
+            holder: PAYER,
+            projectId: delayRevnet,
+            cashOutCount: payerTokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(PAYER),
+            metadata: ""
+        });
 
         // Warp past delay.
         vm.warp(block.timestamp + REV_DEPLOYER.CASH_OUT_DELAY() + 1);
@@ -239,14 +239,14 @@ contract TestCashOutFork is ForkTestBase {
         vm.prank(PAYER);
         jbMultiTerminal()
             .cashOutTokensOf({
-                holder: PAYER,
-                projectId: delayRevnet,
-                cashOutCount: payerTokens,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(PAYER),
-                metadata: ""
-            });
+            holder: PAYER,
+            projectId: delayRevnet,
+            cashOutCount: payerTokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(PAYER),
+            metadata: ""
+        });
 
         assertGt(PAYER.balance, payerEthBefore, "should succeed after delay expires");
     }

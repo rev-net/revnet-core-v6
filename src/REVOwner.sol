@@ -22,6 +22,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {mulDiv} from "@prb/math/src/Common.sol";
 
 import {IREVDeployer} from "./interfaces/IREVDeployer.sol";
+import {IREVHiddenTokens} from "./interfaces/IREVHiddenTokens.sol";
 
 /// @notice Handles the runtime data hook and cash out hook behavior for revnets.
 /// @dev Separated from `REVDeployer` to stay within the EIP-170 contract size limit.
@@ -397,8 +398,8 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
             if (context.forwardedAmount.token != JBConstants.NATIVE_TOKEN) {
                 IERC20(context.forwardedAmount.token)
                     .safeDecreaseAllowance({
-                        spender: address(feeTerminal), requestedDecrease: context.forwardedAmount.value
-                    });
+                    spender: address(feeTerminal), requestedDecrease: context.forwardedAmount.value
+                });
             }
 
             // If the fee can't be processed, return the funds to the project.

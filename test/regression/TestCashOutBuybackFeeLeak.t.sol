@@ -157,14 +157,14 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
         vm.prank(user);
         jbMultiTerminal()
             .cashOutTokensOf({
-                holder: user,
-                projectId: revnetId,
-                cashOutCount: fullCashOutCount,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(user),
-                metadata: ""
-            });
+            holder: user,
+            projectId: revnetId,
+            cashOutCount: fullCashOutCount,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(user),
+            metadata: ""
+        });
 
         // THE INVARIANT: The buyback hook callback should receive nonFeeCashOutCount.
         // The real buyback hook remints `context.cashOutCount` tokens and sells them on the pool.

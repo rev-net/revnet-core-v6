@@ -315,14 +315,14 @@ contract TestCashOutCallerValidation is TestBaseWorkflow {
         vm.prank(USER);
         uint256 reclaimed = jbMultiTerminal()
             .cashOutTokensOf({
-                holder: USER,
-                projectId: REVNET_ID,
-                cashOutCount: tokenCount,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(USER),
-                metadata: ""
-            });
+            holder: USER,
+            projectId: REVNET_ID,
+            cashOutCount: tokenCount,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(USER),
+            metadata: ""
+        });
 
         assertGt(reclaimed, 0, "Should have reclaimed some ETH");
 

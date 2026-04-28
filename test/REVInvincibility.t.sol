@@ -692,14 +692,14 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
         vm.prank(USER);
         try jbMultiTerminal()
             .cashOutTokensOf({
-                holder: USER,
-                projectId: REVNET_ID,
-                cashOutCount: tokens,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(USER),
-                metadata: ""
-            }) returns (
+            holder: USER,
+            projectId: REVNET_ID,
+            cashOutCount: tokens,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(USER),
+            metadata: ""
+        }) returns (
             uint256 reclaimAmount
         ) {
             // The reclaim amount should be bounded by the bonding curve
@@ -944,14 +944,14 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
         vm.prank(USER);
         try jbMultiTerminal()
             .cashOutTokensOf({
-                holder: USER,
-                projectId: REVNET_ID,
-                cashOutCount: tokens / 2,
-                tokenToReclaim: JBConstants.NATIVE_TOKEN,
-                minTokensReclaimed: 0,
-                beneficiary: payable(USER),
-                metadata: ""
-            }) returns (
+            holder: USER,
+            projectId: REVNET_ID,
+            cashOutCount: tokens / 2,
+            tokenToReclaim: JBConstants.NATIVE_TOKEN,
+            minTokensReclaimed: 0,
+            beneficiary: payable(USER),
+            metadata: ""
+        }) returns (
             uint256 reclaimAmount
         ) {
             // The double fee means the fee project gets more than expected

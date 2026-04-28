@@ -181,14 +181,14 @@ contract TestPermit2PaymentFork is ForkTestBase {
         vm.prank(signer);
         uint256 tokensReceived = jbMultiTerminal()
             .pay({
-                projectId: revnetId,
-                token: address(testToken),
-                amount: payAmount,
-                beneficiary: signer,
-                minReturnedTokens: 0,
-                memo: "permit2 payment",
-                metadata: metadata
-            });
+            projectId: revnetId,
+            token: address(testToken),
+            amount: payAmount,
+            beneficiary: signer,
+            minReturnedTokens: 0,
+            memo: "permit2 payment",
+            metadata: metadata
+        });
 
         // Verify payment succeeded.
         assertGt(tokensReceived, 0, "should receive project tokens from Permit2 payment");
@@ -220,14 +220,14 @@ contract TestPermit2PaymentFork is ForkTestBase {
         vm.expectRevert();
         jbMultiTerminal()
             .pay({
-                projectId: revnetId,
-                token: address(testToken),
-                amount: payAmount,
-                beneficiary: signer,
-                minReturnedTokens: 0,
-                memo: "expired permit2",
-                metadata: metadata
-            });
+            projectId: revnetId,
+            token: address(testToken),
+            amount: payAmount,
+            beneficiary: signer,
+            minReturnedTokens: 0,
+            memo: "expired permit2",
+            metadata: metadata
+        });
     }
 
     /// @notice Replaying the same Permit2 nonce should revert on the second payment.
@@ -243,14 +243,14 @@ contract TestPermit2PaymentFork is ForkTestBase {
         vm.prank(signer);
         jbMultiTerminal()
             .pay({
-                projectId: revnetId,
-                token: address(testToken),
-                amount: payAmount,
-                beneficiary: signer,
-                minReturnedTokens: 0,
-                memo: "first permit2 payment",
-                metadata: metadata
-            });
+            projectId: revnetId,
+            token: address(testToken),
+            amount: payAmount,
+            beneficiary: signer,
+            minReturnedTokens: 0,
+            memo: "first permit2 payment",
+            metadata: metadata
+        });
 
         // Second payment with the same nonce.
         // The permit call will fail (nonce already used), terminal catches it via try-catch,
@@ -259,14 +259,14 @@ contract TestPermit2PaymentFork is ForkTestBase {
         vm.expectRevert();
         jbMultiTerminal()
             .pay({
-                projectId: revnetId,
-                token: address(testToken),
-                amount: payAmount,
-                beneficiary: signer,
-                minReturnedTokens: 0,
-                memo: "replayed permit2 payment",
-                metadata: metadata
-            });
+            projectId: revnetId,
+            token: address(testToken),
+            amount: payAmount,
+            beneficiary: signer,
+            minReturnedTokens: 0,
+            memo: "replayed permit2 payment",
+            metadata: metadata
+        });
     }
 
     // ───────────────────────── Permit2 Signature Helpers

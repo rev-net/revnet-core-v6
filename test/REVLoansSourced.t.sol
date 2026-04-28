@@ -751,11 +751,11 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
 
         uint256 fullReclaimableSurplus = jbMultiTerminal().STORE()
             .currentReclaimableSurplusOf({
-                projectId: revnetProjectId,
-                cashOutCount: tokensToCashout,
-                totalSupply: totalSupplyExcludingAutoMint,
-                surplus: nativeSurplus
-            });
+            projectId: revnetProjectId,
+            cashOutCount: tokensToCashout,
+            totalSupply: totalSupplyExcludingAutoMint,
+            surplus: nativeSurplus
+        });
 
         assertGe(fullReclaimableSurplus, loanable);
 
@@ -764,11 +764,11 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
 
         uint256 reclaimableSurplus = jbMultiTerminal().STORE()
             .currentReclaimableSurplusOf({
-                projectId: revnetProjectId,
-                cashOutCount: tokensToCashout - feeTokenCount,
-                totalSupply: totalSupplyExcludingAutoMint,
-                surplus: nativeSurplus
-            });
+            projectId: revnetProjectId,
+            cashOutCount: tokensToCashout - feeTokenCount,
+            totalSupply: totalSupplyExcludingAutoMint,
+            surplus: nativeSurplus
+        });
 
         // In the `revFee` calculation we decrease the `nativeSurplus` by the `reclaimableSurplus`
         // but due to a `stack too deep` we can't do that there, so we decrease it here.
@@ -777,11 +777,11 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
 
         uint256 revFee = jbMultiTerminal().STORE()
             .currentReclaimableSurplusOf({
-                projectId: revnetProjectId,
-                cashOutCount: feeTokenCount,
-                totalSupply: totalSupplyExcludingAutoMint - (tokensToCashout - feeTokenCount),
-                surplus: nativeSurplus
-            });
+            projectId: revnetProjectId,
+            cashOutCount: feeTokenCount,
+            totalSupply: totalSupplyExcludingAutoMint - (tokensToCashout - feeTokenCount),
+            surplus: nativeSurplus
+        });
 
         assertGe(fullReclaimableSurplus, mulDiv((reclaimableSurplus + revFee), 995, 1000)); // small marging for curve
         // rounding.
