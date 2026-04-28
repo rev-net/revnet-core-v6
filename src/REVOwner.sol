@@ -22,7 +22,6 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {mulDiv} from "@prb/math/src/Common.sol";
 
 import {IREVDeployer} from "./interfaces/IREVDeployer.sol";
-import {IREVHiddenTokens} from "./interfaces/IREVHiddenTokens.sol";
 
 /// @notice Handles the runtime data hook and cash out hook behavior for revnets.
 /// @dev Separated from `REVDeployer` to stay within the EIP-170 contract size limit.
