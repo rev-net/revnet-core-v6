@@ -178,7 +178,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
             + SUCKER_REGISTRY.remoteSurplusOf({
                 projectId: context.projectId,
                 decimals: context.surplus.decimals,
-                currency: uint256(uint160(context.surplus.token))
+                currency: uint256(context.surplus.currency)
             });
 
         // If there's no cash out tax (100% cash out tax rate), if there's no fee terminal, or if the beneficiary is

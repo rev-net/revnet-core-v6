@@ -128,11 +128,9 @@ contract CodexREVOwnerRemoteSurplusCurrencyMismatchTest is TestBaseWorkflow {
         (,, uint256 returnedSupply, uint256 returnedSurplus,) = ownerHook.beforeCashOutRecordedWith(context);
 
         assertEq(returnedSupply, 1500 ether, "remote supply should still be included");
-        assertEq(
-            returnedSurplus,
-            100 ether,
-            "remote surplus is incorrectly dropped because REVOwner keys by token address instead of currency"
-        );
+        // After H-27 fix: remote surplus is correctly included (100 local + 900 remote = 1000).
+        // Before fix: this was 100 ether because the wrong currency was passed to remoteSurplusOf.
+        assertEq(returnedSurplus, 1000 ether, "remote surplus should be included now that currency is passed correctly");
         assertEq(
             suckerRegistry.remoteSurplusOf(1, 18, ETH_CURRENCY),
             900 ether,

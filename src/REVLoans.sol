@@ -627,93 +627,15 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Note: the operator controls `beneficiary`, so they can direct borrowed funds to any address.
         _requirePermissionFrom({account: holder, projectId: revnetId, permissionId: JBPermissionIds.OPEN_LOAN});
 
-        // A loan needs to have collateral.
-        if (collateralCount == 0) revert REVLoans_ZeroCollateralLoanIsInvalid();
-
-        // Make sure the source terminal is registered in the directory for this revnet.
-        if (!DIRECTORY.isTerminalOf({projectId: revnetId, terminal: IJBTerminal(address(source.terminal))})) {
-            revert REVLoans_InvalidTerminal(address(source.terminal), revnetId);
-        }
-
-        // Make sure the prepaid fee percent is between `MIN_PREPAID_FEE_PERCENT` and `MAX_PREPAID_FEE_PERCENT`. Meaning
-        // an 16 year loan can be paid upfront with a
-        // payment of 50% of the borrowed assets, the cheapest possible rate.
-        if (prepaidFeePercent < MIN_PREPAID_FEE_PERCENT || prepaidFeePercent > MAX_PREPAID_FEE_PERCENT) {
-            revert REVLoans_InvalidPrepaidFeePercent(
-                prepaidFeePercent, MIN_PREPAID_FEE_PERCENT, MAX_PREPAID_FEE_PERCENT
-            );
-        }
-
-        // Cache the current ruleset once — used by both _cashOutDelayOf and _borrowAmountFrom.
-        JBRuleset memory currentRuleset = _currentRulesetOf(revnetId);
-
-        // Enforce the cash out delay.
-        {
-            uint256 cashOutDelay = _cashOutDelayOf({revnetId: revnetId, currentRuleset: currentRuleset});
-            if (cashOutDelay > block.timestamp) {
-                revert REVLoans_CashOutDelayNotFinished(cashOutDelay, block.timestamp);
-            }
-        }
-
-        // Prevent the loan number from exceeding the ID namespace for this revnet.
-        if (totalLoansBorrowedFor[revnetId] >= _ONE_TRILLION) revert REVLoans_LoanIdOverflow();
-
-        // Get a reference to the loan ID.
-        loanId = _generateLoanId({revnetId: revnetId, loanNumber: ++totalLoansBorrowedFor[revnetId]});
-
-        // Get a reference to the loan being created.
-        REVLoan storage loan = _loanOf[loanId];
-
-        // Set the loan's values.
-        loan.source = source;
-        loan.createdAt = uint48(block.timestamp);
-        // forge-lint: disable-next-line(unsafe-typecast)
-        loan.prepaidFeePercent = uint16(prepaidFeePercent);
-        loan.prepaidDuration =
-            uint32(mulDiv({x: prepaidFeePercent, y: LOAN_LIQUIDATION_DURATION, denominator: MAX_PREPAID_FEE_PERCENT}));
-
-        // Get the amount of the loan, using the cached ruleset.
-        uint256 borrowAmount = _borrowAmountFrom({
-            loan: loan, revnetId: revnetId, collateralCount: collateralCount, currentRuleset: currentRuleset
-        });
-
-        // Revert if the bonding curve returns zero to prevent creating zero-amount loans.
-        if (borrowAmount == 0) revert REVLoans_ZeroBorrowAmount();
-
-        // Make sure the minimum borrow amount is met.
-        if (borrowAmount < minBorrowAmount) revert REVLoans_UnderMinBorrowAmount(minBorrowAmount, borrowAmount);
-
-        // Get the amount of additional fee to take for the revnet issuing the loan.
-        // Fee rounding may leave a few wei of dust — economically insignificant relative to gas costs.
-        uint256 sourceFeeAmount = JBFees.feeAmountFrom({amountBeforeFee: borrowAmount, feePercent: prepaidFeePercent});
-
-        // Borrow the amount.
-        _adjust({
-            loan: loan,
+        return _borrowFrom({
             revnetId: revnetId,
-            newBorrowAmount: borrowAmount,
-            newCollateralCount: collateralCount,
-            sourceFeeAmount: sourceFeeAmount,
+            source: source,
+            minBorrowAmount: minBorrowAmount,
+            collateralCount: collateralCount,
             beneficiary: beneficiary,
+            prepaidFeePercent: prepaidFeePercent,
             holder: holder
         });
-
-        // Mint the loan NFT to the holder.
-        _mint({to: holder, tokenId: loanId});
-
-        emit Borrow({
-            loanId: loanId,
-            revnetId: revnetId,
-            loan: loan,
-            source: source,
-            borrowAmount: borrowAmount,
-            collateralCount: collateralCount,
-            sourceFeeAmount: sourceFeeAmount,
-            beneficiary: beneficiary,
-            caller: _msgSender()
-        });
-
-        return (loanId, loan);
     }
 
     /// @notice Liquidates loans that have exceeded the 10-year liquidation duration.
@@ -838,7 +760,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
 
         // Make a new loan with the leftover collateral from reallocating.
         // The loan owner is the holder for the new loan (their tokens are used as collateral).
-        (newLoanId, newLoan) = borrowFrom({
+        // Uses _borrowFrom to skip the OPEN_LOAN permission check — the caller already proved REALLOCATE_LOAN
+        // permission above, and requiring OPEN_LOAN here would block operators with only REALLOCATE_LOAN.
+        (newLoanId, newLoan) = _borrowFrom({
             revnetId: revnetId,
             source: source,
             minBorrowAmount: minBorrowAmount,
@@ -1232,6 +1156,119 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     function _afterTransferTo(address to, address token) internal {
         if (token == JBConstants.NATIVE_TOKEN) return;
         IERC20(token).forceApprove({spender: to, value: 0});
+    }
+
+    /// @notice Internal implementation of loan creation, without the OPEN_LOAN permission check.
+    /// @dev Called by `borrowFrom` (after its own permission check) and by `reallocateCollateralFromLoan`
+    /// (which only requires REALLOCATE_LOAN permission).
+    /// @param revnetId The ID of the revnet being borrowed from.
+    /// @param source The source of the loan being borrowed.
+    /// @param minBorrowAmount The minimum amount being borrowed.
+    /// @param collateralCount The amount of tokens to use as collateral for the loan.
+    /// @param beneficiary The address that'll receive the borrowed funds and the tokens resulting from fee payments.
+    /// @param prepaidFeePercent The fee percent that will be charged upfront.
+    /// @param holder The address whose tokens are used as collateral and who receives the loan NFT.
+    /// @return loanId The ID of the loan created from borrowing.
+    /// @return loan The loan created from borrowing.
+    function _borrowFrom(
+        uint256 revnetId,
+        REVLoanSource calldata source,
+        uint256 minBorrowAmount,
+        uint256 collateralCount,
+        address payable beneficiary,
+        uint256 prepaidFeePercent,
+        address holder
+    )
+        internal
+        returns (uint256 loanId, REVLoan memory)
+    {
+        // A loan needs to have collateral.
+        if (collateralCount == 0) revert REVLoans_ZeroCollateralLoanIsInvalid();
+
+        // Make sure the source terminal is registered in the directory for this revnet.
+        if (!DIRECTORY.isTerminalOf({projectId: revnetId, terminal: IJBTerminal(address(source.terminal))})) {
+            revert REVLoans_InvalidTerminal(address(source.terminal), revnetId);
+        }
+
+        // Make sure the prepaid fee percent is between `MIN_PREPAID_FEE_PERCENT` and `MAX_PREPAID_FEE_PERCENT`. Meaning
+        // an 16 year loan can be paid upfront with a
+        // payment of 50% of the borrowed assets, the cheapest possible rate.
+        if (prepaidFeePercent < MIN_PREPAID_FEE_PERCENT || prepaidFeePercent > MAX_PREPAID_FEE_PERCENT) {
+            revert REVLoans_InvalidPrepaidFeePercent(
+                prepaidFeePercent, MIN_PREPAID_FEE_PERCENT, MAX_PREPAID_FEE_PERCENT
+            );
+        }
+
+        // Cache the current ruleset once — used by both _cashOutDelayOf and _borrowAmountFrom.
+        JBRuleset memory currentRuleset = _currentRulesetOf(revnetId);
+
+        // Enforce the cash out delay.
+        {
+            uint256 cashOutDelay = _cashOutDelayOf({revnetId: revnetId, currentRuleset: currentRuleset});
+            if (cashOutDelay > block.timestamp) {
+                revert REVLoans_CashOutDelayNotFinished(cashOutDelay, block.timestamp);
+            }
+        }
+
+        // Prevent the loan number from exceeding the ID namespace for this revnet.
+        if (totalLoansBorrowedFor[revnetId] >= _ONE_TRILLION) revert REVLoans_LoanIdOverflow();
+
+        // Get a reference to the loan ID.
+        loanId = _generateLoanId({revnetId: revnetId, loanNumber: ++totalLoansBorrowedFor[revnetId]});
+
+        // Get a reference to the loan being created.
+        REVLoan storage loan = _loanOf[loanId];
+
+        // Set the loan's values.
+        loan.source = source;
+        loan.createdAt = uint48(block.timestamp);
+        // forge-lint: disable-next-line(unsafe-typecast)
+        loan.prepaidFeePercent = uint16(prepaidFeePercent);
+        loan.prepaidDuration =
+            uint32(mulDiv({x: prepaidFeePercent, y: LOAN_LIQUIDATION_DURATION, denominator: MAX_PREPAID_FEE_PERCENT}));
+
+        // Get the amount of the loan, using the cached ruleset.
+        uint256 borrowAmount = _borrowAmountFrom({
+            loan: loan, revnetId: revnetId, collateralCount: collateralCount, currentRuleset: currentRuleset
+        });
+
+        // Revert if the bonding curve returns zero to prevent creating zero-amount loans.
+        if (borrowAmount == 0) revert REVLoans_ZeroBorrowAmount();
+
+        // Make sure the minimum borrow amount is met.
+        if (borrowAmount < minBorrowAmount) revert REVLoans_UnderMinBorrowAmount(minBorrowAmount, borrowAmount);
+
+        // Get the amount of additional fee to take for the revnet issuing the loan.
+        // Fee rounding may leave a few wei of dust — economically insignificant relative to gas costs.
+        uint256 sourceFeeAmount = JBFees.feeAmountFrom({amountBeforeFee: borrowAmount, feePercent: prepaidFeePercent});
+
+        // Borrow the amount.
+        _adjust({
+            loan: loan,
+            revnetId: revnetId,
+            newBorrowAmount: borrowAmount,
+            newCollateralCount: collateralCount,
+            sourceFeeAmount: sourceFeeAmount,
+            beneficiary: beneficiary,
+            holder: holder
+        });
+
+        // Mint the loan NFT to the holder.
+        _mint({to: holder, tokenId: loanId});
+
+        emit Borrow({
+            loanId: loanId,
+            revnetId: revnetId,
+            loan: loan,
+            source: source,
+            borrowAmount: borrowAmount,
+            collateralCount: collateralCount,
+            sourceFeeAmount: sourceFeeAmount,
+            beneficiary: beneficiary,
+            caller: _msgSender()
+        });
+
+        return (loanId, loan);
     }
 
     /// @notice Reallocates collateral from a loan by making a new loan based on the original, with reduced collateral.
