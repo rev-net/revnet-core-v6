@@ -21,7 +21,7 @@ import {REVOwner} from "../../src/REVOwner.sol";
 /// @notice Mock sucker registry that returns configurable remote values.
 /// @dev All functions are view/pure to avoid StateChangeDuringStaticCall when called from
 /// REVOwner.beforeCashOutRecordedWith (which is a view function).
-contract H27MockSuckerRegistry {
+contract MockSuckerRegistry {
     uint256 public remoteSurplusToReturn;
     uint256 public remoteSupplyToReturn;
 
@@ -44,7 +44,7 @@ contract H27MockSuckerRegistry {
 }
 
 /// @notice Minimal echo buyback registry that passes through cash out context unchanged.
-contract H27EchoBuybackRegistry is IJBRulesetDataHook {
+contract EchoBuybackRegistry is IJBRulesetDataHook {
     function beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext calldata context)
         external
         pure
@@ -85,20 +85,19 @@ contract H27EchoBuybackRegistry is IJBRulesetDataHook {
     }
 }
 
-/// @notice H-27: REVOwner.beforeCashOutRecordedWith passes the wrong currency to remoteSurplusOf.
-/// @dev Before fix: `currency: uint256(uint160(context.surplus.token))` passes the token address (e.g. 61166 for
-/// NATIVE_TOKEN) instead of the actual currency identifier.
-/// After fix: `currency: uint256(context.surplus.currency)` passes the correct currency value.
-contract H27_REVOwnerCurrencyMismatchTest is TestBaseWorkflow {
+/// @notice REVOwner.beforeCashOutRecordedWith should pass the surplus currency (not the token address) to
+/// remoteSurplusOf. @dev `currency: uint256(context.surplus.currency)` passes the correct currency value,
+/// not `uint256(uint160(context.surplus.token))` which would pass the token address (e.g. 61166 for NATIVE_TOKEN).
+contract REVOwnerCurrencyMismatchTest is TestBaseWorkflow {
     REVOwner internal ownerHook;
-    H27MockSuckerRegistry internal suckerRegistry;
-    H27EchoBuybackRegistry internal buybackRegistry;
+    MockSuckerRegistry internal suckerRegistry;
+    EchoBuybackRegistry internal buybackRegistry;
 
     function setUp() public override {
         super.setUp();
 
-        suckerRegistry = new H27MockSuckerRegistry();
-        buybackRegistry = new H27EchoBuybackRegistry();
+        suckerRegistry = new MockSuckerRegistry();
+        buybackRegistry = new EchoBuybackRegistry();
 
         ownerHook = new REVOwner(
             IJBBuybackHookRegistry(address(buybackRegistry)),
@@ -115,7 +114,7 @@ contract H27_REVOwnerCurrencyMismatchTest is TestBaseWorkflow {
     ///      uint160(NATIVE_TOKEN) = 61166
     ///      The correct currency for ETH is 1 (baseCurrency).
     ///      Before the fix, 61166 was passed. After the fix, 1 is passed.
-    function test_H27_remoteSurplusOf_receives_currency_not_token_address() public {
+    function test_remoteSurplusOf_receives_currency_not_token_address() public {
         // Set up remote values so the registry returns something.
         suckerRegistry.setRemoteValues(500 ether, 900 ether);
 
@@ -155,7 +154,7 @@ contract H27_REVOwnerCurrencyMismatchTest is TestBaseWorkflow {
     /// @notice Verify that the remote surplus is actually included in the returned effectiveSurplusValue.
     /// @dev This is a regression test: if the wrong currency is passed, the registry might return 0
     ///      and the remote surplus would be silently dropped.
-    function test_H27_remoteSurplus_included_in_effectiveSurplus() public {
+    function test_remoteSurplus_included_in_effectiveSurplus() public {
         suckerRegistry.setRemoteValues(500 ether, 900 ether);
 
         uint32 ethCurrency = 1;

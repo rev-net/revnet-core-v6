@@ -45,9 +45,9 @@ import {REVOwner} from "../../src/REVOwner.sol";
 import {IREVDeployer} from "../../src/interfaces/IREVDeployer.sol";
 import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
 
-/// @notice L-20: Verify that reallocateCollateralFromLoan works with only REALLOCATE_LOAN permission,
+/// @notice Verify that reallocateCollateralFromLoan works with only REALLOCATE_LOAN permission,
 /// without requiring OPEN_LOAN. Also verify that borrowFrom still requires OPEN_LOAN (regression).
-contract L20_ReallocatePermissionTest is TestBaseWorkflow {
+contract ReallocatePermissionTest is TestBaseWorkflow {
     // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
 
@@ -275,7 +275,7 @@ contract L20_ReallocatePermissionTest is TestBaseWorkflow {
 
     /// @notice After fix: an operator with only REALLOCATE_LOAN permission can reallocate.
     /// @dev Before the fix, this would revert because the inner borrowFrom call required OPEN_LOAN.
-    function test_L20_reallocate_succeeds_with_only_REALLOCATE_LOAN_permission() public {
+    function test_reallocate_succeeds_with_only_REALLOCATE_LOAN_permission() public {
         (uint256 loanId,) = _createInitialLoan();
         require(loanId != 0, "Loan setup failed");
 
@@ -320,7 +320,7 @@ contract L20_ReallocatePermissionTest is TestBaseWorkflow {
 
     /// @notice Regression: borrowFrom still requires OPEN_LOAN permission.
     /// @dev An operator with only REALLOCATE_LOAN should NOT be able to call borrowFrom directly.
-    function test_L20_borrowFrom_still_requires_OPEN_LOAN() public {
+    function test_borrowFrom_still_requires_OPEN_LOAN() public {
         // HOLDER pays into the revnet.
         vm.prank(HOLDER);
         uint256 tokenCount =
@@ -343,7 +343,7 @@ contract L20_ReallocatePermissionTest is TestBaseWorkflow {
     }
 
     /// @notice Verify that borrowFrom succeeds when the caller has OPEN_LOAN permission.
-    function test_L20_borrowFrom_succeeds_with_OPEN_LOAN() public {
+    function test_borrowFrom_succeeds_with_OPEN_LOAN() public {
         // HOLDER pays into the revnet.
         vm.prank(HOLDER);
         uint256 tokenCount =
