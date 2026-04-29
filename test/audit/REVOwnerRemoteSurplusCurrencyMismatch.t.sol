@@ -83,7 +83,7 @@ contract EchoBuybackRegistry is IJBRulesetDataHook {
     }
 }
 
-contract CodexREVOwnerRemoteSurplusCurrencyMismatchTest is TestBaseWorkflow {
+contract REVOwnerRemoteSurplusCurrencyMismatchTest is TestBaseWorkflow {
     REVOwner internal ownerHook;
     CurrencyAwareSuckerRegistry internal suckerRegistry;
     EchoBuybackRegistry internal buybackRegistry;
@@ -128,11 +128,9 @@ contract CodexREVOwnerRemoteSurplusCurrencyMismatchTest is TestBaseWorkflow {
         (,, uint256 returnedSupply, uint256 returnedSurplus,) = ownerHook.beforeCashOutRecordedWith(context);
 
         assertEq(returnedSupply, 1500 ether, "remote supply should still be included");
-        assertEq(
-            returnedSurplus,
-            100 ether,
-            "remote surplus is incorrectly dropped because REVOwner keys by token address instead of currency"
-        );
+        // Remote surplus is correctly included (100 local + 900 remote = 1000) because the currency is passed to
+        // remoteSurplusOf.
+        assertEq(returnedSurplus, 1000 ether, "remote surplus should be included now that currency is passed correctly");
         assertEq(
             suckerRegistry.remoteSurplusOf(1, 18, ETH_CURRENCY),
             900 ether,
