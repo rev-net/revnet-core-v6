@@ -22,6 +22,7 @@ import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
 import {JBRulesetConfig} from "@bananapus/core-v6/src/structs/JBRulesetConfig.sol";
 import {JBRulesetMetadata} from "@bananapus/core-v6/src/structs/JBRulesetMetadata.sol";
 import {JBSplitGroup} from "@bananapus/core-v6/src/structs/JBSplitGroup.sol";
+import {JBSplit} from "@bananapus/core-v6/src/structs/JBSplit.sol";
 import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
@@ -356,12 +357,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         });
     }
 
-    /// @notice Returns the next project ID.
-    /// @return nextProjectId The next project ID.
-    function _nextProjectId() internal view returns (uint256) {
-        return PROJECTS.count() + 1;
-    }
-
     /// @notice Returns the permissions that the split operator should be granted for a revnet.
     /// @param revnetId The ID of the revnet to get split operator permissions for.
     /// @return allOperatorPermissions The permissions that the split operator should be granted for the revnet,
@@ -525,9 +520,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         // Keep a reference to the revnet ID which was passed in.
         bool shouldDeployNewRevnet = revnetId == 0;
 
-        // If the caller is deploying a new revnet, calculate its ID
-        // (which will be 1 greater than the current count).
-        if (shouldDeployNewRevnet) revnetId = _nextProjectId();
+        // If the caller is deploying a new revnet, reserve its project ID before deriving hook/sucker config.
+        if (shouldDeployNewRevnet) revnetId = PROJECTS.createFor(address(this));
 
         // Deploy the revnet with the specified tiered ERC-721 hook and croptop posting criteria.
         hook = _deploy721RevnetFor({
@@ -555,7 +549,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         returns (uint256, IJB721TiersHook hook)
     {
         bool shouldDeployNewRevnet = revnetId == 0;
-        if (shouldDeployNewRevnet) revnetId = _nextProjectId();
+        if (shouldDeployNewRevnet) revnetId = PROJECTS.createFor(address(this));
 
         // Deploy the revnet (project, rulesets, ERC-20, suckers, etc.).
         bytes32 encodedConfigurationHash = _deployRevnetFor({
@@ -773,8 +767,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     ///   uninitialized.
     /// - The project's JBProjects NFT is permanently transferred to this contract. This is irreversible.
     /// @param revnetId The ID of the Juicebox project to initialize as a revnet. Send 0 to deploy a new revnet.
-    /// @param shouldDeployNewRevnet Whether to deploy a new revnet or convert an existing Juicebox project into a
-    /// revnet.
+    /// @param shouldDeployNewRevnet Whether the revnet ID was reserved by this deployment call, or the caller is
+    /// converting an existing Juicebox project into a revnet.
     /// @param configuration Core revnet configuration. See `REVConfig`.
     /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
     /// @param suckerDeploymentConfiguration The suckers to set up for the revnet. Suckers facilitate cross-chain
@@ -795,20 +789,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         (rulesetConfigurations, encodedConfigurationHash) = _makeRulesetConfigurations({
             revnetId: revnetId, configuration: configuration, terminalConfigurations: terminalConfigurations
         });
-        if (shouldDeployNewRevnet) {
-            // If we're deploying a new revnet, launch a Juicebox project for it.
-            // Sanity check that we deployed the `revnetId` that we expected to deploy.
-            // slither-disable-next-line incorrect-equality,reentrancy-benign,reentrancy-events
-            assert(
-                CONTROLLER.launchProjectFor({
-                    owner: address(this),
-                    projectUri: configuration.description.uri,
-                    rulesetConfigurations: rulesetConfigurations,
-                    terminalConfigurations: terminalConfigurations,
-                    memo: ""
-                }) == revnetId
-            );
-        } else {
+        if (!shouldDeployNewRevnet) {
             // Keep a reference to the Juicebox project's owner.
             address owner = PROJECTS.ownerOf(revnetId);
 
@@ -818,19 +799,19 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             // Initialize the existing Juicebox project as a revnet by
             // transferring the `JBProjects` NFT to this deployer. This is irreversible.
             IERC721(PROJECTS).safeTransferFrom({from: owner, to: address(this), tokenId: revnetId});
-
-            // Launch the revnet rulesets for the pre-existing project.
-            // slither-disable-next-line unused-return
-            CONTROLLER.launchRulesetsFor({
-                projectId: revnetId,
-                rulesetConfigurations: rulesetConfigurations,
-                terminalConfigurations: terminalConfigurations,
-                memo: ""
-            });
-
-            // Set the revnet's URI.
-            CONTROLLER.setUriOf({projectId: revnetId, uri: configuration.description.uri});
         }
+
+        // Launch the revnet rulesets for the reserved or pre-existing blank project.
+        // slither-disable-next-line unused-return
+        CONTROLLER.launchRulesetsFor({
+            projectId: revnetId,
+            rulesetConfigurations: rulesetConfigurations,
+            terminalConfigurations: terminalConfigurations,
+            memo: ""
+        });
+
+        // Set the revnet's URI.
+        CONTROLLER.setUriOf({projectId: revnetId, uri: configuration.description.uri});
 
         // Store the cash out delay of the revnet if its stages are already in progress.
         // This prevents cash out liquidity/arbitrage issues for existing revnets which
@@ -912,7 +893,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         // slither-disable-next-line unused-return
         suckers = SUCKER_REGISTRY.deploySuckersFor({
             projectId: revnetId,
-            salt: keccak256(abi.encode(encodedConfigurationHash, suckerDeploymentConfiguration.salt, _msgSender())),
+            salt: keccak256(abi.encode(encodedConfigurationHash, suckerDeploymentConfiguration.salt)),
             configurations: suckerDeploymentConfiguration.deployerConfigurations
         });
     }
@@ -953,7 +934,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             configuration.baseCurrency,
             configuration.description.name,
             configuration.description.ticker,
-            configuration.description.salt
+            configuration.description.salt,
+            configuration.splitOperator
         );
 
         // Include terminal addresses in the hash so cross-chain expansions must use the same terminals.
@@ -1024,8 +1006,25 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
                 stageConfiguration.initialIssuance,
                 stageConfiguration.issuanceCutFrequency,
                 stageConfiguration.issuanceCutPercent,
-                stageConfiguration.cashOutTaxRate
+                stageConfiguration.cashOutTaxRate,
+                stageConfiguration.extraMetadata,
+                stageConfiguration.splits.length
             );
+
+            // Add each reserved-token split to the byte-encoded representation so reserved issuance routing is part of
+            // the revnet identity commitment used for same-address sucker deployment.
+            for (uint256 j; j < stageConfiguration.splits.length; j++) {
+                JBSplit calldata split = stageConfiguration.splits[j];
+                encodedConfiguration = abi.encode(
+                    encodedConfiguration,
+                    split.percent,
+                    split.projectId,
+                    split.beneficiary,
+                    split.preferAddToBalance,
+                    split.lockedUntil,
+                    address(split.hook)
+                );
+            }
 
             // Add each auto-mint to the byte-encoded representation.
             for (uint256 j; j < stageConfiguration.autoIssuances.length; j++) {

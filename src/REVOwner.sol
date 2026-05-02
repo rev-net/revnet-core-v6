@@ -9,6 +9,7 @@ import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDa
 import {IJBTerminal} from "@bananapus/core-v6/src/interfaces/IJBTerminal.sol";
 import {JBCashOuts} from "@bananapus/core-v6/src/libraries/JBCashOuts.sol";
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
+import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
 import {JBAfterCashOutRecordedContext} from "@bananapus/core-v6/src/structs/JBAfterCashOutRecordedContext.sol";
 import {JBBeforeCashOutRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforeCashOutRecordedContext.sol";
 import {JBBeforePayRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforePayRecordedContext.sol";
@@ -22,11 +23,15 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {mulDiv} from "@prb/math/src/Common.sol";
 
 import {IREVDeployer} from "./interfaces/IREVDeployer.sol";
+import {IREVHiddenTokens} from "./interfaces/IREVHiddenTokens.sol";
+import {IREVLoans} from "./interfaces/IREVLoans.sol";
+import {IJBPeerChainAccountingContext} from "./interfaces/IJBPeerChainAccountingContext.sol";
+import {REVLoanSource} from "./structs/REVLoanSource.sol";
 
 /// @notice Handles the runtime data hook and cash out hook behavior for revnets.
 /// @dev Separated from `REVDeployer` to stay within the EIP-170 contract size limit.
 /// This contract is set as the `dataHook` in each revnet's ruleset metadata.
-contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
+contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAccountingContext {
     // A library that adds default safety checks to ERC20 functionality.
     using SafeERC20 for IERC20;
 
@@ -156,8 +161,19 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
         // If the cash out is from a sucker, return the full cash out amount without taxes or fees.
         // This relies on the sucker registry to only contain trusted sucker contracts deployed via
         // the registry's own deploySuckersFor flow — external addresses cannot register as suckers.
+        uint256 hiddenSupply = _totalHiddenOf(context.projectId);
+        (uint256 totalBorrowed, uint256 totalCollateral) = _localLoanStateOf({
+            revnetId: context.projectId, decimals: context.surplus.decimals, currency: context.surplus.currency
+        });
+
         if (_isSuckerOf({revnetId: context.projectId, addr: context.holder})) {
-            return (0, context.cashOutCount, context.totalSupply, context.surplus.value, hookSpecifications);
+            return (
+                0,
+                context.cashOutCount,
+                context.totalSupply + hiddenSupply + totalCollateral,
+                context.surplus.value + totalBorrowed,
+                hookSpecifications
+            );
         }
 
         // Keep a reference to the cash out delay of the revnet.
@@ -173,8 +189,9 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
 
         // Compute the cross-chain total supply (local + remote peer chain supplies) for cross-chain-aware bonding
         // curve.
-        totalSupply = context.totalSupply + SUCKER_REGISTRY.remoteTotalSupplyOf(context.projectId);
-        effectiveSurplusValue = context.surplus.value
+        totalSupply = context.totalSupply + hiddenSupply + totalCollateral
+            + SUCKER_REGISTRY.remoteTotalSupplyOf(context.projectId);
+        effectiveSurplusValue = context.surplus.value + totalBorrowed
             + SUCKER_REGISTRY.remoteSurplusOf({
                 projectId: context.projectId,
                 decimals: context.surplus.decimals,
@@ -355,6 +372,26 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
             || _isSuckerOf({revnetId: revnetId, addr: addr});
     }
 
+    /// @notice Additional revnet accounting that peer-chain snapshots should include.
+    /// @param revnetId The ID of the revnet being snapshotted.
+    /// @param decimals The decimals the returned surplus should use.
+    /// @param currency The currency the returned surplus should be in terms of.
+    /// @return supply The hidden and loan-collateral supply to include in the peer snapshot.
+    /// @return surplus The outstanding loan debt to include in the peer snapshot.
+    function peerChainAccountingContextOf(
+        uint256 revnetId,
+        uint256 decimals,
+        uint256 currency
+    )
+        external
+        view
+        override
+        returns (uint256 supply, uint256 surplus)
+    {
+        (surplus, supply) = _localLoanStateOf({revnetId: revnetId, decimals: decimals, currency: currency});
+        supply += _totalHiddenOf(revnetId);
+    }
+
     //*********************************************************************//
     // --------------------- external transactions ----------------------- //
     //*********************************************************************//
@@ -460,7 +497,8 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
     /// @return A flag indicating if the provided interface ID is supported.
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
         return interfaceId == type(IERC165).interfaceId || interfaceId == type(IJBRulesetDataHook).interfaceId
-            || interfaceId == type(IJBCashOutHook).interfaceId;
+            || interfaceId == type(IJBCashOutHook).interfaceId
+            || interfaceId == type(IJBPeerChainAccountingContext).interfaceId;
     }
 
     //*********************************************************************//
@@ -473,6 +511,72 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook {
     /// @return isSucker A flag indicating whether the address is one of the revnet's suckers.
     function _isSuckerOf(uint256 revnetId, address addr) internal view returns (bool) {
         return SUCKER_REGISTRY.isSuckerOf({projectId: revnetId, addr: addr});
+    }
+
+    /// @notice Local loan debt and burned collateral for a revnet.
+    /// @param revnetId The ID of the revnet to check.
+    /// @param decimals The decimals the resulting fixed point debt value should use.
+    /// @param currency The currency the resulting debt value should be in terms of.
+    /// @return borrowedAmount The local outstanding loan debt converted into `currency`.
+    /// @return collateralCount The local burned loan collateral count.
+    function _localLoanStateOf(
+        uint256 revnetId,
+        uint256 decimals,
+        uint256 currency
+    )
+        internal
+        view
+        returns (uint256 borrowedAmount, uint256 collateralCount)
+    {
+        address loansAddress = LOANS;
+        if (loansAddress == address(0) || loansAddress.code.length == 0) return (0, 0);
+
+        IREVLoans loans = IREVLoans(loansAddress);
+        collateralCount = loans.totalCollateralOf(revnetId);
+
+        REVLoanSource[] memory sources = loans.loanSourcesOf(revnetId);
+        for (uint256 i; i < sources.length; i++) {
+            REVLoanSource memory source = sources[i];
+            uint256 tokensLoaned = loans.totalBorrowedFrom(revnetId, source.terminal, source.token);
+            if (tokensLoaned == 0) continue;
+
+            JBAccountingContext memory accountingContext =
+                source.terminal.accountingContextForTokenOf({projectId: revnetId, token: source.token});
+
+            uint256 normalizedTokens;
+            if (accountingContext.decimals > decimals) {
+                normalizedTokens = tokensLoaned / (10 ** (accountingContext.decimals - decimals));
+            } else if (accountingContext.decimals < decimals) {
+                normalizedTokens = tokensLoaned * (10 ** (decimals - accountingContext.decimals));
+            } else {
+                normalizedTokens = tokensLoaned;
+            }
+
+            if (accountingContext.currency == currency) {
+                borrowedAmount += normalizedTokens;
+            } else {
+                uint256 pricePerUnit = loans.PRICES()
+                    .pricePerUnitOf({
+                    projectId: revnetId,
+                    pricingCurrency: accountingContext.currency,
+                    unitCurrency: currency,
+                    decimals: decimals
+                });
+                if (pricePerUnit == 0) continue;
+
+                borrowedAmount += mulDiv({x: normalizedTokens, y: 10 ** decimals, denominator: pricePerUnit});
+            }
+        }
+    }
+
+    /// @notice The total hidden token supply for a revnet.
+    /// @param revnetId The ID of the revnet to check.
+    /// @return The amount of locally hidden token supply.
+    function _totalHiddenOf(uint256 revnetId) internal view returns (uint256) {
+        address hiddenTokens = HIDDEN_TOKENS;
+        if (hiddenTokens == address(0) || hiddenTokens.code.length == 0) return 0;
+
+        return IREVHiddenTokens(hiddenTokens).totalHiddenOf(revnetId);
     }
 
     //*********************************************************************//

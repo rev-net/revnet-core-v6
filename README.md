@@ -19,7 +19,8 @@ This package provides:
 - a deployer that launches Revnets and stores their long-lived configuration
 - a runtime hook that mediates pay, cash-out, mint-permission, and delayed-cash-out behavior
 - a loan system that burns token collateral on borrow and remints on repayment
-- a hidden-token system that temporarily removes tokens from visible supply
+- a hidden-token system that temporarily removes tokens from visible supply while preserving economic claim
+  denominators
 
 It also composes with the 721 hook stack, buyback hook, router terminal, Croptop, and suckers where needed.
 
@@ -32,7 +33,7 @@ Use this repo when the product is a treasury-backed network with encoded stage t
 | `REVDeployer` | Launches and configures Revnets, stages, split operators, and optional auxiliary features. |
 | `REVOwner` | Runtime data-hook and cash-out-hook surface used by active Revnets. |
 | `REVLoans` | Loan surface that lets users borrow against Revnet tokens with burned collateral and NFT loan positions. |
-| `REVHiddenTokens` | Lets token holders temporarily hide tokens, excluding them from visible supply until reveal. |
+| `REVHiddenTokens` | Lets token holders temporarily hide tokens from visible/governance supply until reveal, while cash-out and loan denominators still count hidden supply. |
 
 ## Mental Model
 

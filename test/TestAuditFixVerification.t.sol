@@ -535,8 +535,8 @@ contract TestAuditFixVerification is TestBaseWorkflow {
         assertEq(HIDDEN_TOKENS.totalHiddenOf(REVNET_ID), hideCount, "Total hidden should be tracked");
     }
 
-    /// @notice A14: After hiding, economic supply is reduced until tokens are revealed.
-    function test_A14_hiddenTokens_reduceEconomicSupply() public {
+    /// @notice A14: Hidden tokens leave live supply but stay in REVOwner's cash-out denominator.
+    function test_A14_hiddenTokensStayInCashOutDenominator() public {
         // Pay to get tokens for the user.
         uint256 payAmount = 10e18;
         vm.prank(USER);
@@ -560,13 +560,42 @@ contract TestAuditFixVerification is TestBaseWorkflow {
         vm.prank(USER);
         HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hideCount, USER);
 
-        // The live totalSupply should be reduced, which also reduces economic supply.
+        // The live totalSupply should be reduced.
         uint256 rawSupply = jbController().totalTokenSupplyWithReservedTokensOf(REVNET_ID);
-        assertEq(rawSupply, totalSupplyBefore - hideCount, "Economic supply should decrease after hiding");
+        assertEq(rawSupply, totalSupplyBefore - hideCount, "Raw supply should decrease after hiding");
 
         // The hidden balance should be correctly tracked.
         assertEq(HIDDEN_TOKENS.hiddenBalanceOf(USER, REVNET_ID), hideCount, "Hidden balance tracked");
         assertEq(HIDDEN_TOKENS.totalHiddenOf(REVNET_ID), hideCount, "Total hidden tracked");
+
+        uint256 localSurplus = jbMultiTerminal()
+            .currentSurplusOf(REVNET_ID, new address[](0), 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        JBBeforeCashOutRecordedContext memory context = JBBeforeCashOutRecordedContext({
+            terminal: address(jbMultiTerminal()),
+            holder: USER,
+            projectId: REVNET_ID,
+            rulesetId: 0,
+            cashOutCount: rawSupply,
+            totalSupply: rawSupply,
+            surplus: JBTokenAmount({
+                token: JBConstants.NATIVE_TOKEN,
+                decimals: 18,
+                currency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
+                value: localSurplus
+            }),
+            useTotalSurplus: true,
+            cashOutTaxRate: 5000,
+            beneficiaryIsFeeless: false,
+            metadata: ""
+        });
+
+        (bool success, bytes memory retdata) =
+            address(REV_OWNER).call(abi.encodeWithSelector(REV_OWNER.beforeCashOutRecordedWith.selector, context));
+        assertTrue(success, "beforeCashOutRecordedWith should succeed");
+
+        (,, uint256 returnedTotalSupply,,) =
+            abi.decode(retdata, (uint256, uint256, uint256, uint256, JBCashOutHookSpecification[]));
+        assertEq(returnedTotalSupply, totalSupplyBefore, "Hidden supply should remain in cash-out denominator");
     }
 
     //*********************************************************************//

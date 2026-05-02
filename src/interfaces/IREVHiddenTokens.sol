@@ -3,7 +3,8 @@ pragma solidity ^0.8.0;
 
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 
-/// @notice Manages hiding (burning) and revealing (re-minting) revnet tokens to exclude them from totalSupply.
+/// @notice Manages hiding (burning) and revealing (re-minting) revnet tokens to exclude them from live totalSupply.
+/// @dev Hidden balances remain revealable, so revnet cash-out and loan accounting should include `totalHiddenOf`.
 interface IREVHiddenTokens {
     /// @notice Emitted when a holder is allowed or disallowed to hide their own tokens.
     /// @param revnetId The ID of the revnet.

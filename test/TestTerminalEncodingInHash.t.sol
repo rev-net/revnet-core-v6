@@ -185,7 +185,8 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
             uint32(uint160(JBConstants.NATIVE_TOKEN)), // baseCurrency
             "Terminal Test", // name
             "TERM", // ticker
-            bytes32("VERIFY") // salt
+            bytes32("VERIFY"), // salt
+            multisig() // splitOperator
         );
         // Terminal address encoding.
         encodedConfiguration = abi.encode(encodedConfiguration, jbMultiTerminal());
@@ -197,7 +198,9 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
             uint112(1000e18), // initialIssuance
             uint256(0), // issuanceCutFrequency
             uint256(0), // issuanceCutPercent
-            uint256(5000) // cashOutTaxRate
+            uint256(5000), // cashOutTaxRate
+            uint256(0), // extraMetadata
+            uint256(0) // splits.length
         );
         bytes32 expectedHash = keccak256(encodedConfiguration);
 

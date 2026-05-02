@@ -5,6 +5,10 @@ import {IREVDeployer} from "./IREVDeployer.sol";
 
 /// @notice Interface for the REVOwner contract that handles runtime data hook and cash out hook behavior for revnets.
 interface IREVOwner {
+    /// @notice The hidden tokens contract used by the revnet owner hook.
+    /// @return The hidden tokens contract address.
+    function HIDDEN_TOKENS() external view returns (address);
+
     /// @notice The timestamp of when cashouts will become available to a specific revnet's participants.
     /// @param revnetId The ID of the revnet.
     /// @return The cash out delay timestamp.

@@ -6,7 +6,7 @@ import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {TestHiddenTokens} from "../TestHiddenTokens.t.sol";
 
 contract CodexNemesisHiddenSupplyCashoutTest is TestHiddenTokens {
-    function test_hiddenSupplyCanDrainCashoutAndThenBeRevealed() public {
+    function test_hiddenSupplyCannotDrainCashoutAndThenBeRevealed() public {
         uint256 payAmount = 10 ether;
 
         vm.prank(USER);
@@ -31,7 +31,7 @@ contract CodexNemesisHiddenSupplyCashoutTest is TestHiddenTokens {
         HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hiddenCount, USER);
 
         uint256 visibleSupply = jbController().TOKENS().totalSupplyOf(REVNET_ID);
-        assertEq(visibleSupply, minted - hiddenCount, "hidden tokens left the cash-out denominator");
+        assertEq(visibleSupply, minted - hiddenCount, "hidden tokens left the live supply");
 
         vm.prank(USER);
         jbMultiTerminal()
@@ -47,7 +47,10 @@ contract CodexNemesisHiddenSupplyCashoutTest is TestHiddenTokens {
 
         uint256 terminalBalanceAfter =
             jbTerminalStore().balanceOf(address(jbMultiTerminal()), REVNET_ID, JBConstants.NATIVE_TOKEN);
-        assertEq(terminalBalanceAfter, 0, "visible tranche drained the revnet balance");
+        assertGt(terminalBalanceAfter, 0, "hidden supply kept the visible tranche from draining the revnet balance");
+        assertLt(
+            terminalBalanceAfter, terminalBalanceBefore, "cash out should still reclaim against the visible tranche"
+        );
 
         vm.prank(USER);
         HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hiddenCount, USER);

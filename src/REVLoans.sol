@@ -32,6 +32,7 @@ import {IPermit2} from "@uniswap/permit2/src/interfaces/IPermit2.sol";
 
 import {IREVLoans} from "./interfaces/IREVLoans.sol";
 import {IREVOwner} from "./interfaces/IREVOwner.sol";
+import {IREVHiddenTokens} from "./interfaces/IREVHiddenTokens.sol";
 import {REVLoan} from "./structs/REVLoan.sol";
 import {REVLoanSource} from "./structs/REVLoanSource.sol";
 
@@ -359,11 +360,13 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Get the total amount of tokens in circulation.
         uint256 totalSupply = CONTROLLER.totalTokenSupplyWithReservedTokensOf(revnetId);
 
-        // Get a refeerence to the collateral being used to secure loans.
+        // Get a reference to the collateral being used to secure loans.
         uint256 totalCollateral = totalCollateralOf[revnetId];
 
-        // The local supply includes both circulating tokens and tokens locked as loan collateral.
-        uint256 localSupply = totalSupply + totalCollateral;
+        // Hidden tokens are burned out of live token supply, but remain revealable claims. Keep them in the economic
+        // denominator alongside circulating tokens and tokens locked as loan collateral.
+        uint256 localSupply =
+            totalSupply + totalCollateral + _totalHiddenOf({revnetId: revnetId, currentStage: currentStage});
 
         // The local surplus includes both the treasury surplus and the outstanding borrowed amounts.
         uint256 localSurplus = totalSurplus + totalBorrowed;
@@ -586,6 +589,20 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
                 borrowedAmount += mulDiv({x: normalizedTokens, y: 10 ** decimals, denominator: pricePerUnit});
             }
         }
+    }
+
+    /// @notice The total hidden token supply for a revnet, resolved through its current REVOwner data hook.
+    /// @param revnetId The ID of the revnet to check.
+    /// @param currentStage The pre-fetched current ruleset.
+    /// @return The amount of locally hidden token supply.
+    function _totalHiddenOf(uint256 revnetId, JBRuleset memory currentStage) internal view returns (uint256) {
+        address dataHook = currentStage.dataHook();
+        if (dataHook == address(0) || dataHook.code.length == 0) return 0;
+
+        address hiddenTokens = IREVOwner(dataHook).HIDDEN_TOKENS();
+        if (hiddenTokens == address(0) || hiddenTokens.code.length == 0) return 0;
+
+        return IREVHiddenTokens(hiddenTokens).totalHiddenOf(revnetId);
     }
 
     //*********************************************************************//
