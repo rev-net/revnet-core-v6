@@ -44,12 +44,12 @@ contract TestLoanAdversarialFork is ForkTestBase {
     }
 
     /// @notice Deploy a revnet with a custom description salt to avoid CREATE2 collisions.
-    function _deployRevnetWithSalt(uint16 cashOutTaxRate, bytes32 salt) internal returns (uint256 revnetId) {
+    function _deployRevnetWithSalt(uint16 cashOutTaxRate, bytes32 salt) internal returns (uint256 deployedRevnetId) {
         (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
             _buildMinimalConfig(cashOutTaxRate);
         cfg.description.salt = salt;
 
-        (revnetId,) = REV_DEPLOYER.deployFor({
+        (deployedRevnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
             terminalConfigurations: tc,

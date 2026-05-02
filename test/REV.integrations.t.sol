@@ -219,7 +219,7 @@ contract REVnet_Integrations is TestBaseWorkflow {
             jbRulesets(),
             HOOK_STORE,
             jbSplits(),
-            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer())),
+            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer(HOOK_STORE))),
             multisig()
         );
 
@@ -440,8 +440,7 @@ contract REVnet_Integrations is TestBaseWorkflow {
             localToken: token, minGas: 200_000, remoteToken: bytes32(uint256(uint160(makeAddr("someOtherToken"))))
         });
 
-        suckerDeployerConfig[0] =
-            JBSuckerDeployerConfig({deployer: ARB_SUCKER_DEPLOYER, peer: bytes32(0), mappings: tokenMapping});
+        suckerDeployerConfig[0] = JBSuckerDeployerConfig({deployer: ARB_SUCKER_DEPLOYER, mappings: tokenMapping});
 
         REVSuckerDeploymentConfig memory revConfig =
             REVSuckerDeploymentConfig({deployerConfigurations: suckerDeployerConfig, salt: "SALTY"});

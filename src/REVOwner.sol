@@ -535,6 +535,9 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAccountingC
         collateralCount = loans.totalCollateralOf(revnetId);
 
         REVLoanSource[] memory sources = loans.loanSourcesOf(revnetId);
+        // Loan sources are project configuration, and this read-only aggregation needs the latest terminal/pricing
+        // state for each configured source.
+        // slither-disable-start calls-loop
         for (uint256 i; i < sources.length; i++) {
             REVLoanSource memory source = sources[i];
             uint256 tokensLoaned = loans.totalBorrowedFrom(revnetId, source.terminal, source.token);
@@ -567,6 +570,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAccountingC
                 borrowedAmount += mulDiv({x: normalizedTokens, y: 10 ** decimals, denominator: pricePerUnit});
             }
         }
+        // slither-disable-end calls-loop
     }
 
     /// @notice The total hidden token supply for a revnet.

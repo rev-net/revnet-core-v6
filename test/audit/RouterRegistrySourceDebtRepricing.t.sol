@@ -173,7 +173,7 @@ contract CodexRouterRegistrySourceDebtRepricingTest is TestBaseWorkflow {
             jbRulesets(),
             hookStore,
             jbSplits(),
-            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer())),
+            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer(hookStore))),
             multisig()
         );
         addressRegistry = new JBAddressRegistry();

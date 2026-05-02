@@ -301,7 +301,7 @@ contract REVLoansUnsourcedTests is TestBaseWorkflow {
             jbRulesets(),
             HOOK_STORE,
             jbSplits(),
-            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer())),
+            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer(HOOK_STORE))),
             multisig()
         );
 

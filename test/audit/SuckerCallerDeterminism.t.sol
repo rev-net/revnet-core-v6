@@ -79,7 +79,7 @@ contract CodexNemesisSuckerCallerDeterminismTest is TestBaseWorkflow {
             jbRulesets(),
             HOOK_STORE,
             jbSplits(),
-            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer())),
+            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer(HOOK_STORE))),
             multisig()
         );
         ADDRESS_REGISTRY = new JBAddressRegistry();
@@ -154,7 +154,7 @@ contract CodexNemesisSuckerCallerDeterminismTest is TestBaseWorkflow {
         bytes32 descriptionSalt = bytes32("REV_SAME_CONFIG");
 
         uint256 revnetA = _deployRevnetWith(OPERATOR_A, OPERATOR_A, descriptionSalt, commonStart);
-        uint256 revnetB = _deployRevnetWith(OPERATOR_B, OPERATOR_B, descriptionSalt, commonStart);
+        uint256 revnetB = _deployRevnetWith(OPERATOR_B, OPERATOR_A, descriptionSalt, commonStart);
 
         assertEq(
             REV_DEPLOYER.hashedEncodedConfigurationOf(revnetA),
@@ -163,6 +163,9 @@ contract CodexNemesisSuckerCallerDeterminismTest is TestBaseWorkflow {
         );
 
         REVSuckerDeploymentConfig memory config = _suckerConfig(bytes32("CALLER_SALTED"));
+
+        vm.prank(OPERATOR_A);
+        REV_DEPLOYER.setSplitOperatorOf(revnetB, OPERATOR_B);
 
         vm.prank(OPERATOR_A);
         address suckerA = REV_DEPLOYER.deploySuckersFor(revnetA, config)[0];
@@ -175,6 +178,15 @@ contract CodexNemesisSuckerCallerDeterminismTest is TestBaseWorkflow {
         REV_DEPLOYER.deploySuckersFor(revnetB, config);
 
         assertEq(IJBSucker(suckerA).peer(), bytes32(uint256(uint160(suckerA))), "default peer remains same-address");
+    }
+
+    function test_onlySplitOperatorCanDeploySuckersForRevnet() public {
+        uint256 revnetId = _deployRevnetWith(OPERATOR_A, OPERATOR_A, bytes32("OP_CHAIN_CTRL"), uint40(block.timestamp));
+        REVSuckerDeploymentConfig memory config = _suckerConfig(bytes32("CHAIN_CTRL"));
+
+        vm.expectRevert(abi.encodeWithSelector(REVDeployer.REVDeployer_Unauthorized.selector, revnetId, OPERATOR_B));
+        vm.prank(OPERATOR_B);
+        REV_DEPLOYER.deploySuckersFor(revnetId, config);
     }
 
     function _deployFeeProject() internal {
@@ -278,8 +290,7 @@ contract CodexNemesisSuckerCallerDeterminismTest is TestBaseWorkflow {
         });
 
         JBSuckerDeployerConfig[] memory deployerConfigurations = new JBSuckerDeployerConfig[](1);
-        deployerConfigurations[0] =
-            JBSuckerDeployerConfig({deployer: OP_SUCKER_DEPLOYER, peer: bytes32(0), mappings: mappings});
+        deployerConfigurations[0] = JBSuckerDeployerConfig({deployer: OP_SUCKER_DEPLOYER, mappings: mappings});
 
         config = REVSuckerDeploymentConfig({deployerConfigurations: deployerConfigurations, salt: salt});
     }

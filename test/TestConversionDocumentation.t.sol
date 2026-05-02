@@ -149,7 +149,7 @@ contract TestConversionDocumentation is TestBaseWorkflow {
             jbRulesets(),
             HOOK_STORE,
             jbSplits(),
-            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer())),
+            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer(HOOK_STORE))),
             multisig()
         );
         ADDRESS_REGISTRY = new JBAddressRegistry();
@@ -286,7 +286,11 @@ contract TestConversionDocumentation is TestBaseWorkflow {
         vm.prank(USER);
         jbController()
             .launchRulesetsFor({
-            projectId: projectId, rulesetConfigurations: rulesetConfigs, terminalConfigurations: termConfigs, memo: ""
+            projectId: projectId,
+            projectUri: "",
+            rulesetConfigurations: rulesetConfigs,
+            terminalConfigurations: termConfigs,
+            memo: ""
         });
 
         // Now try to convert this project to a revnet — should revert.
