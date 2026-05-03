@@ -34,6 +34,7 @@ import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Recei
 import {mulDiv, sqrt} from "@prb/math/src/Common.sol";
 
 import {IREVDeployer} from "./interfaces/IREVDeployer.sol";
+import {IREVLoans} from "./interfaces/IREVLoans.sol";
 import {REVOwner} from "./REVOwner.sol";
 import {REVAutoIssuance} from "./structs/REVAutoIssuance.sol";
 import {REVConfig} from "./structs/REVConfig.sol";
@@ -111,7 +112,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @notice The loan contract used by all revnets.
     /// @dev Revnets can offer loans to their participants, collateralized by their tokens.
     /// Participants can borrow up to the current cash out value of their tokens.
-    address public immutable override LOANS;
+    IREVLoans public immutable override LOANS;
 
     /// @notice The runtime data hook contract that handles pay and cash out callbacks for revnets.
     /// @dev Set as `dataHook` in each revnet's ruleset metadata. Implements `IJBRulesetDataHook` and `IJBCashOutHook`.
@@ -195,7 +196,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         PUBLISHER = publisher;
         BUYBACK_HOOK = buybackHook;
         // slither-disable-next-line missing-zero-check
-        LOANS = loans;
+        LOANS = IREVLoans(loans);
         // slither-disable-next-line missing-zero-check
         OWNER = owner;
 
@@ -207,7 +208,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         // Give the loan contract permission to use the surplus allowance of all revnets.
         // Uses wildcard revnetId=0 intentionally — the loan contract is a singleton shared by all revnets,
         // and each revnet's surplus allowance limits already constrain how much can be drawn.
-        _setPermission({operator: LOANS, revnetId: 0, permissionId: JBPermissionIds.USE_ALLOWANCE});
+        _setPermission({operator: address(LOANS), revnetId: 0, permissionId: JBPermissionIds.USE_ALLOWANCE});
 
         // Give the buyback hook (registry) permission to configure pools on all revnets.
         _setPermission({operator: address(BUYBACK_HOOK), revnetId: 0, permissionId: JBPermissionIds.SET_BUYBACK_POOL});
@@ -505,7 +506,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @param allowedPosts Restrictions on which croptop posts are allowed on the revnet's ERC-721 tiers.
     /// @return revnetId The ID of the newly created revnet.
     /// @return hook The address of the tiered ERC-721 hook that was deployed for the revnet.
-    // slither-disable-start reentrancy-benign
+    // The deployment flow makes external setup calls, but any observed state is revnet-scoped and reverts atomically.
+    // slither-disable-next-line reentrancy-benign
     function deployFor(
         uint256 revnetId,
         REVConfig calldata configuration,
@@ -538,10 +540,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         return (revnetId, hook);
     }
 
-    // slither-disable-end reentrancy-benign
-
     /// @inheritdoc IREVDeployer
-    // slither-disable-start reentrancy-benign
+    // The deployment flow makes external setup calls, but any observed state is revnet-scoped and reverts atomically.
+    // slither-disable-next-line reentrancy-benign
     function deployFor(
         uint256 revnetId,
         REVConfig calldata configuration,
@@ -593,8 +594,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
 
         return (revnetId, hook);
     }
-
-    // slither-disable-end reentrancy-benign
 
     /// @notice Deploy new suckers for an existing revnet.
     /// @dev Only the revnet's split operator can deploy new suckers.
@@ -658,7 +657,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     //*********************************************************************//
 
     /// @notice Deploy a revnet which sells tiered ERC-721s and (optionally) allows croptop posts to its ERC-721 tiers.
-    // slither-disable-start reentrancy-benign
+    // The helper performs external hook/post setup after core revnet setup; any failure reverts the whole deployment.
+    // slither-disable-next-line reentrancy-benign
     function _deploy721RevnetFor(
         uint256 revnetId,
         bool shouldDeployNewRevnet,
@@ -770,8 +770,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             });
         }
     }
-
-    // slither-disable-end reentrancy-benign
 
     /// @notice Deploy a revnet, or initialize an existing Juicebox project as a revnet.
     /// @dev When initializing an existing project (`shouldDeployNewRevnet == false`):
@@ -1014,7 +1012,10 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
                 fundAccessLimitGroups: fundAccessLimitGroups
             });
 
-            // Add the stage's properties to the byte-encoded configuration.
+            // Add the stage's immutable economics to the byte-encoded configuration. `extraMetadata` is Juicebox
+            // ruleset metadata forwarded to the revnet data hook, so it remains part of the revnet identity.
+            // Reserved-token split recipients and individual weights are intentionally excluded below: the split
+            // limit (`splitPercent`) is the economic commitment, while split routing can change over time.
             encodedConfiguration = abi.encode(
                 encodedConfiguration,
                 // Use the effective start time (normalized from 0 to block.timestamp for the first stage).
@@ -1025,16 +1026,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
                 stageConfiguration.issuanceCutFrequency,
                 stageConfiguration.issuanceCutPercent,
                 stageConfiguration.cashOutTaxRate,
-                stageConfiguration.extraMetadata,
-                stageConfiguration.splits.length
+                stageConfiguration.extraMetadata
             );
-
-            // Add each reserved-token split's weight to the byte-encoded representation. Recipient fields are
-            // intentionally excluded: split beneficiaries, projects, hooks, and locks can be reconfigured over time,
-            // so they must not affect the revnet identity commitment used for same-address sucker deployment.
-            for (uint256 j; j < stageConfiguration.splits.length; j++) {
-                encodedConfiguration = abi.encode(encodedConfiguration, stageConfiguration.splits[j].percent);
-            }
 
             // Add each auto-mint to the byte-encoded representation.
             for (uint256 j; j < stageConfiguration.autoIssuances.length; j++) {

@@ -8,8 +8,8 @@ import {JBCashOuts} from "@bananapus/core-v6/src/libraries/JBCashOuts.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {JBPermissionsData} from "@bananapus/core-v6/src/structs/JBPermissionsData.sol";
 import {MockPriceFeed} from "@bananapus/core-v6/test/mock/MockPriceFeed.sol";
+import {IJBPeerChainAdjustedAccounts} from "@bananapus/suckers-v6/src/interfaces/IJBPeerChainAdjustedAccounts.sol";
 
-import {IJBPeerChainAccountingContext} from "../../src/interfaces/IJBPeerChainAccountingContext.sol";
 import {REVLoan} from "../../src/structs/REVLoan.sol";
 import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
 import {TestHiddenTokens} from "../TestHiddenTokens.t.sol";
@@ -97,7 +97,7 @@ contract CodexLocalLoanStateOmissionCashoutTest is TestHiddenTokens {
         assertLe(actualCashOut, correctedCashOut, "cash out should not exceed the local-loan-adjusted curve");
     }
 
-    function test_peerSnapshotAccountingIncludesLocalLoansAndHiddenSupply() public {
+    function test_peerSnapshotAdjustedAccountsIncludeLocalLoansButExcludeHiddenSupply() public {
         MockPriceFeed matchingFeed = new MockPriceFeed(1e18, 18);
         vm.prank(multisig());
         jbPrices()
@@ -146,12 +146,12 @@ contract CodexLocalLoanStateOmissionCashoutTest is TestHiddenTokens {
         assertGt(loan.amount, 0, "setup: loan should be opened");
 
         (uint256 snapshotSupply, uint256 snapshotSurplus) =
-            REV_OWNER.peerChainAccountingContextOf(REVNET_ID, 18, JBCurrencyIds.ETH);
+            REV_OWNER.peerChainAdjustedAccountsOf(REVNET_ID, 18, JBCurrencyIds.ETH);
 
         assertEq(
             snapshotSupply,
-            HIDDEN_TOKENS.totalHiddenOf(REVNET_ID) + LOANS_CONTRACT.totalCollateralOf(REVNET_ID),
-            "peer snapshot supply should include hidden supply and loan collateral"
+            LOANS_CONTRACT.totalCollateralOf(REVNET_ID),
+            "peer snapshot supply should include loan collateral but not hidden supply"
         );
         assertEq(
             snapshotSurplus,
@@ -159,8 +159,8 @@ contract CodexLocalLoanStateOmissionCashoutTest is TestHiddenTokens {
             "peer snapshot surplus should include outstanding loan debt"
         );
         assertTrue(
-            REV_OWNER.supportsInterface(type(IJBPeerChainAccountingContext).interfaceId),
-            "peer accounting interface should be advertised"
+            REV_OWNER.supportsInterface(type(IJBPeerChainAdjustedAccounts).interfaceId),
+            "peer adjusted accounts interface should be advertised"
         );
     }
 

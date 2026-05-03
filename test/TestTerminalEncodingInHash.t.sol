@@ -199,8 +199,7 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
             uint256(0), // issuanceCutFrequency
             uint256(0), // issuanceCutPercent
             uint256(5000), // cashOutTaxRate
-            uint256(0), // extraMetadata
-            uint256(0) // splits.length
+            uint256(0) // extraMetadata
         );
         bytes32 expectedHash = keccak256(encodedConfiguration);
 

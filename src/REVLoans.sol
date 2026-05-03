@@ -32,7 +32,6 @@ import {IPermit2} from "@uniswap/permit2/src/interfaces/IPermit2.sol";
 
 import {IREVLoans} from "./interfaces/IREVLoans.sol";
 import {IREVOwner} from "./interfaces/IREVOwner.sol";
-import {IREVHiddenTokens} from "./interfaces/IREVHiddenTokens.sol";
 import {REVLoan} from "./structs/REVLoan.sol";
 import {REVLoanSource} from "./structs/REVLoanSource.sol";
 
@@ -363,10 +362,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Get a reference to the collateral being used to secure loans.
         uint256 totalCollateral = totalCollateralOf[revnetId];
 
-        // Hidden tokens are burned out of live token supply, but remain revealable claims. Keep them in the economic
-        // denominator alongside circulating tokens and tokens locked as loan collateral.
-        uint256 localSupply =
-            totalSupply + totalCollateral + _totalHiddenOf({revnetId: revnetId, currentStage: currentStage});
+        // Hidden tokens are intentionally excluded from borrowing math. Operators can hide tokens as a security
+        // handle without changing the fair loan market for visible token holders.
+        uint256 localSupply = totalSupply + totalCollateral;
 
         // The local surplus includes both the treasury surplus and the outstanding borrowed amounts.
         uint256 localSurplus = totalSurplus + totalBorrowed;
@@ -589,20 +587,6 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
                 borrowedAmount += mulDiv({x: normalizedTokens, y: 10 ** decimals, denominator: pricePerUnit});
             }
         }
-    }
-
-    /// @notice The total hidden token supply for a revnet, resolved through its current REVOwner data hook.
-    /// @param revnetId The ID of the revnet to check.
-    /// @param currentStage The pre-fetched current ruleset.
-    /// @return The amount of locally hidden token supply.
-    function _totalHiddenOf(uint256 revnetId, JBRuleset memory currentStage) internal view returns (uint256) {
-        address dataHook = currentStage.dataHook();
-        if (dataHook == address(0) || dataHook.code.length == 0) return 0;
-
-        address hiddenTokens = IREVOwner(dataHook).HIDDEN_TOKENS();
-        if (hiddenTokens == address(0) || hiddenTokens.code.length == 0) return 0;
-
-        return IREVHiddenTokens(hiddenTokens).totalHiddenOf(revnetId);
     }
 
     //*********************************************************************//

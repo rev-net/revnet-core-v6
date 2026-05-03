@@ -1,6 +1,6 @@
 {
   "name": "@rev-net/core-v6",
-  "version": "0.0.38",
+  "version": "0.0.39",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -25,7 +25,7 @@
     "@bananapus/ownable-v6": "^0.0.20",
     "@bananapus/permission-ids-v6": "^0.0.19",
     "@bananapus/router-terminal-v6": "^0.0.30",
-    "@bananapus/suckers-v6": "^0.0.31",
+    "@bananapus/suckers-v6": "github:Bananapus/nana-suckers-v6#codex-v6-audit-remediations-20260501",
     "@croptop/core-v6": "^0.0.36",
     "@openzeppelin/contracts": "^5.6.1",
     "@uniswap/v4-core": "^1.0.2",

@@ -39,7 +39,7 @@ contract WeakConfigurationHashTest is TestTerminalEncodingInHash {
         assertFalse(REV_DEPLOYER.isSplitOperatorOf(revnetB, operatorA), "operator A should not control revnet B");
     }
 
-    function test_configurationHashIncludesReservedSplitRouting() public {
+    function test_configurationHashExcludesReservedSplitRouting() public {
         address splitBeneficiaryA = makeAddr("splitBeneficiaryA");
         address splitBeneficiaryB = makeAddr("splitBeneficiaryB");
         uint256 snapshot = vm.snapshotState();
@@ -67,7 +67,7 @@ contract WeakConfigurationHashTest is TestTerminalEncodingInHash {
         (JBRuleset memory rulesetB,) = jbController().currentRulesetOf(revnetB);
         JBSplit[] memory storedSplitsB = jbSplits().splitsOf(revnetB, rulesetB.id, JBSplitGroupIds.RESERVED_TOKENS);
 
-        assertNotEq(hashA, hashB, "reserved split routing differences should affect the configuration hash");
+        assertEq(hashA, hashB, "reserved split routing differences should not affect the configuration hash");
         assertEq(storedSplitsB.length, 1, "setup: revnet B should store one reserved split");
         assertEq(storedSplitsB[0].beneficiary, splitBeneficiaryB, "revnet B should route reserved tokens to B");
     }

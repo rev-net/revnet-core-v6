@@ -87,7 +87,8 @@ contract CodexNemesisVerificationTest is Test {
             uint112(1_000_000 ether),
             uint32(30 days),
             uint32(0),
-            uint16(JBConstants.MAX_CASH_OUT_TAX_RATE / 2)
+            uint16(JBConstants.MAX_CASH_OUT_TAX_RATE / 2),
+            uint16(0)
         );
 
         encodedConfiguration = abi.encode(encodedConfiguration, uint32(1), address(0xBEEF), uint104(100_000 ether));
