@@ -251,7 +251,7 @@ contract REVLoansSourceFeeRecovery is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT),
+            LOANS_CONTRACT,
             address(0)
         );
 
@@ -262,7 +262,7 @@ contract REVLoansSourceFeeRecovery is TestBaseWorkflow {
             HOOK_DEPLOYER,
             PUBLISHER,
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
-            address(LOANS_CONTRACT),
+            LOANS_CONTRACT,
             TRUSTED_FORWARDER,
             address(REV_OWNER)
         );

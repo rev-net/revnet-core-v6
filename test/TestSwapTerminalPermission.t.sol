@@ -108,7 +108,7 @@ contract TestSwapTerminalPermission is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT),
+            LOANS_CONTRACT,
             address(0)
         );
 
@@ -119,7 +119,7 @@ contract TestSwapTerminalPermission is TestBaseWorkflow {
             HOOK_DEPLOYER,
             PUBLISHER,
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
-            address(LOANS_CONTRACT),
+            LOANS_CONTRACT,
             TRUSTED_FORWARDER,
             address(REV_OWNER)
         );
@@ -227,15 +227,14 @@ contract TestSwapTerminalPermission is TestBaseWorkflow {
         assertTrue(hasRouterTerminal, "Split operator should have SET_ROUTER_TERMINAL permission");
     }
 
-    /// @notice Verify all 8 default permissions are present for the split operator.
+    /// @notice Verify the core default permissions are present for the split operator.
     function test_allDefaultPermissionsPresent() public view {
-        // All 8 default permissions that should be granted
-        uint256[8] memory expectedPermissions = [
+        // `ADD_PRICE_FEED` is intentionally excluded from the default operator grant.
+        uint256[7] memory expectedPermissions = [
             uint256(JBPermissionIds.SET_SPLIT_GROUPS),
             uint256(JBPermissionIds.SET_BUYBACK_POOL),
             uint256(JBPermissionIds.SET_BUYBACK_TWAP),
             uint256(JBPermissionIds.SET_PROJECT_URI),
-            uint256(JBPermissionIds.ADD_PRICE_FEED),
             uint256(JBPermissionIds.SUCKER_SAFETY),
             uint256(JBPermissionIds.SET_BUYBACK_HOOK),
             uint256(JBPermissionIds.SET_ROUTER_TERMINAL)

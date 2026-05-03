@@ -493,7 +493,7 @@ contract DeployScript is Script, Sphinx {
                 directory: core.controller.DIRECTORY(),
                 feeRevnetId: FEE_PROJECT_ID,
                 suckerRegistry: suckers.registry,
-                loans: address(revloans),
+                loans: revloans,
                 hiddenTokens: address(revHiddenTokens)
             });
 
@@ -510,7 +510,7 @@ contract DeployScript is Script, Sphinx {
                     hook.hook_deployer,
                     croptop.publisher,
                     IJBBuybackHookRegistry(address(buybackHook.registry)),
-                    address(revloans),
+                    revloans,
                     TRUSTED_FORWARDER,
                     address(revOwner)
                 )
@@ -527,7 +527,7 @@ contract DeployScript is Script, Sphinx {
                 hookDeployer: hook.hook_deployer,
                 publisher: croptop.publisher,
                 buybackHook: IJBBuybackHookRegistry(address(buybackHook.registry)),
-                loans: address(revloans),
+                loans: revloans,
                 trustedForwarder: TRUSTED_FORWARDER,
                 owner: address(revOwner)
             });

@@ -101,7 +101,7 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
             jbDirectory(),
             feeProjectId,
             IJBSuckerRegistry(address(suckerRegistry)),
-            address(loans),
+            loans,
             address(0)
         );
 
@@ -112,7 +112,7 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
             hookDeployer,
             publisher,
             IJBBuybackHookRegistry(address(mockBuyback)),
-            address(loans),
+            loans,
             TRUSTED_FORWARDER,
             address(revOwner)
         );

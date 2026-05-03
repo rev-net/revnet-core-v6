@@ -203,7 +203,7 @@ contract CodexPhantomSurplusTerminalTest is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS),
+            LOANS,
             address(0)
         );
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -213,7 +213,7 @@ contract CodexPhantomSurplusTerminalTest is TestBaseWorkflow {
             HOOK_DEPLOYER,
             PUBLISHER,
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
-            address(LOANS),
+            LOANS,
             TRUSTED_FORWARDER,
             address(REV_OWNER)
         );

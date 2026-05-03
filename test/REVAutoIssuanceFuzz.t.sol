@@ -37,6 +37,7 @@ import {IJB721CheckpointsDeployer} from "@bananapus/721-hook-v6/src/interfaces/I
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
+import {IREVLoans} from "../src/interfaces/IREVLoans.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 
@@ -98,7 +99,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            makeAddr("loans"),
+            IREVLoans(makeAddr("loans")),
             address(0)
         );
 
@@ -109,7 +110,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
             HOOK_DEPLOYER,
             PUBLISHER,
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
-            makeAddr("loans"),
+            IREVLoans(makeAddr("loans")),
             TRUSTED_FORWARDER,
             address(revOwner)
         );

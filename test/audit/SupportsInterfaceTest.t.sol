@@ -9,6 +9,7 @@ import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDa
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
+import {IREVLoans} from "../../src/interfaces/IREVLoans.sol";
 import {REVOwner} from "../../src/REVOwner.sol";
 
 /// @notice Regression test for missing IERC165 support: REVOwner.supportsInterface omits IERC165.
@@ -21,7 +22,7 @@ contract AuditFixL17Test is Test {
             IJBDirectory(makeAddr("directory")),
             1, // feeRevnetId
             IJBSuckerRegistry(makeAddr("suckerRegistry")),
-            makeAddr("loans"),
+            IREVLoans(makeAddr("loans")),
             makeAddr("hiddenTokens")
         );
     }

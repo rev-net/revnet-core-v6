@@ -112,7 +112,7 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT),
+            LOANS_CONTRACT,
             address(0)
         );
 
@@ -123,7 +123,7 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
             HOOK_DEPLOYER,
             PUBLISHER,
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
-            address(LOANS_CONTRACT),
+            LOANS_CONTRACT,
             TRUSTED_FORWARDER,
             address(REV_OWNER)
         );
@@ -340,7 +340,7 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT),
+            LOANS_CONTRACT,
             address(0)
         );
         REVDeployer ammDeployer = new REVDeployer{salt: "REVDeployer_AMM"}(
@@ -350,7 +350,7 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
             HOOK_DEPLOYER,
             PUBLISHER,
             IJBBuybackHookRegistry(address(ammBuyback)),
-            address(LOANS_CONTRACT),
+            LOANS_CONTRACT,
             TRUSTED_FORWARDER,
             address(ammOwner)
         );

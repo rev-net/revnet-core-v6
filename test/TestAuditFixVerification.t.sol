@@ -291,7 +291,7 @@ contract TestAuditFixVerification is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT),
+            LOANS_CONTRACT,
             address(HIDDEN_TOKENS)
         );
 
@@ -302,7 +302,7 @@ contract TestAuditFixVerification is TestBaseWorkflow {
             HOOK_DEPLOYER,
             PUBLISHER,
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
-            address(LOANS_CONTRACT),
+            LOANS_CONTRACT,
             TRUSTED_FORWARDER,
             address(REV_OWNER)
         );
@@ -536,7 +536,7 @@ contract TestAuditFixVerification is TestBaseWorkflow {
     }
 
     /// @notice A14: Hidden tokens leave live supply but stay in REVOwner's cash-out denominator.
-    function test_A14_hiddenTokensStayInCashOutDenominator() public {
+    function test_A14_hiddenTokensAreExcludedFromCashOutDenominator() public {
         // Pay to get tokens for the user.
         uint256 payAmount = 10e18;
         vm.prank(USER);
@@ -595,7 +595,7 @@ contract TestAuditFixVerification is TestBaseWorkflow {
 
         (,, uint256 returnedTotalSupply,,) =
             abi.decode(retdata, (uint256, uint256, uint256, uint256, JBCashOutHookSpecification[]));
-        assertEq(returnedTotalSupply, totalSupplyBefore, "Hidden supply should remain in cash-out denominator");
+        assertEq(returnedTotalSupply, rawSupply, "Hidden supply is excluded from the cash-out denominator");
     }
 
     //*********************************************************************//

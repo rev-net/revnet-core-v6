@@ -266,7 +266,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT),
+            LOANS_CONTRACT,
             address(0)
         );
 
@@ -277,7 +277,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
             HOOK_DEPLOYER,
             PUBLISHER,
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
-            address(LOANS_CONTRACT),
+            LOANS_CONTRACT,
             TRUSTED_FORWARDER,
             address(REV_OWNER)
         );
@@ -1058,7 +1058,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT),
+            LOANS_CONTRACT,
             address(0)
         );
 
@@ -1069,7 +1069,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
             HOOK_DEPLOYER,
             PUBLISHER,
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
-            address(LOANS_CONTRACT),
+            LOANS_CONTRACT,
             TRUSTED_FORWARDER,
             address(REV_OWNER)
         );

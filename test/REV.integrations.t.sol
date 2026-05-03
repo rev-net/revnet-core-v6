@@ -235,7 +235,7 @@ contract REVnet_Integrations is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            makeAddr("loans"),
+            IREVLoans(makeAddr("loans")),
             address(0)
         );
 
@@ -246,7 +246,7 @@ contract REVnet_Integrations is TestBaseWorkflow {
             HOOK_DEPLOYER,
             PUBLISHER,
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
-            makeAddr("loans"),
+            IREVLoans(makeAddr("loans")),
             TRUSTED_FORWARDER,
             address(revOwner)
         );
@@ -367,12 +367,12 @@ contract REVnet_Integrations is TestBaseWorkflow {
                 ),
             "operator missing SET_PROJECT_URI"
         );
-        assertTrue(
+        assertFalse(
             jbPermissions()
                 .hasPermission(
                     operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.ADD_PRICE_FEED, false, false
                 ),
-            "operator missing ADD_PRICE_FEED"
+            "operator should not receive ADD_PRICE_FEED by default"
         );
         assertTrue(
             jbPermissions()

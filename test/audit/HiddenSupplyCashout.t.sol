@@ -6,7 +6,7 @@ import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {TestHiddenTokens} from "../TestHiddenTokens.t.sol";
 
 contract CodexNemesisHiddenSupplyCashoutTest is TestHiddenTokens {
-    function test_hiddenSupplyCannotDrainCashoutAndThenBeRevealed() public {
+    function test_hiddenSupplyIsExcludedFromCashoutDenominatorByDesign() public {
         uint256 payAmount = 10 ether;
 
         vm.prank(USER);
@@ -47,10 +47,7 @@ contract CodexNemesisHiddenSupplyCashoutTest is TestHiddenTokens {
 
         uint256 terminalBalanceAfter =
             jbTerminalStore().balanceOf(address(jbMultiTerminal()), REVNET_ID, JBConstants.NATIVE_TOKEN);
-        assertGt(terminalBalanceAfter, 0, "hidden supply kept the visible tranche from draining the revnet balance");
-        assertLt(
-            terminalBalanceAfter, terminalBalanceBefore, "cash out should still reclaim against the visible tranche"
-        );
+        assertEq(terminalBalanceAfter, 0, "visible tokens cash out against the visible-only supply");
 
         vm.prank(USER);
         HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hiddenCount, USER);

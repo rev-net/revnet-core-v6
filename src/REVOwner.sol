@@ -113,15 +113,14 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         IJBDirectory directory,
         uint256 feeRevnetId,
         IJBSuckerRegistry suckerRegistry,
-        address loans,
+        IREVLoans loans,
         address hiddenTokens
     ) {
         BUYBACK_HOOK = buybackHook;
         DIRECTORY = directory;
         FEE_REVNET_ID = feeRevnetId;
         SUCKER_REGISTRY = suckerRegistry;
-        // slither-disable-next-line missing-zero-check
-        LOANS = IREVLoans(loans);
+        LOANS = loans;
         // slither-disable-next-line missing-zero-check
         HIDDEN_TOKENS = hiddenTokens;
         _DEPLOYER_BINDER = msg.sender;
@@ -373,7 +372,8 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
 
     /// @notice Additional revnet accounts that peer-chain snapshots should include.
     /// @dev Hidden tokens are intentionally excluded. Revnet operators can hide tokens as a security handle without
-    /// changing loan or cash-out math for other holders.
+    /// changing loan or cash-out math for other holders. No balance adjustment is returned: outstanding loan debt is
+    /// economic surplus owed back to the revnet, not terminal-held balance that can be bridged or reclaimed today.
     /// @param revnetId The ID of the revnet being snapshotted.
     /// @param decimals The decimals the returned surplus should use.
     /// @param currency The currency the returned surplus should be in terms of.

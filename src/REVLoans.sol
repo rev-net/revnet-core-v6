@@ -473,13 +473,16 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Get a reference to the amount prepaid for the full loan.
         uint256 prepaid = JBFees.feeAmountFrom({amountBeforeFee: loan.amount, feePercent: loan.prepaidFeePercent});
 
-        uint256 fullSourceFeeAmount = JBFees.feeAmountFrom({
-            amountBeforeFee: loan.amount - prepaid,
-            feePercent: mulDiv({
+        // This source fee ramps with elapsed time. Keep the ramp floor-rounded so a one-second elapsed window with
+        // zero fee percent stays free instead of inheriting the protocol fee helper's anti-dust minimum.
+        uint256 fullSourceFeeAmount = mulDiv({
+            x: loan.amount - prepaid,
+            y: mulDiv({
                 x: timeSinceLoanCreated - loan.prepaidDuration,
                 y: JBConstants.MAX_FEE,
                 denominator: LOAN_LIQUIDATION_DURATION - loan.prepaidDuration
-            })
+            }),
+            denominator: JBConstants.MAX_FEE
         });
 
         // Calculate the source fee amount for the amount being paid off.
@@ -1018,10 +1021,11 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Keep a reference to the fee terminal.
         IJBTerminal feeTerminal = DIRECTORY.primaryTerminalOf({projectId: REV_ID, token: loan.source.token});
 
-        // Get the amount of additional fee to take for REV.
+        // Get the amount of additional fee to take for REV. This is an app-level loan fee, not the terminal's
+        // protocol fee, so keep it floor-rounded instead of applying the protocol fee helper's dust minimum.
         uint256 revFeeAmount = address(feeTerminal) == address(0)
             ? 0
-            : JBFees.feeAmountFrom({amountBeforeFee: addedBorrowAmount, feePercent: REV_PREPAID_FEE_PERCENT});
+            : mulDiv({x: addedBorrowAmount, y: REV_PREPAID_FEE_PERCENT, denominator: JBConstants.MAX_FEE});
 
         // Try to pay the REV fee. If it fails, revFeeAmount is zeroed so the borrower receives it instead.
         if (revFeeAmount > 0) {
@@ -1239,9 +1243,10 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Make sure the minimum borrow amount is met.
         if (borrowAmount < minBorrowAmount) revert REVLoans_UnderMinBorrowAmount(minBorrowAmount, borrowAmount);
 
-        // Get the amount of additional fee to take for the revnet issuing the loan.
-        // Fee rounding may leave a few wei of dust — economically insignificant relative to gas costs.
-        uint256 sourceFeeAmount = JBFees.feeAmountFrom({amountBeforeFee: borrowAmount, feePercent: prepaidFeePercent});
+        // Get the amount of additional fee to take for the revnet issuing the loan. This is an app-level loan fee,
+        // not the terminal's protocol fee, so keep it floor-rounded instead of applying the protocol fee helper's dust
+        // minimum.
+        uint256 sourceFeeAmount = mulDiv({x: borrowAmount, y: prepaidFeePercent, denominator: JBConstants.MAX_FEE});
 
         // Borrow the amount.
         _adjust({

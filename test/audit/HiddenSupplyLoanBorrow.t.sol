@@ -6,13 +6,12 @@ import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {JBPermissionsData} from "@bananapus/core-v6/src/structs/JBPermissionsData.sol";
 
-import {REVLoans} from "../../src/REVLoans.sol";
 import {REVLoan} from "../../src/structs/REVLoan.sol";
 import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
 import {TestHiddenTokens} from "../TestHiddenTokens.t.sol";
 
 contract CodexNemesisHiddenSupplyLoanBorrowTest is TestHiddenTokens {
-    function test_hiddenSupplyCannotDrainLoanCapacityAndThenBeRevealed() public {
+    function test_hiddenSupplyIsExcludedFromLoanCapacityByDesign() public {
         uint256 payAmount = 10 ether;
 
         vm.prank(USER);
@@ -46,13 +45,10 @@ contract CodexNemesisHiddenSupplyLoanBorrowTest is TestHiddenTokens {
         uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(
             REVNET_ID, visibleSupply, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
-        assertLt(borrowable, terminalBalanceBefore, "hidden supply stays in the loan denominator");
+        assertEq(borrowable, terminalBalanceBefore, "hidden supply is excluded from the loan denominator");
 
         vm.prank(USER);
-        vm.expectRevert(
-            abi.encodeWithSelector(REVLoans.REVLoans_UnderMinBorrowAmount.selector, terminalBalanceBefore, borrowable)
-        );
-        LOANS_CONTRACT.borrowFrom({
+        (uint256 loanId, REVLoan memory loan) = LOANS_CONTRACT.borrowFrom({
             revnetId: REVNET_ID,
             source: source,
             minBorrowAmount: terminalBalanceBefore,
@@ -62,25 +58,13 @@ contract CodexNemesisHiddenSupplyLoanBorrowTest is TestHiddenTokens {
             holder: USER
         });
 
-        vm.prank(USER);
-        (uint256 loanId, REVLoan memory loan) = LOANS_CONTRACT.borrowFrom({
-            revnetId: REVNET_ID,
-            source: source,
-            minBorrowAmount: borrowable,
-            collateralCount: visibleSupply,
-            beneficiary: payable(USER),
-            prepaidFeePercent: minPrepaidFeePercent,
-            holder: USER
-        });
-
         assertEq(loanId / 1_000_000_000_000, REVNET_ID, "loan should belong to the revnet");
         assertEq(loan.collateral, visibleSupply, "visible tranche became loan collateral");
-        assertEq(loan.amount, borrowable, "visible tranche borrowed against the hidden-inclusive denominator");
-        assertLt(loan.amount, terminalBalanceBefore, "visible tranche cannot borrow against the full treasury");
+        assertEq(loan.amount, borrowable, "visible tranche borrowed against the visible-only denominator");
 
         uint256 terminalBalanceAfter =
             jbTerminalStore().balanceOf(address(jbMultiTerminal()), REVNET_ID, JBConstants.NATIVE_TOKEN);
-        assertGt(terminalBalanceAfter, terminalBalanceBefore / 40, "more than the protocol-fee residue remained");
+        assertLt(terminalBalanceAfter, terminalBalanceBefore, "visible collateral drains all non-fee capacity");
 
         vm.prank(USER);
         HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hiddenCount, USER);
@@ -93,7 +77,7 @@ contract CodexNemesisHiddenSupplyLoanBorrowTest is TestHiddenTokens {
         assertEq(
             LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, source.terminal, source.token),
             borrowable,
-            "only the hidden-inclusive borrowable amount remains booked as debt"
+            "visible-only borrowable amount remains booked as debt"
         );
     }
 

@@ -135,7 +135,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT),
+            LOANS_CONTRACT,
             address(0)
         );
 
@@ -146,7 +146,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
             HOOK_DEPLOYER,
             PUBLISHER,
             IJBBuybackHookRegistry(address(MOCK_BUYBACK_MINT)),
-            address(LOANS_CONTRACT),
+            LOANS_CONTRACT,
             TRUSTED_FORWARDER,
             address(REV_OWNER)
         );
@@ -442,7 +442,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT),
+            LOANS_CONTRACT,
             address(0)
         );
         REVDeployer ammDeployer = new REVDeployer{salt: "REVDeployer_AMM_E2E"}(
@@ -452,7 +452,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
             HOOK_DEPLOYER,
             PUBLISHER,
             IJBBuybackHookRegistry(address(ammBuyback)),
-            address(LOANS_CONTRACT),
+            LOANS_CONTRACT,
             TRUSTED_FORWARDER,
             address(ammOwner)
         );
