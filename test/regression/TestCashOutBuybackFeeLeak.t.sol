@@ -42,6 +42,7 @@ import {MockBuybackCashOutRecorder} from "../mock/MockBuybackCashOutRecorder.sol
 import {REVOwner} from "../../src/REVOwner.sol";
 import {IREVDeployer} from "../../src/interfaces/IREVDeployer.sol";
 import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
+import {IREVHiddenTokens} from "../../src/interfaces/IREVHiddenTokens.sol";
 
 /// @title TestCashOutBuybackFeeLeak
 /// @notice Proves the buyback hook callback receives only the non-fee cashOutCount (not the full count).
@@ -102,7 +103,7 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
             feeProjectId,
             IJBSuckerRegistry(address(suckerRegistry)),
             loans,
-            address(0)
+            IREVHiddenTokens(address(0))
         );
 
         revDeployer = new REVDeployer{salt: REV_DEPLOYER_SALT}(

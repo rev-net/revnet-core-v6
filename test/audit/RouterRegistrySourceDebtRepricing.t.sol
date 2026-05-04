@@ -36,6 +36,7 @@ import {REVSuckerDeploymentConfig} from "../../src/structs/REVSuckerDeploymentCo
 import {REVEmpty721Config} from "../helpers/REVEmpty721Config.sol";
 import {MockBuybackDataHook} from "../mock/MockBuybackDataHook.sol";
 import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
+import {IREVHiddenTokens} from "../../src/interfaces/IREVHiddenTokens.sol";
 
 contract CodexRouterRegistrySourceDebtRepricingTest is TestBaseWorkflow {
     bytes32 internal constant REV_DEPLOYER_SALT = "REVDeployer";
@@ -90,7 +91,12 @@ contract CodexRouterRegistrySourceDebtRepricingTest is TestBaseWorkflow {
         });
 
         revOwner = new REVOwner(
-            IJBBuybackHookRegistry(address(buybackHook)), jbDirectory(), feeProjectId, suckerRegistry, loans, address(0)
+            IJBBuybackHookRegistry(address(buybackHook)),
+            jbDirectory(),
+            feeProjectId,
+            suckerRegistry,
+            loans,
+            IREVHiddenTokens(address(0))
         );
 
         revDeployer = new REVDeployer{salt: REV_DEPLOYER_SALT}(

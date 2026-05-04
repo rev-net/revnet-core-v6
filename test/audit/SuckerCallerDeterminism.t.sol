@@ -104,7 +104,7 @@ contract CodexNemesisSuckerCallerDeterminismTest is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
-            address(HIDDEN_TOKENS)
+            HIDDEN_TOKENS
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -290,7 +290,8 @@ contract CodexNemesisSuckerCallerDeterminismTest is TestBaseWorkflow {
         });
 
         JBSuckerDeployerConfig[] memory deployerConfigurations = new JBSuckerDeployerConfig[](1);
-        deployerConfigurations[0] = JBSuckerDeployerConfig({deployer: OP_SUCKER_DEPLOYER, mappings: mappings});
+        deployerConfigurations[0] =
+            JBSuckerDeployerConfig({deployer: OP_SUCKER_DEPLOYER, peer: bytes32(0), mappings: mappings});
 
         config = REVSuckerDeploymentConfig({deployerConfigurations: deployerConfigurations, salt: salt});
     }

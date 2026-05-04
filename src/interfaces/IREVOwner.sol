@@ -2,12 +2,13 @@
 pragma solidity ^0.8.0;
 
 import {IREVDeployer} from "./IREVDeployer.sol";
+import {IREVHiddenTokens} from "./IREVHiddenTokens.sol";
 
 /// @notice Interface for the REVOwner contract that handles runtime data hook and cash out hook behavior for revnets.
 interface IREVOwner {
     /// @notice The hidden tokens contract used by the revnet owner hook.
-    /// @return The hidden tokens contract address.
-    function HIDDEN_TOKENS() external view returns (address);
+    /// @return The hidden tokens contract.
+    function HIDDEN_TOKENS() external view returns (IREVHiddenTokens);
 
     /// @notice The timestamp of when cashouts will become available to a specific revnet's participants.
     /// @param revnetId The ID of the revnet.

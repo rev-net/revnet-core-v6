@@ -47,6 +47,7 @@ import {REVStageConfig} from "../../src/structs/REVStageConfig.sol";
 import {REVAutoIssuance} from "../../src/structs/REVStageConfig.sol";
 import {REVSuckerDeploymentConfig} from "../../src/structs/REVSuckerDeploymentConfig.sol";
 import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
+import {IREVHiddenTokens} from "../../src/interfaces/IREVHiddenTokens.sol";
 
 contract PhantomSurplusTerminal is ERC165, IJBPayoutTerminal {
     uint256 public fakeSurplus;
@@ -204,7 +205,7 @@ contract CodexPhantomSurplusTerminalTest is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS,
-            address(0)
+            IREVHiddenTokens(address(0))
         );
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),

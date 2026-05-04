@@ -103,7 +103,7 @@ contract NemesisOperatorDelegationTest is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS,
-            address(HIDDEN_TOKENS)
+            HIDDEN_TOKENS
         );
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),

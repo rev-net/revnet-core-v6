@@ -24,6 +24,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {mulDiv} from "@prb/math/src/Common.sol";
 
 import {IREVDeployer} from "./interfaces/IREVDeployer.sol";
+import {IREVHiddenTokens} from "./interfaces/IREVHiddenTokens.sol";
 import {IREVLoans} from "./interfaces/IREVLoans.sol";
 import {REVLoanSource} from "./structs/REVLoanSource.sol";
 
@@ -65,7 +66,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     uint256 public immutable FEE_REVNET_ID;
 
     /// @notice The hidden tokens contract used by all revnets.
-    address public immutable HIDDEN_TOKENS;
+    IREVHiddenTokens public immutable HIDDEN_TOKENS;
 
     /// @notice The loan contract used by all revnets.
     IREVLoans public immutable LOANS;
@@ -107,21 +108,20 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     /// @param feeRevnetId The Juicebox project ID of the fee revnet.
     /// @param suckerRegistry The sucker registry.
     /// @param loans The loan contract.
-    /// @param hiddenTokens The hidden tokens contract address.
+    /// @param hiddenTokens The hidden tokens contract.
     constructor(
         IJBBuybackHookRegistry buybackHook,
         IJBDirectory directory,
         uint256 feeRevnetId,
         IJBSuckerRegistry suckerRegistry,
         IREVLoans loans,
-        address hiddenTokens
+        IREVHiddenTokens hiddenTokens
     ) {
         BUYBACK_HOOK = buybackHook;
         DIRECTORY = directory;
         FEE_REVNET_ID = feeRevnetId;
         SUCKER_REGISTRY = suckerRegistry;
         LOANS = loans;
-        // slither-disable-next-line missing-zero-check
         HIDDEN_TOKENS = hiddenTokens;
         _DEPLOYER_BINDER = msg.sender;
     }
@@ -365,7 +365,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     {
         // The loans contract, hidden tokens contract, buyback hook (and its delegates), and suckers are allowed to mint
         // the revnet's tokens.
-        return addr == address(LOANS) || addr == HIDDEN_TOKENS || addr == address(BUYBACK_HOOK)
+        return addr == address(LOANS) || addr == address(HIDDEN_TOKENS) || addr == address(BUYBACK_HOOK)
             || BUYBACK_HOOK.hasMintPermissionFor({projectId: revnetId, ruleset: ruleset, addr: addr})
             || _isSuckerOf({revnetId: revnetId, addr: addr});
     }

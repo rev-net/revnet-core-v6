@@ -44,6 +44,7 @@ import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/
 import {REVOwner} from "../../src/REVOwner.sol";
 import {IREVDeployer} from "../../src/interfaces/IREVDeployer.sol";
 import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
+import {IREVHiddenTokens} from "../../src/interfaces/IREVHiddenTokens.sol";
 
 /// @notice Verify that reallocateCollateralFromLoan works with only REALLOCATE_LOAN permission,
 /// without requiring OPEN_LOAN. Also verify that borrowFrom still requires OPEN_LOAN (regression).
@@ -120,7 +121,7 @@ contract ReallocatePermissionTest is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
-            address(0)
+            IREVHiddenTokens(address(0))
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(

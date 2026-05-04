@@ -11,6 +11,7 @@ import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 import {IREVLoans} from "../../src/interfaces/IREVLoans.sol";
 import {REVOwner} from "../../src/REVOwner.sol";
+import {IREVHiddenTokens} from "../../src/interfaces/IREVHiddenTokens.sol";
 
 /// @notice Regression test for missing IERC165 support: REVOwner.supportsInterface omits IERC165.
 contract AuditFixL17Test is Test {
@@ -23,7 +24,7 @@ contract AuditFixL17Test is Test {
             1, // feeRevnetId
             IJBSuckerRegistry(makeAddr("suckerRegistry")),
             IREVLoans(makeAddr("loans")),
-            makeAddr("hiddenTokens")
+            IREVHiddenTokens(makeAddr("hiddenTokens"))
         );
     }
 

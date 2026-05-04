@@ -948,8 +948,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             configuration.baseCurrency,
             configuration.description.name,
             configuration.description.ticker,
-            configuration.description.salt,
-            configuration.splitOperator
+            configuration.description.salt
         );
 
         // Include terminal addresses in the hash so cross-chain expansions must use the same terminals.

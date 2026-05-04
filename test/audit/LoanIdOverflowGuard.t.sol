@@ -47,6 +47,7 @@ import {REVEmpty721Config} from "../helpers/REVEmpty721Config.sol";
 import {REVOwner} from "../../src/REVOwner.sol";
 import {IREVDeployer} from "../../src/interfaces/IREVDeployer.sol";
 import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
+import {IREVHiddenTokens} from "../../src/interfaces/IREVHiddenTokens.sol";
 
 /// @notice Regression tests for the loan ID overflow guard in REVLoans.
 /// @dev The totalLoansBorrowedFor counter must never exceed _ONE_TRILLION (1e12).
@@ -179,7 +180,7 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
-            address(0)
+            IREVHiddenTokens(address(0))
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(

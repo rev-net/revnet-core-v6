@@ -473,16 +473,15 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Get a reference to the amount prepaid for the full loan.
         uint256 prepaid = JBFees.feeAmountFrom({amountBeforeFee: loan.amount, feePercent: loan.prepaidFeePercent});
 
-        // This source fee ramps with elapsed time. Keep the ramp floor-rounded so a one-second elapsed window with
-        // zero fee percent stays free instead of inheriting the protocol fee helper's anti-dust minimum.
-        uint256 fullSourceFeeAmount = mulDiv({
-            x: loan.amount - prepaid,
-            y: mulDiv({
+        // This source fee ramps with elapsed time. Use the floor-rounded fee helper so a one-second elapsed window
+        // with zero fee percent stays free instead of inheriting the protocol fee helper's anti-dust minimum.
+        uint256 fullSourceFeeAmount = JBFees.feeAmountFromFloor({
+            amountBeforeFee: loan.amount - prepaid,
+            feePercent: mulDiv({
                 x: timeSinceLoanCreated - loan.prepaidDuration,
                 y: JBConstants.MAX_FEE,
                 denominator: LOAN_LIQUIDATION_DURATION - loan.prepaidDuration
-            }),
-            denominator: JBConstants.MAX_FEE
+            })
         });
 
         // Calculate the source fee amount for the amount being paid off.

@@ -14,7 +14,7 @@ import {REVConfig} from "../../src/structs/REVConfig.sol";
 import {REVSuckerDeploymentConfig} from "../../src/structs/REVSuckerDeploymentConfig.sol";
 
 contract WeakConfigurationHashTest is TestTerminalEncodingInHash {
-    function test_configurationHashIncludesSplitOperatorAuthority() public {
+    function test_configurationHashExcludesSplitOperatorAuthority() public {
         address operatorA = makeAddr("operatorA");
         address operatorB = makeAddr("operatorB");
         uint256 snapshot = vm.snapshotState();
@@ -34,7 +34,7 @@ contract WeakConfigurationHashTest is TestTerminalEncodingInHash {
         uint256 revnetB = _deployPlainRevnet(configB);
         bytes32 hashB = REV_DEPLOYER.hashedEncodedConfigurationOf(revnetB);
 
-        assertNotEq(hashA, hashB, "split operator differences should affect the configuration hash");
+        assertEq(hashA, hashB, "split operator differences should not affect the configuration hash");
         assertTrue(REV_DEPLOYER.isSplitOperatorOf(revnetB, operatorB), "operator B should control revnet B");
         assertFalse(REV_DEPLOYER.isSplitOperatorOf(revnetB, operatorA), "operator A should not control revnet B");
     }

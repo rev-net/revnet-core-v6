@@ -124,7 +124,7 @@ contract TestHiddenTokens is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
-            address(HIDDEN_TOKENS)
+            HIDDEN_TOKENS
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(

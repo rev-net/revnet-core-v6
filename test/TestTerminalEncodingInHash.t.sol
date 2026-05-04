@@ -41,6 +41,7 @@ import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
+import {IREVHiddenTokens} from "../src/interfaces/IREVHiddenTokens.sol";
 
 /// @notice Tests that terminal addresses are included in the encoded configuration hash.
 contract TestTerminalEncodingInHash is TestBaseWorkflow {
@@ -110,7 +111,7 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
-            address(0)
+            IREVHiddenTokens(address(0))
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -185,8 +186,7 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
             uint32(uint160(JBConstants.NATIVE_TOKEN)), // baseCurrency
             "Terminal Test", // name
             "TERM", // ticker
-            bytes32("VERIFY"), // salt
-            multisig() // splitOperator
+            bytes32("VERIFY") // salt
         );
         // Terminal address encoding.
         encodedConfiguration = abi.encode(encodedConfiguration, jbMultiTerminal());

@@ -29,6 +29,7 @@ import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 import {IREVLoans} from "../../src/interfaces/IREVLoans.sol";
 import {REVLoans} from "../../src/REVLoans.sol";
 import {REVOwner} from "../../src/REVOwner.sol";
+import {IREVHiddenTokens} from "../../src/interfaces/IREVHiddenTokens.sol";
 
 contract RemoteLoanStateRegistryMock {
     uint256 public remoteSupply;
@@ -222,7 +223,7 @@ contract RemoteLoanStateOmissionTest is Test {
             999_999,
             IJBSuckerRegistry(address(registry)),
             IREVLoans(address(0)),
-            address(0)
+            IREVHiddenTokens(address(0))
         );
 
         controller = new BorrowableControllerMock(DIRECTORY, PERMISSIONS, PRICES);

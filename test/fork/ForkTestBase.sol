@@ -79,6 +79,7 @@ import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {REVOwner} from "../../src/REVOwner.sol";
 import {IREVDeployer} from "../../src/interfaces/IREVDeployer.sol";
 import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
+import {IREVHiddenTokens} from "../../src/interfaces/IREVHiddenTokens.sol";
 
 /// @notice Helper that adds liquidity to a V4 pool via the unlock/callback pattern.
 contract LiquidityHelper is IUnlockCallback {
@@ -353,7 +354,7 @@ abstract contract ForkTestBase is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
-            address(0)
+            IREVHiddenTokens(address(0))
         );
 
         REV_DEPLOYER = new REVDeployer{salt: "REVDeployer_Fork"}(

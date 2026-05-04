@@ -289,14 +289,16 @@ contract DeployScript is Script, Sphinx {
             if (block.chainid == 1 || block.chainid == 11_155_111) {
                 suckerDeployerConfigurations = new JBSuckerDeployerConfig[](3);
                 // OP
-                suckerDeployerConfigurations[0] =
-                    JBSuckerDeployerConfig({deployer: suckers.optimismDeployer, mappings: tokenMappings});
+                suckerDeployerConfigurations[0] = JBSuckerDeployerConfig({
+                    deployer: suckers.optimismDeployer, peer: bytes32(0), mappings: tokenMappings
+                });
 
                 suckerDeployerConfigurations[1] =
-                    JBSuckerDeployerConfig({deployer: suckers.baseDeployer, mappings: tokenMappings});
+                    JBSuckerDeployerConfig({deployer: suckers.baseDeployer, peer: bytes32(0), mappings: tokenMappings});
 
-                suckerDeployerConfigurations[2] =
-                    JBSuckerDeployerConfig({deployer: suckers.arbitrumDeployer, mappings: tokenMappings});
+                suckerDeployerConfigurations[2] = JBSuckerDeployerConfig({
+                    deployer: suckers.arbitrumDeployer, peer: bytes32(0), mappings: tokenMappings
+                });
             } else {
                 suckerDeployerConfigurations = new JBSuckerDeployerConfig[](1);
                 // L2 -> Mainnet
@@ -304,6 +306,7 @@ contract DeployScript is Script, Sphinx {
                     deployer: address(suckers.optimismDeployer) != address(0)
                         ? suckers.optimismDeployer
                         : address(suckers.baseDeployer) != address(0) ? suckers.baseDeployer : suckers.arbitrumDeployer,
+                    peer: bytes32(0),
                     mappings: tokenMappings
                 });
 
@@ -494,7 +497,7 @@ contract DeployScript is Script, Sphinx {
                 feeRevnetId: FEE_PROJECT_ID,
                 suckerRegistry: suckers.registry,
                 loans: revloans,
-                hiddenTokens: address(revHiddenTokens)
+                hiddenTokens: revHiddenTokens
             });
 
         // Deploy REVDeployer with the REVLoans, buyback hook, and REVOwner addresses.

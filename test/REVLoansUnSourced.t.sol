@@ -45,6 +45,7 @@ import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
+import {IREVHiddenTokens} from "../src/interfaces/IREVHiddenTokens.sol";
 
 struct FeeProjectConfig {
     REVConfig configuration;
@@ -327,7 +328,7 @@ contract REVLoansUnsourcedTests is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
-            address(0)
+            IREVHiddenTokens(address(0))
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(

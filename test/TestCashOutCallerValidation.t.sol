@@ -47,6 +47,7 @@ import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
+import {IREVHiddenTokens} from "../src/interfaces/IREVHiddenTokens.sol";
 
 struct FeeProjectConfig {
     REVConfig configuration;
@@ -243,7 +244,7 @@ contract TestCashOutCallerValidation is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
-            address(0)
+            IREVHiddenTokens(address(0))
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
