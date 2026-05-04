@@ -149,7 +149,7 @@ contract CodexNemesisSuckerCallerDeterminismTest is TestBaseWorkflow {
         JBSuckerRegistry(address(SUCKER_REGISTRY)).allowSuckerDeployer(address(OP_SUCKER_DEPLOYER));
     }
 
-    function test_identicalRevnetConfigsUseSameDefaultPeerSaltWhenCallersDiffer() public {
+    function test_identicalRevnetConfigsUseCallerNamespacedSuckerSalt() public {
         uint40 commonStart = uint40(block.timestamp);
         bytes32 descriptionSalt = bytes32("REV_SAME_CONFIG");
 
@@ -170,14 +170,16 @@ contract CodexNemesisSuckerCallerDeterminismTest is TestBaseWorkflow {
         vm.prank(OPERATOR_A);
         address suckerA = REV_DEPLOYER.deploySuckersFor(revnetA, config)[0];
 
-        // With the external caller removed from the REV-side salt, an identical config/salt would deploy to the same
-        // sucker address on another chain. In this same-chain regression harness, that same deterministic address is
-        // already occupied by suckerA, so the second deployment reverts instead of silently producing a different peer.
-        vm.expectRevert();
         vm.prank(OPERATOR_B);
-        REV_DEPLOYER.deploySuckersFor(revnetB, config);
+        address suckerB = REV_DEPLOYER.deploySuckersFor(revnetB, config)[0];
 
-        assertEq(IJBSucker(suckerA).peer(), bytes32(uint256(uint160(suckerA))), "default peer remains same-address");
+        assertNotEq(suckerA, suckerB, "caller namespace prevents identical config/salt collision");
+        assertEq(
+            IJBSucker(suckerA).peer(), bytes32(uint256(uint160(suckerA))), "first default peer remains same-address"
+        );
+        assertEq(
+            IJBSucker(suckerB).peer(), bytes32(uint256(uint160(suckerB))), "second default peer remains same-address"
+        );
     }
 
     function test_onlySplitOperatorCanDeploySuckersForRevnet() public {

@@ -903,11 +903,12 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             caller: _msgSender()
         });
 
-        // Deploy the suckers.
+        // Include the caller so two revnets with identical configuration and user salt cannot collide. Same-address
+        // cross-chain deployment still works when the same operator calls this helper on each chain.
         // slither-disable-next-line unused-return
         suckers = SUCKER_REGISTRY.deploySuckersFor({
             projectId: revnetId,
-            salt: keccak256(abi.encode(encodedConfigurationHash, suckerDeploymentConfiguration.salt)),
+            salt: keccak256(abi.encode(encodedConfigurationHash, suckerDeploymentConfiguration.salt, _msgSender())),
             configurations: suckerDeploymentConfiguration.deployerConfigurations
         });
     }

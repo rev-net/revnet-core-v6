@@ -1024,7 +1024,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // protocol fee, so keep it floor-rounded instead of applying the protocol fee helper's dust minimum.
         uint256 revFeeAmount = address(feeTerminal) == address(0)
             ? 0
-            : mulDiv({x: addedBorrowAmount, y: REV_PREPAID_FEE_PERCENT, denominator: JBConstants.MAX_FEE});
+            : JBFees.feeAmountFromFloor({amountBeforeFee: addedBorrowAmount, feePercent: REV_PREPAID_FEE_PERCENT});
 
         // Try to pay the REV fee. If it fails, revFeeAmount is zeroed so the borrower receives it instead.
         if (revFeeAmount > 0) {
@@ -1245,7 +1245,8 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Get the amount of additional fee to take for the revnet issuing the loan. This is an app-level loan fee,
         // not the terminal's protocol fee, so keep it floor-rounded instead of applying the protocol fee helper's dust
         // minimum.
-        uint256 sourceFeeAmount = mulDiv({x: borrowAmount, y: prepaidFeePercent, denominator: JBConstants.MAX_FEE});
+        uint256 sourceFeeAmount =
+            JBFees.feeAmountFromFloor({amountBeforeFee: borrowAmount, feePercent: prepaidFeePercent});
 
         // Borrow the amount.
         _adjust({
