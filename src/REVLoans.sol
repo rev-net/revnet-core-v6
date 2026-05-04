@@ -470,8 +470,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             revert REVLoans_LoanExpired(timeSinceLoanCreated, LOAN_LIQUIDATION_DURATION);
         }
 
-        // Get a reference to the amount prepaid for the full loan.
-        uint256 prepaid = JBFees.feeAmountFrom({amountBeforeFee: loan.amount, feePercent: loan.prepaidFeePercent});
+        // Get a reference to the amount prepaid for the full loan. This is an app-level loan fee, so keep it
+        // floor-rounded instead of applying the protocol fee helper's dust minimum.
+        uint256 prepaid = JBFees.feeAmountFromFloor({amountBeforeFee: loan.amount, feePercent: loan.prepaidFeePercent});
 
         // This source fee ramps with elapsed time. Use the floor-rounded fee helper so a one-second elapsed window
         // with zero fee percent stays free instead of inheriting the protocol fee helper's anti-dust minimum.

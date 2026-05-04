@@ -260,8 +260,16 @@ contract REVnet_Integrations is TestBaseWorkflow {
         ARB_SUCKER_DEPLOYER = IJBSuckerDeployer(address(_deployer));
 
         // Deploy the ARB sucker singleton.
-        JBArbitrumSucker _singleton =
-            new JBArbitrumSucker(_deployer, jbDirectory(), jbPermissions(), jbTokens(), 1, SUCKER_REGISTRY, address(0));
+        JBArbitrumSucker _singleton = new JBArbitrumSucker({
+            deployer: _deployer,
+            directory: jbDirectory(),
+            permissions: jbPermissions(),
+            prices: address(jbPrices()),
+            tokens: jbTokens(),
+            feeProjectId: 1,
+            registry: SUCKER_REGISTRY,
+            trustedForwarder: address(0)
+        });
 
         // Set the layer specific confguration.
         _deployer.setChainSpecificConstants(JBLayer.L1, IInbox(address(1)), IArbGatewayRouter(address(1)));

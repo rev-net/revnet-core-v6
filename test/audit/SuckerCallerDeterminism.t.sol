@@ -138,6 +138,7 @@ contract CodexNemesisSuckerCallerDeterminismTest is TestBaseWorkflow {
             deployer: OP_SUCKER_DEPLOYER,
             directory: jbDirectory(),
             permissions: jbPermissions(),
+            prices: address(jbPrices()),
             tokens: jbTokens(),
             feeProjectId: FEE_PROJECT_ID,
             registry: SUCKER_REGISTRY,

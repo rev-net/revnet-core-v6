@@ -372,13 +372,14 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
 
     /// @notice Additional revnet accounts that peer-chain snapshots should include.
     /// @dev Hidden tokens are intentionally excluded. Revnet operators can hide tokens as a security handle without
-    /// changing loan or cash-out math for other holders. No balance adjustment is returned: outstanding loan debt is
-    /// economic surplus owed back to the revnet, not terminal-held balance that can be bridged or reclaimed today.
+    /// changing loan or cash-out math for other holders. Outstanding loan debt is counted as both surplus and balance:
+    /// it is value owed back to this chain's revnet and should travel to peer snapshots with the collateral supply.
     /// @param revnetId The ID of the revnet being snapshotted.
     /// @param decimals The decimals the returned surplus should use.
     /// @param currency The currency the returned surplus should be in terms of.
     /// @return supply The loan-collateral supply to include in the peer snapshot.
-    /// @return surplus The outstanding loan debt to include in the peer snapshot.
+    /// @return surplus The outstanding loan debt to include in `sourceSurplus`.
+    /// @return balance The outstanding loan debt to include in `sourceBalance`.
     function peerChainAdjustedAccountsOf(
         uint256 revnetId,
         uint256 decimals,
@@ -387,9 +388,10 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         external
         view
         override
-        returns (uint256 supply, uint256 surplus)
+        returns (uint256 supply, uint256 surplus, uint256 balance)
     {
         (surplus, supply) = _localLoanStateOf({revnetId: revnetId, decimals: decimals, currency: currency});
+        balance = surplus;
     }
 
     //*********************************************************************//

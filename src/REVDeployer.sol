@@ -199,11 +199,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         // slither-disable-next-line missing-zero-check
         OWNER = owner;
 
-        // Give the sucker registry permission to map tokens for all revnets.
-        _setPermission({
-            operator: address(SUCKER_REGISTRY), revnetId: 0, permissionId: JBPermissionIds.MAP_SUCKER_TOKEN
-        });
-
         // Give the loan contract permission to use the surplus allowance of all revnets.
         // Uses wildcard revnetId=0 intentionally — the loan contract is a singleton shared by all revnets,
         // and each revnet's surplus allowance limits already constrain how much can be drawn.

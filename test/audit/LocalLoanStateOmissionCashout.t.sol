@@ -145,7 +145,7 @@ contract CodexLocalLoanStateOmissionCashoutTest is TestHiddenTokens {
 
         assertGt(loan.amount, 0, "setup: loan should be opened");
 
-        (uint256 snapshotSupply, uint256 snapshotSurplus) =
+        (uint256 snapshotSupply, uint256 snapshotSurplus, uint256 snapshotBalance) =
             REV_OWNER.peerChainAdjustedAccountsOf(REVNET_ID, 18, JBCurrencyIds.ETH);
 
         assertEq(
@@ -157,6 +157,11 @@ contract CodexLocalLoanStateOmissionCashoutTest is TestHiddenTokens {
             snapshotSurplus,
             LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, source.terminal, JBConstants.NATIVE_TOKEN),
             "peer snapshot surplus should include outstanding loan debt"
+        );
+        assertEq(
+            snapshotBalance,
+            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, source.terminal, JBConstants.NATIVE_TOKEN),
+            "peer snapshot balance should include outstanding loan debt"
         );
         assertTrue(
             REV_OWNER.supportsInterface(type(IJBPeerChainAdjustedAccounts).interfaceId),
