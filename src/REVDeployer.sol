@@ -144,9 +144,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @notice The number of revnet tokens which can be "auto-minted" (minted without payments)
     /// for a specific beneficiary during a stage. Think of this as a per-stage premint.
     /// @dev These tokens can be minted with `autoIssueFor(…)`.
-    /// @custom:param revnetId The ID of the revnet to get the auto-mint amount for.
-    /// @custom:param stageId The ID of the stage to get the auto-mint amount for.
-    /// @custom:param beneficiary The beneficiary of the auto-mint.
+    /// @custom:param revnetId The ID of the revnet to check.
+    /// @custom:param stageId The ID of the stage to check.
+    /// @custom:param beneficiary The beneficiary to check.
     mapping(uint256 revnetId => mapping(uint256 stageId => mapping(address beneficiary => uint256)))
         public
         override amountToAutoIssue;
@@ -154,7 +154,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @notice The hashed encoded configuration of each revnet.
     /// @dev This is used to ensure that the encoded configuration of a revnet is the same when deploying suckers for
     /// omnichain operations.
-    /// @custom:param revnetId The ID of the revnet to get the hashed encoded configuration for.
+    /// @custom:param revnetId The ID of the revnet to look up.
     mapping(uint256 revnetId => bytes32 hashedEncodedConfiguration) public override hashedEncodedConfigurationOf;
 
     //*********************************************************************//
@@ -163,7 +163,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
 
     /// @notice A list of `JBPermissonIds` indices to grant to the split operator of a specific revnet.
     /// @dev These should be set in the revnet's deployment process.
-    /// @custom:param revnetId The ID of the revnet to get the extra operator permissions for.
+    /// @custom:param revnetId The ID of the revnet to look up.
     // slither-disable-next-line uninitialized-state
     mapping(uint256 revnetId => uint256[]) internal _extraOperatorPermissions;
 
@@ -231,8 +231,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     // -------------------------- public views --------------------------- //
     //*********************************************************************//
 
-    /// @notice A flag indicating whether an address is a revnet's split operator.
-    /// @param revnetId The ID of the revnet.
+    /// @notice Check whether an address is a revnet's split operator.
+    /// @param revnetId The ID of the revnet to check.
     /// @param addr The address to check.
     /// @return flag A flag indicating whether the address is the revnet's split operator.
     function isSplitOperatorOf(uint256 revnetId, address addr) public view override returns (bool) {
@@ -258,8 +258,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     //*********************************************************************//
 
     /// @notice If the specified address is not the revnet's current split operator, revert.
-    /// @param revnetId The ID of the revnet to check split operator status for.
-    /// @param operator The address being checked.
+    /// @param revnetId The ID of the revnet to check.
+    /// @param operator The address to check.
     function _checkIfIsSplitOperatorOf(uint256 revnetId, address operator) internal view {
         if (!isSplitOperatorOf({revnetId: revnetId, addr: operator})) {
             revert REVDeployer_Unauthorized(revnetId, operator);
@@ -269,7 +269,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @notice Initialize fund access limits for the loan contract.
     /// @dev Returns an unlimited surplus allowance for each terminal+token pair derived from the terminal
     /// configurations.
-    /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
+    /// @param terminalConfigurations The terminals to set up for the revnet.
     /// @return fundAccessLimitGroups The fund access limit groups for the loans.
     function _makeLoanFundAccessLimits(JBTerminalConfig[] calldata terminalConfigurations)
         internal
@@ -318,8 +318,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
 
     /// @notice Make a ruleset configuration for a revnet's stage.
     /// @param baseCurrency The base currency of the revnet.
-    /// @param stageConfiguration The stage configuration to make a ruleset for.
-    /// @param fundAccessLimitGroups The fund access limit groups to set up for the ruleset.
+    /// @param stageConfiguration The stage configuration to build a ruleset from.
+    /// @param fundAccessLimitGroups The fund access limit groups to include in the ruleset.
     /// @return rulesetConfiguration The ruleset configuration.
     function _makeRulesetConfiguration(
         uint32 baseCurrency,
@@ -359,9 +359,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         });
     }
 
-    /// @notice Returns the permissions that the split operator should be granted for a revnet.
-    /// @param revnetId The ID of the revnet to get split operator permissions for.
-    /// @return allOperatorPermissions The permissions that the split operator should be granted for the revnet,
+    /// @notice Returns the permissions that the split operator should have for a revnet.
+    /// @param revnetId The ID of the revnet to look up.
+    /// @return allOperatorPermissions The permissions the split operator should have for the revnet,
     /// including both default and custom permissions.
     function _splitOperatorPermissionIndexesOf(uint256 revnetId)
         internal
@@ -397,8 +397,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @dev Called after the ERC-20 token is deployed so the pool can be initialized in the PoolManager.
     /// Computes `sqrtPriceX96` from `initialIssuance` so the pool starts at the same price as the bonding curve.
     /// Silently catches failures (e.g., if the pool is already initialized).
-    /// @param revnetId The ID of the revnet.
-    /// @param terminalToken The terminal token to initialize a buyback pool for.
+    /// @param revnetId The ID of the revnet to initialize a pool for.
+    /// @param terminalToken The terminal token to create a buyback pool for.
     /// @param initialIssuance The initial issuance rate (project tokens per terminal token, 18 decimals).
     function _tryInitializeBuybackPoolFor(uint256 revnetId, address terminalToken, uint112 initialIssuance) internal {
         uint160 sqrtPriceX96;
@@ -438,9 +438,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     //*********************************************************************//
 
     /// @notice Auto-mint a revnet's tokens from a stage for a beneficiary.
-    /// @param revnetId The ID of the revnet to auto-mint tokens from.
-    /// @param stageId The ID of the stage auto-mint tokens are available from.
-    /// @param beneficiary The address to auto-mint tokens to.
+    /// @param revnetId The ID of the revnet to auto-mint tokens for.
+    /// @param stageId The ID of the stage to auto-mint tokens from.
+    /// @param beneficiary The address to send auto-minted tokens to.
     function autoIssueFor(uint256 revnetId, uint256 stageId, address beneficiary) external override {
         // Get the ruleset for the stage to check if it has started.
         // Stage IDs are `block.timestamp + i` where `i` is the stage index. These match real JB ruleset IDs
@@ -479,7 +479,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
 
     /// @notice Burn any of a revnet's tokens held by this contract.
     /// @dev Project tokens can end up here from reserved token distribution when splits don't sum to 100%.
-    /// @param revnetId The ID of the revnet whose tokens should be burned.
+    /// @param revnetId The ID of the revnet whose tokens to burn.
     function burnHeldTokensOf(uint256 revnetId) external override {
         uint256 balance = CONTROLLER.TOKENS().totalBalanceOf({holder: address(this), projectId: revnetId});
         if (balance == 0) revert REVDeployer_NothingToBurn();
@@ -499,13 +499,12 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     ///   REVDeployer, and the project becomes subject to immutable revnet rules. This cannot be undone.
     /// @param revnetId The ID of the Juicebox project to initialize as a revnet. Send 0 to deploy a new revnet.
     /// @param configuration Core revnet configuration. See `REVConfig`.
-    /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
-    /// @param suckerDeploymentConfiguration The suckers to set up for the revnet. Suckers facilitate cross-chain
-    /// token transfers between peer revnets on different networks.
-    /// @param tiered721HookConfiguration How to set up the tiered ERC-721 hook for the revnet.
-    /// @param allowedPosts Restrictions on which croptop posts are allowed on the revnet's ERC-721 tiers.
+    /// @param terminalConfigurations The terminals to set up for the revnet.
+    /// @param suckerDeploymentConfiguration The suckers to set up for cross-chain token transfers.
+    /// @param tiered721HookConfiguration How to configure the tiered ERC-721 hook for the revnet.
+    /// @param allowedPosts Restrictions on which croptop posts to allow on the revnet's ERC-721 tiers.
     /// @return revnetId The ID of the newly created revnet.
-    /// @return hook The address of the tiered ERC-721 hook that was deployed for the revnet.
+    /// @return hook The address of the tiered ERC-721 hook deployed for the revnet.
     // The deployment flow makes external setup calls, but any observed state is revnet-scoped and reverts atomically.
     // slither-disable-next-line reentrancy-benign
     function deployFor(
@@ -598,8 +597,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @notice Deploy new suckers for an existing revnet.
     /// @dev Only the revnet's split operator can deploy new suckers.
     /// @param revnetId The ID of the revnet to deploy suckers for.
-    /// See `_makeRulesetConfigurations(…)` for encoding details. Clients can read the encoded configuration
-    /// from the `DeployRevnet` event emitted by this contract.
     /// @param suckerDeploymentConfiguration The suckers to set up for the revnet.
     function deploySuckersFor(
         uint256 revnetId,
@@ -635,7 +632,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @dev Only a revnet's current split operator can set a new split operator.
     /// @dev Passing `address(0)` as `newSplitOperator` relinquishes operator powers permanently — the permissions
     /// are granted to the zero address (which cannot execute transactions), effectively burning them.
-    /// @param revnetId The ID of the revnet to set the split operator of.
+    /// @param revnetId The ID of the revnet to change the split operator for.
     /// @param newSplitOperator The new split operator's address. Use `address(0)` to relinquish operator powers.
     function setSplitOperatorOf(uint256 revnetId, address newSplitOperator) external override {
         // Enforce permissions.
@@ -782,9 +779,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @param shouldDeployNewRevnet Whether the revnet ID was reserved by this deployment call, or the caller is
     /// converting an existing Juicebox project into a revnet.
     /// @param configuration Core revnet configuration. See `REVConfig`.
-    /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
-    /// @param suckerDeploymentConfiguration The suckers to set up for the revnet. Suckers facilitate cross-chain
-    /// token transfers between peer revnets on different networks.
+    /// @param terminalConfigurations The terminals to set up for the revnet.
+    /// @param suckerDeploymentConfiguration The suckers to set up for cross-chain token transfers.
     /// @return encodedConfigurationHash A hash that represents the revnet's configuration.
     function _deployRevnetFor(
         uint256 revnetId,
@@ -887,8 +883,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     }
 
     /// @param encodedConfigurationHash A hash that represents the revnet's configuration.
-    /// See `_makeRulesetConfigurations(…)` for encoding details. Clients can read the encoded configuration
-    /// from the `DeployRevnet` event emitted by this contract.
     /// @param suckerDeploymentConfiguration The suckers to set up for the revnet.
     function _deploySuckersFor(
         uint256 revnetId,
@@ -926,12 +920,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @dev `cashOutTaxRate` changes at stage boundaries may allow users to cash out just before a rate increase.
     /// This is accepted behavior — the arbitrage window is bounded by the ruleset design, and all stages are
     /// configured immutably at deployment time.
-    /// @param revnetId The ID of the revnet to make rulesets for.
+    /// @param revnetId The ID of the revnet to build rulesets for.
     /// @param configuration The configuration containing the revnet's stages.
-    /// @param terminalConfigurations The terminals to set up for the revnet. Used for payments and cash outs.
-    /// @return rulesetConfigurations A list of ruleset configurations defined by the stages.
-    /// @return encodedConfigurationHash A hash that represents the revnet's configuration. Used for sucker
-    /// deployment salts.
+    /// @param terminalConfigurations The terminals to set up for the revnet.
+    /// @return rulesetConfigurations A list of ruleset configurations derived from the stages.
+    /// @return encodedConfigurationHash A hash that represents the revnet's configuration.
     function _makeRulesetConfigurations(
         uint256 revnetId,
         REVConfig calldata configuration,
@@ -1073,9 +1066,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         encodedConfigurationHash = keccak256(encodedConfiguration);
     }
 
-    /// @notice Sets the cash out delay if the revnet's stages are already in progress.
-    /// @dev This prevents cash out liquidity/arbitrage issues for existing revnets which
-    /// are deploying to a new chain.
+    /// @notice Set the cash out delay if the revnet's stages are already in progress.
+    /// @dev This prevents cash out liquidity/arbitrage issues for existing revnets deploying to a new chain.
     /// @param revnetId The ID of the revnet to set the cash out delay for.
     /// @param firstStageConfig The revnet's first stage.
     function _setCashOutDelayIfNeeded(uint256 revnetId, REVStageConfig calldata firstStageConfig) internal {
@@ -1093,10 +1085,10 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         emit SetCashOutDelay({revnetId: revnetId, cashOutDelay: cashOutDelay, caller: _msgSender()});
     }
 
-    /// @notice Grants a permission to an address (an "operator").
-    /// @param operator The address to give the permission to.
+    /// @notice Grant a permission to an address (an "operator").
+    /// @param operator The address to grant the permission to.
     /// @param revnetId The ID of the revnet to scope the permission for.
-    /// @param permissionId The ID of the permission to set. See `JBPermissionIds`.
+    /// @param permissionId The ID of the permission to grant. See `JBPermissionIds`.
     function _setPermission(address operator, uint256 revnetId, uint8 permissionId) internal {
         uint8[] memory permissionsIds = new uint8[](1);
         permissionsIds[0] = permissionId;
@@ -1107,11 +1099,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         });
     }
 
-    /// @notice Grants a permission to an address (an "operator").
-    /// @param account The account granting the permission.
-    /// @param operator The address to give the permission to.
-    /// @param revnetId The ID of the revnet to scope the permission for.
-    /// @param permissionIds An array of permission IDs to set. See `JBPermissionIds`.
+    /// @notice Grant permissions to an address (an "operator").
+    /// @param account The account granting the permissions.
+    /// @param operator The address to grant the permissions to.
+    /// @param revnetId The ID of the revnet to scope the permissions for.
+    /// @param permissionIds An array of permission IDs to grant. See `JBPermissionIds`.
     function _setPermissionsFor(
         address account,
         address operator,
@@ -1131,7 +1123,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
 
     /// @notice Give a split operator their permissions.
     /// @dev Only a revnet's current split operator can set a new split operator, by calling `setSplitOperatorOf(…)`.
-    /// @param revnetId The ID of the revnet to set the split operator of.
+    /// @param revnetId The ID of the revnet to grant split operator permissions for.
     /// @param operator The new split operator's address.
     function _setSplitOperatorOf(uint256 revnetId, address operator) internal {
         // Get the permission indexes for the split operator.

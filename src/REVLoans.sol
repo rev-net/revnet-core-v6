@@ -129,9 +129,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
 
     /// @notice An indication if a revnet currently has outstanding loans from the specified terminal in the specified
     /// token.
-    /// @custom:param revnetId The ID of the revnet issuing the loan.
-    /// @custom:param terminal The terminal that the loan is issued from.
-    /// @custom:param token The token being loaned.
+    /// @custom:param revnetId The ID of the revnet to check.
+    /// @custom:param terminal The terminal to check.
+    /// @custom:param token The token to check.
     mapping(uint256 revnetId => mapping(IJBPayoutTerminal terminal => mapping(address token => bool)))
         public
         override isLoanSourceOf;
@@ -140,22 +140,22 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @dev This counter only increments (on borrow, repay-with-new-loan, and reallocation) and never decrements.
     /// It does NOT represent the number of currently active loans. Repaid and liquidated loans leave permanent gaps
     /// in the ID sequence. Integrators should not use this to count active loans.
-    /// @custom:param revnetId The ID of the revnet to get the cumulative loan count from.
+    /// @custom:param revnetId The ID of the revnet to check.
     mapping(uint256 revnetId => uint256) public override totalLoansBorrowedFor;
 
     /// @notice The contract resolving each project ID to its ERC721 URI.
     IJBTokenUriResolver public override tokenUriResolver;
 
     /// @notice The total amount loaned out by a revnet from a specified terminal in a specified token.
-    /// @custom:param revnetId The ID of the revnet issuing the loan.
-    /// @custom:param terminal The terminal that the loan is issued from.
-    /// @custom:param token The token being loaned.
+    /// @custom:param revnetId The ID of the revnet to check.
+    /// @custom:param terminal The terminal to check.
+    /// @custom:param token The token to check.
     mapping(uint256 revnetId => mapping(IJBPayoutTerminal terminal => mapping(address token => uint256)))
         public
         override totalBorrowedFrom;
 
     /// @notice The total amount of collateral supporting a revnet's loans.
-    /// @custom:param revnetId The ID of the revnet issuing the loan.
+    /// @custom:param revnetId The ID of the revnet to check.
     mapping(uint256 revnetId => uint256) public override totalCollateralOf;
 
     //*********************************************************************//
@@ -167,7 +167,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// borrowing, but are never removed. The `isLoanSourceOf` mapping tracks whether a source has been registered.
     /// Since the number of distinct (terminal, token) pairs per revnet is practically bounded (typically < 10),
     /// the gas cost of iterating this array in `loanSourcesOf` remains manageable.
-    /// @custom:member revnetId The ID of the revnet issuing the loan.
+    /// @custom:member revnetId The ID of the revnet to look up.
     mapping(uint256 revnetId => REVLoanSource[]) internal _loanSourcesOf;
 
     /// @notice The loans.
@@ -210,10 +210,10 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     //*********************************************************************//
 
     /// @notice The amount that can be borrowed from a revnet.
-    /// @param revnetId The ID of the revnet to check for borrowable assets from.
-    /// @param collateralCount The amount of collateral used to secure the loan.
-    /// @param decimals The decimals the resulting fixed point value will include.
-    /// @param currency The currency that the resulting amount should be in terms of.
+    /// @param revnetId The ID of the revnet to borrow from.
+    /// @param collateralCount The amount of collateral to secure the loan with.
+    /// @param decimals The decimals to use for the resulting fixed point value.
+    /// @param currency The currency to denominate the resulting amount in.
     /// @return borrowableAmount The amount that can be borrowed from the revnet.
     function borrowableAmountFrom(
         uint256 revnetId,
@@ -241,8 +241,8 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         });
     }
 
-    /// @notice Get a loan's full details — amount, collateral, creation time, prepaid fee, and source.
-    /// @custom:member The ID of the loan.
+    /// @notice Get a loan's full details -- amount, collateral, creation time, prepaid fee, and source.
+    /// @param loanId The ID of the loan to look up.
     function loanOf(uint256 loanId) external view override returns (REVLoan memory) {
         return _loanOf[loanId];
     }
@@ -250,7 +250,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @notice The sources of each revnet's loan.
     /// @dev This array only grows -- sources are never removed. The number of distinct sources is practically bounded
     /// by the number of unique (terminal, token) pairs used for borrowing, which is typically small.
-    /// @custom:member revnetId The ID of the revnet issuing the loan.
+    /// @param revnetId The ID of the revnet to look up.
     function loanSourcesOf(uint256 revnetId) external view override returns (REVLoanSource[] memory) {
         return _loanSourcesOf[revnetId];
     }
@@ -259,24 +259,24 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     // -------------------------- public views --------------------------- //
     //*********************************************************************//
 
-    /// @notice Determines the source fee amount for a loan being paid off a certain amount.
-    /// @param loan The loan having its source fee amount determined.
-    /// @param amount The amount being paid off.
+    /// @notice Determines the source fee amount for a loan when paying off a certain amount.
+    /// @param loan The loan to determine the source fee for.
+    /// @param amount The amount to pay off.
     /// @return sourceFeeAmount The source fee amount for the loan.
     function determineSourceFeeAmount(REVLoan memory loan, uint256 amount) public view returns (uint256) {
         return _determineSourceFeeAmount({loan: loan, amount: amount});
     }
 
-    /// @notice The revnet ID for the loan with the provided loan ID.
-    /// @param loanId The loan ID of the loan to get the revnet ID of.
+    /// @notice The revnet ID for a given loan ID.
+    /// @param loanId The loan ID to look up.
     /// @return The ID of the revnet.
     function revnetIdOfLoanWith(uint256 loanId) public pure override returns (uint256) {
         return loanId / _ONE_TRILLION;
     }
 
     /// @notice Returns the URI where the ERC-721 standard JSON of a loan is hosted.
-    /// @param loanId The ID of the loan to get a URI of.
-    /// @return The token URI to use for the provided `loanId`.
+    /// @param loanId The ID of the loan to get the URI for.
+    /// @return The token URI for the provided `loanId`.
     function tokenURI(uint256 loanId) public view override returns (string memory) {
         // Keep a reference to the resolver.
         IJBTokenUriResolver resolver = tokenUriResolver;
@@ -293,7 +293,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     //*********************************************************************//
 
     /// @notice Checks this contract's balance of a specific token.
-    /// @param token The address of the token to get this contract's balance of.
+    /// @param token The address of the token to check.
     /// @return This contract's balance.
     function _balanceOf(address token) internal view returns (uint256) {
         // If the `token` is native, get the native token balance.
@@ -323,11 +323,11 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// effective collateralization margin. For example, a 20% `cashOutTaxRate` means borrowers can only extract ~80%
     /// of their pro-rata surplus, providing a ~20% buffer against collateral depreciation before liquidation.
     /// A `cashOutTaxRate` of 0 means the full pro-rata amount is borrowable (true 100% LTV with no margin).
-    /// @param revnetId The ID of the revnet to check for borrowable assets from.
-    /// @param collateralCount The amount of collateral that the loan will be collateralized with.
-    /// @param decimals The decimals the resulting fixed point value will include.
-    /// @param currency The currency that the resulting amount should be in terms of.
-    /// @param terminals The terminals that the funds are being borrowed from.
+    /// @param revnetId The ID of the revnet to borrow from.
+    /// @param collateralCount The amount of collateral to secure the loan with.
+    /// @param decimals The decimals to use for the resulting fixed point value.
+    /// @param currency The currency to denominate the resulting amount in.
+    /// @param terminals The terminals to borrow from.
     /// @param currentStage The pre-fetched current ruleset.
     /// @return borrowableAmount The amount that can be borrowed from the revnet.
     function _borrowableAmountFrom(
@@ -384,11 +384,11 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     }
 
     /// @notice The amount of the loan that should be borrowed for the given collateral amount.
-    /// @param loan The loan having its borrow amount determined.
-    /// @param revnetId The ID of the revnet to check for borrowable assets from.
-    /// @param collateralCount The amount of collateral that the loan will be collateralized with.
+    /// @param loan The loan to determine the borrow amount for.
+    /// @param revnetId The ID of the revnet to borrow from.
+    /// @param collateralCount The amount of collateral to secure the loan with.
     /// @param currentRuleset The pre-fetched current ruleset.
-    /// @return borrowAmount The amount of the loan that should be borrowed.
+    /// @return borrowAmount The amount that should be borrowed.
     function _borrowAmountFrom(
         REVLoan storage loan,
         uint256 revnetId,
@@ -447,9 +447,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         (currentRuleset,) = CONTROLLER.currentRulesetOf(revnetId);
     }
 
-    /// @notice Determines the source fee amount for a loan being paid off a certain amount.
-    /// @param loan The loan having its source fee amount determined.
-    /// @param amount The amount being paid off.
+    /// @notice Determines the source fee amount for a loan when paying off a certain amount.
+    /// @param loan The loan to determine the source fee for.
+    /// @param amount The amount to pay off.
     /// @return The source fee amount for the loan.
     function _determineSourceFeeAmount(REVLoan memory loan, uint256 amount) internal view returns (uint256) {
         // Keep a reference to the time since the loan was created.
@@ -484,12 +484,12 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         return mulDiv({x: fullSourceFeeAmount, y: amount, denominator: loan.amount});
     }
 
-    /// @notice Generate a ID for a loan given a revnet ID and a loan number within that revnet.
+    /// @notice Generate an ID for a loan given a revnet ID and a loan number within that revnet.
     /// @dev The multiplication and addition can theoretically overflow a uint256 if revnetId or loanNumber are
     /// astronomically large. In practice this is infeasible — it would require 2^256 loans or project IDs, far
     /// beyond any realistic usage. No overflow check is needed.
     /// @param revnetId The ID of the revnet to generate a loan ID for.
-    /// @param loanNumber The loan number of the loan within the revnet.
+    /// @param loanNumber The loan number within the revnet.
     /// @return The token ID of the 721.
     function _generateLoanId(uint256 revnetId, uint256 loanNumber) internal pure returns (uint256) {
         return (revnetId * _ONE_TRILLION) + loanNumber;
@@ -520,9 +520,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// arithmetic errors. For cross-currency sources, the normalized amount is then converted via the price feed.
     /// @dev Inverse price feeds may truncate to zero at low decimal counts (e.g. a feed returning 1e21 at 6 decimals
     /// inverts to mulDiv(1e6, 1e6, 1e21) = 0). Sources with a zero price are skipped to prevent division-by-zero.
-    /// @param revnetId The ID of the revnet to check for borrowed assets from.
-    /// @param decimals The decimals the resulting fixed point value will include.
-    /// @param currency The currency the resulting value will be in terms of.
+    /// @param revnetId The ID of the revnet to check.
+    /// @param decimals The decimals to use for the resulting fixed point value.
+    /// @param currency The currency to denominate the resulting value in.
     /// @return borrowedAmount The total amount borrowed.
     function _totalBorrowedFrom(
         uint256 revnetId,
@@ -599,16 +599,15 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// lost and cannot be recovered.
     /// @dev A delegated operator (with OPEN_LOAN permission) can set `beneficiary` to any address, directing borrowed
     /// funds away from the holder. Holders should only grant OPEN_LOAN to fully trusted operators.
-    /// @param revnetId The ID of the revnet being borrowed from.
-    /// @param source The source of the loan being borrowed.
-    /// @param minBorrowAmount The minimum amount being borrowed, denominated in the token of the source's accounting
+    /// @param revnetId The ID of the revnet to borrow from.
+    /// @param source The source of the loan (terminal and token).
+    /// @param minBorrowAmount The minimum amount to borrow, denominated in the token of the source's accounting
     /// context.
     /// @param collateralCount The amount of tokens to use as collateral for the loan.
-    /// @param beneficiary The address that'll receive the borrowed funds and the tokens resulting from fee payments.
-    /// @param prepaidFeePercent The fee percent that will be charged upfront from the revnet being borrowed from.
-    /// Prepaying a fee is cheaper than paying later.
-    /// @return loanId The ID of the loan created from borrowing.
-    /// @return loan The loan created from borrowing.
+    /// @param beneficiary The address that will receive the borrowed funds and the tokens resulting from fee payments.
+    /// @param prepaidFeePercent The fee percent to charge upfront. Prepaying a fee is cheaper than paying later.
+    /// @return loanId The ID of the loan created.
+    /// @return loan The loan created.
     function borrowFrom(
         uint256 revnetId,
         REVLoanSource calldata source,
@@ -637,7 +636,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         });
     }
 
-    /// @notice Liquidates loans that have exceeded the 10-year liquidation duration.
+    /// @notice Liquidate loans that have exceeded the 10-year liquidation duration.
     /// @dev Liquidation permanently destroys the collateral backing expired loans. Since collateral tokens were burned
     /// at deposit time (not held in escrow), there is nothing to return upon liquidation -- the collateral count is
     /// simply removed from tracking. The borrower retains whatever funds they received from the loan, but the
@@ -648,8 +647,8 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @dev Since some loans may be reallocated or paid off, loans within startingLoanId and startingLoanId + count
     /// may be skipped, so choose these parameters carefully to avoid extra gas usage.
     /// @param revnetId The ID of the revnet to liquidate loans from.
-    /// @param startingLoanId The ID of the loan to start iterating from.
-    /// @param count The amount of loans iterate over since the last liquidated loan.
+    /// @param startingLoanId The loan number to start iterating from.
+    /// @param count The number of loans to iterate over.
     function liquidateExpiredLoansFrom(uint256 revnetId, uint256 startingLoanId, uint256 count) external override {
         // Prevent cross-revnet accounting corruption: loan numbers must stay within the revnet's ID namespace.
         if (startingLoanId + count > _ONE_TRILLION) revert REVLoans_LoanIdOverflow();
@@ -697,7 +696,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         }
     }
 
-    /// @notice Refinances a loan by transferring extra collateral from an existing loan to a new loan.
+    /// @notice Refinance a loan by transferring extra collateral from an existing loan to a new loan.
     /// @dev Useful if a loan's collateral has gone up in value since the loan was created.
     /// @dev Refinancing a loan will burn the original and create two new loans.
     /// @dev This function is intentionally not payable — it only moves existing collateral between loans and does
@@ -706,15 +705,15 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// borrowed funds from the new loan away from the loan owner. Grant this permission only to trusted operators.
     /// @param loanId The ID of the loan to reallocate collateral from.
     /// @param collateralCountToTransfer The amount of collateral to transfer from the original loan.
-    /// @param source The source of the loan to create.
-    /// @param minBorrowAmount The minimum amount being borrowed, denominated in the token of the source's accounting
+    /// @param source The source of the new loan (terminal and token). Must match the existing loan's source.
+    /// @param minBorrowAmount The minimum amount to borrow, denominated in the token of the source's accounting
     /// context.
-    /// @param collateralCountToAdd The amount of collateral to add to the loan.
-    /// @param beneficiary The address that'll receive the borrowed funds and the tokens resulting from fee payments.
-    /// @param prepaidFeePercent The fee percent that will be charged upfront from the revnet being borrowed from.
-    /// @return reallocatedLoanId The ID of the loan being reallocated.
+    /// @param collateralCountToAdd The amount of collateral to add to the new loan from your balance.
+    /// @param beneficiary The address that will receive the borrowed funds and the tokens resulting from fee payments.
+    /// @param prepaidFeePercent The fee percent to charge upfront for the new loan.
+    /// @return reallocatedLoanId The ID of the reallocated (reduced) loan.
     /// @return newLoanId The ID of the new loan.
-    /// @return reallocatedLoan The loan being reallocated.
+    /// @return reallocatedLoan The reallocated loan data.
     /// @return newLoan The new loan created from reallocating collateral.
     function reallocateCollateralFromLoan(
         uint256 loanId,
@@ -772,18 +771,17 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         });
     }
 
-    /// @notice Allows the owner of a loan to pay it back or receive returned collateral no longer necessary to support
-    /// the loan.
+    /// @notice Repay a loan or return excess collateral no longer needed to support the loan.
     /// @dev A delegated operator (with REPAY_LOAN permission) can set `beneficiary` to any address, directing returned
     /// collateral tokens away from the loan owner. Grant this permission only to trusted operators.
-    /// @param loanId The ID of the loan being adjusted.
-    /// @param maxRepayBorrowAmount The maximum amount being paid off, denominated in the token of the source's
+    /// @param loanId The ID of the loan to repay.
+    /// @param maxRepayBorrowAmount The maximum amount to repay, denominated in the token of the source's
     /// accounting context.
-    /// @param collateralCountToReturn The amount of collateral being returned from the loan.
-    /// @param beneficiary The address receiving the returned collateral and any tokens resulting from paying fees.
-    /// @param allowance An allowance to faciliate permit2 interactions.
-    /// @return paidOffLoanId The ID of the loan after it's been paid off.
-    /// @return paidOffloan The loan after it's been paid off.
+    /// @param collateralCountToReturn The amount of collateral to return from the loan.
+    /// @param beneficiary The address to receive the returned collateral and any tokens resulting from paying fees.
+    /// @param allowance An allowance to facilitate permit2 interactions.
+    /// @return paidOffLoanId The ID of the loan after repayment.
+    /// @return paidOffloan The loan after repayment.
     function repayLoan(
         uint256 loanId,
         uint256 maxRepayBorrowAmount,
@@ -889,7 +887,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         }
     }
 
-    /// @notice Sets the address of the resolver used to retrieve the tokenURI of loans.
+    /// @notice Set the address of the resolver used to retrieve the tokenURI of loans.
     /// @param resolver The address of the new resolver.
     function setTokenUriResolver(IJBTokenUriResolver resolver) external override onlyOwner {
         // Store the new resolver.
@@ -902,11 +900,11 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     // --------------------- internal transactions ----------------------- //
     //*********************************************************************//
 
-    /// @notice Accepts an incoming token.
-    /// @param token The token being accepted.
-    /// @param amount The number of tokens being accepted.
+    /// @notice Accept an incoming token.
+    /// @param token The token to accept.
+    /// @param amount The number of tokens to accept.
     /// @param allowance The permit2 context.
-    /// @return amount The number of tokens which have been accepted.
+    /// @return amount The number of tokens accepted.
     function _acceptFundsFor(
         address token,
         uint256 amount,
@@ -952,11 +950,11 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         return _balanceOf(token) - balanceBefore;
     }
 
-    /// @notice Adds collateral to a loan by burning the collateral tokens permanently.
+    /// @notice Add collateral to a loan by burning the collateral tokens permanently.
     /// @dev The collateral tokens are burned via the controller, not held in escrow. They are only re-minted if the
     /// loan is repaid. If the loan expires and is liquidated, the burned collateral is permanently lost.
-    /// @param revnetId The ID of the revnet the loan is being added in.
-    /// @param amount The new amount of collateral being added to the loan.
+    /// @param revnetId The ID of the revnet to add collateral in.
+    /// @param amount The amount of collateral to add to the loan.
     function _addCollateralTo(uint256 revnetId, uint256 amount, address holder) internal {
         // Increment the total amount of collateral tokens.
         totalCollateralOf[revnetId] += amount;
@@ -966,12 +964,12 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     }
 
     /// @notice Add a new amount to the loan that is greater than the previous amount.
-    /// @param loan The loan being added to.
-    /// @param revnetId The ID of the revnet the loan is being added in.
-    /// @param addedBorrowAmount The amount being added to the loan, denominated in the token of the source's
+    /// @param loan The loan to add to.
+    /// @param revnetId The ID of the revnet the loan is in.
+    /// @param addedBorrowAmount The amount to add to the loan, denominated in the token of the source's
     /// accounting context.
-    /// @param sourceFeeAmount The amount of the fee being taken from the revnet acting as the source of the loan.
-    /// @param beneficiary The address receiving the returned collateral and any tokens resulting from paying fees.
+    /// @param sourceFeeAmount The fee amount taken from the revnet acting as the source of the loan.
+    /// @param beneficiary The address to receive the borrowed funds and any tokens resulting from paying fees.
     function _addTo(
         REVLoan memory loan,
         uint256 revnetId,
@@ -1048,21 +1046,20 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         });
     }
 
-    /// @notice Allows the owner of a loan to pay it back, add more, or receive returned collateral no longer necessary
-    /// to support the loan.
+    /// @notice Adjust a loan -- pay it back, add more, or return excess collateral.
     /// @dev CEI ordering note: `totalCollateralOf` is not incremented until `_addCollateralTo` executes,
     /// which happens after the external calls in `_addTo` (useAllowanceOf, fee payment, transfer). A reentrant
     /// `borrowFrom` during those calls would see a lower `totalCollateralOf`, potentially passing collateral
     /// checks that should fail. Practically infeasible — requires an adversarial pay hook on the revnet's own
     /// terminal that calls back into `borrowFrom`, which is not a realistic deployment configuration.
-    /// @param loan The loan being adjusted.
-    /// @param revnetId The ID of the revnet the loan is being adjusted in.
+    /// @param loan The loan to adjust.
+    /// @param revnetId The ID of the revnet the loan is in.
     /// @param newBorrowAmount The new amount of the loan, denominated in the token of the source's accounting
     /// context.
-    /// @param newCollateralCount The new amount of collateral backing the loan.
-    /// @param sourceFeeAmount The amount of the fee being taken from the revnet acting as the source of the loan.
-    /// @param beneficiary The address receiving the returned collateral and any tokens resulting from paying fees.
-    /// @param holder The address whose tokens are used as collateral (burned).
+    /// @param newCollateralCount The new amount of collateral to back the loan with.
+    /// @param sourceFeeAmount The fee amount taken from the revnet acting as the source of the loan.
+    /// @param beneficiary The address to receive the returned collateral and any tokens resulting from paying fees.
+    /// @param holder The address whose tokens to use as collateral (burned).
     function _adjust(
         REVLoan storage loan,
         uint256 revnetId,
@@ -1137,12 +1134,12 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         }
     }
 
-    /// @notice Logic to be triggered before transferring tokens from this contract.
-    /// @param to The address the transfer is going to.
-    /// @param token The token being transferred.
-    /// @param amount The number of tokens being transferred, as a fixed point number with the same number of decimals
+    /// @notice Logic to trigger before transferring tokens from this contract.
+    /// @param to The address to transfer to.
+    /// @param token The token to transfer.
+    /// @param amount The number of tokens to transfer, as a fixed point number with the same number of decimals
     /// as the token specifies.
-    /// @return payValue The value to attach to the transaction being sent.
+    /// @return payValue The value to attach to the transaction.
     function _beforeTransferTo(address to, address token, uint256 amount) internal returns (uint256) {
         // If the token is the native token, no allowance needed.
         if (token == JBConstants.NATIVE_TOKEN) return amount;
@@ -1150,9 +1147,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         return 0;
     }
 
-    /// @notice Clears any token allowance granted by `_beforeTransferTo`.
+    /// @notice Clear any token allowance granted by `_beforeTransferTo`.
     /// @param to The address that was granted the allowance.
-    /// @param token The token whose allowance should be cleared.
+    /// @param token The token whose allowance to clear.
     function _afterTransferTo(address to, address token) internal {
         if (token == JBConstants.NATIVE_TOKEN) return;
         IERC20(token).forceApprove({spender: to, value: 0});
@@ -1161,15 +1158,15 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @notice Internal implementation of loan creation, without the OPEN_LOAN permission check.
     /// @dev Called by `borrowFrom` (after its own permission check) and by `reallocateCollateralFromLoan`
     /// (which only requires REALLOCATE_LOAN permission).
-    /// @param revnetId The ID of the revnet being borrowed from.
-    /// @param source The source of the loan being borrowed.
-    /// @param minBorrowAmount The minimum amount being borrowed.
+    /// @param revnetId The ID of the revnet to borrow from.
+    /// @param source The source of the loan (terminal and token).
+    /// @param minBorrowAmount The minimum amount to borrow.
     /// @param collateralCount The amount of tokens to use as collateral for the loan.
-    /// @param beneficiary The address that'll receive the borrowed funds and the tokens resulting from fee payments.
-    /// @param prepaidFeePercent The fee percent that will be charged upfront.
-    /// @param holder The address whose tokens are used as collateral and who receives the loan NFT.
-    /// @return loanId The ID of the loan created from borrowing.
-    /// @return loan The loan created from borrowing.
+    /// @param beneficiary The address that will receive the borrowed funds and fee payment tokens.
+    /// @param prepaidFeePercent The fee percent to charge upfront.
+    /// @param holder The address whose tokens to use as collateral and who receives the loan NFT.
+    /// @return loanId The ID of the loan created.
+    /// @return loan The loan created.
     function _borrowFrom(
         uint256 revnetId,
         REVLoanSource calldata source,
@@ -1273,11 +1270,11 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         return (loanId, loan);
     }
 
-    /// @notice Reallocates collateral from a loan by making a new loan based on the original, with reduced collateral.
+    /// @notice Reallocate collateral from a loan by making a new loan based on the original, with reduced collateral.
     /// @param loanId The ID of the loan to reallocate collateral from.
     /// @param revnetId The ID of the revnet the loan is from.
     /// @param collateralCountToRemove The amount of collateral to remove from the loan.
-    /// @return reallocatedLoanId The ID of the loan.
+    /// @return reallocatedLoanId The ID of the reallocated loan.
     /// @return reallocatedLoan The reallocated loan.
     function _reallocateCollateralFromLoan(
         uint256 loanId,
@@ -1358,10 +1355,10 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         });
     }
 
-    /// @notice Pays off a loan.
-    /// @param loan The loan being paid off.
-    /// @param revnetId The ID of the revnet the loan is being paid off in.
-    /// @param repaidBorrowAmount The amount being paid off, denominated in the token of the source's accounting
+    /// @notice Pay off a loan.
+    /// @param loan The loan to pay off.
+    /// @param revnetId The ID of the revnet the loan is in.
+    /// @param repaidBorrowAmount The amount to pay off, denominated in the token of the source's accounting
     /// context.
     function _removeFrom(REVLoan memory loan, uint256 revnetId, uint256 repaidBorrowAmount) internal {
         // Decrement the total amount of a token being loaned out by the revnet from its terminal.
@@ -1386,14 +1383,13 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         _afterTransferTo({to: address(loan.source.terminal), token: loan.source.token});
     }
 
-    /// @notice Pays down a loan.
-    /// @param loanId The ID of the loan being paid down.
-    /// @param loan The loan being paid down.
-    /// @param repayBorrowAmount The amount being paid down from the loan, denominated in the token of the source's
-    /// accounting context.
-    /// @param sourceFeeAmount The amount of the fee being taken from the revnet acting as the source of the loan.
-    /// @param collateralCountToReturn The amount of collateral being returned that the loan no longer requires.
-    /// @param beneficiary The address receiving the returned collateral and any tokens resulting from paying fees.
+    /// @notice Pay down a loan.
+    /// @param loanId The ID of the loan to pay down.
+    /// @param loan The loan to pay down.
+    /// @param repayBorrowAmount The amount to pay down, denominated in the token of the source's accounting context.
+    /// @param sourceFeeAmount The fee amount taken from the revnet acting as the source of the loan.
+    /// @param collateralCountToReturn The amount of collateral to return that the loan no longer requires.
+    /// @param beneficiary The address to receive the returned collateral and any tokens resulting from paying fees.
     /// @param loanOwner The owner of the loan NFT (receives replacement loan if partial repay).
     // slither-disable-next-line reentrancy-eth,reentrancy-events
     function _repayLoan(
@@ -1503,10 +1499,10 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         }
     }
 
-    /// @notice Returns collateral from a loan.
-    /// @param revnetId The ID of the revnet the loan is being returned in.
-    /// @param collateralCount The amount of collateral being returned from the loan.
-    /// @param beneficiary The address receiving the returned collateral.
+    /// @notice Return collateral from a loan.
+    /// @param revnetId The ID of the revnet the loan is in.
+    /// @param collateralCount The amount of collateral to return from the loan.
+    /// @param beneficiary The address to receive the returned collateral.
     function _returnCollateralFrom(uint256 revnetId, uint256 collateralCount, address payable beneficiary) internal {
         // Decrement the total amount of collateral tokens.
         totalCollateralOf[revnetId] -= collateralCount;
@@ -1522,10 +1518,10 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         });
     }
 
-    /// @notice Transfers tokens.
+    /// @notice Transfer tokens.
     /// @param from The address to transfer tokens from.
     /// @param to The address to transfer tokens to.
-    /// @param token The address of the token being transfered.
+    /// @param token The address of the token to transfer.
     /// @param amount The amount of tokens to transfer, as a fixed point number with the same number of decimals as the
     /// token.
     function _transferFrom(address from, address payable to, address token, uint256 amount) internal virtual {
@@ -1550,13 +1546,13 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         PERMIT2.transferFrom({from: from, to: to, amount: uint160(amount), token: token});
     }
 
-    /// @notice Attempts to pay a fee to a terminal. On failure, cleans up the ERC-20 allowance and returns false.
+    /// @notice Attempt to pay a fee to a terminal. On failure, cleans up the ERC-20 allowance and returns false.
     /// @param terminal The terminal to pay the fee to.
-    /// @param projectId The project receiving the fee.
-    /// @param token The token being used to pay the fee.
+    /// @param projectId The project to pay the fee to.
+    /// @param token The token to pay the fee with.
     /// @param amount The fee amount.
     /// @param beneficiary The address to credit for the fee payment.
-    /// @param metadataProjectId The project ID encoded in the payment metadata.
+    /// @param metadataProjectId The project ID to encode in the payment metadata.
     /// @return success Whether the fee was successfully paid.
     function _tryPayFee(
         IJBTerminal terminal,

@@ -83,12 +83,12 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     //*********************************************************************//
 
     /// @notice The timestamp of when cashouts will become available to a specific revnet's participants.
-    /// @dev Only applies to existing revnets which are deploying onto a new network.
-    /// @custom:param revnetId The ID of the revnet to get the cash out delay for.
+    /// @dev Only applies to existing revnets deploying onto a new network.
+    /// @custom:param revnetId The ID of the revnet to check the cash out delay for.
     mapping(uint256 revnetId => uint256 cashOutDelay) public cashOutDelayOf;
 
     /// @notice Each revnet's tiered ERC-721 hook.
-    /// @custom:param revnetId The ID of the revnet to get the tiered ERC-721 hook for.
+    /// @custom:param revnetId The ID of the revnet to look up.
     // slither-disable-next-line uninitialized-state
     mapping(uint256 revnetId => IJB721TiersHook tiered721Hook) public tiered721HookOf;
 
@@ -143,12 +143,11 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     /// fee (2.5%) applies on top of the rev fee. The fee hook spec amount sent to `afterCashOutRecordedWith` will have
     /// the protocol fee deducted by the terminal before reaching this contract.
     /// @param context Standard Juicebox cash out context. See `JBBeforeCashOutRecordedContext`.
-    /// @return cashOutTaxRate The cash out tax rate, which influences the amount of terminal tokens which get cashed
-    /// out.
-    /// @return cashOutCount The number of revnet tokens that are cashed out.
+    /// @return cashOutTaxRate The cash out tax rate, which influences the amount of terminal tokens reclaimed.
+    /// @return cashOutCount The number of revnet tokens to cash out.
     /// @return totalSupply The total token supply across all chains (for both proportional reclaim and tax).
     /// @return effectiveSurplusValue The global surplus across all chains for proportional reclaim.
-    /// @return hookSpecifications The amount of funds and the data to send to cash out hooks (this contract).
+    /// @return hookSpecifications The amount of funds and data to send to cash out hooks (this contract).
     function beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext calldata context)
         external
         view
@@ -357,12 +356,11 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
 
     /// @notice Returns whether an address may mint a revnet's tokens on-demand. Grants permission to: the loans
     /// contract (re-mints collateral on repayment), hidden tokens contract (re-mints on reveal), buyback hook and its
-    /// delegates
-    /// (mints tokens from pool swaps), and suckers (mints bridged tokens on the destination chain).
+    /// delegates (mints tokens from pool swaps), and suckers (mints bridged tokens on the destination chain).
     /// @dev Part of `IJBRulesetDataHook`.
-    /// @param revnetId The ID of the revnet to check permissions for.
-    /// @param ruleset The ruleset to check the mint permission for.
-    /// @param addr The address to check the mint permission of.
+    /// @param revnetId The ID of the revnet to check.
+    /// @param ruleset The ruleset to check against.
+    /// @param addr The address to check.
     /// @return flag A flag indicating whether the address has permission to mint the revnet's tokens on-demand.
     function hasMintPermissionFor(
         uint256 revnetId,
@@ -385,9 +383,9 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     /// @dev Hidden tokens are intentionally excluded. Revnet operators can hide tokens as a security handle without
     /// changing loan or cash-out math for other holders. Outstanding loan debt is counted as both surplus and balance:
     /// it is value owed back to this chain's revnet and should travel to peer snapshots with the collateral supply.
-    /// @param revnetId The ID of the revnet being snapshotted.
-    /// @param decimals The decimals the returned surplus should use.
-    /// @param currency The currency the returned surplus should be in terms of.
+    /// @param revnetId The ID of the revnet to snapshot.
+    /// @param decimals The decimals to use for the returned surplus.
+    /// @param currency The currency to denominate the returned surplus in.
     /// @return supply The loan-collateral supply to include in the peer snapshot.
     /// @return surplus The outstanding loan debt to include in `sourceSurplus`.
     /// @return balance The outstanding loan debt to include in `sourceBalance`.
@@ -409,7 +407,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     // --------------------- external transactions ----------------------- //
     //*********************************************************************//
 
-    /// @notice Processes the fee from a cash out.
+    /// @notice Process the fee from a cash out.
     /// @param context Cash out context passed in by the terminal.
     function afterCashOutRecordedWith(JBAfterCashOutRecordedContext calldata context) external payable override {
         // No caller validation needed — this hook only pays fees to the fee project using funds forwarded by the
@@ -519,8 +517,8 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     //*********************************************************************//
 
     /// @notice A flag indicating whether an address is a revnet's sucker.
-    /// @param revnetId The ID of the revnet to check sucker status for.
-    /// @param addr The address being checked.
+    /// @param revnetId The ID of the revnet to check.
+    /// @param addr The address to check.
     /// @return isSucker A flag indicating whether the address is one of the revnet's suckers.
     function _isSuckerOf(uint256 revnetId, address addr) internal view returns (bool) {
         return SUCKER_REGISTRY.isSuckerOf({projectId: revnetId, addr: addr});
@@ -530,8 +528,8 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     /// @dev This is included in cash-out and peer-snapshot math because borrowed funds are still owed to the revnet
     /// and collateral can re-enter supply when the loan is repaid.
     /// @param revnetId The ID of the revnet to check.
-    /// @param decimals The decimals the resulting fixed point debt value should use.
-    /// @param currency The currency the resulting debt value should be in terms of.
+    /// @param decimals The decimals to use for the resulting fixed point debt value.
+    /// @param currency The currency to denominate the resulting debt value in.
     /// @return borrowedAmount The local outstanding loan debt converted into `currency`.
     /// @return collateralCount The local burned loan collateral count.
     function _localLoanStateOf(
@@ -597,12 +595,12 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     // --------------------- internal transactions ----------------------- //
     //*********************************************************************//
 
-    /// @notice Logic to be triggered before transferring tokens from this contract.
-    /// @param to The address the transfer is going to.
-    /// @param token The token being transferred.
-    /// @param amount The number of tokens being transferred, as a fixed point number with the same number of decimals
+    /// @notice Logic to trigger before transferring tokens from this contract.
+    /// @param to The address to transfer to.
+    /// @param token The token to transfer.
+    /// @param amount The number of tokens to transfer, as a fixed point number with the same number of decimals
     /// as the token specifies.
-    /// @return payValue The value to attach to the transaction being sent.
+    /// @return payValue The value to attach to the transaction.
     function _beforeTransferTo(address to, address token, uint256 amount) internal returns (uint256) {
         // If the token is the native token, no allowance needed.
         if (token == JBConstants.NATIVE_TOKEN) return amount;

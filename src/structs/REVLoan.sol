@@ -11,7 +11,8 @@ import {REVLoanSource} from "./REVLoanSource.sol";
 /// @custom:member createdAt The timestamp when the loan was created.
 /// @custom:member prepaidFeePercent The percentage of fees prepaid at creation (determines prepaid duration).
 /// @custom:member prepaidDuration The duration (seconds) during which repayment costs nothing beyond the original
-/// amount. @custom:member source The terminal and token from which funds were drawn.
+/// amount.
+/// @custom:member source The terminal and token from which funds were drawn.
 struct REVLoan {
     uint112 amount;
     uint112 collateral;

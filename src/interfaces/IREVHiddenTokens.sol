@@ -10,14 +10,14 @@ import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol
 interface IREVHiddenTokens {
     /// @notice Emitted when a holder is allowed or disallowed to hide their own tokens.
     /// @param revnetId The ID of the revnet.
-    /// @param holder The holder whose tokens are being allowed or disallowed.
+    /// @param holder The holder to allow or disallow.
     /// @param isAllowed Whether the holder is allowed.
     event SetTokenHidingAllowed(uint256 indexed revnetId, address indexed holder, bool isAllowed);
 
     /// @notice Emitted when tokens are hidden (burned and tracked for later reveal).
-    /// @param revnetId The ID of the revnet whose tokens are hidden.
+    /// @param revnetId The ID of the revnet whose tokens were hidden.
     /// @param tokenCount The number of tokens hidden.
-    /// @param holder The address whose tokens are hidden.
+    /// @param holder The address whose tokens were hidden.
     /// @param caller The address that hid the tokens.
     event HideTokens(uint256 indexed revnetId, uint256 tokenCount, address holder, address caller);
 
@@ -44,7 +44,7 @@ interface IREVHiddenTokens {
     function totalHiddenOf(uint256 revnetId) external view returns (uint256);
 
     /// @notice Whether a holder is allowed to hide their own tokens.
-    /// @param holder The holder whose tokens are being managed.
+    /// @param holder The holder to check.
     /// @param revnetId The ID of the revnet.
     /// @return Whether the holder is allowed.
     function tokenHidingIsAllowedFor(address holder, uint256 revnetId) external view returns (bool);

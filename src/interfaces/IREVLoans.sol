@@ -89,10 +89,10 @@ interface IREVLoans {
     event SetTokenUriResolver(IJBTokenUriResolver indexed resolver, address caller);
 
     /// @notice The amount that can be borrowed from a revnet given a certain amount of collateral.
-    /// @param revnetId The ID of the revnet to check for borrowable assets from.
-    /// @param collateralCount The amount of collateral used to secure the loan.
-    /// @param decimals The decimals the resulting fixed point value will include.
-    /// @param currency The currency that the resulting amount should be in terms of.
+    /// @param revnetId The ID of the revnet to borrow from.
+    /// @param collateralCount The amount of collateral to secure the loan with.
+    /// @param decimals The decimals to use for the resulting fixed point value.
+    /// @param currency The currency to denominate the resulting amount in.
     /// @return The amount that can be borrowed from the revnet.
     function borrowableAmountFrom(
         uint256 revnetId,
@@ -108,9 +108,9 @@ interface IREVLoans {
     /// @return The controller contract.
     function CONTROLLER() external view returns (IJBController);
 
-    /// @notice Determines the source fee amount for a loan being paid off a certain amount.
-    /// @param loan The loan having its source fee amount determined.
-    /// @param amount The amount being paid off.
+    /// @notice Determines the source fee amount for a loan when paying off a certain amount.
+    /// @param loan The loan to determine the source fee for.
+    /// @param amount The amount to pay off.
     /// @return sourceFeeAmount The source fee amount for the loan.
     function determineSourceFeeAmount(
         REVLoan memory loan,
@@ -125,9 +125,9 @@ interface IREVLoans {
     function DIRECTORY() external view returns (IJBDirectory);
 
     /// @notice Whether a revnet currently has outstanding loans from the specified terminal in the specified token.
-    /// @param revnetId The ID of the revnet issuing the loan.
-    /// @param terminal The terminal that the loan is issued from.
-    /// @param token The token being loaned.
+    /// @param revnetId The ID of the revnet to check.
+    /// @param terminal The terminal to check.
+    /// @param token The token to check.
     /// @return A flag indicating if the revnet has an active loan source.
     function isLoanSourceOf(uint256 revnetId, IJBPayoutTerminal terminal, address token) external view returns (bool);
 
@@ -135,8 +135,8 @@ interface IREVLoans {
     /// @return The loan liquidation duration in seconds.
     function LOAN_LIQUIDATION_DURATION() external view returns (uint256);
 
-    /// @notice Get a loan's full details — amount, collateral, creation time, prepaid fee, and source.
-    /// @param loanId The ID of the loan to retrieve.
+    /// @notice Get a loan's full details -- amount, collateral, creation time, prepaid fee, and source.
+    /// @param loanId The ID of the loan to look up.
     /// @return The loan data.
     function loanOf(uint256 loanId) external view returns (REVLoan memory);
 
@@ -176,8 +176,8 @@ interface IREVLoans {
     /// @return The REV prepaid fee percent.
     function REV_PREPAID_FEE_PERCENT() external view returns (uint256);
 
-    /// @notice The revnet ID for the loan with the provided loan ID.
-    /// @param loanId The loan ID to get the revnet ID of.
+    /// @notice The revnet ID for a given loan ID.
+    /// @param loanId The loan ID to look up.
     /// @return The ID of the revnet.
     function revnetIdOfLoanWith(uint256 loanId) external view returns (uint256);
 
@@ -186,9 +186,9 @@ interface IREVLoans {
     function tokenUriResolver() external view returns (IJBTokenUriResolver);
 
     /// @notice The total amount loaned out by a revnet from a specified terminal in a specified token.
-    /// @param revnetId The ID of the revnet issuing the loan.
-    /// @param terminal The terminal that the loan is issued from.
-    /// @param token The token being loaned.
+    /// @param revnetId The ID of the revnet to check.
+    /// @param terminal The terminal the loans were issued from.
+    /// @param token The token loaned.
     /// @return The total amount borrowed.
     function totalBorrowedFrom(
         uint256 revnetId,
@@ -213,15 +213,15 @@ interface IREVLoans {
     function totalLoansBorrowedFor(uint256 revnetId) external view returns (uint256);
 
     /// @notice Open a loan by borrowing from a revnet. Collateral tokens are burned and only re-minted upon repayment.
-    /// @param revnetId The ID of the revnet being borrowed from.
+    /// @param revnetId The ID of the revnet to borrow from.
     /// @param source The source of the loan (terminal and token).
     /// @param minBorrowAmount The minimum amount to borrow, denominated in the source's token.
     /// @param collateralCount The amount of tokens to use as collateral for the loan.
     /// @param beneficiary The address that will receive the borrowed funds and fee payment tokens.
     /// @param prepaidFeePercent The fee percent to charge upfront, in terms of `JBConstants.MAX_FEE`.
-    /// @param holder The address whose tokens are used as collateral and who receives the loan NFT.
-    /// @return loanId The ID of the loan created from borrowing.
-    /// @return The loan created from borrowing.
+    /// @param holder The address whose tokens to use as collateral and who receives the loan NFT.
+    /// @return loanId The ID of the loan created.
+    /// @return The loan created.
     function borrowFrom(
         uint256 revnetId,
         REVLoanSource calldata source,
@@ -234,7 +234,7 @@ interface IREVLoans {
         external
         returns (uint256 loanId, REVLoan memory);
 
-    /// @notice Liquidates loans that have exceeded the liquidation duration, permanently destroying their collateral.
+    /// @notice Liquidate loans that have exceeded the liquidation duration, permanently destroying their collateral.
     /// @param revnetId The ID of the revnet to liquidate loans from.
     /// @param startingLoanId The loan number to start iterating from.
     /// @param count The number of loans to iterate over.
@@ -245,7 +245,7 @@ interface IREVLoans {
     /// @param collateralCountToTransfer The amount of collateral to transfer from the original loan.
     /// @param source The source of the new loan (terminal and token). Must match the existing loan's source.
     /// @param minBorrowAmount The minimum amount to borrow for the new loan.
-    /// @param collateralCountToAdd Additional collateral to add to the new loan from the caller's balance.
+    /// @param collateralCountToAdd Additional collateral to add to the new loan from your balance.
     /// @param beneficiary The address that will receive the borrowed funds and fee payment tokens.
     /// @param prepaidFeePercent The fee percent to charge upfront for the new loan.
     /// @return reallocatedLoanId The ID of the reallocated (reduced) loan.
@@ -265,13 +265,13 @@ interface IREVLoans {
         returns (uint256 reallocatedLoanId, uint256 newLoanId, REVLoan memory reallocatedLoan, REVLoan memory newLoan);
 
     /// @notice Repay a loan or return excess collateral no longer needed to support the loan.
-    /// @param loanId The ID of the loan being repaid.
+    /// @param loanId The ID of the loan to repay.
     /// @param maxRepayBorrowAmount The maximum amount to repay, denominated in the source's token.
     /// @param collateralCountToReturn The amount of collateral to return from the loan.
-    /// @param beneficiary The address receiving the returned collateral and fee payment tokens.
+    /// @param beneficiary The address to receive the returned collateral and fee payment tokens.
     /// @param allowance A permit2 allowance to facilitate the repayment transfer.
-    /// @return paidOffLoanId The ID of the loan after it has been paid off.
-    /// @return paidOffloan The loan after it has been paid off.
+    /// @return paidOffLoanId The ID of the loan after repayment.
+    /// @return paidOffloan The loan after repayment.
     function repayLoan(
         uint256 loanId,
         uint256 maxRepayBorrowAmount,
@@ -283,7 +283,7 @@ interface IREVLoans {
         payable
         returns (uint256 paidOffLoanId, REVLoan memory paidOffloan);
 
-    /// @notice Sets the address of the resolver used to retrieve the token URI of loans.
+    /// @notice Set the address of the resolver used to retrieve the token URI of loans.
     /// @param resolver The new token URI resolver.
     function setTokenUriResolver(IJBTokenUriResolver resolver) external;
 }
