@@ -45,6 +45,7 @@ import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
+import {IREVHiddenTokens} from "../src/interfaces/IREVHiddenTokens.sol";
 
 /// @notice Tests for PR #105: zero-amount loan guard and mint-before-adjust ordering.
 contract TestZeroAmountLoanGuard is TestBaseWorkflow {
@@ -96,7 +97,7 @@ contract TestZeroAmountLoanGuard is TestBaseWorkflow {
             jbRulesets(),
             HOOK_STORE,
             jbSplits(),
-            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer())),
+            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer(HOOK_STORE))),
             multisig()
         );
         ADDRESS_REGISTRY = new JBAddressRegistry();
@@ -121,8 +122,8 @@ contract TestZeroAmountLoanGuard is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT),
-            address(0)
+            LOANS_CONTRACT,
+            IREVHiddenTokens(address(0))
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -132,7 +133,7 @@ contract TestZeroAmountLoanGuard is TestBaseWorkflow {
             HOOK_DEPLOYER,
             PUBLISHER,
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
-            address(LOANS_CONTRACT),
+            LOANS_CONTRACT,
             TRUSTED_FORWARDER,
             address(REV_OWNER)
         );

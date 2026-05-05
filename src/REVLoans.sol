@@ -359,10 +359,11 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Get the total amount of tokens in circulation.
         uint256 totalSupply = CONTROLLER.totalTokenSupplyWithReservedTokensOf(revnetId);
 
-        // Get a refeerence to the collateral being used to secure loans.
+        // Get a reference to the collateral being used to secure loans.
         uint256 totalCollateral = totalCollateralOf[revnetId];
 
-        // The local supply includes both circulating tokens and tokens locked as loan collateral.
+        // Hidden tokens are intentionally excluded from borrowing math. Operators can hide tokens as a security
+        // handle without changing the fair loan market for visible token holders.
         uint256 localSupply = totalSupply + totalCollateral;
 
         // The local surplus includes both the treasury surplus and the outstanding borrowed amounts.
@@ -469,10 +470,13 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             revert REVLoans_LoanExpired(timeSinceLoanCreated, LOAN_LIQUIDATION_DURATION);
         }
 
-        // Get a reference to the amount prepaid for the full loan.
-        uint256 prepaid = JBFees.feeAmountFrom({amountBeforeFee: loan.amount, feePercent: loan.prepaidFeePercent});
+        // Get a reference to the amount prepaid for the full loan. This is an app-level loan fee, so keep it
+        // floor-rounded instead of applying the protocol fee helper's dust minimum.
+        uint256 prepaid = JBFees.feeAmountFromFloor({amountBeforeFee: loan.amount, feePercent: loan.prepaidFeePercent});
 
-        uint256 fullSourceFeeAmount = JBFees.feeAmountFrom({
+        // This source fee ramps with elapsed time. Use the floor-rounded fee helper so a one-second elapsed window
+        // with zero fee percent stays free instead of inheriting the protocol fee helper's anti-dust minimum.
+        uint256 fullSourceFeeAmount = JBFees.feeAmountFromFloor({
             amountBeforeFee: loan.amount - prepaid,
             feePercent: mulDiv({
                 x: timeSinceLoanCreated - loan.prepaidDuration,
@@ -1017,10 +1021,11 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Keep a reference to the fee terminal.
         IJBTerminal feeTerminal = DIRECTORY.primaryTerminalOf({projectId: REV_ID, token: loan.source.token});
 
-        // Get the amount of additional fee to take for REV.
+        // Get the amount of additional fee to take for REV. This is an app-level loan fee, not the terminal's
+        // protocol fee, so keep it floor-rounded instead of applying the protocol fee helper's dust minimum.
         uint256 revFeeAmount = address(feeTerminal) == address(0)
             ? 0
-            : JBFees.feeAmountFrom({amountBeforeFee: addedBorrowAmount, feePercent: REV_PREPAID_FEE_PERCENT});
+            : JBFees.feeAmountFromFloor({amountBeforeFee: addedBorrowAmount, feePercent: REV_PREPAID_FEE_PERCENT});
 
         // Try to pay the REV fee. If it fails, revFeeAmount is zeroed so the borrower receives it instead.
         if (revFeeAmount > 0) {
@@ -1238,9 +1243,11 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Make sure the minimum borrow amount is met.
         if (borrowAmount < minBorrowAmount) revert REVLoans_UnderMinBorrowAmount(minBorrowAmount, borrowAmount);
 
-        // Get the amount of additional fee to take for the revnet issuing the loan.
-        // Fee rounding may leave a few wei of dust — economically insignificant relative to gas costs.
-        uint256 sourceFeeAmount = JBFees.feeAmountFrom({amountBeforeFee: borrowAmount, feePercent: prepaidFeePercent});
+        // Get the amount of additional fee to take for the revnet issuing the loan. This is an app-level loan fee,
+        // not the terminal's protocol fee, so keep it floor-rounded instead of applying the protocol fee helper's dust
+        // minimum.
+        uint256 sourceFeeAmount =
+            JBFees.feeAmountFromFloor({amountBeforeFee: borrowAmount, feePercent: prepaidFeePercent});
 
         // Borrow the amount.
         _adjust({

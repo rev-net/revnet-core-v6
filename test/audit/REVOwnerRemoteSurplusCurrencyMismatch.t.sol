@@ -16,7 +16,9 @@ import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerR
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 
+import {IREVLoans} from "../../src/interfaces/IREVLoans.sol";
 import {REVOwner} from "../../src/REVOwner.sol";
+import {IREVHiddenTokens} from "../../src/interfaces/IREVHiddenTokens.sol";
 
 contract CurrencyAwareSuckerRegistry {
     uint256 public expectedCurrency;
@@ -101,8 +103,8 @@ contract REVOwnerRemoteSurplusCurrencyMismatchTest is TestBaseWorkflow {
             jbDirectory(),
             999_999,
             IJBSuckerRegistry(address(suckerRegistry)),
-            address(0),
-            address(0)
+            IREVLoans(address(0)),
+            IREVHiddenTokens(address(0))
         );
     }
 

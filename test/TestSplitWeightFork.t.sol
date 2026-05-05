@@ -71,6 +71,7 @@ import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
+import {IREVHiddenTokens} from "../src/interfaces/IREVHiddenTokens.sol";
 
 /// @notice Helper that adds liquidity to and swaps on a V4 pool via the unlock/callback pattern.
 contract LiquidityHelper is IUnlockCallback {
@@ -305,7 +306,7 @@ contract TestSplitWeightFork is TestBaseWorkflow {
             jbRulesets(),
             HOOK_STORE,
             jbSplits(),
-            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer())),
+            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer(HOOK_STORE))),
             multisig()
         );
         ADDRESS_REGISTRY = new JBAddressRegistry();
@@ -347,8 +348,8 @@ contract TestSplitWeightFork is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT),
-            address(0)
+            LOANS_CONTRACT,
+            IREVHiddenTokens(address(0))
         );
 
         REV_DEPLOYER = new REVDeployer{salt: "REVDeployer_Fork"}(
@@ -358,7 +359,7 @@ contract TestSplitWeightFork is TestBaseWorkflow {
             HOOK_DEPLOYER,
             PUBLISHER,
             IJBBuybackHookRegistry(address(BUYBACK_REGISTRY)),
-            address(LOANS_CONTRACT),
+            LOANS_CONTRACT,
             TRUSTED_FORWARDER,
             address(REV_OWNER)
         );

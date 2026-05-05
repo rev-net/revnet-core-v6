@@ -54,6 +54,7 @@ import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
+import {IREVHiddenTokens} from "../src/interfaces/IREVHiddenTokens.sol";
 
 /// @notice E2E tests verifying that the split weight adjustment in REVDeployer produces correct token counts
 /// when payments flow through the full terminal → store → dataHook → mint pipeline.
@@ -113,7 +114,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
             jbRulesets(),
             HOOK_STORE,
             jbSplits(),
-            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer())),
+            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer(HOOK_STORE))),
             multisig()
         );
         ADDRESS_REGISTRY = new JBAddressRegistry();
@@ -135,8 +136,8 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT),
-            address(0)
+            LOANS_CONTRACT,
+            IREVHiddenTokens(address(0))
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -146,7 +147,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
             HOOK_DEPLOYER,
             PUBLISHER,
             IJBBuybackHookRegistry(address(MOCK_BUYBACK_MINT)),
-            address(LOANS_CONTRACT),
+            LOANS_CONTRACT,
             TRUSTED_FORWARDER,
             address(REV_OWNER)
         );
@@ -442,8 +443,8 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT),
-            address(0)
+            LOANS_CONTRACT,
+            IREVHiddenTokens(address(0))
         );
         REVDeployer ammDeployer = new REVDeployer{salt: "REVDeployer_AMM_E2E"}(
             jbController(),
@@ -452,7 +453,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
             HOOK_DEPLOYER,
             PUBLISHER,
             IJBBuybackHookRegistry(address(ammBuyback)),
-            address(LOANS_CONTRACT),
+            LOANS_CONTRACT,
             TRUSTED_FORWARDER,
             address(ammOwner)
         );

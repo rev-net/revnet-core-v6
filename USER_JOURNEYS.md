@@ -16,7 +16,7 @@ This repo packages autonomous Revnets: staged Juicebox projects whose runtime be
 - `REVDeployer`: launch-time packaging, stage config, and operator envelope
 - `REVOwner`: runtime pay and cash-out behavior for active Revnets
 - `REVLoans`: borrowing, repayment, transfer, reallocation, and liquidation
-- `REVHiddenTokens`: temporarily hide and later reveal token supply
+- `REVHiddenTokens`: temporarily hide tokens from visible supply and later reveal them
 - `autoIssueFor(...)`, `hideTokensOf(...)`, `revealTokensOf(...)`, `borrowFrom(...)`: high-signal runtime entrypoints
 
 ## Journey 1: Launch A Revnet With Its Long-Lived Rules Encoded Up Front
@@ -109,14 +109,15 @@ This repo packages autonomous Revnets: staged Juicebox projects whose runtime be
 
 - the holder granted `BURN_TOKENS` to `REVHiddenTokens`
 - either the holder has been allowlisted for hidden-token actions, or the caller is the project owner / an operator with `HIDE_TOKENS`
-- the holder accepts the supply and collateral implications of hiding tokens
+- the holder accepts that hiding reduces visible/governance supply, while cash-out and loan denominators continue to
+  count hidden balances
 
 **Main Flow**
 
 1. Grant `BURN_TOKENS` to `REVHiddenTokens`.
 2. An operator calls `setTokenHidingAllowedFor(...)` to allow the holder to hide their own tokens.
 3. The holder, project owner, or a `HIDE_TOKENS` operator calls `hideTokensOf(...)` to burn tokens and track the hidden balance.
-4. The lower visible supply changes per-token cash-out value.
+4. The lower visible supply changes governance and visibility, but hidden balances still dilute cash-out and loan math.
 5. Later, the holder calls `revealTokensOf(...)` to remint hidden tokens back to themselves.
 
 **Failure Modes**
@@ -129,6 +130,7 @@ This repo packages autonomous Revnets: staged Juicebox projects whose runtime be
 **Postconditions**
 
 - visible supply is reduced or restored according to the holder's hidden-token state
+- cash-out and loan denominators continue to include hidden supply while it is revealable
 
 ## Journey 5: Borrow Against Revnet Tokens Instead Of Selling Them
 

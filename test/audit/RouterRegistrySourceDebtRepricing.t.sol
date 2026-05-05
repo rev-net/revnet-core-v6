@@ -1,0 +1,227 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.28;
+
+import "forge-std/Test.sol";
+import /* {*} from */ "@bananapus/core-v6/test/helpers/TestBaseWorkflow.sol";
+import /* {*} from */ "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
+import /* {*} from */ "@bananapus/721-hook-v6/script/helpers/Hook721DeploymentLib.sol";
+import /* {*} from */ "@bananapus/suckers-v6/script/helpers/SuckerDeploymentLib.sol";
+import /* {*} from */ "@croptop/core-v6/script/helpers/CroptopDeploymentLib.sol";
+import /* {*} from */ "@bananapus/router-terminal-v6/script/helpers/RouterTerminalDeploymentLib.sol";
+
+import {JBRouterTerminalRegistry} from "@bananapus/router-terminal-v6/src/JBRouterTerminalRegistry.sol";
+import {IJBBuybackHookRegistry} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHookRegistry.sol";
+import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
+import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
+import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
+import {JBSuckerRegistry} from "@bananapus/suckers-v6/src/JBSuckerRegistry.sol";
+import {JB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
+import {JB721TiersHook} from "@bananapus/721-hook-v6/src/JB721TiersHook.sol";
+import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStore.sol";
+import {JB721CheckpointsDeployer} from "@bananapus/721-hook-v6/src/JB721CheckpointsDeployer.sol";
+import {IJB721CheckpointsDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721CheckpointsDeployer.sol";
+import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
+import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
+import {CTPublisher} from "@croptop/core-v6/src/CTPublisher.sol";
+
+import {REVDeployer} from "../../src/REVDeployer.sol";
+import {REVLoans} from "../../src/REVLoans.sol";
+import {REVOwner} from "../../src/REVOwner.sol";
+import {IREVLoans} from "../../src/interfaces/IREVLoans.sol";
+import {REVConfig} from "../../src/structs/REVConfig.sol";
+import {REVDescription} from "../../src/structs/REVDescription.sol";
+import {REVStageConfig, REVAutoIssuance} from "../../src/structs/REVStageConfig.sol";
+import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
+import {REVSuckerDeploymentConfig} from "../../src/structs/REVSuckerDeploymentConfig.sol";
+import {REVEmpty721Config} from "../helpers/REVEmpty721Config.sol";
+import {MockBuybackDataHook} from "../mock/MockBuybackDataHook.sol";
+import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
+import {IREVHiddenTokens} from "../../src/interfaces/IREVHiddenTokens.sol";
+
+contract CodexRouterRegistrySourceDebtRepricingTest is TestBaseWorkflow {
+    bytes32 internal constant REV_DEPLOYER_SALT = "REVDeployer";
+
+    address internal constant TRUSTED_FORWARDER = 0xB2b5841DBeF766d4b521221732F9B618fCf34A87;
+
+    REVDeployer internal revDeployer;
+    REVOwner internal revOwner;
+    IREVLoans internal loans;
+    JBRouterTerminalRegistry internal routerRegistry;
+    JBSuckerRegistry internal suckerRegistry;
+    JB721TiersHook internal exampleHook;
+    IJB721TiersHookDeployer internal hookDeployer;
+    IJB721TiersHookStore internal hookStore;
+    IJBAddressRegistry internal addressRegistry;
+    CTPublisher internal publisher;
+    MockBuybackDataHook internal buybackHook;
+
+    uint256 internal feeProjectId;
+    uint256 internal revnetId;
+    address internal user = makeAddr("user");
+
+    function setUp() public override {
+        super.setUp();
+
+        feeProjectId = jbProjects().createFor(multisig());
+
+        suckerRegistry = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
+        hookStore = new JB721TiersHookStore();
+        exampleHook = new JB721TiersHook(
+            jbDirectory(),
+            jbPermissions(),
+            jbPrices(),
+            jbRulesets(),
+            hookStore,
+            jbSplits(),
+            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer(hookStore))),
+            multisig()
+        );
+        addressRegistry = new JBAddressRegistry();
+        hookDeployer = new JB721TiersHookDeployer(exampleHook, hookStore, addressRegistry, multisig());
+        publisher = new CTPublisher(jbDirectory(), jbPermissions(), feeProjectId, multisig());
+        buybackHook = new MockBuybackDataHook();
+
+        loans = new REVLoans({
+            controller: jbController(),
+            suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
+            revId: feeProjectId,
+            owner: address(this),
+            permit2: permit2(),
+            trustedForwarder: TRUSTED_FORWARDER
+        });
+
+        revOwner = new REVOwner(
+            IJBBuybackHookRegistry(address(buybackHook)),
+            jbDirectory(),
+            feeProjectId,
+            suckerRegistry,
+            loans,
+            IREVHiddenTokens(address(0))
+        );
+
+        revDeployer = new REVDeployer{salt: REV_DEPLOYER_SALT}(
+            jbController(),
+            suckerRegistry,
+            feeProjectId,
+            hookDeployer,
+            publisher,
+            IJBBuybackHookRegistry(address(buybackHook)),
+            loans,
+            TRUSTED_FORWARDER,
+            address(revOwner)
+        );
+        revOwner.setDeployer(revDeployer);
+
+        routerRegistry =
+            new JBRouterTerminalRegistry(jbPermissions(), jbProjects(), permit2(), address(this), TRUSTED_FORWARDER);
+        routerRegistry.setDefaultTerminal(jbMultiTerminal());
+
+        vm.prank(multisig());
+        jbProjects().approve(address(revDeployer), feeProjectId);
+        _deployFeeRevnet();
+        _deployRegistryBackedRevnet();
+
+        vm.deal(user, 100 ether);
+    }
+
+    function test_routerRegistryCannotServeAsLoanSource() public {
+        vm.prank(user);
+        uint256 tokenCount =
+            jbMultiTerminal().pay{value: 20 ether}(revnetId, JBConstants.NATIVE_TOKEN, 20 ether, user, 0, "", "");
+        assertGt(tokenCount, 1, "expected project tokens");
+
+        uint256 firstCollateral = tokenCount / 2;
+
+        REVLoanSource memory registrySource =
+            REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: IJBPayoutTerminal(address(routerRegistry))});
+
+        vm.prank(user);
+        vm.expectRevert();
+        loans.borrowFrom(revnetId, registrySource, 0, firstCollateral, payable(user), 25, user);
+
+        assertEq(
+            loans.totalBorrowedFrom(revnetId, IJBPayoutTerminal(address(routerRegistry)), JBConstants.NATIVE_TOKEN),
+            0,
+            "registry debt should never be recorded because the registry cannot pay loan allowances"
+        );
+    }
+
+    function _deployFeeRevnet() internal {
+        (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
+            _buildConfig("FeeProject", "FEE", "FEE_TOKEN", false);
+
+        vm.prank(multisig());
+        revDeployer.deployFor({
+            revnetId: feeProjectId,
+            configuration: cfg,
+            terminalConfigurations: tc,
+            suckerDeploymentConfiguration: sdc,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
+        });
+    }
+
+    function _deployRegistryBackedRevnet() internal {
+        (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
+            _buildConfig("RegistryDebt", "RDEBT", "RDEBT_TOKEN", true);
+
+        (revnetId,) = revDeployer.deployFor({
+            revnetId: 0,
+            configuration: cfg,
+            terminalConfigurations: tc,
+            suckerDeploymentConfiguration: sdc,
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
+        });
+    }
+
+    function _buildConfig(
+        string memory name,
+        string memory ticker,
+        bytes32 salt,
+        bool includeRegistry
+    )
+        internal
+        view
+        returns (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc)
+    {
+        JBAccountingContext[] memory acc = new JBAccountingContext[](1);
+        acc[0] = JBAccountingContext({
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+        });
+
+        tc = new JBTerminalConfig[](includeRegistry ? 2 : 1);
+        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        if (includeRegistry) {
+            tc[1] = JBTerminalConfig({terminal: IJBTerminal(address(routerRegistry)), accountingContextsToAccept: acc});
+        }
+
+        REVStageConfig[] memory stages = new REVStageConfig[](1);
+        JBSplit[] memory splits = new JBSplit[](1);
+        splits[0].beneficiary = payable(multisig());
+        splits[0].percent = 10_000;
+
+        stages[0] = REVStageConfig({
+            startsAtOrAfter: uint40(block.timestamp),
+            autoIssuances: new REVAutoIssuance[](0),
+            splitPercent: 0,
+            splits: splits,
+            initialIssuance: uint112(1000e18),
+            issuanceCutFrequency: 0,
+            issuanceCutPercent: 0,
+            cashOutTaxRate: 5000,
+            extraMetadata: 0
+        });
+
+        cfg = REVConfig({
+            description: REVDescription(name, ticker, "ipfs://test", salt),
+            baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
+            splitOperator: multisig(),
+            stageConfigurations: stages
+        });
+
+        sdc = REVSuckerDeploymentConfig({
+            deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("ROUTER_DEBT"))
+        });
+    }
+}

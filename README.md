@@ -19,7 +19,8 @@ This package provides:
 - a deployer that launches Revnets and stores their long-lived configuration
 - a runtime hook that mediates pay, cash-out, mint-permission, and delayed-cash-out behavior
 - a loan system that burns token collateral on borrow and remints on repayment
-- a hidden-token system that temporarily removes tokens from visible supply
+- a hidden-token system that temporarily removes tokens from visible supply while preserving economic claim
+  denominators
 
 It also composes with the 721 hook stack, buyback hook, router terminal, Croptop, and suckers where needed.
 
@@ -32,7 +33,7 @@ Use this repo when the product is a treasury-backed network with encoded stage t
 | `REVDeployer` | Launches and configures Revnets, stages, split operators, and optional auxiliary features. |
 | `REVOwner` | Runtime data-hook and cash-out-hook surface used by active Revnets. |
 | `REVLoans` | Loan surface that lets users borrow against Revnet tokens with burned collateral and NFT loan positions. |
-| `REVHiddenTokens` | Lets token holders temporarily hide tokens, excluding them from visible supply until reveal. |
+| `REVHiddenTokens` | Lets token holders temporarily hide tokens from visible/governance supply until reveal, while cash-out and loan denominators still count hidden supply. |
 
 ## Mental Model
 
@@ -71,7 +72,7 @@ Most mistakes come from assuming a deploy-time parameter can be changed later or
 2. `test/REVLoans.invariants.t.sol`
 3. `test/TestLongTailEconomics.t.sol`
 4. `test/fork/TestLoanBorrowFork.t.sol`
-5. `test/audit/CodexPhantomSurplusTerminal.t.sol`
+5. `test/audit/PhantomSurplusTerminal.t.sol`
 
 ## Install
 
@@ -83,16 +84,14 @@ npm install @rev-net/core-v6
 
 ```bash
 npm install
-forge build
-forge test
+forge build --deny notes
+forge test --deny notes
 ```
 
 Useful scripts:
 
 - `npm run deploy:mainnets`
 - `npm run deploy:testnets`
-- `npm run deploy:mainnets:1_1`
-- `npm run deploy:testnets:1_1`
 
 ## Deployment Notes
 

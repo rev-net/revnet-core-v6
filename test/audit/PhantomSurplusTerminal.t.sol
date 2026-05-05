@@ -47,6 +47,7 @@ import {REVStageConfig} from "../../src/structs/REVStageConfig.sol";
 import {REVAutoIssuance} from "../../src/structs/REVStageConfig.sol";
 import {REVSuckerDeploymentConfig} from "../../src/structs/REVSuckerDeploymentConfig.sol";
 import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
+import {IREVHiddenTokens} from "../../src/interfaces/IREVHiddenTokens.sol";
 
 contract PhantomSurplusTerminal is ERC165, IJBPayoutTerminal {
     uint256 public fakeSurplus;
@@ -183,7 +184,7 @@ contract CodexPhantomSurplusTerminalTest is TestBaseWorkflow {
             jbRulesets(),
             HOOK_STORE,
             jbSplits(),
-            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer())),
+            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer(HOOK_STORE))),
             multisig()
         );
         ADDRESS_REGISTRY = new JBAddressRegistry();
@@ -203,8 +204,8 @@ contract CodexPhantomSurplusTerminalTest is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS),
-            address(0)
+            LOANS,
+            IREVHiddenTokens(address(0))
         );
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
@@ -213,7 +214,7 @@ contract CodexPhantomSurplusTerminalTest is TestBaseWorkflow {
             HOOK_DEPLOYER,
             PUBLISHER,
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
-            address(LOANS),
+            LOANS,
             TRUSTED_FORWARDER,
             address(REV_OWNER)
         );

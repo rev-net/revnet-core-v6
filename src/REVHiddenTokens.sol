@@ -13,8 +13,8 @@ import {Context} from "@openzeppelin/contracts/utils/Context.sol";
 import {IREVHiddenTokens} from "./interfaces/IREVHiddenTokens.sol";
 
 /// @notice Allows authorized operators to hide (burn) revnet tokens on behalf of holders, excluding them from
-/// governance weight. Hidden tokens are burned from circulating supply, so they also stop contributing to
-/// cash-out and borrow valuations until revealed again.
+/// governance weight. Hidden tokens are burned from live circulating supply, but `REVOwner` and `REVLoans` add the
+/// hidden supply back into their economic denominators while those tokens remain revealable.
 /// Hidden tokens can be revealed (re-minted) at any time.
 contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
     //*********************************************************************//

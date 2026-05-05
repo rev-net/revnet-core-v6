@@ -6,14 +6,15 @@
 
 ## System Overview
 
-`REVDeployer` handles launch-time shape, staged rulesets, hook wiring, and runtime wrapper behavior. `REVOwner` provides the owner-like runtime policy surface for pay and cash-out hooks after launch. `REVLoans` manages burn-collateral loan positions represented as NFTs. `REVHiddenTokens` lets holders burn tokens to exclude them from visible supply until they reveal them again.
+`REVDeployer` handles launch-time shape, staged rulesets, hook wiring, and runtime wrapper behavior. `REVOwner` provides the owner-like runtime policy surface for pay and cash-out hooks after launch. `REVLoans` manages burn-collateral loan positions represented as NFTs. `REVHiddenTokens` lets holders burn tokens out of visible supply until they reveal them again; cash-out and loan math adds hidden supply back while those balances are revealable.
 
 ## Core Invariants
 
 - Revnets are intended to be ownerless after deployment; easy admin recovery paths would violate the product model.
 - Stage configuration is effectively permanent once queued.
 - Loan collateral is burned, not escrowed.
-- Hidden tokens are burned, not escrowed, and reduce visible supply until revealed.
+- Hidden tokens are burned, not escrowed, and reduce visible/governance supply until revealed. They remain in cash-out
+  and loan denominators.
 - `REVOwner` and `REVDeployer` are tightly coupled; their setup order matters.
 - Cash-out delay affects both exits and borrowing power.
 - Cross-chain supply and surplus are part of revnet economics. Local payouts and loans must not ignore remote sucker snapshots.
@@ -25,7 +26,7 @@
 | `REVDeployer` | Launch, staged rulesets, hook wiring, permissions, runtime wrapper behavior | Launch-time and runtime wrapper |
 | `REVOwner` | Runtime owner-like policy surface | Hook-facing policy |
 | `REVLoans` | Borrow, repay, and liquidate burned-collateral loan positions | Economic core |
-| `REVHiddenTokens` | Temporary supply exclusion through burn and reveal | Supply-sensitive utility |
+| `REVHiddenTokens` | Temporary visible-supply exclusion through burn and reveal | Supply-sensitive utility |
 | config structs | Stage, loan-source, auto-issuance, and hook config | Launch-time inputs |
 
 ## Trust Boundaries
@@ -62,7 +63,7 @@ borrower
 
 ## Accounting Model
 
-The repo does not replace core treasury accounting. Its critical economic logic is the interaction between staged revnet config, burned-collateral loan state, hidden-token supply exclusion, and omnichain revnet state imported from suckers.
+The repo does not replace core treasury accounting. Its critical economic logic is the interaction between staged revnet config, burned-collateral loan state, hidden-token visible-supply exclusion, and omnichain revnet state imported from suckers.
 
 `REVOwner` also composes payment and cash-out hooks. On pay, it can merge 721-tier split forwarding with buyback-hook behavior and scale mint weight so the terminal only mints against the share that actually enters the project. On cash out, it can use omnichain supply and surplus for reclaim math, exempt trusted suckers, and append fee-hook specs.
 

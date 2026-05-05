@@ -28,7 +28,8 @@ This file focuses on the staged-economics, runtime-hook, hidden-supply, and loan
 - **Stage immutability cuts both ways.** A bad stage schedule or bad cash-out tax choice is expensive to unwind.
 - **Borrowability depends on live economics.** If surplus, supply, or cross-chain state are wrong, loan capacity becomes wrong.
 - **Zero or degraded price feeds can undercount debt.** If a source becomes invisible to debt aggregation, later borrowing can become too permissive. Specifically, `_debtOf` skips sources where `pricePerUnitOf` returns zero, treating them as if the borrower has no debt in that source. If a feed breaks or returns zero, existing debt in that currency is effectively invisible, inflating the borrower's apparent borrowable amount.
-- **Hidden-token mechanics change visible supply.** That affects per-token cash-out value and can change the economics seen by other holders.
+- **Hidden-token mechanics change visible supply.** Hidden balances are recoverable claims and remain in cash-out and
+  loan denominators, even though they are removed from visible/governance supply.
 - **Auto-issuance dilutes holders predictably but still materially.** Timing is permissionless, even if the amounts are fixed at deployment.
 - **Omnichain expansion can corrupt surplus aggregation.** Since borrowability aggregates surplus from all registered terminals across chains, a compromised or misconfigured terminal on a remote chain affects global surplus accounting.
 
@@ -41,7 +42,8 @@ This file focuses on the staged-economics, runtime-hook, hidden-supply, and loan
 
 ## 4. Hidden-Token Risks
 
-- **Visible-supply manipulation is intentional.** Hiding tokens changes visible supply and therefore changes redemption economics.
+- **Visible-supply manipulation is intentional.** Hiding tokens changes visible/governance supply, but should not
+  remove those revealable claims from redemption or loan denominators.
 - **Hidden tokens are not usable collateral while hidden.** They must be revealed before borrowing.
 - **Reveal is restoration, not fresh issuance.** It intentionally bypasses reserved-percent behavior.
 
@@ -87,6 +89,8 @@ The model assumes that attempts to inflate surplus through donations are not pro
 ### 8.5 Omnichain terminal expansion inherits remote-chain trust
 
 A project that expands to a new chain can register additional terminals on that chain. Because borrowability calculations aggregate surplus from all registered terminals across all chains, a compromised or misconfigured terminal on a remote chain can corrupt the project's surplus accounting globally. This is mitigated by including terminal addresses in the `encodedConfigurationHash` — cross-chain expansions via suckers must use the exact same terminal address as the host chain. Terminal addresses are deterministic across chains (same CREATE2 deployment), so this prevents expansions from silently using a different terminal. Project operators should still treat each chain expansion as a trust-boundary decision since bridge integrity and network assumptions remain outside protocol control.
+
+Reserved-token split recipients are intentionally excluded from this hash. They can be reconfigured over time, so only split weights participate in the identity commitment.
 
 ### 8.6 Cross-chain surplus staleness
 

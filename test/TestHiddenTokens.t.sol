@@ -99,7 +99,7 @@ contract TestHiddenTokens is TestBaseWorkflow {
             jbRulesets(),
             HOOK_STORE,
             jbSplits(),
-            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer())),
+            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer(HOOK_STORE))),
             multisig()
         );
         ADDRESS_REGISTRY = new JBAddressRegistry();
@@ -123,8 +123,8 @@ contract TestHiddenTokens is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT),
-            address(HIDDEN_TOKENS)
+            LOANS_CONTRACT,
+            HIDDEN_TOKENS
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -134,7 +134,7 @@ contract TestHiddenTokens is TestBaseWorkflow {
             HOOK_DEPLOYER,
             PUBLISHER,
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
-            address(LOANS_CONTRACT),
+            LOANS_CONTRACT,
             TRUSTED_FORWARDER,
             address(REV_OWNER)
         );
@@ -260,10 +260,10 @@ contract TestHiddenTokens is TestBaseWorkflow {
         HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hideCount + 1, USER);
     }
 
-    // ──────────────────── Test: Hidden tokens inflate cash out rate
+    // ──────────────────── Test: Hidden tokens reduce live supply
     // ────────────────────
 
-    function test_hiddenTokens_inflateCashOutRate() public {
+    function test_hiddenTokens_reduceLiveSupply() public {
         // Pay to get tokens for 2 users.
         uint256 payAmount = 10e18;
         vm.prank(USER);
@@ -286,7 +286,8 @@ contract TestHiddenTokens is TestBaseWorkflow {
         vm.prank(USER);
         HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hideCount, USER);
 
-        // The remaining tokens now represent a larger share of totalSupply.
+        // The remaining tokens now represent the full live supply. Economic cash-out and loan denominators add hidden
+        // supply back in REVOwner and REVLoans.
         uint256 totalSupply = jbController().TOKENS().totalSupplyOf(REVNET_ID);
         uint256 remainingBalance = jbController().TOKENS().totalBalanceOf(USER, REVNET_ID);
         assertEq(remainingBalance, userTokens - hideCount, "Remaining balance should be half");

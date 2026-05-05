@@ -80,7 +80,7 @@ contract NemesisOperatorDelegationTest is TestBaseWorkflow {
             jbRulesets(),
             HOOK_STORE,
             jbSplits(),
-            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer())),
+            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer(HOOK_STORE))),
             multisig()
         );
         ADDRESS_REGISTRY = new JBAddressRegistry();
@@ -102,8 +102,8 @@ contract NemesisOperatorDelegationTest is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS),
-            address(HIDDEN_TOKENS)
+            LOANS,
+            HIDDEN_TOKENS
         );
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
@@ -112,7 +112,7 @@ contract NemesisOperatorDelegationTest is TestBaseWorkflow {
             HOOK_DEPLOYER,
             PUBLISHER,
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
-            address(LOANS),
+            LOANS,
             TRUSTED_FORWARDER,
             address(REV_OWNER)
         );

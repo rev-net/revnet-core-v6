@@ -41,6 +41,7 @@ import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
+import {IREVHiddenTokens} from "../src/interfaces/IREVHiddenTokens.sol";
 
 /// @notice Tests that terminal addresses are included in the encoded configuration hash.
 contract TestTerminalEncodingInHash is TestBaseWorkflow {
@@ -87,7 +88,7 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
             jbRulesets(),
             HOOK_STORE,
             jbSplits(),
-            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer())),
+            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer(HOOK_STORE))),
             multisig()
         );
         ADDRESS_REGISTRY = new JBAddressRegistry();
@@ -109,8 +110,8 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            address(LOANS_CONTRACT),
-            address(0)
+            LOANS_CONTRACT,
+            IREVHiddenTokens(address(0))
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -120,7 +121,7 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
             HOOK_DEPLOYER,
             PUBLISHER,
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
-            address(LOANS_CONTRACT),
+            LOANS_CONTRACT,
             TRUSTED_FORWARDER,
             address(REV_OWNER)
         );
@@ -197,7 +198,8 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
             uint112(1000e18), // initialIssuance
             uint256(0), // issuanceCutFrequency
             uint256(0), // issuanceCutPercent
-            uint256(5000) // cashOutTaxRate
+            uint256(5000), // cashOutTaxRate
+            uint256(0) // extraMetadata
         );
         bytes32 expectedHash = keccak256(encodedConfiguration);
 
@@ -252,6 +254,42 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
         assertNotEq(hashAB, hashBA, "Terminal order must affect the configuration hash");
     }
 
+    /// @notice Split recipients are mutable operational config, not revnet identity.
+    function test_splitRecipient_doesNotAffectHash() public {
+        address deployerA = makeAddr("deployerA");
+        address deployerB = makeAddr("deployerB");
+
+        vm.prank(deployerA);
+        (uint256 revnetA,) = REV_DEPLOYER.deployFor({
+            revnetId: 0,
+            configuration: _revConfigWithSplit({salt: "SPLIT_RECIPIENT", splitBeneficiary: makeAddr("recipientA")}),
+            terminalConfigurations: _terminalConfigs(jbMultiTerminal()),
+            suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("SPLIT_A")
+            }),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
+        });
+
+        vm.prank(deployerB);
+        (uint256 revnetB,) = REV_DEPLOYER.deployFor({
+            revnetId: 0,
+            configuration: _revConfigWithSplit({salt: "SPLIT_RECIPIENT", splitBeneficiary: makeAddr("recipientB")}),
+            terminalConfigurations: _terminalConfigs(jbMultiTerminal()),
+            suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("SPLIT_B")
+            }),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
+        });
+
+        assertEq(
+            REV_DEPLOYER.hashedEncodedConfigurationOf(revnetA),
+            REV_DEPLOYER.hashedEncodedConfigurationOf(revnetB),
+            "split recipients should not affect the configuration hash"
+        );
+    }
+
     // ─── Helpers
     // ───────────────────────────────────────────────────────────────
     // //
@@ -263,6 +301,30 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
             autoIssuances: new REVAutoIssuance[](0),
             splitPercent: 0,
             splits: new JBSplit[](0),
+            initialIssuance: uint112(1000e18),
+            issuanceCutFrequency: 0,
+            issuanceCutPercent: 0,
+            cashOutTaxRate: 5000,
+            extraMetadata: 0
+        });
+        return REVConfig({
+            description: REVDescription("Terminal Test", "TERM", "", salt),
+            baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
+            splitOperator: multisig(),
+            stageConfigurations: stages
+        });
+    }
+
+    function _revConfigWithSplit(bytes32 salt, address splitBeneficiary) internal view returns (REVConfig memory) {
+        REVStageConfig[] memory stages = new REVStageConfig[](1);
+        JBSplit[] memory splits = new JBSplit[](1);
+        splits[0].beneficiary = payable(splitBeneficiary);
+        splits[0].percent = 10_000;
+        stages[0] = REVStageConfig({
+            startsAtOrAfter: uint48(block.timestamp),
+            autoIssuances: new REVAutoIssuance[](0),
+            splitPercent: 2000,
+            splits: splits,
             initialIssuance: uint112(1000e18),
             issuanceCutFrequency: 0,
             issuanceCutPercent: 0,

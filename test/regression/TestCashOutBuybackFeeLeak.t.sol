@@ -42,6 +42,7 @@ import {MockBuybackCashOutRecorder} from "../mock/MockBuybackCashOutRecorder.sol
 import {REVOwner} from "../../src/REVOwner.sol";
 import {IREVDeployer} from "../../src/interfaces/IREVDeployer.sol";
 import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
+import {IREVHiddenTokens} from "../../src/interfaces/IREVHiddenTokens.sol";
 
 /// @title TestCashOutBuybackFeeLeak
 /// @notice Proves the buyback hook callback receives only the non-fee cashOutCount (not the full count).
@@ -80,7 +81,7 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
             jbRulesets(),
             hookStore,
             jbSplits(),
-            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer())),
+            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer(hookStore))),
             multisig()
         );
         addressRegistry = new JBAddressRegistry();
@@ -101,8 +102,8 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
             jbDirectory(),
             feeProjectId,
             IJBSuckerRegistry(address(suckerRegistry)),
-            address(loans),
-            address(0)
+            loans,
+            IREVHiddenTokens(address(0))
         );
 
         revDeployer = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -112,7 +113,7 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
             hookDeployer,
             publisher,
             IJBBuybackHookRegistry(address(mockBuyback)),
-            address(loans),
+            loans,
             TRUSTED_FORWARDER,
             address(revOwner)
         );

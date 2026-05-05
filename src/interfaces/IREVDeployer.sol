@@ -16,6 +16,7 @@ import {REVConfig} from "../structs/REVConfig.sol";
 import {REVCroptopAllowedPost} from "../structs/REVCroptopAllowedPost.sol";
 import {REVDeploy721TiersHookConfig} from "../structs/REVDeploy721TiersHookConfig.sol";
 import {REVSuckerDeploymentConfig} from "../structs/REVSuckerDeploymentConfig.sol";
+import {IREVLoans} from "./IREVLoans.sol";
 
 /// @notice Deploys and manages revnets -- Juicebox projects with pre-configured tokenomics.
 interface IREVDeployer {
@@ -143,7 +144,7 @@ interface IREVDeployer {
 
     /// @notice The loan contract used by all revnets.
     /// @return The loans contract address.
-    function LOANS() external view returns (address);
+    function LOANS() external view returns (IREVLoans);
 
     /// @notice The runtime data hook contract that handles pay and cash out callbacks for revnets.
     /// @return The owner contract address.

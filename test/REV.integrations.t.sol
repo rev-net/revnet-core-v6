@@ -44,6 +44,7 @@ import {JB721CheckpointsDeployer} from "@bananapus/721-hook-v6/src/JB721Checkpoi
 import {IJB721CheckpointsDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721CheckpointsDeployer.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
+import {IREVHiddenTokens} from "../src/interfaces/IREVHiddenTokens.sol";
 
 struct FeeProjectConfig {
     REVConfig configuration;
@@ -219,7 +220,7 @@ contract REVnet_Integrations is TestBaseWorkflow {
             jbRulesets(),
             HOOK_STORE,
             jbSplits(),
-            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer())),
+            IJB721CheckpointsDeployer(address(new JB721CheckpointsDeployer(HOOK_STORE))),
             multisig()
         );
 
@@ -235,8 +236,8 @@ contract REVnet_Integrations is TestBaseWorkflow {
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
-            makeAddr("loans"),
-            address(0)
+            IREVLoans(makeAddr("loans")),
+            IREVHiddenTokens(address(0))
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -246,7 +247,7 @@ contract REVnet_Integrations is TestBaseWorkflow {
             HOOK_DEPLOYER,
             PUBLISHER,
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
-            makeAddr("loans"),
+            IREVLoans(makeAddr("loans")),
             TRUSTED_FORWARDER,
             address(revOwner)
         );
@@ -259,8 +260,16 @@ contract REVnet_Integrations is TestBaseWorkflow {
         ARB_SUCKER_DEPLOYER = IJBSuckerDeployer(address(_deployer));
 
         // Deploy the ARB sucker singleton.
-        JBArbitrumSucker _singleton =
-            new JBArbitrumSucker(_deployer, jbDirectory(), jbPermissions(), jbTokens(), 1, SUCKER_REGISTRY, address(0));
+        JBArbitrumSucker _singleton = new JBArbitrumSucker({
+            deployer: _deployer,
+            directory: jbDirectory(),
+            permissions: jbPermissions(),
+            prices: address(jbPrices()),
+            tokens: jbTokens(),
+            feeProjectId: 1,
+            registry: SUCKER_REGISTRY,
+            trustedForwarder: address(0)
+        });
 
         // Set the layer specific confguration.
         _deployer.setChainSpecificConstants(JBLayer.L1, IInbox(address(1)), IArbGatewayRouter(address(1)));
@@ -367,12 +376,12 @@ contract REVnet_Integrations is TestBaseWorkflow {
                 ),
             "operator missing SET_PROJECT_URI"
         );
-        assertTrue(
+        assertFalse(
             jbPermissions()
                 .hasPermission(
                     operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.ADD_PRICE_FEED, false, false
                 ),
-            "operator missing ADD_PRICE_FEED"
+            "operator should not receive ADD_PRICE_FEED by default"
         );
         assertTrue(
             jbPermissions()
@@ -440,7 +449,8 @@ contract REVnet_Integrations is TestBaseWorkflow {
             localToken: token, minGas: 200_000, remoteToken: bytes32(uint256(uint160(makeAddr("someOtherToken"))))
         });
 
-        suckerDeployerConfig[0] = JBSuckerDeployerConfig({deployer: ARB_SUCKER_DEPLOYER, mappings: tokenMapping});
+        suckerDeployerConfig[0] =
+            JBSuckerDeployerConfig({deployer: ARB_SUCKER_DEPLOYER, peer: bytes32(0), mappings: tokenMapping});
 
         REVSuckerDeploymentConfig memory revConfig =
             REVSuckerDeploymentConfig({deployerConfigurations: suckerDeployerConfig, salt: "SALTY"});
