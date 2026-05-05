@@ -135,7 +135,7 @@ interface IREVLoans {
     /// @return The loan liquidation duration in seconds.
     function LOAN_LIQUIDATION_DURATION() external view returns (uint256);
 
-    /// @notice Get a loan's details.
+    /// @notice Get a loan's full details — amount, collateral, creation time, prepaid fee, and source.
     /// @param loanId The ID of the loan to retrieve.
     /// @return The loan data.
     function loanOf(uint256 loanId) external view returns (REVLoan memory);
