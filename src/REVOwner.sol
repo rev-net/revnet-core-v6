@@ -301,8 +301,8 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     /// @param context Standard Juicebox payment context. See `JBBeforePayRecordedContext`.
     /// @return weight The weight which revnet tokens are minted relative to. This can be used to customize how many
     /// tokens get minted by a payment.
-    /// @return hookSpecifications Amounts (out of what's being paid in) to be sent to pay hooks instead of being paid
-    /// into the revnet. Useful for automatically routing funds from a treasury as payments come in.
+    /// @return hookSpecifications Amounts (out of what's paid in) to send to pay hooks instead of adding to the
+    /// revnet. Useful for automatically routing funds from a treasury as payments come in.
     function beforePayRecordedWith(JBBeforePayRecordedContext calldata context)
         external
         view
