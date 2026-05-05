@@ -79,20 +79,18 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     // ------------------------- public constants ------------------------ //
     //*********************************************************************//
 
-    /// @dev After the prepaid duration, the loan will cost more to pay off. After 10 years, the loan
-    /// collateral cannot be recouped. This means paying 50% of the loan amount upfront will pay for having access to
-    /// the remaining 50% for 10 years,
-    /// whereas paying 0% of the loan upfront will cost 100% of the loan amount to be paid off after 10 years. After 10
-    /// years with repayment, both loans cost 100% and are liquidated.
+    /// @notice The duration after which an unrepaid loan expires and its collateral is permanently lost (10 years).
+    /// @dev After the prepaid duration, the loan will cost more to pay off. Paying 50% upfront covers access to the
+    /// remaining 50% for 10 years. Paying 0% upfront costs 100% after 10 years. Both loans liquidate at 10 years.
     uint256 public constant override LOAN_LIQUIDATION_DURATION = 3650 days;
 
-    /// @dev The maximum amount of a loan that can be prepaid at the time of borrowing, in terms of JBConstants.MAX_FEE.
+    /// @notice The maximum fee percent that can be prepaid when borrowing (50%), in terms of JBConstants.MAX_FEE.
     uint256 public constant override MAX_PREPAID_FEE_PERCENT = 500;
 
-    /// @dev A fee of 1% is charged by the $REV revnet.
+    /// @notice The fee percent charged by the $REV revnet on each loan (1%), in terms of JBConstants.MAX_FEE.
     uint256 public constant override REV_PREPAID_FEE_PERCENT = 10; // 1%
 
-    /// @dev A fee of 2.5% is charged by the loan's source upfront.
+    /// @notice The minimum fee percent that must be prepaid when borrowing (2.5%), in terms of JBConstants.MAX_FEE.
     uint256 public constant override MIN_PREPAID_FEE_PERCENT = 25; // 2.5%
 
     //*********************************************************************//
