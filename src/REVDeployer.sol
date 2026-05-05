@@ -43,8 +43,15 @@ import {REVDeploy721TiersHookConfig} from "./structs/REVDeploy721TiersHookConfig
 import {REVStageConfig} from "./structs/REVStageConfig.sol";
 import {REVSuckerDeploymentConfig} from "./structs/REVSuckerDeploymentConfig.sol";
 
-/// @notice `REVDeployer` deploys, manages, and operates Revnets.
-/// @dev Revnets are unowned Juicebox projects which operate autonomously after deployment.
+/// @notice Deploys and configures Revnets — autonomous Juicebox projects with pre-programmed tokenomics that cannot
+/// be
+/// changed after launch. Each revnet progresses through stages that define issuance rate, decay schedule, cash-out tax,
+/// split allocations, and auto-issuances. The deployer translates these stage configurations into Juicebox rulesets,
+/// sets up a buyback hook for secondary market routing, deploys a tiered 721 hook, optionally configures Croptop
+/// posting, and can deploy cross-chain suckers. Once deployed, the project NFT is held by this contract — no single
+/// address can modify the revnet's rules.
+/// @dev Revnets are unowned Juicebox projects which operate autonomously after deployment. Runtime data hook logic
+/// (pay/cash-out callbacks) is handled by the separate `REVOwner` contract to stay within EIP-170 size limits.
 contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     //*********************************************************************//
     // --------------------------- custom errors ------------------------- //

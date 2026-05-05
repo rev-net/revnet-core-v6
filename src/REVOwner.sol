@@ -28,9 +28,13 @@ import {IREVHiddenTokens} from "./interfaces/IREVHiddenTokens.sol";
 import {IREVLoans} from "./interfaces/IREVLoans.sol";
 import {REVLoanSource} from "./structs/REVLoanSource.sol";
 
-/// @notice Handles the runtime data hook and cash out hook behavior for revnets.
-/// @dev Separated from `REVDeployer` to stay within the EIP-170 contract size limit.
-/// This contract is set as the `dataHook` in each revnet's ruleset metadata.
+/// @notice The runtime hook for all revnets — set as every revnet's `dataHook` in ruleset metadata. At pay time, it
+/// coordinates the 721 hook (NFT tier minting) with the buyback hook (secondary market swap routing) and scales weight
+/// for split deductions. At cash-out time, it aggregates cross-chain total supply and surplus (including outstanding
+/// loan debt and collateral), grants suckers 0% tax, splits a 2.5% fee from non-sucker cash outs, and routes fee
+/// proceeds to the fee revnet via `afterCashOutRecordedWith`.
+/// @dev Separated from `REVDeployer` to stay within the EIP-170 contract size limit. Also implements
+/// `IJBPeerChainAdjustedAccounts` to expose loan state to peer-chain supply/surplus snapshots.
 contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAccounts {
     // A library that adds default safety checks to ERC20 functionality.
     using SafeERC20 for IERC20;
@@ -130,13 +134,14 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     // ------------------------- external views -------------------------- //
     //*********************************************************************//
 
-    /// @notice Determine how a cash out from a revnet should be processed.
-    /// @dev This function is part of `IJBRulesetDataHook`, and gets called before the revnet processes a cash out.
-    /// @dev If a sucker is cashing out, no taxes or fees are imposed.
-    /// @dev REVOwner is intentionally not registered as a feeless address. The protocol fee (2.5%) applies on top
-    /// of the rev fee — this is by design. The fee hook spec amount sent to `afterCashOutRecordedWith` will have the
-    /// protocol fee deducted by the terminal before reaching this contract, so the rev fee is computed on the
-    /// post-protocol-fee amount.
+    /// @notice Called before a cash out is recorded. Suckers get 0% tax (bridged tokens redeem at face value). For
+    /// regular holders, aggregates cross-chain total supply and surplus (including outstanding loan debt/collateral),
+    /// splits a 2.5% fee from the cashed-out token count, computes bonding curve reclaims for both the holder's portion
+    /// and the fee portion, then delegates to the buyback hook for potential swap routing.
+    /// @dev Part of `IJBRulesetDataHook`. REVOwner is intentionally not registered as a feeless address — the
+    /// protocol
+    /// fee (2.5%) applies on top of the rev fee. The fee hook spec amount sent to `afterCashOutRecordedWith` will have
+    /// the protocol fee deducted by the terminal before reaching this contract.
     /// @param context Standard Juicebox cash out context. See `JBBeforeCashOutRecordedContext`.
     /// @return cashOutTaxRate The cash out tax rate, which influences the amount of terminal tokens which get cashed
     /// out.
@@ -289,8 +294,11 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         return (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplusValue, hookSpecifications);
     }
 
-    /// @notice Before a revnet processes an incoming payment, determine the weight and pay hooks to use.
-    /// @dev This function is part of `IJBRulesetDataHook`, and gets called before the revnet processes a payment.
+    /// @notice Called before a payment is recorded. Coordinates the 721 hook (NFT tier minting with split deductions)
+    /// with the buyback hook (which may route funds through a Uniswap pool for a better token price). Merges their hook
+    /// specifications and scales the minting weight so payers only receive tokens proportional to funds entering the
+    /// project (not the split portion).
+    /// @dev Part of `IJBRulesetDataHook`. The 721 hook spec comes first in the returned array.
     /// @param context Standard Juicebox payment context. See `JBBeforePayRecordedContext`.
     /// @return weight The weight which revnet tokens are minted relative to. This can be used to customize how many
     /// tokens get minted by a payment.
@@ -347,8 +355,11 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         if (usesBuybackHook) hookSpecifications[usesTiered721Hook ? 1 : 0] = buybackHookSpecs[0];
     }
 
-    /// @notice A flag indicating whether an address has permission to mint a revnet's tokens on-demand.
-    /// @dev Required by the `IJBRulesetDataHook` interface.
+    /// @notice Returns whether an address may mint a revnet's tokens on-demand. Grants permission to: the loans
+    /// contract (re-mints collateral on repayment), hidden tokens contract (re-mints on reveal), buyback hook and its
+    /// delegates
+    /// (mints tokens from pool swaps), and suckers (mints bridged tokens on the destination chain).
+    /// @dev Part of `IJBRulesetDataHook`.
     /// @param revnetId The ID of the revnet to check permissions for.
     /// @param ruleset The ruleset to check the mint permission for.
     /// @param addr The address to check the mint permission of.
