@@ -105,7 +105,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     // --------------- public immutable stored properties ---------------- //
     //*********************************************************************//
 
-    /// @notice The permit2 utility.
+    /// @notice The Permit2 contract used for token approvals and transfers.
     IPermit2 public immutable override PERMIT2;
 
     /// @notice The controller of revnets that use this loans contract.
@@ -241,7 +241,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         });
     }
 
-    /// @notice Get a loan.
+    /// @notice Get a loan's full details — amount, collateral, creation time, prepaid fee, and source.
     /// @custom:member The ID of the loan.
     function loanOf(uint256 loanId) external view override returns (REVLoan memory) {
         return _loanOf[loanId];
