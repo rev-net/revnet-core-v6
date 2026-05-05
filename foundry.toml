@@ -22,7 +22,7 @@ runs = 64
 depth = 50
 
 [lint]
-exclude_lints = ["pascal-case-struct", "mixed-case-variable"]
+exclude_lints = ["mixed-case-variable", "pascal-case-struct"]
 lint_on_build = false
 
 [rpc_endpoints]

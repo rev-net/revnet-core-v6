@@ -86,5 +86,5 @@ The main audit mindset is composition:
 ## Verification
 
 - `npm install`
-- `forge build`
-- `forge test`
+- `forge build --deny notes`
+- `forge test --deny notes`

@@ -542,6 +542,8 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         // state for each configured source.
         for (uint256 i; i < sources.length; i++) {
             REVLoanSource memory source = sources[i];
+            // Each configured source must be queried live so cash-out math includes current outstanding debt.
+            // slither-disable-next-line calls-loop
             uint256 tokensLoaned =
                 loans.totalBorrowedFrom({revnetId: revnetId, terminal: source.terminal, token: source.token});
             if (tokensLoaned == 0) continue;

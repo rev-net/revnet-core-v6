@@ -72,7 +72,7 @@ Most mistakes come from assuming a deploy-time parameter can be changed later or
 2. `test/REVLoans.invariants.t.sol`
 3. `test/TestLongTailEconomics.t.sol`
 4. `test/fork/TestLoanBorrowFork.t.sol`
-5. `test/audit/CodexPhantomSurplusTerminal.t.sol`
+5. `test/audit/PhantomSurplusTerminal.t.sol`
 
 ## Install
 
@@ -84,16 +84,14 @@ npm install @rev-net/core-v6
 
 ```bash
 npm install
-forge build
-forge test
+forge build --deny notes
+forge test --deny notes
 ```
 
 Useful scripts:
 
 - `npm run deploy:mainnets`
 - `npm run deploy:testnets`
-- `npm run deploy:mainnets:1_1`
-- `npm run deploy:testnets:1_1`
 
 ## Deployment Notes
 
