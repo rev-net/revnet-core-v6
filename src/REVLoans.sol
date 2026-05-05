@@ -35,18 +35,15 @@ import {IREVOwner} from "./interfaces/IREVOwner.sol";
 import {REVLoan} from "./structs/REVLoan.sol";
 import {REVLoanSource} from "./structs/REVLoanSource.sol";
 
-/// @notice A contract for borrowing from revnets.
-/// @dev Tokens used as collateral are burned, and reminted when the loan is paid off. This keeps the revnet's token
-/// structure orderly.
-/// @dev The borrowable amount is the same as the cash out amount.
-/// @dev An upfront fee is taken when a loan is created. 2.5% is charged by the underlying protocol, 2.5% is charged
-/// by the
-/// revnet issuing the loan, and a variable amount charged by the revnet that receives the fees. This variable amount is
-/// chosen by the borrower, the more paid upfront, the longer the prepaid duration. The loan can be repaid anytime
-/// within the prepaid duration without additional fees.
-/// After the prepaid duration, the loan will increasingly cost more to pay off. After 10 years, the loan collateral
-/// cannot be
-/// recouped.
+/// @notice Allows revnet token holders to borrow against their tokens instead of cashing out. The borrowable amount
+/// equals what a cash-out would return. Collateral tokens are burned on borrow and re-minted on repayment, keeping the
+/// revnet's token structure orderly. Each loan is represented as an ERC-721 NFT that can be transferred.
+/// @dev Fee structure: an upfront fee is taken at borrow time. 2.5% goes to the source revnet
+/// (MIN_PREPAID_FEE_PERCENT), 1% goes to the $REV revnet (REV_PREPAID_FEE_PERCENT), and a variable amount chosen by the
+/// borrower determines the
+/// prepaid duration — the more paid upfront, the longer the borrower can hold without additional cost. After the
+/// prepaid duration expires, the repayment cost increases linearly until the loan liquidates at 10 years
+/// (LOAN_LIQUIDATION_DURATION), at which point the collateral is permanently lost.
 /// @dev The loaned amounts include the fees taken, meaning the amount paid back is the amount borrowed plus the fees.
 contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans {
     // A library that parses the packed ruleset metadata into a friendlier format.
