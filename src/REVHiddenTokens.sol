@@ -48,7 +48,7 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
     mapping(uint256 revnetId => uint256 count) public override totalHiddenOf;
 
     /// @notice Whether a holder is allowed to hide their own tokens.
-    /// @custom:param holder The holder whose tokens are being managed.
+    /// @custom:param holder The holder to check.
     /// @custom:param revnetId The ID of the revnet.
     mapping(address holder => mapping(uint256 revnetId => bool isAllowed)) public override tokenHidingIsAllowedFor;
 

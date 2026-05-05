@@ -136,8 +136,8 @@ interface IREVDeployer {
     /// @return The hook deployer contract.
     function HOOK_DEPLOYER() external view returns (IJB721TiersHookDeployer);
 
-    /// @notice Whether an address is a revnet's split operator.
-    /// @param revnetId The ID of the revnet.
+    /// @notice Check whether an address is a revnet's split operator.
+    /// @param revnetId The ID of the revnet to check.
     /// @param addr The address to check.
     /// @return A flag indicating whether the address is the revnet's split operator.
     function isSplitOperatorOf(uint256 revnetId, address addr) external view returns (bool);
@@ -167,13 +167,13 @@ interface IREVDeployer {
     function SUCKER_REGISTRY() external view returns (IJBSuckerRegistry);
 
     /// @notice Auto-mint a revnet's tokens from a stage for a beneficiary.
-    /// @param revnetId The ID of the revnet to auto-mint tokens from.
-    /// @param stageId The ID of the stage auto-mint tokens are available from.
-    /// @param beneficiary The address to auto-mint tokens to.
+    /// @param revnetId The ID of the revnet to auto-mint tokens for.
+    /// @param stageId The ID of the stage to auto-mint tokens from.
+    /// @param beneficiary The address to send auto-minted tokens to.
     function autoIssueFor(uint256 revnetId, uint256 stageId, address beneficiary) external;
 
     /// @notice Burn any of a revnet's tokens held by this contract.
-    /// @param revnetId The ID of the revnet whose tokens should be burned.
+    /// @param revnetId The ID of the revnet to burn tokens for.
     function burnHeldTokensOf(uint256 revnetId) external;
 
     /// @notice Deploy a revnet with a tiered ERC-721 hook and optional croptop posting support.
@@ -182,10 +182,10 @@ interface IREVDeployer {
     /// @param configuration Core revnet configuration.
     /// @param terminalConfigurations The terminals to set up for the revnet.
     /// @param suckerDeploymentConfiguration The suckers to set up for cross-chain token transfers.
-    /// @param tiered721HookConfiguration How to set up the tiered ERC-721 hook for the revnet.
-    /// @param allowedPosts Restrictions on which croptop posts are allowed on the revnet's ERC-721 tiers.
+    /// @param tiered721HookConfiguration How to configure the tiered ERC-721 hook for the revnet.
+    /// @param allowedPosts Restrictions on which croptop posts to allow on the revnet's ERC-721 tiers.
     /// @return The ID of the newly created or initialized revnet.
-    /// @return hook The tiered ERC-721 hook that was deployed for the revnet.
+    /// @return hook The tiered ERC-721 hook deployed for the revnet.
     function deployFor(
         uint256 revnetId,
         REVConfig memory configuration,
@@ -204,7 +204,7 @@ interface IREVDeployer {
     /// @param terminalConfigurations The terminals to set up for the revnet.
     /// @param suckerDeploymentConfiguration The suckers to set up for cross-chain token transfers.
     /// @return The ID of the newly created or initialized revnet.
-    /// @return hook The tiered ERC-721 hook that was deployed for the revnet.
+    /// @return hook The tiered ERC-721 hook deployed for the revnet.
     function deployFor(
         uint256 revnetId,
         REVConfig memory configuration,
