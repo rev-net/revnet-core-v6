@@ -173,7 +173,7 @@ interface IREVDeployer {
     function autoIssueFor(uint256 revnetId, uint256 stageId, address beneficiary) external;
 
     /// @notice Burn any of a revnet's tokens held by this contract.
-    /// @param revnetId The ID of the revnet whose tokens to burn.
+    /// @param revnetId The ID of the revnet to burn tokens for.
     function burnHeldTokensOf(uint256 revnetId) external;
 
     /// @notice Deploy a revnet with a tiered ERC-721 hook and optional croptop posting support.

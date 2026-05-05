@@ -479,7 +479,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
 
     /// @notice Burn any of a revnet's tokens held by this contract.
     /// @dev Project tokens can end up here from reserved token distribution when splits don't sum to 100%.
-    /// @param revnetId The ID of the revnet whose tokens to burn.
+    /// @param revnetId The ID of the revnet to burn tokens for.
     function burnHeldTokensOf(uint256 revnetId) external override {
         uint256 balance = CONTROLLER.TOKENS().totalBalanceOf({holder: address(this), projectId: revnetId});
         if (balance == 0) revert REVDeployer_NothingToBurn();
