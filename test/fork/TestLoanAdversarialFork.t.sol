@@ -625,7 +625,7 @@ contract TestLoanAdversarialFork is ForkTestBase {
         // since the expected hasPermission call never fires.
 
         vm.prank(BORROWER);
-        vm.expectRevert(REVLoans.REVLoans_ZeroCollateralLoanIsInvalid.selector);
+        vm.expectRevert(abi.encodeWithSelector(REVLoans.REVLoans_ZeroCollateralLoanIsInvalid.selector, 0));
         LOANS_CONTRACT.borrowFrom({
             revnetId: revnetId,
             source: source,
@@ -676,7 +676,9 @@ contract TestLoanAdversarialFork is ForkTestBase {
                 // check. Calling _grantBurnPermission would set up a vm.expectCall (via mockExpect)
                 // for hasPermission that never fires, causing the test to fail.
                 vm.prank(dustPayer);
-                vm.expectRevert(REVLoans.REVLoans_ZeroBorrowAmount.selector);
+                vm.expectRevert(
+                    abi.encodeWithSelector(REVLoans.REVLoans_ZeroBorrowAmount.selector, dustRevnetId, dustTokens)
+                );
                 LOANS_CONTRACT.borrowFrom({
                     revnetId: dustRevnetId,
                     source: source,

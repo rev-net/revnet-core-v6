@@ -672,7 +672,7 @@ contract TestLowRegressions is TestBaseWorkflow {
 
         // Attempt to borrow with 1 wei of collateral -- bonding curve returns 0, should revert.
         vm.prank(USER);
-        vm.expectRevert(REVLoans.REVLoans_ZeroBorrowAmount.selector);
+        vm.expectRevert(abi.encodeWithSelector(REVLoans.REVLoans_ZeroBorrowAmount.selector, revnetId, 1));
         LOANS_CONTRACT.borrowFrom(revnetId, source, 0, 1, payable(USER), minPrepaid, USER);
     }
 }
