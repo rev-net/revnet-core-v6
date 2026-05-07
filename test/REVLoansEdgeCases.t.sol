@@ -152,12 +152,12 @@ contract GarbageTerminal is ERC165, IJBPayoutTerminal {
     receive() external payable {}
 }
 
-/// @notice Regression tests for loan findings.
+/// @notice Regression tests for loan edge cases.
 /// Unvalidated loan source terminal
 /// RepayLoan event emits zeroed values
-/// Auto-issuance timing guard bypass (false positive)
-/// repayLoan revert on excess collateral (false positive)
-contract REVLoansFindings is TestBaseWorkflow {
+/// Auto-issuance timing guard bypass (non-issue)
+/// repayLoan revert on excess collateral (non-issue)
+contract REVLoansRegressions is TestBaseWorkflow {
     // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
     // forge-lint: disable-next-line(mixed-case-variable)

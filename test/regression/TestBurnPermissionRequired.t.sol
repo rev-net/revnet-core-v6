@@ -278,7 +278,11 @@ contract TestBurnPermissionRequired is TestBaseWorkflow {
             .setPermissionsFor({
             account: user,
             permissionsData: JBPermissionsData({
-            operator: address(LOANS_CONTRACT), projectId: uint64(REVNET_ID), permissionIds: permissionIds
+            // forge-lint: disable-next-line(unsafe-typecast)
+            operator: address(LOANS_CONTRACT),
+            // forge-lint: disable-next-line(unsafe-typecast)
+            projectId: uint64(REVNET_ID),
+            permissionIds: permissionIds
         })
         });
 

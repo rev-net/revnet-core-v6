@@ -387,6 +387,7 @@ contract REVDeployerRegressions is TestBaseWorkflow {
 
             // The mismatch: the storage key (block.timestamp + 1) likely != the actual ruleset ID
             // If they don't match, auto-issuance tokens for stage 1 become unclaimable
+            // forge-lint: disable-next-line(block-timestamp)
             if (actualStage1RulesetId != block.timestamp + 1) {
                 // Verify the amount at the ACTUAL ruleset ID is 0 (the mismatch)
                 uint256 amountAtActualId = REV_DEPLOYER.amountToAutoIssue(revnetId, actualStage1RulesetId, multisig());

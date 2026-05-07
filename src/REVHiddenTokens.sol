@@ -85,7 +85,7 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
             _hasPermissionFrom(caller, PROJECTS.ownerOf(revnetId), revnetId, JBPermissionIds.HIDE_TOKENS);
 
         if (!isAllowlistedHolder && !isPermissionedOperator) {
-            revert REVHiddenTokens_Unauthorized(revnetId, caller);
+            revert REVHiddenTokens_Unauthorized({revnetId: revnetId, caller: caller});
         }
 
         // Increment the holder's hidden balance.
@@ -95,7 +95,6 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
         totalHiddenOf[revnetId] += tokenCount;
 
         // Burn the tokens from the holder. The holder must have granted BURN_TOKENS permission.
-        // slither-disable-next-line reentrancy-events
         CONTROLLER.burnTokensOf({holder: holder, projectId: revnetId, tokenCount: tokenCount, memo: ""});
 
         emit HideTokens({revnetId: revnetId, tokenCount: tokenCount, holder: holder, caller: _msgSender()});
@@ -125,7 +124,6 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
         totalHiddenOf[revnetId] -= tokenCount;
 
         // Mint the tokens to the beneficiary without applying the reserved percent.
-        // slither-disable-next-line unused-return,reentrancy-events
         CONTROLLER.mintTokensOf({
             projectId: revnetId, tokenCount: tokenCount, beneficiary: holder, memo: "", useReservedPercent: false
         });

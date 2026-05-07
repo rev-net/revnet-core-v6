@@ -53,7 +53,7 @@ struct FeeProjectConfig {
     REVSuckerDeploymentConfig suckerDeploymentConfiguration;
 }
 
-contract TestLowFindings is TestBaseWorkflow {
+contract TestLowRegressions is TestBaseWorkflow {
     // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
     // forge-lint: disable-next-line(mixed-case-variable)
@@ -672,7 +672,7 @@ contract TestLowFindings is TestBaseWorkflow {
 
         // Attempt to borrow with 1 wei of collateral -- bonding curve returns 0, should revert.
         vm.prank(USER);
-        vm.expectRevert(REVLoans.REVLoans_ZeroBorrowAmount.selector);
+        vm.expectRevert(abi.encodeWithSelector(REVLoans.REVLoans_ZeroBorrowAmount.selector, revnetId, 1));
         LOANS_CONTRACT.borrowFrom(revnetId, source, 0, 1, payable(USER), minPrepaid, USER);
     }
 }

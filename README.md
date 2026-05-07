@@ -72,7 +72,7 @@ Most mistakes come from assuming a deploy-time parameter can be changed later or
 2. `test/REVLoans.invariants.t.sol`
 3. `test/TestLongTailEconomics.t.sol`
 4. `test/fork/TestLoanBorrowFork.t.sol`
-5. `test/audit/PhantomSurplusTerminal.t.sol`
+5. `test/regression/PhantomSurplusTerminal.t.sol`
 
 ## Install
 
@@ -108,7 +108,7 @@ src/
   interfaces/
   structs/
 test/
-  lifecycle, deployment, loan, fork, invariant, audit, and regression coverage
+  lifecycle, deployment, loan, fork, invariant, review, and regression coverage
 script/
   Deploy.s.sol
   helpers/

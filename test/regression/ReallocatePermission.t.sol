@@ -246,13 +246,18 @@ contract ReallocatePermissionTest is TestBaseWorkflow {
     /// @notice Helper: Grant a specific permission to an operator for HOLDER on REVNET_ID using real JBPermissions.
     function _grantPermission(address operator, uint256 permissionId) internal {
         uint8[] memory permissionIds = new uint8[](1);
+        // forge-lint: disable-next-line(unsafe-typecast)
         permissionIds[0] = uint8(permissionId);
         vm.prank(HOLDER);
         jbPermissions()
             .setPermissionsFor({
             account: HOLDER,
             permissionsData: JBPermissionsData({
-            operator: operator, projectId: uint64(REVNET_ID), permissionIds: permissionIds
+            // forge-lint: disable-next-line(unsafe-typecast)
+            operator: operator,
+            // forge-lint: disable-next-line(unsafe-typecast)
+            projectId: uint64(REVNET_ID),
+            permissionIds: permissionIds
         })
         });
     }

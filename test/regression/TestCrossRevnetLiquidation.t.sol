@@ -238,7 +238,11 @@ contract TestCrossRevnetLiquidation is TestBaseWorkflow {
     /// @notice liquidateExpiredLoansFrom should revert when startingLoanId would overflow into another revnet's
     /// namespace.
     function test_liquidateExpiredLoans_revertsOnCrossRevnetOverflow() public {
-        vm.expectRevert(REVLoans.REVLoans_LoanIdOverflow.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                REVLoans.REVLoans_LoanIdOverflow.selector, REVNET_ID, _ONE_TRILLION + 1, _ONE_TRILLION
+            )
+        );
         LOANS_CONTRACT.liquidateExpiredLoansFrom(REVNET_ID, _ONE_TRILLION, 1);
     }
 

@@ -10,7 +10,7 @@ import {REVLoan} from "../../src/structs/REVLoan.sol";
 import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
 import {TestHiddenTokens} from "../TestHiddenTokens.t.sol";
 
-contract CodexNemesisHiddenSupplyLoanBorrowTest is TestHiddenTokens {
+contract RegressionHiddenSupplyLoanBorrowTest is TestHiddenTokens {
     function test_hiddenSupplyIsExcludedFromLoanCapacityByDesign() public {
         uint256 payAmount = 10 ether;
 

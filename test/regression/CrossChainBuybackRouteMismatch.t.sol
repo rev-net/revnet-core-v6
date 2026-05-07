@@ -108,7 +108,7 @@ contract ThresholdBuybackRegistry is IJBRulesetDataHook {
     }
 }
 
-contract CodexCrossChainBuybackRouteMismatchTest is TestBaseWorkflow {
+contract RegressionCrossChainBuybackRouteMismatchTest is TestBaseWorkflow {
     REVOwner internal ownerHook;
     ConfigurableSuckerRegistry internal suckerRegistry;
     ThresholdBuybackRegistry internal buybackRegistry;

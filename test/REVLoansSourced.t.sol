@@ -121,7 +121,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         });
 
         // For the tests we need to allow these payments, otherwise other revnets can't pay a fee.
-        // IRL, this would be handled by a swap terminal.
+        // IRL, this would be handled by a router terminal.
         accountingContextsToAccept[1] =
             JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
 
@@ -1105,7 +1105,9 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             REVNET_ID, collateralToTransfer, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
 
-        vm.expectRevert(REVLoans.REVLoans_NotEnoughCollateral.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(REVLoans.REVLoans_NotEnoughCollateral.selector, loan.collateral + 1, loan.collateral)
+        );
         vm.prank(USER);
         LOANS_CONTRACT.reallocateCollateralFromLoan(
             // collateral exceeds with + 1

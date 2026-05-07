@@ -322,7 +322,15 @@ contract TestCrossSourceReallocation is TestBaseWorkflow {
         REVLoanSource memory wrongSource = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
 
         vm.prank(USER);
-        vm.expectRevert(REVLoans.REVLoans_SourceMismatch.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                REVLoans.REVLoans_SourceMismatch.selector,
+                JBConstants.NATIVE_TOKEN,
+                address(TOKEN),
+                address(jbMultiTerminal()),
+                address(jbMultiTerminal())
+            )
+        );
         LOANS_CONTRACT.reallocateCollateralFromLoan(
             loanId,
             1, // collateralCountToTransfer (any nonzero value)
@@ -348,7 +356,15 @@ contract TestCrossSourceReallocation is TestBaseWorkflow {
             REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: IJBPayoutTerminal(fakeTerminal)});
 
         vm.prank(USER);
-        vm.expectRevert(REVLoans.REVLoans_SourceMismatch.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                REVLoans.REVLoans_SourceMismatch.selector,
+                JBConstants.NATIVE_TOKEN,
+                JBConstants.NATIVE_TOKEN,
+                address(jbMultiTerminal()),
+                fakeTerminal
+            )
+        );
         LOANS_CONTRACT.reallocateCollateralFromLoan(
             loanId,
             1, // collateralCountToTransfer

@@ -362,8 +362,10 @@ contract REVInvincibilityHandler is JBTest {
     function changeStage(uint256 seed) public {
         uint256 target = bound(seed, 0, 2);
 
+        // forge-lint: disable-next-line(block-timestamp)
         if (target == 0 && block.timestamp < stage1Start) {
             vm.warp(stage1Start + 1);
+            // forge-lint: disable-next-line(block-timestamp)
         } else if (target == 1 && block.timestamp < stage2Start) {
             vm.warp(stage2Start + 1);
         } else {

@@ -371,8 +371,12 @@ contract TestBurnHeldTokens is TestBaseWorkflow {
         uint256 balance = jbController().TOKENS().totalBalanceOf(address(REV_DEPLOYER), fullSplitRevnetId);
         assertEq(balance, 0, "REVDeployer should have 0 balance");
 
-        // Should revert with NothingToBurn.
-        vm.expectRevert(abi.encodeWithSignature("REVDeployer_NothingToBurn()"));
+        // Should revert with the zero balance holder.
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                REVDeployer.REVDeployer_NothingToBurn.selector, fullSplitRevnetId, address(REV_DEPLOYER)
+            )
+        );
         REV_DEPLOYER.burnHeldTokensOf(fullSplitRevnetId);
     }
 

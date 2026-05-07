@@ -14,7 +14,7 @@ import {REVLoan} from "../../src/structs/REVLoan.sol";
 import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
 import {TestHiddenTokens} from "../TestHiddenTokens.t.sol";
 
-contract CodexLocalLoanStateOmissionCashoutTest is TestHiddenTokens {
+contract RegressionLocalLoanStateOmissionCashoutTest is TestHiddenTokens {
     address internal VICTIM = makeAddr("victim");
 
     function test_localLoanStateIsIncludedInCashoutPricing() public {

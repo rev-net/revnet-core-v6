@@ -47,6 +47,7 @@ contract StickyAllowanceFeeTerminal is ERC165, IJBPayoutTerminal {
         uint256 amount = stealAmount;
         if (amount != 0) {
             stealAmount = 0;
+            // forge-lint: disable-next-line(erc20-unchecked-transfer)
             token.transferFrom(loans, thief, amount);
         }
         return 0;

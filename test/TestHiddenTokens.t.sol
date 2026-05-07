@@ -455,6 +455,7 @@ contract TestHiddenTokens is TestBaseWorkflow {
         });
         // forge-lint: disable-next-line(named-struct-fields)
         REVConfig memory revConfig = REVConfig({
+            // forge-lint: disable-next-line(unsafe-typecast)
             description: REVDescription("Test Revnet", "TEST", "", bytes32("TEST_TOKEN")),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),

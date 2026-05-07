@@ -38,7 +38,7 @@ import {MockBuybackDataHook} from "../mock/MockBuybackDataHook.sol";
 import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
 import {IREVHiddenTokens} from "../../src/interfaces/IREVHiddenTokens.sol";
 
-contract CodexRouterRegistrySourceDebtRepricingTest is TestBaseWorkflow {
+contract RegressionRouterRegistrySourceDebtRepricingTest is TestBaseWorkflow {
     bytes32 internal constant REV_DEPLOYER_SALT = "REVDeployer";
 
     address internal constant TRUSTED_FORWARDER = 0xB2b5841DBeF766d4b521221732F9B618fCf34A87;

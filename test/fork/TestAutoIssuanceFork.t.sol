@@ -49,6 +49,7 @@ contract TestAutoIssuanceFork is ForkTestBase {
         uint48 startTime = startsInFuture ? uint48(block.timestamp + 1 days) : uint48(block.timestamp);
 
         stages[0] = REVStageConfig({
+            // forge-lint: disable-next-line(unsafe-typecast)
             startsAtOrAfter: uint40(startTime),
             autoIssuances: autoIssuances,
             splitPercent: splitPercent,
@@ -122,7 +123,11 @@ contract TestAutoIssuanceFork is ForkTestBase {
         REV_DEPLOYER.autoIssueFor(revnetId, stageId, AUTO_BENEFICIARY);
 
         // Second claim should revert — amount was reset to 0.
-        vm.expectRevert(REVDeployer.REVDeployer_NothingToAutoIssue.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                REVDeployer.REVDeployer_NothingToAutoIssue.selector, revnetId, stageId, AUTO_BENEFICIARY
+            )
+        );
         REV_DEPLOYER.autoIssueFor(revnetId, stageId, AUTO_BENEFICIARY);
     }
 
