@@ -649,9 +649,10 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @param count The number of loans to iterate over.
     function liquidateExpiredLoansFrom(uint256 revnetId, uint256 startingLoanId, uint256 count) external override {
         // Prevent cross-revnet accounting corruption: loan numbers must stay within the revnet's ID namespace.
-        if (startingLoanId + count > _ONE_TRILLION) {
+        uint256 endLoanNumber = startingLoanId + count;
+        if (endLoanNumber > _ONE_TRILLION) {
             revert REVLoans_LoanIdOverflow({
-                revnetId: revnetId, loanNumber: startingLoanId + count, maxLoanNumber: _ONE_TRILLION
+                revnetId: revnetId, loanNumber: endLoanNumber, maxLoanNumber: _ONE_TRILLION
             });
         }
 
@@ -1218,15 +1219,8 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             }
         }
 
-        // Prevent the loan number from exceeding the ID namespace for this revnet.
-        if (totalLoansBorrowedFor[revnetId] >= _ONE_TRILLION) {
-            revert REVLoans_LoanIdOverflow({
-                revnetId: revnetId, loanNumber: totalLoansBorrowedFor[revnetId] + 1, maxLoanNumber: _ONE_TRILLION
-            });
-        }
-
         // Get a reference to the loan ID.
-        loanId = _generateLoanId({revnetId: revnetId, loanNumber: ++totalLoansBorrowedFor[revnetId]});
+        loanId = _nextLoanIdFor(revnetId);
 
         // Get a reference to the loan being created.
         REVLoan storage loan = _loanOf[loanId];
@@ -1284,6 +1278,18 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         return (loanId, loan);
     }
 
+    /// @notice Allocate the next loan ID for a revnet.
+    /// @param revnetId The ID of the revnet.
+    /// @return loanId The allocated loan ID.
+    function _nextLoanIdFor(uint256 revnetId) internal returns (uint256 loanId) {
+        uint256 loanNumber = totalLoansBorrowedFor[revnetId] + 1;
+        if (loanNumber > _ONE_TRILLION) {
+            revert REVLoans_LoanIdOverflow({revnetId: revnetId, loanNumber: loanNumber, maxLoanNumber: _ONE_TRILLION});
+        }
+        totalLoansBorrowedFor[revnetId] = loanNumber;
+        return _generateLoanId({revnetId: revnetId, loanNumber: loanNumber});
+    }
+
     /// @notice Reallocate collateral from a loan by making a new loan based on the original, with reduced collateral.
     /// @param loanId The ID of the loan to reallocate collateral from.
     /// @param revnetId The ID of the revnet the loan is from.
@@ -1328,15 +1334,8 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             revert REVLoans_ReallocatingMoreCollateralThanBorrowedAmountAllows(borrowAmount, loan.amount);
         }
 
-        // Prevent the loan number from exceeding the ID namespace for this revnet.
-        if (totalLoansBorrowedFor[revnetId] >= _ONE_TRILLION) {
-            revert REVLoans_LoanIdOverflow({
-                revnetId: revnetId, loanNumber: totalLoansBorrowedFor[revnetId] + 1, maxLoanNumber: _ONE_TRILLION
-            });
-        }
-
         // Get a reference to the replacement loan ID.
-        reallocatedLoanId = _generateLoanId({revnetId: revnetId, loanNumber: ++totalLoansBorrowedFor[revnetId]});
+        reallocatedLoanId = _nextLoanIdFor(revnetId);
 
         // Get a reference to the loan being created.
         reallocatedLoan = _loanOf[reallocatedLoanId];
@@ -1465,16 +1464,8 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
 
             return (loanId, paidOffSnapshot);
         } else {
-            // Make a new loan with the remaining amount and collateral.
-            // Prevent the loan number from exceeding the ID namespace for this revnet.
-            if (totalLoansBorrowedFor[revnetId] >= _ONE_TRILLION) {
-                revert REVLoans_LoanIdOverflow({
-                    revnetId: revnetId, loanNumber: totalLoansBorrowedFor[revnetId] + 1, maxLoanNumber: _ONE_TRILLION
-                });
-            }
-
             // Get a reference to the replacement loan ID.
-            uint256 paidOffLoanId = _generateLoanId({revnetId: revnetId, loanNumber: ++totalLoansBorrowedFor[revnetId]});
+            uint256 paidOffLoanId = _nextLoanIdFor(revnetId);
 
             // Get a reference to the loan being paid off.
             REVLoan storage paidOffLoan = _loanOf[paidOffLoanId];

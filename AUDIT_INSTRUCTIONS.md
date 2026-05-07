@@ -1,8 +1,8 @@
-# Review Guide
+# Audit Instructions
 
-Revnet is a staged, owner-minimized product layer on top of Juicebox core. Review it as an economic system, not just a deployer plus a loan contract.
+Revnet is a staged, owner-minimized product layer on top of Juicebox core. Audit it as an economic system, not just a deployer plus a loan contract.
 
-## Review Objective
+## Audit Objective
 
 Find issues that:
 
@@ -38,7 +38,7 @@ Revnet composes several sensitive systems:
 - burned-collateral lending in `REVLoans`
 - hidden-token supply exclusion in `REVHiddenTokens`
 
-The main review mindset is composition:
+The main audit mindset is composition:
 
 - stage economics affect borrowability
 - hidden supply affects cash-out math

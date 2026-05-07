@@ -40,7 +40,7 @@ This repo packages autonomous Revnets: staged Juicebox projects whose runtime be
 **Failure Modes**
 
 - teams assume deploy-time parameters can be revisited casually
-- optional integrations are enabled without reviewing their effect on the resulting network
+- optional integrations are enabled without auditing their effect on the resulting network
 
 **Postconditions**
 
@@ -174,7 +174,7 @@ This repo packages autonomous Revnets: staged Juicebox projects whose runtime be
 
 1. Review what `REVDeployer` allowed.
 2. Use only those sanctioned surfaces.
-3. Review cross-package behavior whenever optional integrations are enabled.
+3. Audit cross-package behavior whenever optional integrations are enabled.
 
 **Failure Modes**
 
