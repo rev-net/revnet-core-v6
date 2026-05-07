@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {TestAuditFixVerification} from "../TestAuditFixVerification.t.sol";
+import {TestRegressionFixVerification} from "../TestRegressionFixVerification.t.sol";
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBCashOuts} from "@bananapus/core-v6/src/libraries/JBCashOuts.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
@@ -9,7 +9,7 @@ import {JBPermissionsData} from "@bananapus/core-v6/src/structs/JBPermissionsDat
 import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
 import {REVLoan} from "../../src/structs/REVLoan.sol";
 
-contract CodexRemoteLoanAccountingGap is TestAuditFixVerification {
+contract RegressionRemoteLoanAccountingGap is TestRegressionFixVerification {
     function test_remoteLoanStateInflatesLocalBorrowability() public {
         uint256 payAmount = 100 ether;
 

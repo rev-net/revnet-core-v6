@@ -640,6 +640,7 @@ contract TestLoanAdversarialFork is ForkTestBase {
         // ── Case 2: Near-zero surplus with minimal collateral ──
         // Deploy a fresh revnet with no surplus to test dust behavior.
         // Use a unique description salt to avoid CREATE2 collision with other revnets in this test contract.
+        // forge-lint: disable-next-line(unsafe-typecast)
         uint256 dustRevnetId = _deployRevnetWithSalt(5000, bytes32("DUST_SALT"));
         _setupPool(dustRevnetId, 10_000 ether);
 
@@ -696,6 +697,7 @@ contract TestLoanAdversarialFork is ForkTestBase {
         // ── Case 3: Huge surplus with 1 token -- should succeed ──
         // Deploy a fresh revnet and pay a large amount to create huge surplus.
         // Use a unique description salt to avoid CREATE2 collision with other revnets in this test contract.
+        // forge-lint: disable-next-line(unsafe-typecast)
         uint256 hugeRevnetId = _deployRevnetWithSalt(5000, bytes32("HUGE_SALT"));
         _setupPool(hugeRevnetId, 10_000 ether);
 

@@ -102,7 +102,7 @@ This means a revnet can only expand to a new chain if it uses the exact same ter
 - stage transitions and borrowability drift:
   `test/TestStageTransitionBorrowable.t.sol`
 - omnichain or phantom-surplus edge cases:
-  `test/audit/CodexPhantomSurplusTerminal.t.sol`
+  `test/regression/RegressionPhantomSurplusTerminal.t.sol`
 - terminal encoding in configuration hash:
   `test/TestTerminalEncodingInHash.t.sol`
 
@@ -114,4 +114,4 @@ This means a revnet can only expand to a new chain if it uses the exact same ter
 - `src/REVHiddenTokens.sol`
 - `test/TestLoansCashOutDelay.t.sol`
 - `test/TestStageTransitionBorrowable.t.sol`
-- `test/audit/CodexPhantomSurplusTerminal.t.sol`
+- `test/regression/RegressionPhantomSurplusTerminal.t.sol`

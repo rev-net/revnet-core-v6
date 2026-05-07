@@ -43,9 +43,9 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     // --------------------------- custom errors ------------------------- //
     //*********************************************************************//
 
-    error REVOwner_AlreadyInitialized();
+    error REVOwner_AlreadyInitialized(address deployer);
     error REVOwner_CashOutDelayNotFinished(uint256 cashOutDelay, uint256 blockTimestamp);
-    error REVOwner_Unauthorized();
+    error REVOwner_Unauthorized(address caller, address expectedCaller);
 
     //*********************************************************************//
     // ------------------------- public constants ------------------------ //
@@ -89,7 +89,6 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
 
     /// @notice Each revnet's tiered ERC-721 hook.
     /// @custom:param revnetId The ID of the revnet to look up.
-    // slither-disable-next-line uninitialized-state
     mapping(uint256 revnetId => IJB721TiersHook tiered721Hook) public tiered721HookOf;
 
     /// @notice The deployer that manages revnet state.
@@ -183,6 +182,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         uint256 cashOutDelay = cashOutDelayOf[context.projectId];
 
         // Enforce the cash out delay.
+        // forge-lint: disable-next-line(block-timestamp)
         if (cashOutDelay > block.timestamp) {
             revert REVOwner_CashOutDelayNotFinished(cashOutDelay, block.timestamp);
         }
@@ -209,7 +209,6 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
             JBBeforeCashOutRecordedContext memory routedContext = context;
             routedContext.totalSupply = totalSupply;
             routedContext.surplus.value = effectiveSurplusValue;
-            // slither-disable-next-line unused-return
             (cashOutTaxRate, cashOutCount,,, hookSpecifications) = BUYBACK_HOOK.beforeCashOutRecordedWith(routedContext);
             return (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplusValue, hookSpecifications);
         }
@@ -261,7 +260,6 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
 
         // Let the buyback hook adjust the cash out parameters and optionally return a hook specification.
         JBCashOutHookSpecification[] memory buybackHookSpecifications;
-        // slither-disable-next-line unused-return
         (cashOutTaxRate, cashOutCount,,, buybackHookSpecifications) =
             BUYBACK_HOOK.beforeCashOutRecordedWith(buybackHookContext);
 
@@ -316,7 +314,6 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         bool usesTiered721Hook = address(tiered721Hook) != address(0);
         if (usesTiered721Hook) {
             JBPayHookSpecification[] memory specs;
-            // slither-disable-next-line unused-return
             (, specs) = IJBRulesetDataHook(address(tiered721Hook)).beforePayRecordedWith(context);
             // The 721 hook returns a single spec (itself) whose amount is the total split amount.
             if (specs.length > 0) {
@@ -429,7 +426,6 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         });
 
         // Pay the fee.
-        // slither-disable-next-line arbitrary-send-eth,unused-return
         try feeTerminal.pay{value: payValue}({
             projectId: FEE_REVNET_ID,
             token: context.forwardedAmount.token,
@@ -454,7 +450,6 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
                 to: msg.sender, token: context.forwardedAmount.token, amount: context.forwardedAmount.value
             });
 
-            // slither-disable-next-line arbitrary-send-eth
             IJBTerminal(msg.sender).addToBalanceOf{value: payValue}({
                 projectId: context.projectId,
                 token: context.forwardedAmount.token,
@@ -474,9 +469,11 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     /// @param deployer The canonical REVDeployer instance that will manage revnet runtime state.
     function setDeployer(IREVDeployer deployer) external {
         // Only the account that deployed this REVOwner may complete the one-time deployer binding.
-        if (msg.sender != _DEPLOYER_BINDER) revert REVOwner_Unauthorized();
+        if (msg.sender != _DEPLOYER_BINDER) {
+            revert REVOwner_Unauthorized({caller: msg.sender, expectedCaller: _DEPLOYER_BINDER});
+        }
         // Prevent the deployer binding from being overwritten after initialization.
-        if (address(DEPLOYER) != address(0)) revert REVOwner_AlreadyInitialized();
+        if (address(DEPLOYER) != address(0)) revert REVOwner_AlreadyInitialized({deployer: address(DEPLOYER)});
         // Store the canonical REVDeployer that is authorized to manage runtime hook state.
         DEPLOYER = deployer;
     }
@@ -486,7 +483,9 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     /// @param revnetId The ID of the revnet.
     /// @param cashOutDelay The timestamp after which cash outs are allowed.
     function setCashOutDelayOf(uint256 revnetId, uint256 cashOutDelay) external {
-        if (msg.sender != address(DEPLOYER)) revert REVOwner_Unauthorized();
+        if (msg.sender != address(DEPLOYER)) {
+            revert REVOwner_Unauthorized({caller: msg.sender, expectedCaller: address(DEPLOYER)});
+        }
         cashOutDelayOf[revnetId] = cashOutDelay;
     }
 
@@ -495,7 +494,9 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     /// @param revnetId The ID of the revnet.
     /// @param hook The tiered ERC-721 hook.
     function setTiered721HookOf(uint256 revnetId, IJB721TiersHook hook) external {
-        if (msg.sender != address(DEPLOYER)) revert REVOwner_Unauthorized();
+        if (msg.sender != address(DEPLOYER)) {
+            revert REVOwner_Unauthorized({caller: msg.sender, expectedCaller: address(DEPLOYER)});
+        }
         tiered721HookOf[revnetId] = hook;
     }
 
@@ -552,13 +553,11 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         for (uint256 i; i < sources.length; i++) {
             REVLoanSource memory source = sources[i];
             // Each configured source must be queried live so cash-out math includes current outstanding debt.
-            // slither-disable-next-line calls-loop
             uint256 tokensLoaned =
                 loans.totalBorrowedFrom({revnetId: revnetId, terminal: source.terminal, token: source.token});
             if (tokensLoaned == 0) continue;
 
             // Read the source token's accounting context so debt can be normalized before cross-currency conversion.
-            // slither-disable-next-line calls-loop
             JBAccountingContext memory accountingContext =
                 source.terminal.accountingContextForTokenOf({projectId: revnetId, token: source.token});
 
@@ -576,7 +575,6 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
                 borrowedAmount += normalizedTokens;
             } else {
                 // Convert source-token debt into the requested currency using the loans contract's shared prices.
-                // slither-disable-next-line calls-loop
                 uint256 pricePerUnit = loans.PRICES()
                     .pricePerUnitOf({
                     projectId: revnetId,

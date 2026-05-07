@@ -49,6 +49,7 @@ contract TestAutoIssuanceFork is ForkTestBase {
         uint48 startTime = startsInFuture ? uint48(block.timestamp + 1 days) : uint48(block.timestamp);
 
         stages[0] = REVStageConfig({
+            // forge-lint: disable-next-line(unsafe-typecast)
             startsAtOrAfter: uint40(startTime),
             autoIssuances: autoIssuances,
             splitPercent: splitPercent,

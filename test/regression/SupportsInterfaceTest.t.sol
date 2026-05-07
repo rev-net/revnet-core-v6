@@ -14,7 +14,7 @@ import {REVOwner} from "../../src/REVOwner.sol";
 import {IREVHiddenTokens} from "../../src/interfaces/IREVHiddenTokens.sol";
 
 /// @notice Regression test for missing IERC165 support: REVOwner.supportsInterface omits IERC165.
-contract AuditFixL17Test is Test {
+contract RegressionFixL17Test is Test {
     REVOwner revOwner;
 
     function setUp() public {

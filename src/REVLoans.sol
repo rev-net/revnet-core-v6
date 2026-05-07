@@ -61,19 +61,21 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     error REVLoans_InvalidPrepaidFeePercent(uint256 prepaidFeePercent, uint256 min, uint256 max);
     error REVLoans_InvalidTerminal(address terminal, uint256 revnetId);
     error REVLoans_LoanExpired(uint256 timeSinceLoanCreated, uint256 loanLiquidationDuration);
-    error REVLoans_LoanIdOverflow();
+    error REVLoans_LoanIdOverflow(uint256 revnetId, uint256 loanNumber, uint256 maxLoanNumber);
     error REVLoans_NewBorrowAmountGreaterThanLoanAmount(uint256 newBorrowAmount, uint256 loanAmount);
-    error REVLoans_NoMsgValueAllowed();
-    error REVLoans_NotEnoughCollateral();
-    error REVLoans_NothingToRepay();
+    error REVLoans_NoMsgValueAllowed(uint256 msgValue, address token);
+    error REVLoans_NotEnoughCollateral(uint256 collateralCountToRemove, uint256 loanCollateral);
+    error REVLoans_NothingToRepay(uint256 repayBorrowAmount, uint256 collateralCountToReturn);
     error REVLoans_OverMaxRepayBorrowAmount(uint256 maxRepayBorrowAmount, uint256 repayBorrowAmount);
     error REVLoans_OverflowAlert(uint256 value, uint256 limit);
     error REVLoans_PermitAllowanceNotEnough(uint256 allowanceAmount, uint256 requiredAmount);
     error REVLoans_ReallocatingMoreCollateralThanBorrowedAmountAllows(uint256 newBorrowAmount, uint256 loanAmount);
-    error REVLoans_SourceMismatch();
+    error REVLoans_SourceMismatch(
+        address expectedToken, address actualToken, address expectedTerminal, address actualTerminal
+    );
     error REVLoans_UnderMinBorrowAmount(uint256 minBorrowAmount, uint256 borrowAmount);
-    error REVLoans_ZeroBorrowAmount();
-    error REVLoans_ZeroCollateralLoanIsInvalid();
+    error REVLoans_ZeroBorrowAmount(uint256 revnetId, uint256 collateralCount);
+    error REVLoans_ZeroCollateralLoanIsInvalid(uint256 collateralCount);
 
     //*********************************************************************//
     // ------------------------- public constants ------------------------ //
@@ -229,6 +231,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         JBRuleset memory currentRuleset = _currentRulesetOf(revnetId);
 
         // If the cash out delay hasn't passed yet, no amount is borrowable.
+        // forge-lint: disable-next-line(block-timestamp)
         if (_cashOutDelayOf({revnetId: revnetId, currentRuleset: currentRuleset}) > block.timestamp) return 0;
 
         return _borrowableAmountFrom({
@@ -443,7 +446,6 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @param revnetId The ID of the revnet.
     /// @return currentRuleset The current ruleset.
     function _currentRulesetOf(uint256 revnetId) internal view returns (JBRuleset memory currentRuleset) {
-        // slither-disable-next-line unused-return
         (currentRuleset,) = CONTROLLER.currentRulesetOf(revnetId);
     }
 
@@ -548,7 +550,6 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             if (tokensLoaned == 0) continue;
 
             // Get a reference to the accounting context for the source.
-            // slither-disable-next-line calls-loop
             JBAccountingContext memory accountingContext =
                 source.terminal.accountingContextForTokenOf({projectId: revnetId, token: source.token});
 
@@ -567,7 +568,6 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
                 borrowedAmount += normalizedTokens;
             } else {
                 // Otherwise, convert via the price feed.
-                // slither-disable-next-line calls-loop
                 uint256 pricePerUnit = PRICES.pricePerUnitOf({
                     projectId: revnetId,
                     pricingCurrency: accountingContext.currency,
@@ -649,7 +649,11 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @param count The number of loans to iterate over.
     function liquidateExpiredLoansFrom(uint256 revnetId, uint256 startingLoanId, uint256 count) external override {
         // Prevent cross-revnet accounting corruption: loan numbers must stay within the revnet's ID namespace.
-        if (startingLoanId + count > _ONE_TRILLION) revert REVLoans_LoanIdOverflow();
+        if (startingLoanId + count > _ONE_TRILLION) {
+            revert REVLoans_LoanIdOverflow({
+                revnetId: revnetId, loanNumber: startingLoanId + count, maxLoanNumber: _ONE_TRILLION
+            });
+        }
 
         // Cache the sender to avoid repeated ERC2771 context reads inside the loop.
         address sender = _msgSender();
@@ -660,7 +664,6 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             uint256 loanId = _generateLoanId({revnetId: revnetId, loanNumber: startingLoanId + i});
 
             // Check createdAt via storage ref first to avoid loading the full struct for empty slots.
-            // slither-disable-next-line incorrect-equality
             if (_loanOf[loanId].createdAt == 0) continue;
 
             // Get a reference to the loan being iterated on.
@@ -670,6 +673,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             address owner = _ownerOf(loanId);
 
             // If the loan is already burned, or if it hasn't passed its liquidation duration, continue.
+            // forge-lint: disable-next-line(block-timestamp)
             if (owner == address(0) || (block.timestamp <= loan.createdAt + LOAN_LIQUIDATION_DURATION)) continue;
 
             // Burn the loan.
@@ -735,6 +739,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         _requirePermissionFrom({account: loanOwner, projectId: revnetId, permissionId: JBPermissionIds.REALLOCATE_LOAN});
 
         // Make sure the loan hasn't expired.
+        // forge-lint: disable-next-line(block-timestamp)
         if (block.timestamp - _loanOf[loanId].createdAt > LOAN_LIQUIDATION_DURATION) {
             revert REVLoans_LoanExpired(block.timestamp - _loanOf[loanId].createdAt, LOAN_LIQUIDATION_DURATION);
         }
@@ -743,7 +748,12 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         {
             REVLoanSource storage existingSource = _loanOf[loanId].source;
             if (source.token != existingSource.token || source.terminal != existingSource.terminal) {
-                revert REVLoans_SourceMismatch();
+                revert REVLoans_SourceMismatch({
+                    expectedToken: existingSource.token,
+                    actualToken: source.token,
+                    expectedTerminal: address(existingSource.terminal),
+                    actualTerminal: address(source.terminal)
+                });
             }
         }
 
@@ -843,7 +853,11 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Revert if this repayment would do nothing — no borrow amount repaid and no collateral returned.
         // Without this check, a zero-amount repayment would burn the old loan NFT and mint a new one,
         // incrementing totalLoansBorrowedFor without limit.
-        if (repayBorrowAmount == 0 && collateralCountToReturn == 0) revert REVLoans_NothingToRepay();
+        if (repayBorrowAmount == 0 && collateralCountToReturn == 0) {
+            revert REVLoans_NothingToRepay({
+                repayBorrowAmount: repayBorrowAmount, collateralCountToReturn: collateralCountToReturn
+            });
+        }
 
         // Keep a reference to the fee that'll be taken.
         uint256 sourceFeeAmount = _determineSourceFeeAmount({loan: loan, amount: repayBorrowAmount});
@@ -915,7 +929,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         if (token == JBConstants.NATIVE_TOKEN) return msg.value;
 
         // If the token is not native, revert if there is a non-zero `msg.value`.
-        if (msg.value != 0) revert REVLoans_NoMsgValueAllowed();
+        if (msg.value != 0) revert REVLoans_NoMsgValueAllowed({msgValue: msg.value, token: token});
 
         // Check if the metadata contains permit data.
         if (allowance.amount != 0) {
@@ -995,7 +1009,6 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
                 loan.source.terminal.accountingContextForTokenOf({projectId: revnetId, token: loan.source.token});
 
             // Pull the amount to be loaned out of the revnet. This will incure the protocol fee.
-            // slither-disable-next-line unused-return
             netAmountPaidOut = loan.source.terminal
                 .useAllowanceOf({
                     projectId: revnetId,
@@ -1177,7 +1190,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         returns (uint256 loanId, REVLoan memory)
     {
         // A loan needs to have collateral.
-        if (collateralCount == 0) revert REVLoans_ZeroCollateralLoanIsInvalid();
+        if (collateralCount == 0) revert REVLoans_ZeroCollateralLoanIsInvalid({collateralCount: collateralCount});
 
         // Make sure the source terminal is registered in the directory for this revnet.
         if (!DIRECTORY.isTerminalOf({projectId: revnetId, terminal: IJBTerminal(address(source.terminal))})) {
@@ -1199,13 +1212,18 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Enforce the cash out delay.
         {
             uint256 cashOutDelay = _cashOutDelayOf({revnetId: revnetId, currentRuleset: currentRuleset});
+            // forge-lint: disable-next-line(block-timestamp)
             if (cashOutDelay > block.timestamp) {
                 revert REVLoans_CashOutDelayNotFinished(cashOutDelay, block.timestamp);
             }
         }
 
         // Prevent the loan number from exceeding the ID namespace for this revnet.
-        if (totalLoansBorrowedFor[revnetId] >= _ONE_TRILLION) revert REVLoans_LoanIdOverflow();
+        if (totalLoansBorrowedFor[revnetId] >= _ONE_TRILLION) {
+            revert REVLoans_LoanIdOverflow({
+                revnetId: revnetId, loanNumber: totalLoansBorrowedFor[revnetId] + 1, maxLoanNumber: _ONE_TRILLION
+            });
+        }
 
         // Get a reference to the loan ID.
         loanId = _generateLoanId({revnetId: revnetId, loanNumber: ++totalLoansBorrowedFor[revnetId]});
@@ -1227,7 +1245,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         });
 
         // Revert if the bonding curve returns zero to prevent creating zero-amount loans.
-        if (borrowAmount == 0) revert REVLoans_ZeroBorrowAmount();
+        if (borrowAmount == 0) {
+            revert REVLoans_ZeroBorrowAmount({revnetId: revnetId, collateralCount: collateralCount});
+        }
 
         // Make sure the minimum borrow amount is met.
         if (borrowAmount < minBorrowAmount) revert REVLoans_UnderMinBorrowAmount(minBorrowAmount, borrowAmount);
@@ -1286,7 +1306,11 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         REVLoan storage loan = _loanOf[loanId];
 
         // Make sure there is enough collateral to transfer.
-        if (collateralCountToRemove > loan.collateral) revert REVLoans_NotEnoughCollateral();
+        if (collateralCountToRemove > loan.collateral) {
+            revert REVLoans_NotEnoughCollateral({
+                collateralCountToRemove: collateralCountToRemove, loanCollateral: loan.collateral
+            });
+        }
 
         // Keep a reference to the new collateral amount.
         uint256 newCollateralCount = loan.collateral - collateralCountToRemove;
@@ -1305,7 +1329,11 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         }
 
         // Prevent the loan number from exceeding the ID namespace for this revnet.
-        if (totalLoansBorrowedFor[revnetId] >= _ONE_TRILLION) revert REVLoans_LoanIdOverflow();
+        if (totalLoansBorrowedFor[revnetId] >= _ONE_TRILLION) {
+            revert REVLoans_LoanIdOverflow({
+                revnetId: revnetId, loanNumber: totalLoansBorrowedFor[revnetId] + 1, maxLoanNumber: _ONE_TRILLION
+            });
+        }
 
         // Get a reference to the replacement loan ID.
         reallocatedLoanId = _generateLoanId({revnetId: revnetId, loanNumber: ++totalLoansBorrowedFor[revnetId]});
@@ -1364,7 +1392,6 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         });
 
         // Add the loaned amount back to the revnet.
-        // slither-disable-next-line arbitrary-send-eth
         loan.source.terminal.addToBalanceOf{value: payValue}({
             projectId: revnetId,
             token: loan.source.token,
@@ -1385,7 +1412,6 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @param collateralCountToReturn The amount of collateral to return that the loan no longer requires.
     /// @param beneficiary The address to receive the returned collateral and any tokens resulting from paying fees.
     /// @param loanOwner The owner of the loan NFT (receives replacement loan if partial repay).
-    // slither-disable-next-line reentrancy-eth,reentrancy-events
     function _repayLoan(
         uint256 loanId,
         REVLoan storage loan,
@@ -1403,7 +1429,6 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         _burn(loanId);
 
         // If the loan will carry no more amount or collateral, store its changes directly.
-        // slither-disable-next-line incorrect-equality
         if (collateralCountToReturn == loan.collateral) {
             // Snapshot the loan to memory BEFORE _adjust zeroes the storage pointer.
             REVLoan memory loanSnapshot = loan;
@@ -1442,7 +1467,11 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         } else {
             // Make a new loan with the remaining amount and collateral.
             // Prevent the loan number from exceeding the ID namespace for this revnet.
-            if (totalLoansBorrowedFor[revnetId] >= _ONE_TRILLION) revert REVLoans_LoanIdOverflow();
+            if (totalLoansBorrowedFor[revnetId] >= _ONE_TRILLION) {
+                revert REVLoans_LoanIdOverflow({
+                    revnetId: revnetId, loanNumber: totalLoansBorrowedFor[revnetId] + 1, maxLoanNumber: _ONE_TRILLION
+                });
+            }
 
             // Get a reference to the replacement loan ID.
             uint256 paidOffLoanId = _generateLoanId({revnetId: revnetId, loanNumber: ++totalLoansBorrowedFor[revnetId]});
@@ -1502,7 +1531,6 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         totalCollateralOf[revnetId] -= collateralCount;
 
         // Mint the collateral tokens back to the loan payer.
-        // slither-disable-next-line unused-return,calls-loop
         CONTROLLER.mintTokensOf({
             projectId: revnetId,
             tokenCount: collateralCount,
@@ -1561,7 +1589,6 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     {
         uint256 payValue = _beforeTransferTo({to: address(terminal), token: token, amount: amount});
 
-        // slither-disable-next-line arbitrary-send-eth,unused-return
         try terminal.pay{value: payValue}({
             projectId: projectId,
             token: token,
@@ -1580,6 +1607,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         }
     }
 
+    /// @notice Accepts calldata sent with native tokens so repayment helpers can refund or settle value.
     fallback() external payable {}
+
+    /// @notice Accepts native tokens sent directly to the loan contract.
     receive() external payable {}
 }

@@ -186,6 +186,7 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
             uint32(uint160(JBConstants.NATIVE_TOKEN)), // baseCurrency
             "Terminal Test", // name
             "TERM", // ticker
+            // forge-lint: disable-next-line(unsafe-typecast)
             bytes32("VERIFY") // salt
         );
         // Terminal address encoding.
@@ -368,6 +369,7 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
             extraMetadata: 0
         });
         REVConfig memory feeConfig = REVConfig({
+            // forge-lint: disable-next-line(unsafe-typecast)
             description: REVDescription("Fee Project", "FEE", "", bytes32("FEE")),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),

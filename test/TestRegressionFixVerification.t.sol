@@ -59,7 +59,7 @@ import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
 /// @notice A mock buyback hook that records the context passed to `beforeCashOutRecordedWith`
-/// so that tests can verify the cross-chain-adjusted values (H-3 fix).
+/// so that tests can verify the cross-chain-adjusted values (fix).
 contract MockBuybackContextRecorder is IJBRulesetDataHook, IJBPayHook {
     function beforePayRecordedWith(JBBeforePayRecordedContext calldata context)
         external
@@ -116,7 +116,7 @@ contract MockBuybackContextRecorder is IJBRulesetDataHook, IJBPayHook {
 }
 
 /// @notice A mock sucker registry that returns configurable non-zero remote supply and surplus.
-/// Used to verify that cross-chain values flow correctly to the buyback hook (H-3).
+/// Used to verify that cross-chain values flow correctly to the buyback hook ().
 contract MockSuckerRegistryWithRemote {
     uint256 public remoteSupply;
     uint256 public remoteSurplus;
@@ -193,11 +193,11 @@ contract MockSuckerRegistryWithRemote {
     function setToRemoteFee(uint256) external pure {}
 }
 
-/// @notice Tests verifying audit fix correctness for C-1, H-3, and C-5/A14.
-/// C-1: `_borrowableAmountFrom` passes `decimals` parameter (not hardcoded 18) to `remoteSurplusOf`.
-/// H-3: `REVOwner.beforeCashOutRecordedWith` forwards cross-chain-adjusted context to buyback hook.
-/// A14: `REVHiddenTokens` has operator gating and hidden tokens reduce economic supply until revealed.
-contract TestAuditFixVerification is TestBaseWorkflow {
+/// @notice Tests verifying regression coverage for and .
+/// `_borrowableAmountFrom` passes `decimals` parameter (not hardcoded 18) to `remoteSurplusOf`.
+/// `REVOwner.beforeCashOutRecordedWith` forwards cross-chain-adjusted context to buyback hook.
+/// `REVHiddenTokens` has operator gating and hidden tokens reduce economic supply until revealed.
+contract TestRegressionFixVerification is TestBaseWorkflow {
     // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
     // forge-lint: disable-next-line(mixed-case-variable)
@@ -318,10 +318,10 @@ contract TestAuditFixVerification is TestBaseWorkflow {
     }
 
     //*********************************************************************//
-    // ────────── C-1: _borrowableAmountFrom decimal correctness ────────── //
+    // ────────── _borrowableAmountFrom decimal correctness ────────── //
     //*********************************************************************//
 
-    /// @notice C-1 fix: `borrowableAmountFrom` with 6-decimal token produces
+    /// @notice fix: `borrowableAmountFrom` with 6-decimal token produces
     /// a correctly scaled (non-inflated) result.
     function test_C1_borrowableAmount_6decimals_notInflated() public {
         // Pay into the revnet to create surplus and get tokens.
@@ -361,7 +361,7 @@ contract TestAuditFixVerification is TestBaseWorkflow {
         assertLt(borrowable6, borrowable18, "6-decimal result should be smaller in magnitude than 18-decimal");
     }
 
-    /// @notice C-1 fix: `borrowableAmountFrom` with 18-decimal token still works correctly.
+    /// @notice fix: `borrowableAmountFrom` with 18-decimal token still works correctly.
     function test_C1_borrowableAmount_18decimals_stillCorrect() public {
         // Pay into the revnet.
         uint256 payAmount = 5e18;
@@ -388,10 +388,10 @@ contract TestAuditFixVerification is TestBaseWorkflow {
     }
 
     //*********************************************************************//
-    // ──── H-3: Buyback hook receives cross-chain-adjusted context ──── //
+    // ──── Buyback hook receives cross-chain-adjusted context ──── //
     //*********************************************************************//
 
-    /// @notice H-3 fix: The buyback hook receives cross-chain-adjusted `totalSupply` and
+    /// @notice fix: The buyback hook receives cross-chain-adjusted `totalSupply` and
     /// `surplus.value` in the context passed by `REVOwner.beforeCashOutRecordedWith`.
     function test_H3_buybackHook_receivesCrossChainAdjustedContext() public {
         // Pay into the revnet to get tokens and create surplus.
@@ -469,12 +469,12 @@ contract TestAuditFixVerification is TestBaseWorkflow {
     }
 
     //*********************************************************************//
-    // ──────── A14: REVHiddenTokens operator gating & views ──────── //
+    // ──────── REVHiddenTokens operator gating & views ──────── //
     //*********************************************************************//
 
-    /// @notice A14: Only the project owner or authorized operator can call `hideTokensOf`.
+    /// @notice Only the project owner or authorized operator can call `hideTokensOf`.
     /// Unauthorized callers should revert.
-    function test_A14_hideTokensOf_revertsForUnauthorized() public {
+    function test_hideTokensOfRevertsForUnauthorized() public {
         // Pay to get tokens.
         uint256 payAmount = 10e18;
         vm.prank(USER);
@@ -502,8 +502,8 @@ contract TestAuditFixVerification is TestBaseWorkflow {
         HIDDEN_TOKENS.hideTokensOf(REVNET_ID, userTokens / 2, USER);
     }
 
-    /// @notice A14: Hiding tokens reduces the live token supply used for economic calculations.
-    function test_A14_hidingTokens_reducesLiveSupply() public {
+    /// @notice Hiding tokens reduces the live token supply used for economic calculations.
+    function test_hidingTokensReducesLiveSupply() public {
         // Pay to get tokens.
         uint256 payAmount = 10e18;
         vm.prank(USER);
@@ -535,8 +535,8 @@ contract TestAuditFixVerification is TestBaseWorkflow {
         assertEq(HIDDEN_TOKENS.totalHiddenOf(REVNET_ID), hideCount, "Total hidden should be tracked");
     }
 
-    /// @notice A14: Hidden tokens leave live supply but stay in REVOwner's cash-out denominator.
-    function test_A14_hiddenTokensAreExcludedFromCashOutDenominator() public {
+    /// @notice Hidden tokens leave live supply but stay in REVOwner's cash-out denominator.
+    function test_hiddenTokensAreExcludedFromCashOutDenominator() public {
         // Pay to get tokens for the user.
         uint256 payAmount = 10e18;
         vm.prank(USER);
@@ -684,6 +684,7 @@ contract TestAuditFixVerification is TestBaseWorkflow {
         });
         // forge-lint: disable-next-line(named-struct-fields)
         REVConfig memory revConfig = REVConfig({
+            // forge-lint: disable-next-line(unsafe-typecast)
             description: REVDescription("Test Revnet", "TEST", "", bytes32("TEST_TOKEN")),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),

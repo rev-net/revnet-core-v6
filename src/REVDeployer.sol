@@ -57,15 +57,15 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     // --------------------------- custom errors ------------------------- //
     //*********************************************************************//
 
-    error REVDeployer_AutoIssuanceBeneficiaryZeroAddress();
+    error REVDeployer_AutoIssuanceBeneficiaryZeroAddress(uint256 stageIndex, uint256 autoIssuanceIndex);
     error REVDeployer_CashOutsCantBeTurnedOffCompletely(uint256 cashOutTaxRate, uint256 maxCashOutTaxRate);
-    error REVDeployer_MustHaveSplits();
-    error REVDeployer_NothingToAutoIssue();
-    error REVDeployer_NothingToBurn();
-    error REVDeployer_RulesetDoesNotAllowDeployingSuckers();
+    error REVDeployer_MustHaveSplits(uint256 stageIndex, uint256 splitPercent);
+    error REVDeployer_NothingToAutoIssue(uint256 revnetId, uint256 stageId, address beneficiary);
+    error REVDeployer_NothingToBurn(uint256 revnetId, address holder);
+    error REVDeployer_RulesetDoesNotAllowDeployingSuckers(uint256 revnetId);
     error REVDeployer_StageNotStarted(uint256 stageId);
-    error REVDeployer_StagesRequired();
-    error REVDeployer_StageTimesMustIncrease();
+    error REVDeployer_StagesRequired(uint256 stageCount);
+    error REVDeployer_StageTimesMustIncrease(uint256 stageIndex, uint256 previousStageStart, uint256 effectiveStart);
     error REVDeployer_Unauthorized(uint256 revnetId, address caller);
 
     //*********************************************************************//
@@ -164,7 +164,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @notice A list of `JBPermissonIds` indices to grant to the split operator of a specific revnet.
     /// @dev These should be set in the revnet's deployment process.
     /// @custom:param revnetId The ID of the revnet to look up.
-    // slither-disable-next-line uninitialized-state
     mapping(uint256 revnetId => uint256[]) internal _extraOperatorPermissions;
 
     //*********************************************************************//
@@ -203,7 +202,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         PUBLISHER = publisher;
         BUYBACK_HOOK = buybackHook;
         LOANS = loans;
-        // slither-disable-next-line missing-zero-check
         OWNER = owner;
 
         // Give the loan contract permission to use the surplus allowance of all revnets.
@@ -407,7 +405,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             sqrtPriceX96 = uint160(1 << 96);
         } else {
             address normalizedTerminalToken = terminalToken == JBConstants.NATIVE_TOKEN ? address(0) : terminalToken;
-            // slither-disable-next-line calls-loop
             address projectToken = address(CONTROLLER.TOKENS().tokenOf(revnetId));
 
             if (projectToken == address(0) || projectToken == normalizedTerminalToken) {
@@ -421,7 +418,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             }
         }
 
-        // slither-disable-next-line calls-loop
         try BUYBACK_HOOK.initializePoolFor({
             projectId: revnetId,
             fee: DEFAULT_BUYBACK_POOL_FEE,
@@ -449,10 +445,10 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         // IDs `block.timestamp`, `block.timestamp + 1`, ... exactly correspond to the JB-assigned ruleset IDs.
         // The returned `ruleset.start` contains the derived start time (from `deriveStartFrom` using the stage's
         // `mustStartAtOrAfter`), NOT the queue timestamp — so the timing guard correctly blocks early claims.
-        // slither-disable-next-line unused-return
         (JBRuleset memory ruleset,) = CONTROLLER.getRulesetOf({projectId: revnetId, rulesetId: stageId});
 
         // Make sure the stage has started.
+        // forge-lint: disable-next-line(block-timestamp)
         if (ruleset.start > block.timestamp) {
             revert REVDeployer_StageNotStarted(stageId);
         }
@@ -461,7 +457,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         uint256 count = amountToAutoIssue[revnetId][stageId][beneficiary];
 
         // If there's nothing to auto-mint, return.
-        if (count == 0) revert REVDeployer_NothingToAutoIssue();
+        if (count == 0) {
+            revert REVDeployer_NothingToAutoIssue({revnetId: revnetId, stageId: stageId, beneficiary: beneficiary});
+        }
 
         // Reset the auto-mint amount.
         amountToAutoIssue[revnetId][stageId][beneficiary] = 0;
@@ -471,7 +469,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         });
 
         // Mint the tokens.
-        // slither-disable-next-line unused-return
         CONTROLLER.mintTokensOf({
             projectId: revnetId, tokenCount: count, beneficiary: beneficiary, memo: "", useReservedPercent: false
         });
@@ -482,9 +479,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @param revnetId The ID of the revnet to burn tokens for.
     function burnHeldTokensOf(uint256 revnetId) external override {
         uint256 balance = CONTROLLER.TOKENS().totalBalanceOf({holder: address(this), projectId: revnetId});
-        if (balance == 0) revert REVDeployer_NothingToBurn();
+        if (balance == 0) revert REVDeployer_NothingToBurn({revnetId: revnetId, holder: address(this)});
         CONTROLLER.burnTokensOf({holder: address(this), projectId: revnetId, tokenCount: balance, memo: ""});
-        // slither-disable-next-line reentrancy-events
         emit BurnHeldTokens(revnetId, balance, _msgSender());
     }
 
@@ -506,7 +502,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @return revnetId The ID of the newly created revnet.
     /// @return hook The address of the tiered ERC-721 hook deployed for the revnet.
     // The deployment flow makes external setup calls, but any observed state is revnet-scoped and reverts atomically.
-    // slither-disable-next-line reentrancy-benign
     function deployFor(
         uint256 revnetId,
         REVConfig calldata configuration,
@@ -541,7 +536,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
 
     /// @inheritdoc IREVDeployer
     // The deployment flow makes external setup calls, but any observed state is revnet-scoped and reverts atomically.
-    // slither-disable-next-line reentrancy-benign
     function deployFor(
         uint256 revnetId,
         REVConfig calldata configuration,
@@ -610,14 +604,13 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         _checkIfIsSplitOperatorOf({revnetId: revnetId, operator: _msgSender()});
 
         // Check if the current ruleset allows deploying new suckers.
-        // slither-disable-next-line unused-return
         (, JBRulesetMetadata memory metadata) = CONTROLLER.currentRulesetOf(revnetId);
 
         // Check the third bit, it indicates if the ruleset allows new suckers to be deployed.
         bool allowsDeployingSuckers = ((metadata.metadata >> 2) & 1) == 1;
 
         if (!allowsDeployingSuckers) {
-            revert REVDeployer_RulesetDoesNotAllowDeployingSuckers();
+            revert REVDeployer_RulesetDoesNotAllowDeployingSuckers({revnetId: revnetId});
         }
 
         // Deploy the suckers.
@@ -655,7 +648,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
 
     /// @notice Deploy a revnet which sells tiered ERC-721s and (optionally) allows croptop posts to its ERC-721 tiers.
     // The helper performs external hook/post setup after core revnet setup; any failure reverts the whole deployment.
-    // slither-disable-next-line reentrancy-benign
     function _deploy721RevnetFor(
         uint256 revnetId,
         bool shouldDeployNewRevnet,
@@ -814,12 +806,10 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         if (!shouldDeployNewRevnet) {
             // Initialize the existing Juicebox project as a revnet by transferring the `JBProjects` NFT to this
             // deployer. This is irreversible.
-            // slither-disable-next-line reentrancy-benign
             IERC721(PROJECTS).safeTransferFrom({from: owner, to: address(this), tokenId: revnetId});
         }
 
         // Launch the revnet rulesets for the reserved or pre-existing blank project.
-        // slither-disable-next-line unused-return
         CONTROLLER.launchRulesetsFor({
             projectId: revnetId,
             projectUri: configuration.description.uri,
@@ -831,11 +821,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         // Store the cash out delay of the revnet if its stages are already in progress.
         // This prevents cash out liquidity/arbitrage issues for existing revnets which
         // are deploying to a new chain.
-        // slither-disable-next-line reentrancy-events
         _setCashOutDelayIfNeeded({revnetId: revnetId, firstStageConfig: configuration.stageConfigurations[0]});
 
         // Deploy the revnet's ERC-20 token.
-        // slither-disable-next-line unused-return
         CONTROLLER.deployERC20For({
             projectId: revnetId,
             name: configuration.description.name,
@@ -847,7 +835,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         for (uint256 i; i < terminalConfigurations.length;) {
             JBTerminalConfig calldata terminalConfiguration = terminalConfigurations[i];
             for (uint256 j; j < terminalConfiguration.accountingContextsToAccept.length;) {
-                // slither-disable-next-line calls-loop
                 _tryInitializeBuybackPoolFor({
                     revnetId: revnetId,
                     terminalToken: terminalConfiguration.accountingContextsToAccept[j].token,
@@ -901,7 +888,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
 
         // Include the caller so two revnets with identical configuration and user salt cannot collide. Same-address
         // cross-chain deployment still works when the same operator calls this helper on each chain.
-        // slither-disable-next-line unused-return
         suckers = SUCKER_REGISTRY.deploySuckersFor({
             projectId: revnetId,
             salt: keccak256(abi.encode(encodedConfigurationHash, suckerDeploymentConfiguration.salt, _msgSender())),
@@ -934,7 +920,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         returns (JBRulesetConfig[] memory rulesetConfigurations, bytes32 encodedConfigurationHash)
     {
         // If there are no stages, revert.
-        if (configuration.stageConfigurations.length == 0) revert REVDeployer_StagesRequired();
+        if (configuration.stageConfigurations.length == 0) {
+            revert REVDeployer_StagesRequired({stageCount: configuration.stageConfigurations.length});
+        }
 
         // Initialize the array of rulesets.
         rulesetConfigurations = new JBRulesetConfig[](configuration.stageConfigurations.length);
@@ -975,7 +963,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             // Make sure the revnet has at least one split if it has a split percent.
             // Otherwise, the split would go to this contract since its the revnet's owner.
             if (stageConfiguration.splitPercent > 0 && stageConfiguration.splits.length == 0) {
-                revert REVDeployer_MustHaveSplits();
+                revert REVDeployer_MustHaveSplits({stageIndex: i, splitPercent: stageConfiguration.splitPercent});
             }
 
             // Compute the effective start time for this stage.
@@ -985,7 +973,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
 
             // If the stage's start time is not after the previous stage's start time, revert.
             if (i > 0 && effectiveStart <= previousStageStart) {
-                revert REVDeployer_StageTimesMustIncrease();
+                revert REVDeployer_StageTimesMustIncrease({
+                    stageIndex: i, previousStageStart: previousStageStart, effectiveStart: effectiveStart
+                });
             }
 
             // Store for the next iteration's ordering check.
@@ -1027,7 +1017,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
                 REVAutoIssuance calldata autoIssuance = stageConfiguration.autoIssuances[j];
 
                 // Make sure the beneficiary is not the zero address.
-                if (autoIssuance.beneficiary == address(0)) revert REVDeployer_AutoIssuanceBeneficiaryZeroAddress();
+                if (autoIssuance.beneficiary == address(0)) {
+                    revert REVDeployer_AutoIssuanceBeneficiaryZeroAddress({stageIndex: i, autoIssuanceIndex: j});
+                }
 
                 // If there's nothing to auto-mint, continue.
                 if (autoIssuance.count == 0) continue;
@@ -1039,7 +1031,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
                 // If the issuance config is for another chain, skip it.
                 if (autoIssuance.chainId != block.chainid) continue;
 
-                // slither-disable-next-line reentrancy-events
                 emit StoreAutoIssuanceAmount({
                     revnetId: revnetId,
                     stageId: block.timestamp + i,
@@ -1054,7 +1045,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
                 // (JBRulesets.sol L172), producing the same sequential IDs when all stages are queued in one tx.
                 // `autoIssueFor` later calls `getRulesetOf(revnetId, stageId)` — the returned `ruleset.start`
                 // is the derived start time (not the queue time), so the timing guard works correctly.
-                // slither-disable-next-line reentrancy-benign
                 amountToAutoIssue[revnetId][block.timestamp + i][autoIssuance.beneficiary] += autoIssuance.count;
             }
             unchecked {
@@ -1073,13 +1063,13 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     function _setCashOutDelayIfNeeded(uint256 revnetId, REVStageConfig calldata firstStageConfig) internal {
         // If this is the first revnet being deployed (with a `startsAtOrAfter` of 0),
         // or if the first stage hasn't started yet, we don't need to set a cash out delay.
+        // forge-lint: disable-next-line(block-timestamp)
         if (firstStageConfig.startsAtOrAfter == 0 || firstStageConfig.startsAtOrAfter >= block.timestamp) return;
 
         // Calculate the timestamp at which the cash out delay ends.
         uint256 cashOutDelay = block.timestamp + CASH_OUT_DELAY;
 
         // Store the cash out delay in the owner contract.
-        // slither-disable-next-line reentrancy-events
         REVOwner(OWNER).setCashOutDelayOf({revnetId: revnetId, cashOutDelay: cashOutDelay});
 
         emit SetCashOutDelay({revnetId: revnetId, cashOutDelay: cashOutDelay, caller: _msgSender()});

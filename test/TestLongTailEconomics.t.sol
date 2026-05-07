@@ -167,6 +167,7 @@ contract TestLongTailEconomics is TestBaseWorkflow {
             autoIssuances: new REVAutoIssuance[](0),
             splitPercent: 0,
             splits: splits,
+            // forge-lint: disable-next-line(unsafe-typecast)
             initialIssuance: uint112(1000 * DECIMAL_MULTIPLIER),
             issuanceCutFrequency: 90 days,
             issuanceCutPercent: JBConstants.MAX_WEIGHT_CUT_PERCENT / 2,

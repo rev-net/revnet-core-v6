@@ -31,6 +31,7 @@ contract TestLoanERC20Fork is ForkTestBase {
         // pricingCurrency = USDC, unitCurrency = NATIVE_TOKEN -> price per USDC unit in ETH = 0.0005e18 = 5e14.
         MockPriceFeed priceFeed = new MockPriceFeed(5e14, 18);
         vm.prank(multisig());
+        // forge-lint: disable-next-line(unsafe-typecast)
         jbPrices().addPriceFeedFor(0, uint32(uint160(USDC)), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
 
         // Deploy fee project with both native and USDC terminals.
@@ -63,6 +64,7 @@ contract TestLoanERC20Fork is ForkTestBase {
         acc[0] = JBAccountingContext({
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
+        // forge-lint: disable-next-line(unsafe-typecast)
         acc[1] = JBAccountingContext({token: USDC, decimals: USDC_DECIMALS, currency: uint32(uint160(USDC))});
 
         tc = new JBTerminalConfig[](1);
@@ -166,6 +168,7 @@ contract TestLoanERC20Fork is ForkTestBase {
         returns (uint256 loanId, REVLoan memory loan)
     {
         REVLoanSource memory source = _usdcLoanSource();
+        // forge-lint: disable-next-line(unsafe-typecast)
         uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(id, collateral, USDC_DECIMALS, uint32(uint160(USDC)));
         require(borrowable > 0, "no borrowable amount in USDC");
 
@@ -191,7 +194,8 @@ contract TestLoanERC20Fork is ForkTestBase {
         uint256 borrowerTokens = jbTokens().totalBalanceOf(BORROWER, revnetId);
 
         uint256 borrowable =
-            LOANS_CONTRACT.borrowableAmountFrom(revnetId, borrowerTokens, USDC_DECIMALS, uint32(uint160(USDC)));
+        // forge-lint: disable-next-line(unsafe-typecast)
+        LOANS_CONTRACT.borrowableAmountFrom(revnetId, borrowerTokens, USDC_DECIMALS, uint32(uint160(USDC)));
         assertGt(borrowable, 0, "should have borrowable amount in USDC");
 
         uint256 totalCollateralBefore = LOANS_CONTRACT.totalCollateralOf(revnetId);
@@ -244,7 +248,8 @@ contract TestLoanERC20Fork is ForkTestBase {
         uint256 prepaidFeePercent = LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT(); // 25 = 2.5%
 
         uint256 borrowable =
-            LOANS_CONTRACT.borrowableAmountFrom(revnetId, borrowerTokens, USDC_DECIMALS, uint32(uint160(USDC)));
+        // forge-lint: disable-next-line(unsafe-typecast)
+        LOANS_CONTRACT.borrowableAmountFrom(revnetId, borrowerTokens, USDC_DECIMALS, uint32(uint160(USDC)));
 
         // Record balances before.
         uint256 borrowerUsdcBefore = IERC20(USDC).balanceOf(BORROWER);
@@ -434,7 +439,8 @@ contract TestLoanERC20Fork is ForkTestBase {
         uint256 prepaidFeePercent = LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT();
 
         uint256 borrowable =
-            LOANS_CONTRACT.borrowableAmountFrom(revnetId, borrowerTokens, USDC_DECIMALS, uint32(uint160(USDC)));
+        // forge-lint: disable-next-line(unsafe-typecast)
+        LOANS_CONTRACT.borrowableAmountFrom(revnetId, borrowerTokens, USDC_DECIMALS, uint32(uint160(USDC)));
 
         // Calculate each fee component using JBFees (same as the contract does internally).
         uint256 expectedAllowanceFee =

@@ -39,7 +39,7 @@ import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressReg
 import {REVOwner} from "../../src/REVOwner.sol";
 import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
 
-contract CodexNemesisSuckerCallerDeterminismTest is TestBaseWorkflow {
+contract RegressionSuckerCallerDeterminismTest is TestBaseWorkflow {
     bytes32 private constant REV_DEPLOYER_SALT = "REVDeployer";
     address private constant TRUSTED_FORWARDER = 0xB2b5841DBeF766d4b521221732F9B618fCf34A87;
     address private constant MESSENGER = address(0x1001);
@@ -152,6 +152,7 @@ contract CodexNemesisSuckerCallerDeterminismTest is TestBaseWorkflow {
 
     function test_identicalRevnetConfigsUseCallerNamespacedSuckerSalt() public {
         uint40 commonStart = uint40(block.timestamp);
+        // forge-lint: disable-next-line(unsafe-typecast)
         bytes32 descriptionSalt = bytes32("REV_SAME_CONFIG");
 
         uint256 revnetA = _deployRevnetWith(OPERATOR_A, OPERATOR_A, descriptionSalt, commonStart);
@@ -163,6 +164,7 @@ contract CodexNemesisSuckerCallerDeterminismTest is TestBaseWorkflow {
             "setup: identical revnet configs should hash the same"
         );
 
+        // forge-lint: disable-next-line(unsafe-typecast)
         REVSuckerDeploymentConfig memory config = _suckerConfig(bytes32("CALLER_SALTED"));
 
         vm.prank(OPERATOR_A);
@@ -184,7 +186,9 @@ contract CodexNemesisSuckerCallerDeterminismTest is TestBaseWorkflow {
     }
 
     function test_onlySplitOperatorCanDeploySuckersForRevnet() public {
+        // forge-lint: disable-next-line(unsafe-typecast)
         uint256 revnetId = _deployRevnetWith(OPERATOR_A, OPERATOR_A, bytes32("OP_CHAIN_CTRL"), uint40(block.timestamp));
+        // forge-lint: disable-next-line(unsafe-typecast)
         REVSuckerDeploymentConfig memory config = _suckerConfig(bytes32("CHAIN_CTRL"));
 
         vm.expectRevert(abi.encodeWithSelector(REVDeployer.REVDeployer_Unauthorized.selector, revnetId, OPERATOR_B));
@@ -215,6 +219,7 @@ contract CodexNemesisSuckerCallerDeterminismTest is TestBaseWorkflow {
         });
 
         REVConfig memory config = REVConfig({
+            // forge-lint: disable-next-line(unsafe-typecast)
             description: REVDescription("Fee Revnet", "FEE", "", bytes32("FEE_TOKEN")),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),

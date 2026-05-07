@@ -163,6 +163,7 @@ contract BorrowableHarness is REVLoans {
     {
         JBRulesetMetadata memory rulesetMetadata;
         rulesetMetadata.cashOutTaxRate = cashOutTaxRate;
+        // forge-lint: disable-next-line(unsafe-typecast)
         rulesetMetadata.baseCurrency = uint32(currency);
         rulesetMetadata.useTotalSurplusForCashOuts = true;
 

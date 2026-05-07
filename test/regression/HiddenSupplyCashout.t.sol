@@ -5,7 +5,7 @@ import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 
 import {TestHiddenTokens} from "../TestHiddenTokens.t.sol";
 
-contract CodexNemesisHiddenSupplyCashoutTest is TestHiddenTokens {
+contract RegressionHiddenSupplyCashoutTest is TestHiddenTokens {
     function test_hiddenSupplyIsExcludedFromCashoutDenominatorByDesign() public {
         uint256 payAmount = 10 ether;
 

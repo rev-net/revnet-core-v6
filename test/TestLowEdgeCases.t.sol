@@ -53,7 +53,7 @@ struct FeeProjectConfig {
     REVSuckerDeploymentConfig suckerDeploymentConfiguration;
 }
 
-contract TestLowFindings is TestBaseWorkflow {
+contract TestLowRegressions is TestBaseWorkflow {
     // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
     // forge-lint: disable-next-line(mixed-case-variable)
