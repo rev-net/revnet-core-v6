@@ -464,7 +464,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Uses `>` (not `>=`) so the exact boundary second is still repayable — the liquidation path
         // uses `<=`, and matching `>=` here would create a 1-second window where neither path is available.
         if (timeSinceLoanCreated > LOAN_LIQUIDATION_DURATION) {
-            revert REVLoans_LoanExpired(timeSinceLoanCreated, LOAN_LIQUIDATION_DURATION);
+            revert REVLoans_LoanExpired({
+                timeSinceLoanCreated: timeSinceLoanCreated, loanLiquidationDuration: LOAN_LIQUIDATION_DURATION
+            });
         }
 
         // Get a reference to the amount prepaid for the full loan.
@@ -742,7 +744,10 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Make sure the loan hasn't expired.
         // forge-lint: disable-next-line(block-timestamp)
         if (block.timestamp - _loanOf[loanId].createdAt > LOAN_LIQUIDATION_DURATION) {
-            revert REVLoans_LoanExpired(block.timestamp - _loanOf[loanId].createdAt, LOAN_LIQUIDATION_DURATION);
+            revert REVLoans_LoanExpired({
+                timeSinceLoanCreated: block.timestamp - _loanOf[loanId].createdAt,
+                loanLiquidationDuration: LOAN_LIQUIDATION_DURATION
+            });
         }
 
         // Make sure the new loan's source matches the existing loan's source to prevent cross-source value extraction.
@@ -817,7 +822,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         REVLoan storage loan = _loanOf[loanId];
 
         if (collateralCountToReturn > loan.collateral) {
-            revert REVLoans_CollateralExceedsLoan(collateralCountToReturn, loan.collateral);
+            revert REVLoans_CollateralExceedsLoan({
+                collateralToReturn: collateralCountToReturn, loanCollateral: loan.collateral
+            });
         }
 
         // Get a reference to the revnet ID of the loan being repaid.
@@ -844,7 +851,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
 
             // Make sure the new borrow amount is less than the loan's amount.
             if (newBorrowAmount > loan.amount) {
-                revert REVLoans_NewBorrowAmountGreaterThanLoanAmount(newBorrowAmount, loan.amount);
+                revert REVLoans_NewBorrowAmountGreaterThanLoanAmount({
+                    newBorrowAmount: newBorrowAmount, loanAmount: loan.amount
+                });
             }
 
             // Get the amount of the loan being repaid.
@@ -872,7 +881,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
 
         // Make sure the minimum borrow amount is met.
         if (repayBorrowAmount > maxRepayBorrowAmount) {
-            revert REVLoans_OverMaxRepayBorrowAmount(maxRepayBorrowAmount, repayBorrowAmount);
+            revert REVLoans_OverMaxRepayBorrowAmount({
+                maxRepayBorrowAmount: maxRepayBorrowAmount, repayBorrowAmount: repayBorrowAmount
+            });
         }
 
         // Cache the source token before _repayLoan deletes the loan storage.
@@ -936,7 +947,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         if (allowance.amount != 0) {
             // Make sure the permit allowance is enough for this payment. If not we revert early.
             if (allowance.amount < amount) {
-                revert REVLoans_PermitAllowanceNotEnough(allowance.amount, amount);
+                revert REVLoans_PermitAllowanceNotEnough({allowanceAmount: allowance.amount, requiredAmount: amount});
             }
 
             // Keep a reference to the permit rules.
@@ -1097,7 +1108,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Any reentrant call will see the updated loan values, reverting on overflow.
         if (newBorrowAmount > type(uint112).max) revert REVLoans_OverflowAlert(newBorrowAmount, type(uint112).max);
         if (newCollateralCount > type(uint112).max) {
-            revert REVLoans_OverflowAlert(newCollateralCount, type(uint112).max);
+            revert REVLoans_OverflowAlert({value: newCollateralCount, limit: type(uint112).max});
         }
         // forge-lint: disable-next-line(unsafe-typecast)
         loan.amount = uint112(newBorrowAmount);
@@ -1195,16 +1206,16 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
 
         // Make sure the source terminal is registered in the directory for this revnet.
         if (!DIRECTORY.isTerminalOf({projectId: revnetId, terminal: IJBTerminal(address(source.terminal))})) {
-            revert REVLoans_InvalidTerminal(address(source.terminal), revnetId);
+            revert REVLoans_InvalidTerminal({terminal: address(source.terminal), revnetId: revnetId});
         }
 
         // Make sure the prepaid fee percent is between `MIN_PREPAID_FEE_PERCENT` and `MAX_PREPAID_FEE_PERCENT`. Meaning
         // an 16 year loan can be paid upfront with a
         // payment of 50% of the borrowed assets, the cheapest possible rate.
         if (prepaidFeePercent < MIN_PREPAID_FEE_PERCENT || prepaidFeePercent > MAX_PREPAID_FEE_PERCENT) {
-            revert REVLoans_InvalidPrepaidFeePercent(
-                prepaidFeePercent, MIN_PREPAID_FEE_PERCENT, MAX_PREPAID_FEE_PERCENT
-            );
+            revert REVLoans_InvalidPrepaidFeePercent({
+                prepaidFeePercent: prepaidFeePercent, min: MIN_PREPAID_FEE_PERCENT, max: MAX_PREPAID_FEE_PERCENT
+            });
         }
 
         // Cache the current ruleset once — used by both _cashOutDelayOf and _borrowAmountFrom.
@@ -1215,7 +1226,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             uint256 cashOutDelay = _cashOutDelayOf({revnetId: revnetId, currentRuleset: currentRuleset});
             // forge-lint: disable-next-line(block-timestamp)
             if (cashOutDelay > block.timestamp) {
-                revert REVLoans_CashOutDelayNotFinished(cashOutDelay, block.timestamp);
+                revert REVLoans_CashOutDelayNotFinished({cashOutDelay: cashOutDelay, blockTimestamp: block.timestamp});
             }
         }
 
@@ -1331,7 +1342,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
 
         // Make sure the borrow amount is not less than the original loan's amount.
         if (borrowAmount < loan.amount) {
-            revert REVLoans_ReallocatingMoreCollateralThanBorrowedAmountAllows(borrowAmount, loan.amount);
+            revert REVLoans_ReallocatingMoreCollateralThanBorrowedAmountAllows({
+                newBorrowAmount: borrowAmount, loanAmount: loan.amount
+            });
         }
 
         // Get a reference to the replacement loan ID.

@@ -260,7 +260,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @param operator The address to check.
     function _checkIfIsSplitOperatorOf(uint256 revnetId, address operator) internal view {
         if (!isSplitOperatorOf({revnetId: revnetId, addr: operator})) {
-            revert REVDeployer_Unauthorized(revnetId, operator);
+            revert REVDeployer_Unauthorized({revnetId: revnetId, caller: operator});
         }
     }
 
@@ -450,7 +450,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         // Make sure the stage has started.
         // forge-lint: disable-next-line(block-timestamp)
         if (ruleset.start > block.timestamp) {
-            revert REVDeployer_StageNotStarted(stageId);
+            revert REVDeployer_StageNotStarted({stageId: stageId});
         }
 
         // Get a reference to the number of tokens to auto-issue.
@@ -481,7 +481,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         uint256 balance = CONTROLLER.TOKENS().totalBalanceOf({holder: address(this), projectId: revnetId});
         if (balance == 0) revert REVDeployer_NothingToBurn({revnetId: revnetId, holder: address(this)});
         CONTROLLER.burnTokensOf({holder: address(this), projectId: revnetId, tokenCount: balance, memo: ""});
-        emit BurnHeldTokens(revnetId, balance, _msgSender());
+        emit BurnHeldTokens({revnetId: revnetId, count: balance, caller: _msgSender()});
     }
 
     /// @notice Launch a revnet, or initialize an existing Juicebox project as a revnet.
@@ -983,9 +983,10 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
 
             // Make sure the revnet doesn't prevent cashouts all together.
             if (stageConfiguration.cashOutTaxRate >= JBConstants.MAX_CASH_OUT_TAX_RATE) {
-                revert REVDeployer_CashOutsCantBeTurnedOffCompletely(
-                    stageConfiguration.cashOutTaxRate, JBConstants.MAX_CASH_OUT_TAX_RATE
-                );
+                revert REVDeployer_CashOutsCantBeTurnedOffCompletely({
+                    cashOutTaxRate: stageConfiguration.cashOutTaxRate,
+                    maxCashOutTaxRate: JBConstants.MAX_CASH_OUT_TAX_RATE
+                });
             }
 
             // Set up the ruleset.

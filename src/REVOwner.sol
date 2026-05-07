@@ -184,7 +184,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         // Enforce the cash out delay.
         // forge-lint: disable-next-line(block-timestamp)
         if (cashOutDelay > block.timestamp) {
-            revert REVOwner_CashOutDelayNotFinished(cashOutDelay, block.timestamp);
+            revert REVOwner_CashOutDelayNotFinished({cashOutDelay: cashOutDelay, blockTimestamp: block.timestamp});
         }
 
         // Get the terminal that will receive the cash out fee.

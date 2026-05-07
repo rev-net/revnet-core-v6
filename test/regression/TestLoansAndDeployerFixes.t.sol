@@ -397,7 +397,14 @@ contract TestLoansAndDeployerFixes is REVLoansFeeRecovery {
         });
 
         // This should revert because stage 1 start (1) < block.timestamp (the normalized stage 0 start).
-        vm.expectRevert(abi.encodeWithSelector(REVDeployer.REVDeployer_StageTimesMustIncrease.selector));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                REVDeployer.REVDeployer_StageTimesMustIncrease.selector,
+                1,
+                block.timestamp,
+                stageConfigurations[1].startsAtOrAfter
+            )
+        );
         REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: config,
@@ -563,7 +570,14 @@ contract TestLoansAndDeployerFixes is REVLoansFeeRecovery {
 
         // This should revert because stage 1 start == block.timestamp == normalized stage 0 start.
         // The check is `effectiveStart <= previousStageStart`, so equality triggers revert.
-        vm.expectRevert(abi.encodeWithSelector(REVDeployer.REVDeployer_StageTimesMustIncrease.selector));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                REVDeployer.REVDeployer_StageTimesMustIncrease.selector,
+                1,
+                block.timestamp,
+                stageConfigurations[1].startsAtOrAfter
+            )
+        );
         REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: config,

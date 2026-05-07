@@ -85,7 +85,7 @@ contract REVHiddenTokens is ERC2771Context, JBPermissioned, IREVHiddenTokens {
             _hasPermissionFrom(caller, PROJECTS.ownerOf(revnetId), revnetId, JBPermissionIds.HIDE_TOKENS);
 
         if (!isAllowlistedHolder && !isPermissionedOperator) {
-            revert REVHiddenTokens_Unauthorized(revnetId, caller);
+            revert REVHiddenTokens_Unauthorized({revnetId: revnetId, caller: caller});
         }
 
         // Increment the holder's hidden balance.
