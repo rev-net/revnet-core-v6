@@ -1105,7 +1105,9 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             REVNET_ID, collateralToTransfer, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
 
-        vm.expectRevert(REVLoans.REVLoans_NotEnoughCollateral.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(REVLoans.REVLoans_NotEnoughCollateral.selector, loan.collateral + 1, loan.collateral)
+        );
         vm.prank(USER);
         LOANS_CONTRACT.reallocateCollateralFromLoan(
             // collateral exceeds with + 1
