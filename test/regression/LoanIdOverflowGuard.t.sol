@@ -409,7 +409,11 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
         REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
 
         // Expect the overflow revert.
-        vm.expectRevert(REVLoans.REVLoans_LoanIdOverflow.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                REVLoans.REVLoans_LoanIdOverflow.selector, REVNET_ID, _ONE_TRILLION + 1, _ONE_TRILLION
+            )
+        );
 
         // Attempt to borrow -- should revert because the counter is at the limit.
         vm.prank(USER);
@@ -462,7 +466,11 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
         uint256 collateralToTransfer = 1;
 
         // Expect the overflow revert from _reallocateCollateralFromLoan.
-        vm.expectRevert(REVLoans.REVLoans_LoanIdOverflow.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                REVLoans.REVLoans_LoanIdOverflow.selector, REVNET_ID, _ONE_TRILLION + 1, _ONE_TRILLION
+            )
+        );
 
         // Attempt to reallocate -- should revert because the counter is at the limit.
         vm.prank(USER);
@@ -514,7 +522,11 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
         JBSingleAllowance memory allowance;
 
         // Expect the overflow revert from the partial-repay branch.
-        vm.expectRevert(REVLoans.REVLoans_LoanIdOverflow.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                REVLoans.REVLoans_LoanIdOverflow.selector, REVNET_ID, _ONE_TRILLION + 1, _ONE_TRILLION
+            )
+        );
 
         // Attempt a partial repayment -- should revert because creating the replacement loan
         // would exceed the _ONE_TRILLION loan ID namespace.
