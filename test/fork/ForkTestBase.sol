@@ -415,6 +415,7 @@ abstract contract ForkTestBase is TestBaseWorkflow {
             description: REVDescription("Fork Test", "FORK", "ipfs://fork", "FORK_SALT"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stages
         });
 

@@ -128,6 +128,7 @@ contract TestStageTransitionBorrowable is TestBaseWorkflow {
             description: REVDescription("StageTest", "STG", "ipfs://test", "STG_SALT"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stages
         });
 

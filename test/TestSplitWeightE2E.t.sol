@@ -197,6 +197,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
             description: REVDescription("E2E Test", "E2E", "ipfs://e2e", "E2E_SALT"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stages
         });
 

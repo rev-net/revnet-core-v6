@@ -182,6 +182,7 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
             description: REVDescription("Revnet", "$REV", "ipfs://fee", "REV_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stages
         });
 
@@ -230,6 +231,7 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
             description: REVDescription("CrossCurrency", "XCRCY", "ipfs://cross", "XCRCY_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stages
         });
 

@@ -135,6 +135,7 @@ contract TestReallocationSandwich is TestBaseWorkflow {
             description: REVDescription("SandwichTest", "SWT", "ipfs://sandwich", "SWT_SALT"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stages
         });
 

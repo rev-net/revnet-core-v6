@@ -184,6 +184,7 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
         // Recompute the expected hash manually.
         bytes memory encodedConfiguration = abi.encode(
             uint32(uint160(JBConstants.NATIVE_TOKEN)), // baseCurrency
+            true, // useTotalSurplusForCashOuts
             "Terminal Test", // name
             "TERM", // ticker
             // forge-lint: disable-next-line(unsafe-typecast)
@@ -312,6 +313,7 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
             description: REVDescription("Terminal Test", "TERM", "", salt),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stages
         });
     }
@@ -336,6 +338,7 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
             description: REVDescription("Terminal Test", "TERM", "", salt),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stages
         });
     }
@@ -373,6 +376,7 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
             description: REVDescription("Fee Project", "FEE", "", bytes32("FEE")),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stages
         });
         vm.prank(multisig());

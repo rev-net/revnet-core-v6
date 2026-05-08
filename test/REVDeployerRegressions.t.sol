@@ -224,6 +224,7 @@ contract REVDeployerRegressions is TestBaseWorkflow {
             description: REVDescription("Test", "TST", "ipfs://test", "TEST_SALT"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stageConfigurations
         });
 
@@ -345,6 +346,7 @@ contract REVDeployerRegressions is TestBaseWorkflow {
             description: REVDescription("H5Test", "H5T", "ipfs://h5test", "H5_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stageConfigurations
         });
 

@@ -213,6 +213,7 @@ contract REVLifecycle_Local is TestBaseWorkflow {
             description: REVDescription("Lifecycle", "LIFE", "ipfs://lifecycle", "LIFE_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stageConfigurations
         });
 

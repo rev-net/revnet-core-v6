@@ -185,11 +185,13 @@ contract REVnet_Integrations is TestBaseWorkflow {
             description: REVDescription(name, symbol, projectUri, ERC20_SALT),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stageConfigurations
         });
 
         ENCODED_CONFIG = abi.encode(
             revnetConfiguration.baseCurrency,
+            revnetConfiguration.useTotalSurplusForCashOuts,
             revnetConfiguration.description.name,
             revnetConfiguration.description.ticker,
             revnetConfiguration.description.salt

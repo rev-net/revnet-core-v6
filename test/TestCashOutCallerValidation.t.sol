@@ -138,6 +138,7 @@ contract TestCashOutCallerValidation is TestBaseWorkflow {
             description: REVDescription(name, symbol, projectUri, ERC20_SALT),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stageConfigurations
         });
 
@@ -195,6 +196,7 @@ contract TestCashOutCallerValidation is TestBaseWorkflow {
             description: REVDescription(name, symbol, projectUri, "NANA_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stageConfigurations
         });
 

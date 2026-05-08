@@ -168,6 +168,7 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
             description: REVDescription("Test", "TST", "ipfs://test", "TEST_SALT"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stages
         });
 

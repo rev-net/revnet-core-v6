@@ -294,6 +294,7 @@ contract RegressionPhantomSurplusTerminalTest is TestBaseWorkflow {
             description: REVDescription("Fee Revnet", "FEE", "", "FEE_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stages
         });
         vm.prank(multisig());
@@ -338,6 +339,7 @@ contract RegressionPhantomSurplusTerminalTest is TestBaseWorkflow {
             description: REVDescription("Phantom", "PHM", "", "PHM_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stages
         });
 

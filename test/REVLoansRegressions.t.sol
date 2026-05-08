@@ -285,6 +285,7 @@ contract REVLoansRegressions is TestBaseWorkflow {
             description: REVDescription("H6Test", "H6T", "ipfs://h6test", "H6_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stageConfigurations
         });
 

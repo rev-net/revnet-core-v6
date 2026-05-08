@@ -295,6 +295,7 @@ contract RegressionOperatorDelegationTest is TestBaseWorkflow {
             description: REVDescription("Fee Revnet", "FEE", "", ERC20_SALT),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stages
         });
 
@@ -342,6 +343,7 @@ contract RegressionOperatorDelegationTest is TestBaseWorkflow {
             description: REVDescription("Revnet", "REV", "", bytes32("REV_TOKEN_2")),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stages
         });
 

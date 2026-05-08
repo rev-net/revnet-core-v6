@@ -286,6 +286,7 @@ contract TestRevnetRegressions is TestBaseWorkflow {
             description: REVDescription("Revnet", "$REV", "ipfs://test", ERC20_SALT),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stageConfigurations
         });
 
@@ -334,6 +335,7 @@ contract TestRevnetRegressions is TestBaseWorkflow {
             description: REVDescription("Borrowable", "BRW", "ipfs://brw", "BRW_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stageConfigurations
         });
 

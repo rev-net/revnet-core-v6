@@ -180,6 +180,7 @@ contract TestLongTailEconomics is TestBaseWorkflow {
             description: REVDescription("Revnet", "$REV", "ipfs://fee", "REV_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stages
         });
 
@@ -255,6 +256,7 @@ contract TestLongTailEconomics is TestBaseWorkflow {
             description: REVDescription("LongTail", "LTAIL", "ipfs://longtail", "LTAIL_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stageConfigurations
         });
 

@@ -104,6 +104,7 @@ contract TestPermit2PaymentFork is ForkTestBase {
             description: REVDescription("Permit2 Test", "P2T", "ipfs://p2t", "PERMIT2_SALT"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stages
         });
 

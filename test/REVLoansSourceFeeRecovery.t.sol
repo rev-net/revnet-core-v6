@@ -140,6 +140,7 @@ contract REVLoansSourceFeeRecovery is TestBaseWorkflow {
             }),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stageConfigurations
         });
 
@@ -204,6 +205,7 @@ contract REVLoansSourceFeeRecovery is TestBaseWorkflow {
             }),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stageConfigurations
         });
 

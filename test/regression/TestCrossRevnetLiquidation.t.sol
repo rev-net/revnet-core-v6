@@ -176,6 +176,7 @@ contract TestCrossRevnetLiquidation is TestBaseWorkflow {
             description: REVDescription("Revnet", "$REV", "ipfs://test", "REV_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stages
         });
         vm.prank(multisig());
@@ -221,6 +222,7 @@ contract TestCrossRevnetLiquidation is TestBaseWorkflow {
             description: REVDescription("NANA", "$NANA", "ipfs://test2", "NANA_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stages
         });
         (REVNET_ID,) = REV_DEPLOYER.deployFor({

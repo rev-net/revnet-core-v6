@@ -179,6 +179,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
             description: REVDescription("TestRevnet", "TREV", "ipfs://test", bytes32(uint256(numStages))),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stages
         });
 

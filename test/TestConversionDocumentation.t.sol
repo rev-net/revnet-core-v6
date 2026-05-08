@@ -129,6 +129,7 @@ contract TestConversionDocumentation is TestBaseWorkflow {
             description: REVDescription(name, symbol, "ipfs://test", salt),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stageConfigurations
         });
 

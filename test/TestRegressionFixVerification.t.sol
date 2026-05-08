@@ -645,6 +645,7 @@ contract TestRegressionFixVerification is TestBaseWorkflow {
             description: REVDescription("Fee Revnet", "FEE", "", ERC20_SALT),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stages
         });
         vm.prank(multisig());
@@ -688,6 +689,7 @@ contract TestRegressionFixVerification is TestBaseWorkflow {
             description: REVDescription("Test Revnet", "TEST", "", bytes32("TEST_TOKEN")),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stages
         });
         (uint256 revnetId,) = REV_DEPLOYER.deployFor({

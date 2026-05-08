@@ -223,6 +223,7 @@ contract RegressionSuckerCallerDeterminismTest is TestBaseWorkflow {
             description: REVDescription("Fee Revnet", "FEE", "", bytes32("FEE_TOKEN")),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stages
         });
 
@@ -273,6 +274,7 @@ contract RegressionSuckerCallerDeterminismTest is TestBaseWorkflow {
             description: REVDescription("Caller Salt Revnet", "CSR", "", descriptionSalt),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: splitOperator,
+            useTotalSurplusForCashOuts: true,
             stageConfigurations: stages
         });
 
