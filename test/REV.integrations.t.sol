@@ -267,7 +267,7 @@ contract REVnet_Integrations is TestBaseWorkflow {
             deployer: _deployer,
             directory: jbDirectory(),
             permissions: jbPermissions(),
-            prices: address(jbPrices()),
+            prices: jbPrices(),
             tokens: jbTokens(),
             feeProjectId: 1,
             registry: SUCKER_REGISTRY,
