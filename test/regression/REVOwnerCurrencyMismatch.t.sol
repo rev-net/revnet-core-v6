@@ -108,6 +108,8 @@ contract REVOwnerCurrencyMismatchTest is TestBaseWorkflow {
             IJBSuckerRegistry(address(suckerRegistry)),
             IREVLoans(address(0)), // loans
             IREVHiddenTokens(address(0)) // hidden tokens
+,
+            address(this)
         );
     }
 

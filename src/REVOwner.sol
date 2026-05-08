@@ -112,13 +112,16 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     /// @param suckerRegistry The sucker registry.
     /// @param loans The loan contract.
     /// @param hiddenTokens The hidden tokens contract.
+    /// @param deployerBinder The account allowed to bind the canonical deployer via `setDeployer`. Passed explicitly
+    /// because CREATE2 deployments set `msg.sender` to the factory, not the intended operator.
     constructor(
         IJBBuybackHookRegistry buybackHook,
         IJBDirectory directory,
         uint256 feeRevnetId,
         IJBSuckerRegistry suckerRegistry,
         IREVLoans loans,
-        IREVHiddenTokens hiddenTokens
+        IREVHiddenTokens hiddenTokens,
+        address deployerBinder
     ) {
         BUYBACK_HOOK = buybackHook;
         DIRECTORY = directory;
@@ -126,7 +129,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         SUCKER_REGISTRY = suckerRegistry;
         LOANS = loans;
         HIDDEN_TOKENS = hiddenTokens;
-        _DEPLOYER_BINDER = msg.sender;
+        _DEPLOYER_BINDER = deployerBinder;
     }
 
     //*********************************************************************//

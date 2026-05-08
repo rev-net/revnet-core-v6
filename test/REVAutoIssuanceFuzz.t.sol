@@ -102,6 +102,8 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
             SUCKER_REGISTRY,
             IREVLoans(makeAddr("loans")),
             IREVHiddenTokens(address(0))
+,
+            address(this)
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(

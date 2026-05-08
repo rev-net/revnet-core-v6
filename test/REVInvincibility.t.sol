@@ -271,6 +271,8 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
             IREVHiddenTokens(address(0))
+,
+            address(this)
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -1064,6 +1066,8 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
             IREVHiddenTokens(address(0))
+,
+            address(this)
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(

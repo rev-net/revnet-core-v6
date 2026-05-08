@@ -350,6 +350,8 @@ contract TestSplitWeightFork is TestBaseWorkflow {
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
             IREVHiddenTokens(address(0))
+,
+            address(this)
         );
 
         REV_DEPLOYER = new REVDeployer{salt: "REVDeployer_Fork"}(

@@ -104,6 +104,8 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
             IJBSuckerRegistry(address(suckerRegistry)),
             loans,
             IREVHiddenTokens(address(0))
+,
+            address(this)
         );
 
         revDeployer = new REVDeployer{salt: REV_DEPLOYER_SALT}(

@@ -25,6 +25,8 @@ contract RegressionFixL17Test is Test {
             IJBSuckerRegistry(makeAddr("suckerRegistry")),
             IREVLoans(makeAddr("loans")),
             IREVHiddenTokens(makeAddr("hiddenTokens"))
+,
+            address(this)
         );
     }
 

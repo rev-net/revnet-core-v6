@@ -138,6 +138,8 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
             IREVHiddenTokens(address(0))
+,
+            address(this)
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -446,6 +448,8 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
             IREVHiddenTokens(address(0))
+,
+            address(this)
         );
         REVDeployer ammDeployer = new REVDeployer{salt: "REVDeployer_AMM_E2E"}(
             jbController(),

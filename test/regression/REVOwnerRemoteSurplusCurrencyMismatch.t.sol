@@ -105,6 +105,8 @@ contract REVOwnerRemoteSurplusCurrencyMismatchTest is TestBaseWorkflow {
             IJBSuckerRegistry(address(suckerRegistry)),
             IREVLoans(address(0)),
             IREVHiddenTokens(address(0))
+,
+            address(this)
         );
     }
 

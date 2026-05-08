@@ -266,7 +266,7 @@ REVConfig memory config = REVConfig({
     }),
     baseCurrency: 1,                       // ETH
     splitOperator: msg.sender,
-    useTotalSurplusForCashOuts: true,
+    scopeCashOutsToLocalBalances: false,
     stageConfigurations: stages
 });
 

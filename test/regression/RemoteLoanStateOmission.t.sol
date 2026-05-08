@@ -225,6 +225,8 @@ contract RemoteLoanStateOmissionTest is Test {
             IJBSuckerRegistry(address(registry)),
             IREVLoans(address(0)),
             IREVHiddenTokens(address(0))
+,
+            address(this)
         );
 
         controller = new BorrowableControllerMock(DIRECTORY, PERMISSIONS, PRICES);
