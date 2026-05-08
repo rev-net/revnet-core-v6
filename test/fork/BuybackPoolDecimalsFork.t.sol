@@ -43,13 +43,13 @@ contract BuybackPoolDecimalsForkTest is Test {
 
     /// @notice 18-decimal token (WETH): sqrtPriceX96 should equal the established baseline.
     function test_sqrtPriceX96_18DecimalToken() external view {
-        uint112 issuance = uint112(1_000e18); // 1000 project tokens per terminal token
+        uint112 issuance = uint112(1000e18); // 1000 project tokens per terminal token
 
         // token0 = terminal (18 dec), token1 = project
         uint160 sqrtPrice = _computeSqrtPriceX96(issuance, 18, true);
 
         // Expected: sqrt(1000 * 2^192) = sqrt(1000) * 2^96
-        uint160 expected = uint160(sqrt(mulDiv(1_000e18, 1 << 192, 1e18)));
+        uint160 expected = uint160(sqrt(mulDiv(1000e18, 1 << 192, 1e18)));
         assertEq(sqrtPrice, expected, "18-dec sqrtPriceX96 should match baseline");
     }
 
@@ -58,7 +58,7 @@ contract BuybackPoolDecimalsForkTest is Test {
     /// Before the fix, both cases produced the same sqrtPriceX96 because `1e18` was hardcoded.
     /// After the fix, the 6-decimal price is sqrt(10^12) ≈ 10^6 times larger than the 18-decimal price.
     function test_sqrtPriceX96_6DecimalToken() external view {
-        uint112 issuance = uint112(1_000e18); // 1000 project tokens per terminal token
+        uint112 issuance = uint112(1000e18); // 1000 project tokens per terminal token
 
         // token0 = terminal (6 dec), token1 = project
         uint160 sqrtPrice6 = _computeSqrtPriceX96(issuance, 6, true);
@@ -75,7 +75,7 @@ contract BuybackPoolDecimalsForkTest is Test {
 
     /// @notice Inverse ordering: when token0 = project, token1 = terminal.
     function test_sqrtPriceX96_6DecimalToken_inverseOrdering() external view {
-        uint112 issuance = uint112(1_000e18);
+        uint112 issuance = uint112(1000e18);
 
         // token0 = project, token1 = terminal (6 dec)
         uint160 sqrtPrice6 = _computeSqrtPriceX96(issuance, 6, false);
