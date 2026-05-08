@@ -132,7 +132,7 @@ contract ScopeCashOutsToLocalBalancesConditionalTest is Test {
     }
 
     /// @notice When scopeCashOutsToLocalBalances is TRUE, remote supply/surplus must NOT be added.
-    function test_scopeTrue_excludesRemote() public {
+    function test_scopeTrue_excludesRemote() public view {
         JBBeforeCashOutRecordedContext memory ctx = _buildContext(true);
 
         (,, uint256 totalSupply, uint256 effectiveSurplus,) = revOwner.beforeCashOutRecordedWith(ctx);
@@ -143,7 +143,7 @@ contract ScopeCashOutsToLocalBalancesConditionalTest is Test {
     }
 
     /// @notice When scopeCashOutsToLocalBalances is FALSE, remote supply/surplus MUST be included.
-    function test_scopeFalse_includesRemote() public {
+    function test_scopeFalse_includesRemote() public view {
         JBBeforeCashOutRecordedContext memory ctx = _buildContext(false);
 
         (,, uint256 totalSupply, uint256 effectiveSurplus,) = revOwner.beforeCashOutRecordedWith(ctx);

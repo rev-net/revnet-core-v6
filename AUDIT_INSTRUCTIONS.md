@@ -1,6 +1,6 @@
 # Audit Instructions
 
-Revnet is a staged, owner-minimized product layer on top of Juicebox core. Audit it as an economic system, not just a deployer plus a loan contract.
+There is a billion dollars of well-meaning projects' money in the Juicebox Money Engine, growing exponentially. Your job is to hack it before anyone else. Whoever hacks it first saves/steals the money, and you are obsessed with being this winner, while also being a steward of the protocol and wanting it to keep growing safely.
 
 ## Audit Objective
 
