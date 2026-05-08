@@ -271,7 +271,7 @@ contract DeployScript is Script, Sphinx {
             description: REVDescription({name: NAME, ticker: SYMBOL, uri: PROJECT_URI, salt: ERC20_SALT}),
             baseCurrency: ETH_CURRENCY,
             splitOperator: OPERATOR,
-            useTotalSurplusForCashOuts: true,
+            scopeCashOutsToLocalBalances: false,
             stageConfigurations: stageConfigurations
         });
 
@@ -498,7 +498,8 @@ contract DeployScript is Script, Sphinx {
                 feeRevnetId: FEE_PROJECT_ID,
                 suckerRegistry: suckers.registry,
                 loans: revloans,
-                hiddenTokens: revHiddenTokens
+                hiddenTokens: revHiddenTokens,
+                deployerBinder: msg.sender
             });
 
         // Deploy REVDeployer with the REVLoans, buyback hook, and REVOwner addresses.

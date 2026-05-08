@@ -11,14 +11,13 @@ import {REVStageConfig} from "./REVStageConfig.sol";
 /// @custom:member baseCurrency The currency that issuance pricing is denominated in (e.g. ETH or USD).
 /// @custom:member splitOperator The address that receives production splits and can reassign the operator role.
 /// Only the current operator can replace itself after deployment.
-/// @custom:member useTotalSurplusForCashOuts Whether cash outs should use the total surplus across all terminals.
-/// When true, the bonding curve considers surplus from every terminal; when false, only the terminal being cashed out
-/// from. Defaults to true for backward compatibility.
+/// @custom:member scopeCashOutsToLocalBalances If true, cash-out calculations use only the local terminal's surplus.
+/// When false, the bonding curve considers surplus from every terminal across all chains.
 /// @custom:member stageConfigurations The ordered stages that define how the revnet's tokenomics evolve over time.
 struct REVConfig {
     REVDescription description;
     uint32 baseCurrency;
     address splitOperator;
-    bool useTotalSurplusForCashOuts;
+    bool scopeCashOutsToLocalBalances;
     REVStageConfig[] stageConfigurations;
 }

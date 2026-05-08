@@ -65,7 +65,7 @@ contract TestAutoIssuanceFork is ForkTestBase {
             description: REVDescription("AutoIssue Test", "AUTO", "ipfs://auto", "AUTO_SALT"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
-            useTotalSurplusForCashOuts: true,
+            scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });
 

@@ -128,7 +128,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
                 description: REVDescription("Revnet", "$REV", "ipfs://fee", ERC20_SALT),
                 baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                 splitOperator: multisig(),
-                useTotalSurplusForCashOuts: true,
+                scopeCashOutsToLocalBalances: false,
                 stageConfigurations: stageConfigurations
             }),
             terminalConfigurations: terminalConfigurations,
@@ -187,7 +187,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
                 description: REVDescription(name, symbol, "ipfs://test", salt),
                 baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                 splitOperator: multisig(),
-                useTotalSurplusForCashOuts: true,
+                scopeCashOutsToLocalBalances: false,
                 stageConfigurations: stageConfigurations
             }),
             terminalConfigurations: terminalConfigurations,
@@ -237,8 +237,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
-            IREVHiddenTokens(address(0))
-,
+            IREVHiddenTokens(address(0)),
             address(this)
         );
 

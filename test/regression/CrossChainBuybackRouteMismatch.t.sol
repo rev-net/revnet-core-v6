@@ -125,8 +125,7 @@ contract RegressionCrossChainBuybackRouteMismatchTest is TestBaseWorkflow {
             999_999,
             IJBSuckerRegistry(address(suckerRegistry)),
             IREVLoans(address(0)),
-            IREVHiddenTokens(address(0))
-,
+            IREVHiddenTokens(address(0)),
             address(this)
         );
     }
@@ -147,7 +146,7 @@ contract RegressionCrossChainBuybackRouteMismatchTest is TestBaseWorkflow {
                 decimals: 18,
                 currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
             }),
-            useTotalSurplus: true,
+            scopeCashOutsToLocalBalances: false,
             cashOutTaxRate: 0,
             beneficiaryIsFeeless: false,
             metadata: ""

@@ -91,7 +91,7 @@ contract TestLoanERC20Fork is ForkTestBase {
             description: REVDescription("ERC20 Fork Test", "ERC20F", "ipfs://erc20fork", "ERC20F_SALT"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
-            useTotalSurplusForCashOuts: true,
+            scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });
 

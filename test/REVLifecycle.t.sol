@@ -124,8 +124,7 @@ contract REVLifecycle_Local is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
-            IREVHiddenTokens(address(0))
-,
+            IREVHiddenTokens(address(0)),
             address(this)
         );
 
@@ -215,7 +214,7 @@ contract REVLifecycle_Local is TestBaseWorkflow {
             description: REVDescription("Lifecycle", "LIFE", "ipfs://lifecycle", "LIFE_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
-            useTotalSurplusForCashOuts: true,
+            scopeCashOutsToLocalBalances: false,
             stageConfigurations: stageConfigurations
         });
 

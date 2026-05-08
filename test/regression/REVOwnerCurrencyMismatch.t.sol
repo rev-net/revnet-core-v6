@@ -107,8 +107,7 @@ contract REVOwnerCurrencyMismatchTest is TestBaseWorkflow {
             999_999, // fee revnet ID (won't be used in this test path)
             IJBSuckerRegistry(address(suckerRegistry)),
             IREVLoans(address(0)), // loans
-            IREVHiddenTokens(address(0)) // hidden tokens
-,
+            IREVHiddenTokens(address(0)), // hidden tokens
             address(this)
         );
     }
@@ -139,7 +138,7 @@ contract REVOwnerCurrencyMismatchTest is TestBaseWorkflow {
                 decimals: 18,
                 currency: ethCurrency // 1
             }),
-            useTotalSurplus: true,
+            scopeCashOutsToLocalBalances: false,
             cashOutTaxRate: 0, // zero tax = feeless path (simpler, avoids needing fee terminal)
             beneficiaryIsFeeless: false,
             metadata: ""
@@ -173,7 +172,7 @@ contract REVOwnerCurrencyMismatchTest is TestBaseWorkflow {
             surplus: JBTokenAmount({
                 token: JBConstants.NATIVE_TOKEN, value: 100 ether, decimals: 18, currency: ethCurrency
             }),
-            useTotalSurplus: true,
+            scopeCashOutsToLocalBalances: false,
             cashOutTaxRate: 0,
             beneficiaryIsFeeless: false,
             metadata: ""

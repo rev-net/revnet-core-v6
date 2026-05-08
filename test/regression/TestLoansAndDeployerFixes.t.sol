@@ -388,7 +388,7 @@ contract TestLoansAndDeployerFixes is REVLoansFeeRecovery {
             }),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
-            useTotalSurplusForCashOuts: true,
+            scopeCashOutsToLocalBalances: false,
             stageConfigurations: stageConfigurations
         });
 
@@ -478,7 +478,7 @@ contract TestLoansAndDeployerFixes is REVLoansFeeRecovery {
             }),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
-            useTotalSurplusForCashOuts: true,
+            scopeCashOutsToLocalBalances: false,
             stageConfigurations: stageConfigurations
         });
 
@@ -562,7 +562,7 @@ contract TestLoansAndDeployerFixes is REVLoansFeeRecovery {
             }),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
-            useTotalSurplusForCashOuts: true,
+            scopeCashOutsToLocalBalances: false,
             stageConfigurations: stageConfigurations
         });
 

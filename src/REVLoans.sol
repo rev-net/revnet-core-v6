@@ -375,11 +375,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Start with local values. If the ruleset aggregates cross-chain state, add remote supply and surplus.
         uint256 effectiveSurplus = localSurplus;
         uint256 effectiveSupply = localSupply;
-        if (currentStage.useTotalSurplusForCashOuts()) {
+        if (!currentStage.scopeCashOutsToLocalBalances()) {
             effectiveSurplus += SUCKER_REGISTRY.remoteSurplusOf({
-                projectId: revnetId,
-                decimals: decimals,
-                currency: currency
+                projectId: revnetId, decimals: decimals, currency: currency
             });
             effectiveSupply += SUCKER_REGISTRY.remoteTotalSupplyOf(revnetId);
         }

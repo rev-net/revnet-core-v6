@@ -165,8 +165,7 @@ contract TestRevnetRegressions is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
-            IREVHiddenTokens(address(0))
-,
+            IREVHiddenTokens(address(0)),
             address(this)
         );
 
@@ -288,7 +287,7 @@ contract TestRevnetRegressions is TestBaseWorkflow {
             description: REVDescription("Revnet", "$REV", "ipfs://test", ERC20_SALT),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
-            useTotalSurplusForCashOuts: true,
+            scopeCashOutsToLocalBalances: false,
             stageConfigurations: stageConfigurations
         });
 
@@ -337,7 +336,7 @@ contract TestRevnetRegressions is TestBaseWorkflow {
             description: REVDescription("Borrowable", "BRW", "ipfs://brw", "BRW_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
-            useTotalSurplusForCashOuts: true,
+            scopeCashOutsToLocalBalances: false,
             stageConfigurations: stageConfigurations
         });
 

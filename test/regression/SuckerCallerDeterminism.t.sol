@@ -104,7 +104,8 @@ contract RegressionSuckerCallerDeterminismTest is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
-            HIDDEN_TOKENS
+            HIDDEN_TOKENS,
+            address(this)
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -223,7 +224,7 @@ contract RegressionSuckerCallerDeterminismTest is TestBaseWorkflow {
             description: REVDescription("Fee Revnet", "FEE", "", bytes32("FEE_TOKEN")),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
-            useTotalSurplusForCashOuts: true,
+            scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });
 
@@ -274,7 +275,7 @@ contract RegressionSuckerCallerDeterminismTest is TestBaseWorkflow {
             description: REVDescription("Caller Salt Revnet", "CSR", "", descriptionSalt),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: splitOperator,
-            useTotalSurplusForCashOuts: true,
+            scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });
 

@@ -101,8 +101,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             IREVLoans(makeAddr("loans")),
-            IREVHiddenTokens(address(0))
-,
+            IREVHiddenTokens(address(0)),
             address(this)
         );
 
@@ -181,7 +180,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
             description: REVDescription("TestRevnet", "TREV", "ipfs://test", bytes32(uint256(numStages))),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
-            useTotalSurplusForCashOuts: true,
+            scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });
 
