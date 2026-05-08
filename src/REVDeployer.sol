@@ -397,9 +397,18 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// Silently catches failures (e.g., if the pool is already initialized).
     /// @param revnetId The ID of the revnet to initialize a pool for.
     /// @param terminalToken The terminal token to create a buyback pool for.
+    /// @param terminalTokenDecimals The number of decimals the terminal token uses.
     /// @param initialIssuance The initial issuance rate (project tokens per terminal token, 18 decimals).
-    function _tryInitializeBuybackPoolFor(uint256 revnetId, address terminalToken, uint112 initialIssuance) internal {
+    function _tryInitializeBuybackPoolFor(
+        uint256 revnetId,
+        address terminalToken,
+        uint8 terminalTokenDecimals,
+        uint112 initialIssuance
+    )
+        internal
+    {
         uint160 sqrtPriceX96;
+        uint256 terminalTokenUnit = 10 ** terminalTokenDecimals;
 
         if (initialIssuance == 0) {
             sqrtPriceX96 = uint160(1 << 96);
@@ -410,11 +419,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             if (projectToken == address(0) || projectToken == normalizedTerminalToken) {
                 sqrtPriceX96 = uint160(1 << 96);
             } else if (normalizedTerminalToken < projectToken) {
-                // token0 = terminal, token1 = project → price = issuance / 1e18
-                sqrtPriceX96 = uint160(sqrt(mulDiv(uint256(initialIssuance), 1 << 192, 1e18)));
+                // token0 = terminal, token1 = project → price = issuance / terminalTokenUnit
+                sqrtPriceX96 = uint160(sqrt(mulDiv(uint256(initialIssuance), 1 << 192, terminalTokenUnit)));
             } else {
-                // token0 = project, token1 = terminal → price = 1e18 / issuance
-                sqrtPriceX96 = uint160(sqrt(mulDiv(1e18, 1 << 192, uint256(initialIssuance))));
+                // token0 = project, token1 = terminal → price = terminalTokenUnit / issuance
+                sqrtPriceX96 = uint160(sqrt(mulDiv(terminalTokenUnit, 1 << 192, uint256(initialIssuance))));
             }
         }
 
@@ -838,6 +847,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
                 _tryInitializeBuybackPoolFor({
                     revnetId: revnetId,
                     terminalToken: terminalConfiguration.accountingContextsToAccept[j].token,
+                    terminalTokenDecimals: terminalConfiguration.accountingContextsToAccept[j].decimals,
                     initialIssuance: configuration.stageConfigurations[0].initialIssuance
                 });
                 unchecked {
