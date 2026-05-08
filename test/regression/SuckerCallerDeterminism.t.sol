@@ -139,7 +139,7 @@ contract RegressionSuckerCallerDeterminismTest is TestBaseWorkflow {
             deployer: OP_SUCKER_DEPLOYER,
             directory: jbDirectory(),
             permissions: jbPermissions(),
-            prices: address(jbPrices()),
+            prices: jbPrices(),
             tokens: jbTokens(),
             feeProjectId: FEE_PROJECT_ID,
             registry: SUCKER_REGISTRY,
