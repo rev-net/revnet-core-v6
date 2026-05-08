@@ -42,7 +42,7 @@ contract BuybackPoolDecimalsForkTest is Test {
     }
 
     /// @notice 18-decimal token (WETH): sqrtPriceX96 should equal the established baseline.
-    function test_sqrtPriceX96_18DecimalToken() external view {
+    function test_sqrtPriceX96_18DecimalToken() external pure {
         uint112 issuance = uint112(1000e18); // 1000 project tokens per terminal token
 
         // token0 = terminal (18 dec), token1 = project
@@ -57,7 +57,7 @@ contract BuybackPoolDecimalsForkTest is Test {
     ///
     /// Before the fix, both cases produced the same sqrtPriceX96 because `1e18` was hardcoded.
     /// After the fix, the 6-decimal price is sqrt(10^12) ≈ 10^6 times larger than the 18-decimal price.
-    function test_sqrtPriceX96_6DecimalToken() external view {
+    function test_sqrtPriceX96_6DecimalToken() external pure {
         uint112 issuance = uint112(1000e18); // 1000 project tokens per terminal token
 
         // token0 = terminal (6 dec), token1 = project
@@ -74,7 +74,7 @@ contract BuybackPoolDecimalsForkTest is Test {
     }
 
     /// @notice Inverse ordering: when token0 = project, token1 = terminal.
-    function test_sqrtPriceX96_6DecimalToken_inverseOrdering() external view {
+    function test_sqrtPriceX96_6DecimalToken_inverseOrdering() external pure {
         uint112 issuance = uint112(1000e18);
 
         // token0 = project, token1 = terminal (6 dec)
@@ -89,7 +89,7 @@ contract BuybackPoolDecimalsForkTest is Test {
     ///
     /// In Uniswap V4, price = token1/token0. Swapping the ordering inverts the price.
     /// So sqrt(P) * sqrt(1/P) = sqrt(P * 1/P) = sqrt(1) → both sqrtPriceX96 values multiplied ≈ 2^96 each.
-    function test_sqrtPriceX96_selfConsistency_6Dec() external view {
+    function test_sqrtPriceX96_selfConsistency_6Dec() external pure {
         uint112 issuance = uint112(500e18);
 
         uint160 sqrtForward = _computeSqrtPriceX96(issuance, 6, true);
@@ -103,7 +103,7 @@ contract BuybackPoolDecimalsForkTest is Test {
     }
 
     /// @notice 8-decimal token (WBTC): sqrtPriceX96 should use 10^8 as the unit.
-    function test_sqrtPriceX96_8DecimalToken() external view {
+    function test_sqrtPriceX96_8DecimalToken() external pure {
         uint112 issuance = uint112(100e18); // 100 project tokens per WBTC
 
         uint160 sqrtPrice8 = _computeSqrtPriceX96(issuance, 8, true);
