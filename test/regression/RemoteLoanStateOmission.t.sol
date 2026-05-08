@@ -165,7 +165,7 @@ contract BorrowableHarness is REVLoans {
         rulesetMetadata.cashOutTaxRate = cashOutTaxRate;
         // forge-lint: disable-next-line(unsafe-typecast)
         rulesetMetadata.baseCurrency = uint32(currency);
-        rulesetMetadata.useTotalSurplusForCashOuts = true;
+        rulesetMetadata.scopeCashOutsToLocalBalances = false;
 
         JBRuleset memory currentStage = JBRuleset({
             cycleNumber: 0,
@@ -224,7 +224,8 @@ contract RemoteLoanStateOmissionTest is Test {
             999_999,
             IJBSuckerRegistry(address(registry)),
             IREVLoans(address(0)),
-            IREVHiddenTokens(address(0))
+            IREVHiddenTokens(address(0)),
+            address(this)
         );
 
         controller = new BorrowableControllerMock(DIRECTORY, PERMISSIONS, PRICES);
@@ -253,7 +254,7 @@ contract RemoteLoanStateOmissionTest is Test {
             surplus: JBTokenAmount({
                 token: NATIVE_TOKEN, value: LOCAL_VISIBLE_SURPLUS, decimals: 18, currency: ETH_CURRENCY
             }),
-            useTotalSurplus: true,
+            scopeCashOutsToLocalBalances: false,
             cashOutTaxRate: CASH_OUT_TAX_RATE,
             beneficiaryIsFeeless: false,
             metadata: ""

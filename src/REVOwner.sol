@@ -112,13 +112,16 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     /// @param suckerRegistry The sucker registry.
     /// @param loans The loan contract.
     /// @param hiddenTokens The hidden tokens contract.
+    /// @param deployerBinder The account allowed to bind the canonical deployer via `setDeployer`. Passed explicitly
+    /// because CREATE2 deployments set `msg.sender` to the factory, not the intended operator.
     constructor(
         IJBBuybackHookRegistry buybackHook,
         IJBDirectory directory,
         uint256 feeRevnetId,
         IJBSuckerRegistry suckerRegistry,
         IREVLoans loans,
-        IREVHiddenTokens hiddenTokens
+        IREVHiddenTokens hiddenTokens,
+        address deployerBinder
     ) {
         BUYBACK_HOOK = buybackHook;
         DIRECTORY = directory;
@@ -126,7 +129,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         SUCKER_REGISTRY = suckerRegistry;
         LOANS = loans;
         HIDDEN_TOKENS = hiddenTokens;
-        _DEPLOYER_BINDER = msg.sender;
+        _DEPLOYER_BINDER = deployerBinder;
     }
 
     //*********************************************************************//
@@ -190,15 +193,19 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         // Get the terminal that will receive the cash out fee.
         IJBTerminal feeTerminal = DIRECTORY.primaryTerminalOf({projectId: FEE_REVNET_ID, token: context.surplus.token});
 
-        // Compute the cross-chain total supply (local + remote peer chain supplies) for cross-chain-aware bonding
-        // curve.
-        totalSupply = context.totalSupply + totalCollateral + SUCKER_REGISTRY.remoteTotalSupplyOf(context.projectId);
-        effectiveSurplusValue = context.surplus.value + totalBorrowed
-            + SUCKER_REGISTRY.remoteSurplusOf({
+        // Start with local supply and surplus (including collateral and borrowed amounts).
+        totalSupply = context.totalSupply + totalCollateral;
+        effectiveSurplusValue = context.surplus.value + totalBorrowed;
+
+        // If the ruleset aggregates cross-chain state, add remote supply and surplus.
+        if (!context.scopeCashOutsToLocalBalances) {
+            totalSupply += SUCKER_REGISTRY.remoteTotalSupplyOf(context.projectId);
+            effectiveSurplusValue += SUCKER_REGISTRY.remoteSurplusOf({
                 projectId: context.projectId,
                 decimals: context.surplus.decimals,
                 currency: uint256(context.surplus.currency)
             });
+        }
 
         // If there's no cash out tax (100% cash out tax rate), if there's no fee terminal, or if the beneficiary is
         // feeless (e.g. the router terminal routing value between projects), proxy to the buyback hook with our

@@ -151,6 +151,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
                 }),
                 baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                 splitOperator: multisig(),
+                scopeCashOutsToLocalBalances: false,
                 stageConfigurations: stageConfigurations
             }),
             terminalConfigurations: terminalConfigurations,
@@ -221,6 +222,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
                 description: REVDescription("NANA", "$NANA", "ipfs://nana", "NANA_TOKEN"),
                 baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                 splitOperator: multisig(),
+                scopeCashOutsToLocalBalances: false,
                 stageConfigurations: stageConfigurations
             }),
             terminalConfigurations: terminalConfigurations,
@@ -268,7 +270,8 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
-            IREVHiddenTokens(address(0))
+            IREVHiddenTokens(address(0)),
+            address(this)
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -550,6 +553,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
                 description: REVDescription("H5Test", "H5T", "ipfs://h5", "H5_TOKEN"),
                 baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                 splitOperator: multisig(),
+                scopeCashOutsToLocalBalances: false,
                 stageConfigurations: stages
             }),
             terminalConfigurations: tc,
@@ -1060,7 +1064,8 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
-            IREVHiddenTokens(address(0))
+            IREVHiddenTokens(address(0)),
+            address(this)
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -1118,6 +1123,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
                     description: REVDescription("Revnet", "$REV", "ipfs://rev", "REV_TOKEN_INV"),
                     baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                     splitOperator: multisig(),
+                    scopeCashOutsToLocalBalances: false,
                     stageConfigurations: stages
                 }),
                 terminalConfigurations: tc,
@@ -1195,6 +1201,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
                     description: REVDescription("NANA", "$NANA", "ipfs://nana", "NANA_TOKEN_INV"),
                     baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                     splitOperator: multisig(),
+                    scopeCashOutsToLocalBalances: false,
                     stageConfigurations: stages
                 }),
                 terminalConfigurations: tc,

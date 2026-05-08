@@ -77,7 +77,7 @@ contract RegressionVerificationTest is Test {
 
     function _revDeployerEncodedConfigurationHash() internal pure returns (bytes32) {
         // forge-lint: disable-next-line(unsafe-typecast)
-        bytes memory encodedConfiguration = abi.encode(uint32(1), "REV", "REV", bytes32("regression"));
+        bytes memory encodedConfiguration = abi.encode(uint32(1), true, "REV", "REV", bytes32("regression"));
 
         encodedConfiguration = abi.encode(encodedConfiguration, address(0x1234));
 

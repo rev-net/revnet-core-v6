@@ -103,7 +103,8 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
             feeProjectId,
             IJBSuckerRegistry(address(suckerRegistry)),
             loans,
-            IREVHiddenTokens(address(0))
+            IREVHiddenTokens(address(0)),
+            address(this)
         );
 
         revDeployer = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -220,6 +221,7 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
                 description: REVDescription(name, symbol, projectUri, salt),
                 baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
                 splitOperator: multisig(),
+                scopeCashOutsToLocalBalances: false,
                 stageConfigurations: stageConfigurations
             }),
             terminalConfigurations: terminalConfigurations,

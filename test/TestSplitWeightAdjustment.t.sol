@@ -114,7 +114,8 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
-            IREVHiddenTokens(address(0))
+            IREVHiddenTokens(address(0)),
+            address(this)
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -168,6 +169,7 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
             description: REVDescription("Test", "TST", "ipfs://test", "TEST_SALT"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });
 
@@ -342,7 +344,8 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
-            IREVHiddenTokens(address(0))
+            IREVHiddenTokens(address(0)),
+            address(this)
         );
         REVDeployer ammDeployer = new REVDeployer{salt: "REVDeployer_AMM"}(
             jbController(),

@@ -323,6 +323,7 @@ contract TestLoanAdversarialFork is ForkTestBase {
             description: REVDescription("TaxIncrease", "TXUP", "ipfs://txup", "TXUP_SALT"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });
 

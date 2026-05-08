@@ -128,6 +128,7 @@ contract TestStageTransitionBorrowable is TestBaseWorkflow {
             description: REVDescription("StageTest", "STG", "ipfs://test", "STG_SALT"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });
 
@@ -169,7 +170,8 @@ contract TestStageTransitionBorrowable is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
-            IREVHiddenTokens(address(0))
+            IREVHiddenTokens(address(0)),
+            address(this)
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(

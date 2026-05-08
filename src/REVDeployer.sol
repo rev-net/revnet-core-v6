@@ -316,11 +316,13 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
 
     /// @notice Make a ruleset configuration for a revnet's stage.
     /// @param baseCurrency The base currency of the revnet.
+    /// @param scopeCashOutsToLocalBalances If true, cash-out calculations use only the local terminal's surplus.
     /// @param stageConfiguration The stage configuration to build a ruleset from.
     /// @param fundAccessLimitGroups The fund access limit groups to include in the ruleset.
     /// @return rulesetConfiguration The ruleset configuration.
     function _makeRulesetConfiguration(
         uint32 baseCurrency,
+        bool scopeCashOutsToLocalBalances,
         REVStageConfig calldata stageConfiguration,
         JBFundAccessLimitGroup[] memory fundAccessLimitGroups
     )
@@ -333,7 +335,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         metadata.reservedPercent = stageConfiguration.splitPercent;
         metadata.cashOutTaxRate = stageConfiguration.cashOutTaxRate;
         metadata.baseCurrency = baseCurrency;
-        metadata.useTotalSurplusForCashOuts = true; // Use surplus from all terminals for cash outs.
+        metadata.scopeCashOutsToLocalBalances = scopeCashOutsToLocalBalances;
         metadata.allowOwnerMinting = true; // Allow this contract to auto-mint tokens as the revnet's owner.
         metadata.useDataHookForPay = true; // Call this contract's `beforePayRecordedWith(…)` callback on payments.
         metadata.useDataHookForCashOut = true; // Call this contract's `beforeCashOutRecordedWith(…)` callback on cash
@@ -940,6 +942,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         // Add the base configuration to the byte-encoded configuration.
         bytes memory encodedConfiguration = abi.encode(
             configuration.baseCurrency,
+            configuration.scopeCashOutsToLocalBalances,
             configuration.description.name,
             configuration.description.ticker,
             configuration.description.salt
@@ -1002,6 +1005,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             // Set up the ruleset.
             rulesetConfigurations[i] = _makeRulesetConfiguration({
                 baseCurrency: configuration.baseCurrency,
+                scopeCashOutsToLocalBalances: configuration.scopeCashOutsToLocalBalances,
                 stageConfiguration: stageConfiguration,
                 fundAccessLimitGroups: fundAccessLimitGroups
             });

@@ -123,7 +123,8 @@ contract TestZeroAmountLoanGuard is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
-            IREVHiddenTokens(address(0))
+            IREVHiddenTokens(address(0)),
+            address(this)
         );
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -177,6 +178,7 @@ contract TestZeroAmountLoanGuard is TestBaseWorkflow {
             description: REVDescription("Revnet", "$REV", "ipfs://test", "REV_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });
         vm.prank(multisig());
@@ -224,6 +226,7 @@ contract TestZeroAmountLoanGuard is TestBaseWorkflow {
             description: REVDescription("NANA", "$NANA", "ipfs://test2", "NANA_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });
         (REVNET_ID,) = REV_DEPLOYER.deployFor({

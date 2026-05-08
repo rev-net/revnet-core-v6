@@ -104,7 +104,8 @@ contract REVOwnerRemoteSurplusCurrencyMismatchTest is TestBaseWorkflow {
             999_999,
             IJBSuckerRegistry(address(suckerRegistry)),
             IREVLoans(address(0)),
-            IREVHiddenTokens(address(0))
+            IREVHiddenTokens(address(0)),
+            address(this)
         );
     }
 
@@ -121,7 +122,7 @@ contract REVOwnerRemoteSurplusCurrencyMismatchTest is TestBaseWorkflow {
             cashOutCount: 100 ether,
             totalSupply: 1000 ether,
             surplus: JBTokenAmount({token: usdToken, value: 100 ether, decimals: 18, currency: ETH_CURRENCY}),
-            useTotalSurplus: true,
+            scopeCashOutsToLocalBalances: false,
             cashOutTaxRate: 0,
             beneficiaryIsFeeless: false,
             metadata: ""

@@ -70,6 +70,7 @@ contract TestLoanCrossRulesetFork is ForkTestBase {
             description: REVDescription("CrossStage", "XSTG", "ipfs://xstage", "XSTG_SALT"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });
 

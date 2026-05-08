@@ -96,7 +96,8 @@ contract RegressionRouterRegistrySourceDebtRepricingTest is TestBaseWorkflow {
             feeProjectId,
             suckerRegistry,
             loans,
-            IREVHiddenTokens(address(0))
+            IREVHiddenTokens(address(0)),
+            address(this)
         );
 
         revDeployer = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -217,6 +218,7 @@ contract RegressionRouterRegistrySourceDebtRepricingTest is TestBaseWorkflow {
             description: REVDescription(name, ticker, "ipfs://test", salt),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });
 

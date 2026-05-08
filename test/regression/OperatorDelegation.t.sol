@@ -103,7 +103,8 @@ contract RegressionOperatorDelegationTest is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS,
-            HIDDEN_TOKENS
+            HIDDEN_TOKENS,
+            address(this)
         );
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
@@ -295,6 +296,7 @@ contract RegressionOperatorDelegationTest is TestBaseWorkflow {
             description: REVDescription("Fee Revnet", "FEE", "", ERC20_SALT),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });
 
@@ -342,6 +344,7 @@ contract RegressionOperatorDelegationTest is TestBaseWorkflow {
             description: REVDescription("Revnet", "REV", "", bytes32("REV_TOKEN_2")),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
             splitOperator: multisig(),
+            scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });
 
