@@ -40,7 +40,6 @@ import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
-import {IREVHiddenTokens} from "../src/interfaces/IREVHiddenTokens.sol";
 
 /// @notice Long-tail economic simulation: run a revnet through multiple stage transitions with many payments
 /// and cash outs, verifying value conservation and bonding curve consistency.
@@ -125,7 +124,6 @@ contract TestLongTailEconomics is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
-            IREVHiddenTokens(address(0)),
             address(this)
         );
 

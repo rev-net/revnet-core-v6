@@ -45,7 +45,6 @@ import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
-import {IREVHiddenTokens} from "../src/interfaces/IREVHiddenTokens.sol";
 
 /// @notice Tests for PR #105: zero-amount loan guard and mint-before-adjust ordering.
 contract TestZeroAmountLoanGuard is TestBaseWorkflow {
@@ -123,7 +122,6 @@ contract TestZeroAmountLoanGuard is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
-            IREVHiddenTokens(address(0)),
             address(this)
         );
 

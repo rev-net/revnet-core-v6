@@ -37,7 +37,6 @@ import {REVConfig} from "../src/structs/REVConfig.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {REVStageConfig} from "../src/structs/REVStageConfig.sol";
 import {REVSuckerDeploymentConfig} from "../src/structs/REVSuckerDeploymentConfig.sol";
-import {REVHiddenTokens} from "./../src/REVHiddenTokens.sol";
 import {REVLoans} from "./../src/REVLoans.sol";
 import {REVDeploy721TiersHookConfig} from "../src/structs/REVDeploy721TiersHookConfig.sol";
 import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
@@ -93,8 +92,6 @@ contract DeployScript is Script, Sphinx {
     bytes32 DEPLOYER_SALT = "_REV_DEPLOYER_SALT_V6_";
     // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REVLOANS_SALT = "_REV_LOANS_SALT_V6_";
-    // forge-lint: disable-next-line(mixed-case-variable)
-    bytes32 REVHIDDENTOKENS_SALT = "_REV_HIDDEN_TOKENS_SALT_V6_";
     // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REVOWNER_SALT = "_REV_OWNER_SALT_V6_";
     // forge-lint: disable-next-line(mixed-case-variable)
@@ -376,13 +373,10 @@ contract DeployScript is Script, Sphinx {
 
         // Try to find an existing deployment by checking all project IDs that have already been created.
         bool _revloansExists;
-        bool _revHiddenTokensExists;
         bool _revOwnerExists;
         bool _revDeployerExists;
         // The address of the previously deployed REVLoans, if found.
         address _existingRevloansAddr;
-        // The address of the previously deployed REVHiddenTokens, if found.
-        address _existingHiddenTokensAddr;
         // The address of the previously deployed REVOwner, if found.
         address _existingOwnerAddr;
         // The address of the previously deployed REVDeployer, if found.
@@ -407,13 +401,6 @@ contract DeployScript is Script, Sphinx {
                     _existingRevloansAddr = _candidateRevloansAddr;
                     _revloansExists = true;
 
-                    // Also predict and verify the hidden tokens contract.
-                    (_existingHiddenTokensAddr, _revHiddenTokensExists) = _isDeployed({
-                        salt: REVHIDDENTOKENS_SALT,
-                        creationCode: type(REVHiddenTokens).creationCode,
-                        arguments: abi.encode(core.controller, TRUSTED_FORWARDER)
-                    });
-
                     // Also predict and verify the owner.
                     (_existingOwnerAddr, _revOwnerExists) = _isDeployed({
                         salt: REVOWNER_SALT,
@@ -424,7 +411,6 @@ contract DeployScript is Script, Sphinx {
                             _candidateId,
                             suckers.registry,
                             _candidateRevloansAddr,
-                            _existingHiddenTokensAddr,
                             msg.sender
                         )
                     });
@@ -483,13 +469,6 @@ contract DeployScript is Script, Sphinx {
                 trustedForwarder: TRUSTED_FORWARDER
             });
 
-        // Deploy REVHiddenTokens — allows revnet holders to temporarily hide tokens from totalSupply.
-        REVHiddenTokens revHiddenTokens = _revHiddenTokensExists
-            ? REVHiddenTokens(_existingHiddenTokensAddr)
-            : new REVHiddenTokens{salt: REVHIDDENTOKENS_SALT}({
-                controller: core.controller, trustedForwarder: TRUSTED_FORWARDER
-            });
-
         // Deploy REVOwner — the runtime data hook that handles pay and cash out callbacks.
         REVOwner revOwner = _revOwnerExists
             ? REVOwner(_existingOwnerAddr)
@@ -499,7 +478,6 @@ contract DeployScript is Script, Sphinx {
                 feeRevnetId: FEE_PROJECT_ID,
                 suckerRegistry: suckers.registry,
                 loans: revloans,
-                hiddenTokens: revHiddenTokens,
                 deployerBinder: msg.sender
             });
 

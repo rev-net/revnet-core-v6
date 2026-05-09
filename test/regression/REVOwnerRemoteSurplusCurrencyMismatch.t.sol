@@ -18,7 +18,6 @@ import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 
 import {IREVLoans} from "../../src/interfaces/IREVLoans.sol";
 import {REVOwner} from "../../src/REVOwner.sol";
-import {IREVHiddenTokens} from "../../src/interfaces/IREVHiddenTokens.sol";
 
 contract CurrencyAwareSuckerRegistry {
     uint256 public expectedCurrency;
@@ -104,7 +103,6 @@ contract REVOwnerRemoteSurplusCurrencyMismatchTest is TestBaseWorkflow {
             999_999,
             IJBSuckerRegistry(address(suckerRegistry)),
             IREVLoans(address(0)),
-            IREVHiddenTokens(address(0)),
             address(this)
         );
     }

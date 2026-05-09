@@ -143,8 +143,6 @@ Use this file when you need revnet-specific risks, state reads, constants, or ex
 19. **39.16% cash-out tax crossover.** Below ~39% cash-out tax, cashing out is more capital-efficient than borrowing. Above ~39%, loans become more efficient because they preserve upside while providing liquidity. Based on CryptoEconLab academic research. Design implication: revnets intended for active token trading should consider this threshold when setting `cashOutTaxRate`.
 20. **REVDeployer always deploys a 721 hook** via `HOOK_DEPLOYER.deployHookFor` — even if `baseline721HookConfiguration` has empty tiers. This is correct by design: it lets the split operator add and sell NFTs later without migration. Non-revnet projects should follow the same pattern by using `JB721TiersHookProjectDeployer.launchProjectFor` (or `JBOmnichainDeployer.launchProjectFor`) instead of bare `launchProjectFor`.
 21. **REVOwner deployer binding is precomputed.** REVOwner records the account that created it as an internal one-time binder. That account must call `setDeployer(precomputedRevDeployerAddress)` exactly once before the canonical REVDeployer is deployed. This avoids an ambient public initializer while keeping the circular dependency manageable. If `setDeployer(...)` is never called, all DEPLOYER-gated runtime configuration breaks.
-22. **Hidden tokens are economic, not cosmetic.** Hiding burns visible tokens and lowers visible/governance supply until reveal. Cash-out and loan denominators still include hidden balances because they are recoverable claims.
-
 ### NATIVE_TOKEN Accounting on Non-ETH Chains
 
 When deploying to a chain where the native token is NOT ETH (Celo, Polygon), the terminal must NOT use `JBConstants.NATIVE_TOKEN` as its accounting context. `NATIVE_TOKEN` represents whatever is native on that chain, but `baseCurrency=1` (ETH) assumes ETH-denominated value.
@@ -198,12 +196,6 @@ Quick-reference for common read operations. All functions are `view`/`pure` and 
 | What | Call | Returns |
 |------|------|---------|
 | Remaining auto-issuance for beneficiary | `REVDeployer.amountToAutoIssue(revnetId, stageId, beneficiary)` | `uint256` (0 if already claimed) |
-
-### Hidden Tokens
-
-| What | Call | Returns |
-|------|------|---------|
-| Hidden balance for holder | `REVHiddenTokens.hiddenBalanceOf(holder, revnetId)` | `uint256` |
 
 ### Loans
 

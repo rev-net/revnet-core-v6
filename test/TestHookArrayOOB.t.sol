@@ -43,7 +43,6 @@ import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
-import {IREVHiddenTokens} from "../src/interfaces/IREVHiddenTokens.sol";
 
 /// @notice Tests for PR #22: fix/c2-hook-array-oob
 /// Verifies that the fix for the hook array out-of-bounds bug works correctly.
@@ -115,7 +114,6 @@ contract TestHookArrayOOB is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
-            IREVHiddenTokens(address(0)),
             address(this)
         );
 

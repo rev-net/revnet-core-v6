@@ -41,7 +41,6 @@ import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
-import {IREVHiddenTokens} from "../src/interfaces/IREVHiddenTokens.sol";
 
 /// @notice Tests that terminal addresses are included in the encoded configuration hash.
 contract TestTerminalEncodingInHash is TestBaseWorkflow {
@@ -111,7 +110,6 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
-            IREVHiddenTokens(address(0)),
             address(this)
         );
 

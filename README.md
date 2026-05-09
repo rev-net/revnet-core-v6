@@ -1,6 +1,6 @@
 # Revnet Core
 
-`@rev-net/core-v6` deploys and operates Revnets: Juicebox project shapes with staged economics, optional tiered NFTs, cross-chain support, buyback integration, hidden-token mechanics, and token-collateralized loans.
+`@rev-net/core-v6` deploys and operates Revnets: Juicebox project shapes with staged economics, optional tiered NFTs, cross-chain support, buyback integration, and token-collateralized loans.
 
 Docs: <https://docs.juicebox.money>
 Architecture: [ARCHITECTURE.md](./ARCHITECTURE.md)  
@@ -19,8 +19,6 @@ This package provides:
 - a deployer that launches Revnets and stores their long-lived configuration
 - a runtime hook that mediates pay, cash-out, mint-permission, and delayed-cash-out behavior
 - a loan system that burns token collateral on borrow and remints on repayment
-- a hidden-token system that temporarily removes tokens from visible supply while preserving economic claim
-  denominators
 
 It also composes with the 721 hook stack, buyback hook, router terminal, Croptop, and suckers where needed.
 
@@ -33,14 +31,12 @@ Use this repo when the product is a treasury-backed network with encoded stage t
 | `REVDeployer` | Launches and configures Revnets, stages, split operators, and optional auxiliary features. |
 | `REVOwner` | Runtime data-hook and cash-out-hook surface used by active Revnets. |
 | `REVLoans` | Loan surface that lets users borrow against Revnet tokens with burned collateral and NFT loan positions. |
-| `REVHiddenTokens` | Lets token holders temporarily hide tokens from visible/governance supply until reveal, while cash-out and loan denominators still count hidden supply. |
-
 ## Mental Model
 
 Read the package in two halves:
 
 1. deployment-time shape: `REVDeployer` decides what the network will be allowed to do
-2. runtime enforcement: `REVOwner`, `REVLoans`, and `REVHiddenTokens` decide how that shape behaves over time
+2. runtime enforcement: `REVOwner` and `REVLoans` decide how that shape behaves over time
 
 Most mistakes come from assuming a deploy-time parameter can be changed later or that a runtime hook is only advisory.
 
@@ -49,8 +45,7 @@ Most mistakes come from assuming a deploy-time parameter can be changed later or
 1. `src/REVDeployer.sol`
 2. `src/REVOwner.sol`
 3. `src/REVLoans.sol`
-4. `src/REVHiddenTokens.sol`
-5. the integrated hook or bridge repo used by the deployment
+4. the integrated hook or bridge repo used by the deployment
 
 ## Integration Traps
 
@@ -64,8 +59,6 @@ Most mistakes come from assuming a deploy-time parameter can be changed later or
 - deployment-time configuration and operator envelope live in `REVDeployer`
 - runtime pay and cash-out behavior live in `REVOwner`
 - loan positions and loan-specific state live in `REVLoans`
-- hidden-token state lives in `REVHiddenTokens`
-
 ## High-Signal Tests
 
 1. `test/REVLifecycle.t.sol`
@@ -104,7 +97,6 @@ src/
   REVDeployer.sol
   REVOwner.sol
   REVLoans.sol
-  REVHiddenTokens.sol
   interfaces/
   structs/
 test/
@@ -124,5 +116,5 @@ script/
 ## For AI Agents
 
 - Describe Revnets as treasury-backed Juicebox project shapes with encoded stage transitions, not as simple presets.
-- Read `REVDeployer`, `REVOwner`, `REVLoans`, and `REVHiddenTokens` together before answering economic or admin-surface questions.
+- Read `REVDeployer`, `REVOwner`, and `REVLoans` together before answering economic or admin-surface questions.
 - If a deployment enables buybacks, 721 hooks, or suckers, inspect those sibling repos before making definitive claims.

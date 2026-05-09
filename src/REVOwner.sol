@@ -24,7 +24,6 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {mulDiv} from "@prb/math/src/Common.sol";
 
 import {IREVDeployer} from "./interfaces/IREVDeployer.sol";
-import {IREVHiddenTokens} from "./interfaces/IREVHiddenTokens.sol";
 import {IREVLoans} from "./interfaces/IREVLoans.sol";
 import {REVLoanSource} from "./structs/REVLoanSource.sol";
 
@@ -69,9 +68,6 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     /// @notice The Juicebox project ID of the revnet that receives cash out fees.
     uint256 public immutable FEE_REVNET_ID;
 
-    /// @notice The hidden tokens contract used by all revnets.
-    IREVHiddenTokens public immutable HIDDEN_TOKENS;
-
     /// @notice The loan contract used by all revnets.
     IREVLoans public immutable LOANS;
 
@@ -111,7 +107,6 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     /// @param feeRevnetId The Juicebox project ID of the fee revnet.
     /// @param suckerRegistry The sucker registry.
     /// @param loans The loan contract.
-    /// @param hiddenTokens The hidden tokens contract.
     /// @param deployerBinder The account allowed to bind the canonical deployer via `setDeployer`. Passed explicitly
     /// because CREATE2 deployments set `msg.sender` to the factory, not the intended operator.
     constructor(
@@ -120,7 +115,6 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         uint256 feeRevnetId,
         IJBSuckerRegistry suckerRegistry,
         IREVLoans loans,
-        IREVHiddenTokens hiddenTokens,
         address deployerBinder
     ) {
         BUYBACK_HOOK = buybackHook;
@@ -128,7 +122,6 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         FEE_REVNET_ID = feeRevnetId;
         SUCKER_REGISTRY = suckerRegistry;
         LOANS = loans;
-        HIDDEN_TOKENS = hiddenTokens;
         _DEPLOYER_BINDER = deployerBinder;
     }
 
@@ -359,8 +352,8 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     }
 
     /// @notice Returns whether an address may mint a revnet's tokens on-demand. Grants permission to: the loans
-    /// contract (re-mints collateral on repayment), hidden tokens contract (re-mints on reveal), buyback hook and its
-    /// delegates (mints tokens from pool swaps), and suckers (mints bridged tokens on the destination chain).
+    /// contract (re-mints collateral on repayment), buyback hook and its delegates (mints tokens from pool swaps),
+    /// and suckers (mints bridged tokens on the destination chain).
     /// @dev Part of `IJBRulesetDataHook`.
     /// @param revnetId The ID of the revnet to check.
     /// @param ruleset The ruleset to check against.
@@ -376,16 +369,14 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         override
         returns (bool)
     {
-        // The loans contract, hidden tokens contract, buyback hook (and its delegates), and suckers are allowed to mint
-        // the revnet's tokens.
-        return addr == address(LOANS) || addr == address(HIDDEN_TOKENS) || addr == address(BUYBACK_HOOK)
+        // The loans contract, buyback hook (and its delegates), and suckers are allowed to mint the revnet's tokens.
+        return addr == address(LOANS) || addr == address(BUYBACK_HOOK)
             || BUYBACK_HOOK.hasMintPermissionFor({projectId: revnetId, ruleset: ruleset, addr: addr})
             || _isSuckerOf({revnetId: revnetId, addr: addr});
     }
 
     /// @notice Additional revnet accounts that peer-chain snapshots should include.
-    /// @dev Hidden tokens are intentionally excluded. Revnet operators can hide tokens as a security handle without
-    /// changing loan or cash-out math for other holders. Outstanding loan debt is counted as both surplus and balance:
+    /// @dev Outstanding loan debt is counted as both surplus and balance:
     /// it is value owed back to this chain's revnet and should travel to peer snapshots with the collateral supply.
     /// @param revnetId The ID of the revnet to snapshot.
     /// @param decimals The decimals to use for the returned surplus.

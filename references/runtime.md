@@ -13,7 +13,6 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 | `REVDeployer` | Deploys revnets, permanently owns the project NFT. Manages stages, splits, auto-issuance, buyback hooks, suckers, split operators, and configuration state storage. Exposes `OWNER()` view returning the REVOwner address. Calls DEPLOYER-restricted setters on REVOwner during deployment to store `cashOutDelayOf` and `tiered721HookOf`. |
 | `REVOwner` | Runtime hook contract for all revnets. Implements `IJBRulesetDataHook` + `IJBCashOutHook`. Set as the `dataHook` in each revnet's ruleset metadata. Handles pay hooks, cash-out hooks, mint permissions, and sucker verification. Stores `cashOutDelayOf` and `tiered721HookOf` mappings (set by REVDeployer via DEPLOYER-restricted setters `setCashOutDelayOf()` and `setTiered721HookOf()`). |
 | `REVLoans` | Issues token-collateralized loans from revnet treasuries. Each loan is an ERC-721 NFT. Burns collateral on borrow, re-mints on repay. Charges tiered fees (REV protocol fee + source fee + prepaid fee). |
-| `REVHiddenTokens` | Burns tokens into a hidden balance and can later re-mint them. This is a supply-management primitive, not just a wallet convenience feature. |
 
 ## Key Functions
 
@@ -67,8 +66,6 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 | `REVLoans.loanOf(loanId)` | Returns the full `REVLoan` struct for a loan. |
 | `REVLoans.loanSourcesOf(revnetId)` | Returns all `(terminal, token)` pairs used for loans by a revnet. |
 | `REVLoans.revnetIdOfLoanWith(loanId)` | Decode the revnet ID from a loan ID (`loanId / 1_000_000_000_000`). |
-| `REVHiddenTokens.hiddenBalanceOf(holder, revnetId)` | Returns how many tokens a holder has hidden from visible supply. |
-
 ## Integration Points
 
 | Dependency | Import | Used For |
@@ -98,10 +95,3 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 | `REV721TiersHookFlags` | `noNewTiersWithReserves`, `noNewTiersWithVotes`, `noNewTiersWithOwnerMinting`, `preventOverspending` | Same as `JB721TiersHookFlags` minus `issueTokensForSplits`. Revnets do their own weight adjustment for splits. |
 | `REVCroptopAllowedPost` | `category` (uint24), `minimumPrice` (uint104), `minimumTotalSupply` (uint32), `maximumTotalSupply` (uint32), `allowedAddresses[]` | Croptop posting criteria |
 | `REVSuckerDeploymentConfig` | `deployerConfigurations[]`, `salt` | Cross-chain sucker deployment |
-### Hidden Tokens
-
-| Function | Permissions | What it does |
-|----------|------------|-------------|
-| `REVHiddenTokens.hideTokensOf(revnetId, tokenCount, holder)` | Holder only. The holder must either be allowlisted or personally hold `HIDE_TOKENS`. | Burns visible tokens, increases hidden balance, and lowers visible supply. Cash-out and loan denominators still include the hidden balance while it is revealable. |
-| `REVHiddenTokens.revealTokensOf(revnetId, tokenCount, holder)` | Holder only | Re-mints previously hidden tokens back to the holder and reduces hidden balance. |
-| `REVHiddenTokens.setTokenHidingAllowedFor(revnetId, holder, isAllowed)` | Operator with `HIDE_TOKENS` | Allows or revokes a holder's ability to hide their own tokens. |

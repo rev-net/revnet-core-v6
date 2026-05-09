@@ -17,7 +17,6 @@ import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingCo
 import {JBSplit} from "@bananapus/core-v6/src/structs/JBSplit.sol";
 import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.sol";
 import {REVLoans} from "../../src/REVLoans.sol";
-import {REVHiddenTokens} from "../../src/REVHiddenTokens.sol";
 import {REVStageConfig, REVAutoIssuance} from "../../src/structs/REVStageConfig.sol";
 import {REVDescription} from "../../src/structs/REVDescription.sol";
 import {REVConfig} from "../../src/structs/REVConfig.sol";
@@ -52,7 +51,6 @@ contract RegressionSuckerCallerDeterminismTest is TestBaseWorkflow {
     JB721TiersHookStore internal HOOK_STORE;
     JBAddressRegistry internal ADDRESS_REGISTRY;
     REVLoans internal LOANS_CONTRACT;
-    REVHiddenTokens internal HIDDEN_TOKENS;
     IJBSuckerRegistry internal SUCKER_REGISTRY;
     CTPublisher internal PUBLISHER;
     MockBuybackDataHook internal MOCK_BUYBACK;
@@ -96,15 +94,12 @@ contract RegressionSuckerCallerDeterminismTest is TestBaseWorkflow {
             trustedForwarder: TRUSTED_FORWARDER
         });
 
-        HIDDEN_TOKENS = new REVHiddenTokens(jbController(), TRUSTED_FORWARDER);
-
         REV_OWNER = new REVOwner(
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
-            HIDDEN_TOKENS,
             address(this)
         );
 
