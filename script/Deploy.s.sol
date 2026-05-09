@@ -424,7 +424,8 @@ contract DeployScript is Script, Sphinx {
                             _candidateId,
                             suckers.registry,
                             _candidateRevloansAddr,
-                            _existingHiddenTokensAddr
+                            _existingHiddenTokensAddr,
+                            msg.sender
                         )
                     });
 
