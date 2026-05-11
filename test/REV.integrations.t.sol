@@ -44,7 +44,6 @@ import {JB721CheckpointsDeployer} from "@bananapus/721-hook-v6/src/JB721Checkpoi
 import {IJB721CheckpointsDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721CheckpointsDeployer.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
-import {IREVHiddenTokens} from "../src/interfaces/IREVHiddenTokens.sol";
 
 struct FeeProjectConfig {
     REVConfig configuration;
@@ -239,7 +238,6 @@ contract REVnet_Integrations is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             IREVLoans(makeAddr("loans")),
-            IREVHiddenTokens(address(0)),
             address(this)
         );
 

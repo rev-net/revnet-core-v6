@@ -48,7 +48,6 @@ import {ERC2771ForwarderMock, ForwardRequest} from "@bananapus/core-v6/test/mock
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
-import {IREVHiddenTokens} from "../src/interfaces/IREVHiddenTokens.sol";
 
 struct MetaTxProjectConfig {
     REVConfig configuration;
@@ -317,7 +316,6 @@ contract TestERC2771MetaTx is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
-            IREVHiddenTokens(address(0)),
             address(this)
         );
 

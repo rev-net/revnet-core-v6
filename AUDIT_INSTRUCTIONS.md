@@ -10,7 +10,7 @@ Suggestions of where to look:
 
 - break stage progression or let users act under the wrong stage assumptions
 - overstate or understate borrowability
-- mis-handle hidden tokens or burned-collateral accounting
+- mis-handle burned-collateral accounting
 - give operators or integrations more power than the revnet model intends
 - make omnichain supply, surplus, or sucker assumptions drift from runtime behavior
 
@@ -21,7 +21,6 @@ In scope:
 - `src/REVDeployer.sol`
 - `src/REVOwner.sol`
 - `src/REVLoans.sol`
-- `src/REVHiddenTokens.sol`
 - structs, interfaces, and deployment helpers
 
 ## Start Here
@@ -29,7 +28,6 @@ In scope:
 1. `src/REVDeployer.sol`
 2. `src/REVOwner.sol`
 3. `src/REVLoans.sol`
-4. `src/REVHiddenTokens.sol`
 
 ## Security Model
 
@@ -38,12 +36,10 @@ Revnet composes several sensitive systems:
 - staged rulesets and launch-time immutability
 - runtime pay and cash-out policy in `REVOwner`
 - burned-collateral lending in `REVLoans`
-- hidden-token supply exclusion in `REVHiddenTokens`
 
 The main audit mindset is composition:
 
 - stage economics affect borrowability
-- hidden supply affects cash-out math
 - omnichain state can affect reclaim and borrowing power
 - optional integrations can widen the effective trust surface
 
@@ -54,7 +50,6 @@ The main audit mindset is composition:
 | Revnet deployer path | Define long-lived stage and operator shape | Must not retain unexpected mutable governance |
 | Split operator | Use the allowed runtime envelope | Must stay within deployment-defined permissions |
 | Borrower or delegated operator | Open or manage loans | Must not escape collateral, delay, or source limits |
-| Hidden-token user or delegate | Burn and reveal visible supply | Must not create extra supply or break accounting |
 
 ## Integration Assumptions
 
@@ -69,14 +64,12 @@ The main audit mindset is composition:
 1. Stage progression stays monotonic and follows deployed timing.
 2. Borrowability respects cash-out delay, surplus, supply, and source limits.
 3. Burned collateral is not accidentally treated like escrowed collateral.
-4. Hidden-token accounting preserves total claims while changing visible supply intentionally.
-5. Optional integrations do not silently widen revnet authority or mint rights.
+4. Optional integrations do not silently widen revnet authority or mint rights.
 
 ## Attack Surfaces
 
 - stage-transition boundaries
 - live borrowability and cross-currency debt aggregation
-- hidden-token burn and reveal flows
 - omnichain surplus and sucker exemptions
 - payment and cash-out hook composition in `REVOwner`
 

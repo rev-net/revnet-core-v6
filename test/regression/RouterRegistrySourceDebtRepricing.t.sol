@@ -36,7 +36,6 @@ import {REVSuckerDeploymentConfig} from "../../src/structs/REVSuckerDeploymentCo
 import {REVEmpty721Config} from "../helpers/REVEmpty721Config.sol";
 import {MockBuybackDataHook} from "../mock/MockBuybackDataHook.sol";
 import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
-import {IREVHiddenTokens} from "../../src/interfaces/IREVHiddenTokens.sol";
 
 contract RegressionRouterRegistrySourceDebtRepricingTest is TestBaseWorkflow {
     bytes32 internal constant REV_DEPLOYER_SALT = "REVDeployer";
@@ -96,7 +95,6 @@ contract RegressionRouterRegistrySourceDebtRepricingTest is TestBaseWorkflow {
             feeProjectId,
             suckerRegistry,
             loans,
-            IREVHiddenTokens(address(0)),
             address(this)
         );
 

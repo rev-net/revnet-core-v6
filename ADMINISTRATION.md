@@ -37,20 +37,16 @@
 - split-operator paths can manage only the permissions left open by deployment
 - `autoIssueFor(...)` consumes preconfigured stage issuance
 - loan operators can redirect borrowed value if a holder delegates loan permissions
-- hidden-token flows require the holder's permission grant and mint permission wiring through `REVOwner`
-
 ## Immutable And One-Way
 
 - Stage configuration is effectively permanent after deployment.
 - The deployer-held project NFT is not a normal owner-recovery tool.
 - Loan collateral is burned at borrow time and only reminted through repayment or documented flows.
-- Hidden-token balances change visible supply until reveal.
-
 ## Operational Notes
 
 - Treat revnet launch as the real governance decision.
 - Validate stage timing, split-operator scope, and optional integrations before deployment.
-- Review cash-out delay, hidden-token semantics, and loan permissions together.
+- Review cash-out delay and loan permissions together.
 - Do not assume there is a broad admin override for bad economics after launch.
 
 ## Machine Notes
@@ -69,5 +65,5 @@
 
 - No ordinary owner can casually rewrite staged economics after launch.
 - Split operators are not general-purpose governors.
-- Loan mechanics, hidden-token mechanics, and cash-out policy remain bounded by the deployed revnet logic.
+- Loan mechanics and cash-out policy remain bounded by the deployed revnet logic.
 - This repo should not be documented as if it had a normal mutable project-owner model.

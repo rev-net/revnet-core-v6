@@ -16,7 +16,6 @@ import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerR
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 
-import {IREVHiddenTokens} from "../../src/interfaces/IREVHiddenTokens.sol";
 import {IREVLoans} from "../../src/interfaces/IREVLoans.sol";
 import {REVOwner} from "../../src/REVOwner.sol";
 
@@ -107,7 +106,6 @@ contract REVOwnerCurrencyMismatchTest is TestBaseWorkflow {
             999_999, // fee revnet ID (won't be used in this test path)
             IJBSuckerRegistry(address(suckerRegistry)),
             IREVLoans(address(0)), // loans
-            IREVHiddenTokens(address(0)), // hidden tokens
             address(this)
         );
     }

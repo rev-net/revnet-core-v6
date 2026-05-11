@@ -29,11 +29,9 @@ import "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
 import {MockBuybackDataHook} from "../mock/MockBuybackDataHook.sol";
 import {REVEmpty721Config} from "../helpers/REVEmpty721Config.sol";
 import {REVDeployer} from "../../src/REVDeployer.sol";
-import {REVHiddenTokens} from "../../src/REVHiddenTokens.sol";
 import {REVLoans} from "../../src/REVLoans.sol";
 import {REVOwner} from "../../src/REVOwner.sol";
 import {IREVLoans} from "../../src/interfaces/IREVLoans.sol";
-import {IREVHiddenTokens} from "../../src/interfaces/IREVHiddenTokens.sol";
 import {REVConfig} from "../../src/structs/REVConfig.sol";
 import {REVDescription} from "../../src/structs/REVDescription.sol";
 import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
@@ -54,7 +52,6 @@ contract RegressionOperatorDelegationTest is TestBaseWorkflow {
 
     REVDeployer internal REV_DEPLOYER;
     REVOwner internal REV_OWNER;
-    REVHiddenTokens internal HIDDEN_TOKENS;
     REVLoans internal LOANS;
     JB721TiersHook internal EXAMPLE_HOOK;
     IJB721TiersHookDeployer internal HOOK_DEPLOYER;
@@ -96,14 +93,12 @@ contract RegressionOperatorDelegationTest is TestBaseWorkflow {
             permit2: permit2(),
             trustedForwarder: TRUSTED_FORWARDER
         });
-        HIDDEN_TOKENS = new REVHiddenTokens(jbController(), TRUSTED_FORWARDER);
         REV_OWNER = new REVOwner(
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS,
-            HIDDEN_TOKENS,
             address(this)
         );
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
@@ -149,82 +144,6 @@ contract RegressionOperatorDelegationTest is TestBaseWorkflow {
         );
     }
 
-    function test_hiddenTokensOperatorCanAllowHolderToHideOwnTokens() public {
-        uint256 userTokens = _payUserIntoRevnet(10e18);
-        uint256 hiddenCount = userTokens / 2;
-
-        _grantPermission(USER, REVNET_ID, address(HIDDEN_TOKENS), JBPermissionIds.BURN_TOKENS);
-        _allowHolderToHide(USER);
-
-        vm.prank(USER);
-        HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hiddenCount, USER);
-
-        vm.prank(USER);
-        HIDDEN_TOKENS.revealTokensOf(REVNET_ID, hiddenCount, USER);
-
-        assertEq(HIDDEN_TOKENS.hiddenBalanceOf(USER, REVNET_ID), 0, "holder hidden balance was consumed");
-        assertEq(
-            jbController().TOKENS().totalBalanceOf(USER, REVNET_ID),
-            userTokens,
-            "holder gets their own revealed tokens back"
-        );
-    }
-
-    function test_hiddenTokensPermissionedOperatorCanHideOwnTokens() public {
-        vm.deal(OPERATOR, 10e18);
-        vm.prank(OPERATOR);
-        uint256 operatorTokens = jbMultiTerminal().pay{value: 10e18}({
-            projectId: REVNET_ID,
-            token: JBConstants.NATIVE_TOKEN,
-            amount: 10e18,
-            beneficiary: OPERATOR,
-            minReturnedTokens: 0,
-            memo: "",
-            metadata: ""
-        });
-        uint256 hiddenCount = operatorTokens / 2;
-
-        _grantPermission(OPERATOR, REVNET_ID, address(HIDDEN_TOKENS), JBPermissionIds.BURN_TOKENS);
-        _grantOperatorHidePermission(OPERATOR);
-
-        vm.prank(OPERATOR);
-        HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hiddenCount, OPERATOR);
-
-        assertEq(HIDDEN_TOKENS.hiddenBalanceOf(OPERATOR, REVNET_ID), hiddenCount, "operator hidden balance was updated");
-        assertEq(
-            jbController().TOKENS().totalBalanceOf(OPERATOR, REVNET_ID),
-            operatorTokens - hiddenCount,
-            "operator's visible balance was reduced"
-        );
-    }
-
-    function test_hiddenTokensDelegateCannotHideAnotherHoldersTokens() public {
-        uint256 userTokens = _payUserIntoRevnet(10e18);
-
-        _grantPermission(USER, REVNET_ID, address(HIDDEN_TOKENS), JBPermissionIds.BURN_TOKENS);
-        _allowHolderToHide(USER);
-
-        vm.prank(OPERATOR);
-        vm.expectRevert(
-            abi.encodeWithSelector(REVHiddenTokens.REVHiddenTokens_Unauthorized.selector, REVNET_ID, OPERATOR)
-        );
-        HIDDEN_TOKENS.hideTokensOf(REVNET_ID, userTokens / 2, USER);
-    }
-
-    function test_hiddenTokensOperatorCanDisallowHolder() public {
-        uint256 userTokens = _payUserIntoRevnet(10e18);
-
-        _grantPermission(USER, REVNET_ID, address(HIDDEN_TOKENS), JBPermissionIds.BURN_TOKENS);
-        _allowHolderToHide(USER);
-
-        vm.prank(address(REV_DEPLOYER));
-        HIDDEN_TOKENS.setTokenHidingAllowedFor(REVNET_ID, USER, false);
-
-        vm.prank(USER);
-        vm.expectRevert(abi.encodeWithSelector(REVHiddenTokens.REVHiddenTokens_Unauthorized.selector, REVNET_ID, USER));
-        HIDDEN_TOKENS.hideTokensOf(REVNET_ID, userTokens / 2, USER);
-    }
-
     function _grantPermission(address account, uint256 revnetId, address operator, uint8 permissionId) internal {
         uint8[] memory permissionIds = new uint8[](1);
         permissionIds[0] = permissionId;
@@ -250,24 +169,6 @@ contract RegressionOperatorDelegationTest is TestBaseWorkflow {
             metadata: ""
         });
         assertGt(tokenCount, 0, "payment should mint revnet tokens");
-    }
-
-    function _allowHolderToHide(address holder) internal {
-        vm.prank(address(REV_DEPLOYER));
-        HIDDEN_TOKENS.setTokenHidingAllowedFor(REVNET_ID, holder, true);
-    }
-
-    function _grantOperatorHidePermission(address operator) internal {
-        uint8[] memory permissionIds = new uint8[](1);
-        permissionIds[0] = JBPermissionIds.HIDE_TOKENS;
-
-        vm.prank(address(REV_DEPLOYER));
-        jbPermissions()
-            .setPermissionsFor(
-                address(REV_DEPLOYER),
-                // forge-lint: disable-next-line(unsafe-typecast)
-                JBPermissionsData({operator: operator, projectId: uint56(REVNET_ID), permissionIds: permissionIds})
-            );
     }
 
     function _deployFeeProject() internal {

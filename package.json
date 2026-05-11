@@ -1,6 +1,6 @@
 {
   "name": "@rev-net/core-v6",
-  "version": "0.0.47",
+  "version": "0.0.48",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -30,7 +30,7 @@
     "@bananapus/buyback-hook-v6": "^0.0.39",
     "@bananapus/core-v6": "^0.0.44",
     "@bananapus/ownable-v6": "^0.0.24",
-    "@bananapus/permission-ids-v6": "^0.0.23",
+    "@bananapus/permission-ids-v6": "^0.0.24",
     "@bananapus/router-terminal-v6": "^0.0.37",
     "@bananapus/suckers-v6": "^0.0.37",
     "@croptop/core-v6": "^0.0.42",

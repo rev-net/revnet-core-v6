@@ -16,7 +16,6 @@ import {JBTokenAmount} from "@bananapus/core-v6/src/structs/JBTokenAmount.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
 
 import {IREVDeployer} from "../../src/interfaces/IREVDeployer.sol";
-import {IREVHiddenTokens} from "../../src/interfaces/IREVHiddenTokens.sol";
 import {IREVLoans} from "../../src/interfaces/IREVLoans.sol";
 import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
 import {REVOwner} from "../../src/REVOwner.sol";
@@ -31,7 +30,6 @@ contract ScopeCashOutsToLocalBalancesConditionalTest is Test {
     address constant DIRECTORY = address(0x2222);
     address constant SUCKER_REGISTRY = address(0x3333);
     address constant LOANS = address(0x4444);
-    address constant HIDDEN_TOKENS = address(0x5555);
     address constant FEE_TERMINAL = address(0x6666);
     address constant HOLDER = address(0x7777);
     address constant TOKEN = address(0x8888);
@@ -55,7 +53,6 @@ contract ScopeCashOutsToLocalBalancesConditionalTest is Test {
         vm.etch(DIRECTORY, hex"00");
         vm.etch(SUCKER_REGISTRY, hex"00");
         vm.etch(LOANS, hex"00");
-        vm.etch(HIDDEN_TOKENS, hex"00");
         vm.etch(FEE_TERMINAL, hex"00");
 
         // Deploy REVOwner
@@ -65,7 +62,6 @@ contract ScopeCashOutsToLocalBalancesConditionalTest is Test {
             FEE_REVNET_ID,
             IJBSuckerRegistry(SUCKER_REGISTRY),
             IREVLoans(LOANS),
-            IREVHiddenTokens(HIDDEN_TOKENS),
             address(this)
         );
 

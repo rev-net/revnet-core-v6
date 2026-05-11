@@ -40,7 +40,6 @@ import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
 import {IREVLoans} from "../src/interfaces/IREVLoans.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
-import {IREVHiddenTokens} from "../src/interfaces/IREVHiddenTokens.sol";
 
 /// @notice Fuzz tests for REVDeployer multi-stage auto-issuance.
 /// Tests stage ID computation consistency and multi-stage claiming behavior.
@@ -101,7 +100,6 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             IREVLoans(makeAddr("loans")),
-            IREVHiddenTokens(address(0)),
             address(this)
         );
 

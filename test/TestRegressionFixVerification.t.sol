@@ -38,8 +38,6 @@ import {JBTokenAmount} from "@bananapus/core-v6/src/structs/JBTokenAmount.sol";
 import {MockERC20} from "@bananapus/core-v6/test/mock/MockERC20.sol";
 import {MockPriceFeed} from "@bananapus/core-v6/test/mock/MockPriceFeed.sol";
 import {REVLoans} from "../src/REVLoans.sol";
-import {REVHiddenTokens} from "../src/REVHiddenTokens.sol";
-import {IREVHiddenTokens} from "../src/interfaces/IREVHiddenTokens.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
@@ -196,7 +194,6 @@ contract MockSuckerRegistryWithRemote {
 /// @notice Tests verifying regression coverage for and .
 /// `_borrowableAmountFrom` passes `decimals` parameter (not hardcoded 18) to `remoteSurplusOf`.
 /// `REVOwner.beforeCashOutRecordedWith` forwards cross-chain-adjusted context to buyback hook.
-/// `REVHiddenTokens` has operator gating and hidden tokens reduce economic supply until revealed.
 contract TestRegressionFixVerification is TestBaseWorkflow {
     // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
@@ -217,8 +214,6 @@ contract TestRegressionFixVerification is TestBaseWorkflow {
     IJBAddressRegistry ADDRESS_REGISTRY;
     // forge-lint: disable-next-line(mixed-case-variable)
     IREVLoans LOANS_CONTRACT;
-    // forge-lint: disable-next-line(mixed-case-variable)
-    REVHiddenTokens HIDDEN_TOKENS;
     // forge-lint: disable-next-line(mixed-case-variable)
     IJBSuckerRegistry SUCKER_REGISTRY;
     // forge-lint: disable-next-line(mixed-case-variable)
@@ -284,15 +279,12 @@ contract TestRegressionFixVerification is TestBaseWorkflow {
             trustedForwarder: TRUSTED_FORWARDER
         });
 
-        HIDDEN_TOKENS = new REVHiddenTokens(jbController(), TRUSTED_FORWARDER);
-
         REV_OWNER = new REVOwner(
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
             jbDirectory(),
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
-            HIDDEN_TOKENS,
             address(this)
         );
 
@@ -470,157 +462,9 @@ contract TestRegressionFixVerification is TestBaseWorkflow {
     }
 
     //*********************************************************************//
-    // ──────── REVHiddenTokens operator gating & views ──────── //
-    //*********************************************************************//
-
-    /// @notice Only the project owner or authorized operator can call `hideTokensOf`.
-    /// Unauthorized callers should revert.
-    function test_hideTokensOfRevertsForUnauthorized() public {
-        // Pay to get tokens.
-        uint256 payAmount = 10e18;
-        vm.prank(USER);
-        jbMultiTerminal().pay{value: payAmount}({
-            projectId: REVNET_ID,
-            token: JBConstants.NATIVE_TOKEN,
-            amount: payAmount,
-            beneficiary: USER,
-            minReturnedTokens: 0,
-            memo: "",
-            metadata: ""
-        });
-
-        uint256 userTokens = jbController().TOKENS().totalBalanceOf(USER, REVNET_ID);
-        assertGt(userTokens, 0, "User should have tokens");
-
-        // An unauthorized address (not project owner, not operator) should revert.
-        vm.prank(UNAUTHORIZED);
-        vm.expectRevert();
-        HIDDEN_TOKENS.hideTokensOf(REVNET_ID, userTokens / 2, USER);
-
-        // Even the token holder themselves cannot hide without operator permission.
-        vm.prank(USER);
-        vm.expectRevert();
-        HIDDEN_TOKENS.hideTokensOf(REVNET_ID, userTokens / 2, USER);
-    }
-
-    /// @notice Hiding tokens reduces the live token supply used for economic calculations.
-    function test_hidingTokensReducesLiveSupply() public {
-        // Pay to get tokens.
-        uint256 payAmount = 10e18;
-        vm.prank(USER);
-        jbMultiTerminal().pay{value: payAmount}({
-            projectId: REVNET_ID,
-            token: JBConstants.NATIVE_TOKEN,
-            amount: payAmount,
-            beneficiary: USER,
-            minReturnedTokens: 0,
-            memo: "",
-            metadata: ""
-        });
-
-        uint256 userTokens = jbController().TOKENS().totalBalanceOf(USER, REVNET_ID);
-        uint256 totalSupplyBefore = jbController().totalTokenSupplyWithReservedTokensOf(REVNET_ID);
-
-        _allowHolderToHide(USER, REVNET_ID);
-
-        // Hide half the tokens via a split-operator delegate.
-        uint256 hideCount = userTokens / 2;
-        vm.prank(USER);
-        HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hideCount, USER);
-
-        // After hiding: raw totalSupply should be reduced.
-        uint256 totalSupplyAfter = jbController().totalTokenSupplyWithReservedTokensOf(REVNET_ID);
-        assertEq(totalSupplyAfter, totalSupplyBefore - hideCount, "Raw total supply should decrease");
-
-        assertEq(HIDDEN_TOKENS.hiddenBalanceOf(USER, REVNET_ID), hideCount, "Hidden balance should be tracked");
-        assertEq(HIDDEN_TOKENS.totalHiddenOf(REVNET_ID), hideCount, "Total hidden should be tracked");
-    }
-
-    /// @notice Hidden tokens leave live supply but stay in REVOwner's cash-out denominator.
-    function test_hiddenTokensAreExcludedFromCashOutDenominator() public {
-        // Pay to get tokens for the user.
-        uint256 payAmount = 10e18;
-        vm.prank(USER);
-        jbMultiTerminal().pay{value: payAmount}({
-            projectId: REVNET_ID,
-            token: JBConstants.NATIVE_TOKEN,
-            amount: payAmount,
-            beneficiary: USER,
-            minReturnedTokens: 0,
-            memo: "",
-            metadata: ""
-        });
-
-        uint256 userTokens = jbController().TOKENS().totalBalanceOf(USER, REVNET_ID);
-        uint256 totalSupplyBefore = jbController().totalTokenSupplyWithReservedTokensOf(REVNET_ID);
-
-        _allowHolderToHide(USER, REVNET_ID);
-
-        // Hide 80% of the user's tokens.
-        uint256 hideCount = (userTokens * 80) / 100;
-        vm.prank(USER);
-        HIDDEN_TOKENS.hideTokensOf(REVNET_ID, hideCount, USER);
-
-        // The live totalSupply should be reduced.
-        uint256 rawSupply = jbController().totalTokenSupplyWithReservedTokensOf(REVNET_ID);
-        assertEq(rawSupply, totalSupplyBefore - hideCount, "Raw supply should decrease after hiding");
-
-        // The hidden balance should be correctly tracked.
-        assertEq(HIDDEN_TOKENS.hiddenBalanceOf(USER, REVNET_ID), hideCount, "Hidden balance tracked");
-        assertEq(HIDDEN_TOKENS.totalHiddenOf(REVNET_ID), hideCount, "Total hidden tracked");
-
-        uint256 localSurplus = jbMultiTerminal()
-            .currentSurplusOf(REVNET_ID, new address[](0), 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
-        JBBeforeCashOutRecordedContext memory context = JBBeforeCashOutRecordedContext({
-            terminal: address(jbMultiTerminal()),
-            holder: USER,
-            projectId: REVNET_ID,
-            rulesetId: 0,
-            cashOutCount: rawSupply,
-            totalSupply: rawSupply,
-            surplus: JBTokenAmount({
-                token: JBConstants.NATIVE_TOKEN,
-                decimals: 18,
-                currency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-                value: localSurplus
-            }),
-            scopeCashOutsToLocalBalances: false,
-            cashOutTaxRate: 5000,
-            beneficiaryIsFeeless: false,
-            metadata: ""
-        });
-
-        (bool success, bytes memory retdata) =
-            address(REV_OWNER).call(abi.encodeWithSelector(REV_OWNER.beforeCashOutRecordedWith.selector, context));
-        assertTrue(success, "beforeCashOutRecordedWith should succeed");
-
-        (,, uint256 returnedTotalSupply,,) =
-            abi.decode(retdata, (uint256, uint256, uint256, uint256, JBCashOutHookSpecification[]));
-        assertEq(returnedTotalSupply, rawSupply, "Hidden supply is excluded from the cash-out denominator");
-    }
-
-    //*********************************************************************//
     // ──────────────── Internal helpers
     // ──────────────── //
     //*********************************************************************//
-
-    function _grantBurnPermission(address account, uint256 revnetId) internal {
-        uint8[] memory permissionIds = new uint8[](1);
-        permissionIds[0] = JBPermissionIds.BURN_TOKENS;
-        JBPermissionsData memory permissionsData = JBPermissionsData({
-            operator: address(HIDDEN_TOKENS),
-            // forge-lint: disable-next-line(unsafe-typecast)
-            projectId: uint56(revnetId),
-            permissionIds: permissionIds
-        });
-        vm.prank(account);
-        jbPermissions().setPermissionsFor(account, permissionsData);
-    }
-
-    function _allowHolderToHide(address holder, uint256 revnetId) internal {
-        vm.prank(address(REV_DEPLOYER));
-        HIDDEN_TOKENS.setTokenHidingAllowedFor(revnetId, holder, true);
-    }
 
     function _deployFeeProject() internal {
         JBAccountingContext[] memory acc = new JBAccountingContext[](1);
@@ -704,5 +548,21 @@ contract TestRegressionFixVerification is TestBaseWorkflow {
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
         return revnetId;
+    }
+
+    function _grantBurnPermission(address account, uint256 revnetId) internal {
+        uint8[] memory permissionIds = new uint8[](1);
+        permissionIds[0] = JBPermissionIds.BURN_TOKENS;
+
+        JBPermissionsData memory permissionsData = JBPermissionsData({
+            // forge-lint: disable-next-line(unsafe-typecast)
+            operator: address(LOANS_CONTRACT),
+            // forge-lint: disable-next-line(unsafe-typecast)
+            projectId: uint56(revnetId),
+            permissionIds: permissionIds
+        });
+
+        vm.prank(account);
+        jbPermissions().setPermissionsFor(account, permissionsData);
     }
 }
