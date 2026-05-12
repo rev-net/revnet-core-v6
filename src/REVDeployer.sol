@@ -436,7 +436,18 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             terminalToken: terminalToken,
             sqrtPriceX96: sqrtPriceX96
         }) {}
-            catch {} // Pool may already be initialized — that's OK.
+            catch {
+            // Two failure modes both end up here and both must NOT block the revnet deploy:
+            //  1. The V4 pool is already initialized at the expected price (idempotent re-deploy). The buyback
+            //     hook's strict price check inside `initializePoolFor` would still call `_setPoolFor`, so the
+            //     try-branch already covered this. We reach this catch only when the check rejected the existing
+            //     price.
+            //  2. The V4 pool was front-run and pre-initialized at an attacker-chosen `sqrtPriceX96`. The buyback
+            //     hook's strict price check reverts with `JBBuybackHook_PoolInitializedAtWrongPrice`, which lands
+            //     here. We deliberately swallow that revert so an attacker cannot DoS the revnet deploy by
+            //     squatting on the predictable pool address — the revnet ships without buyback configured and
+            //     can be configured manually post-deploy.
+        }
     }
 
     //*********************************************************************//
