@@ -222,20 +222,14 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         uint256 feeCashOutCount = mulDiv({x: context.cashOutCount, y: FEE, denominator: JBConstants.MAX_FEE});
         uint256 nonFeeCashOutCount = context.cashOutCount - feeCashOutCount;
 
-        // Calculate how much surplus the non-fee tokens can reclaim via the bonding curve.
-        // Use effective (cross-chain) surplus; cap at local surplus.
+        // Compute the gross (effective-surplus) reclaim and fee amounts. The bonding curve uses cross-chain effective
+        // surplus, which can exceed what this chain's terminal actually holds.
         uint256 postFeeReclaimedAmount = JBCashOuts.cashOutFrom({
             surplus: effectiveSurplusValue,
             cashOutCount: nonFeeCashOutCount,
             totalSupply: totalSupply,
             cashOutTaxRate: context.cashOutTaxRate
         });
-        // Cap at local surplus — the bonding curve uses cross-chain effective surplus which can exceed what this
-        // chain's terminal actually holds.
-        if (postFeeReclaimedAmount > context.surplus.value) postFeeReclaimedAmount = context.surplus.value;
-
-        // Calculate how much the fee tokens reclaim from the remaining surplus after the non-fee reclaim.
-        // Use remaining effective surplus; cap at remaining local surplus.
         uint256 feeAmount = JBCashOuts.cashOutFrom({
             surplus: effectiveSurplusValue > postFeeReclaimedAmount
                 ? effectiveSurplusValue - postFeeReclaimedAmount
@@ -244,11 +238,21 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
             totalSupply: totalSupply - nonFeeCashOutCount,
             cashOutTaxRate: context.cashOutTaxRate
         });
-        // Cap the fee reclaim at remaining local surplus. The bonding curve uses the cross-chain effective surplus,
-        // which can exceed what's actually held locally. Without this cap, the terminal would try to send more than
-        // it has.
-        if (feeAmount > context.surplus.value - postFeeReclaimedAmount) {
-            feeAmount = context.surplus.value - postFeeReclaimedAmount;
+
+        // If the gross outflow exceeds local terminal liquidity, scale reclaim AND fee proportionally so the fee
+        // is preserved instead of being capped to zero when the reclaim alone consumes all local surplus.
+        uint256 grossOutflow = postFeeReclaimedAmount + feeAmount;
+        if (grossOutflow > context.surplus.value) {
+            if (grossOutflow == 0) {
+                // Defensive — both grossOutflow > localSurplus and grossOutflow == 0 can't both hold, but keep
+                // the explicit branch so future edits do not divide by zero.
+                postFeeReclaimedAmount = 0;
+                feeAmount = 0;
+            } else {
+                uint256 localSurplus = context.surplus.value;
+                postFeeReclaimedAmount = mulDiv({x: postFeeReclaimedAmount, y: localSurplus, denominator: grossOutflow});
+                feeAmount = mulDiv({x: feeAmount, y: localSurplus, denominator: grossOutflow});
+            }
         }
 
         // Build a context for the buyback hook using the non-fee token count and cross-chain-adjusted values
