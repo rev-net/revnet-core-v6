@@ -250,8 +250,8 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
                 feeAmount = 0;
             } else {
                 uint256 localSurplus = context.surplus.value;
-                postFeeReclaimedAmount = mulDiv(postFeeReclaimedAmount, localSurplus, grossOutflow);
-                feeAmount = mulDiv(feeAmount, localSurplus, grossOutflow);
+                postFeeReclaimedAmount = mulDiv({x: postFeeReclaimedAmount, y: localSurplus, denominator: grossOutflow});
+                feeAmount = mulDiv({x: feeAmount, y: localSurplus, denominator: grossOutflow});
             }
         }
 

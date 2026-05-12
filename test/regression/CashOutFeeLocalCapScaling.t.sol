@@ -147,16 +147,23 @@ contract CashOutFeeLocalCapScalingTest is TestBaseWorkflow {
             fundAccessLimitGroups: new JBFundAccessLimitGroup[](0)
         });
 
-        feeRevnetId = jbController().launchProjectFor(projectOwner, "", rulesetConfigs, terminalConfigs, "");
+        feeRevnetId = jbController()
+            .launchProjectFor({
+            owner: projectOwner,
+            projectUri: "",
+            rulesetConfigurations: rulesetConfigs,
+            terminalConfigurations: terminalConfigs,
+            memo: ""
+        });
 
-        ownerHook = new REVOwner(
-            IJBBuybackHookRegistry(address(buybackRegistry)),
-            jbDirectory(),
-            feeRevnetId,
-            IJBSuckerRegistry(address(suckerRegistry)),
-            IREVLoans(address(0)),
-            address(this)
-        );
+        ownerHook = new REVOwner({
+            buybackHook: IJBBuybackHookRegistry(address(buybackRegistry)),
+            directory: jbDirectory(),
+            feeRevnetId: feeRevnetId,
+            suckerRegistry: IJBSuckerRegistry(address(suckerRegistry)),
+            loans: IREVLoans(address(0)),
+            deployerBinder: address(this)
+        });
     }
 
     /// @notice When local liquidity is exhausted by the non-fee reclaim, the fee spec must still surface a nonzero
@@ -164,7 +171,7 @@ contract CashOutFeeLocalCapScalingTest is TestBaseWorkflow {
     /// `localSurplus - reclaim` and dropped the fee to zero.
     function test_feeIsPreservedWhenLocalLiquidityExhaustedByReclaim() public {
         // Remote dominates effective surplus. Local liquidity is tiny relative to cross-chain effective surplus.
-        suckerRegistry.setRemoteValues(0, 90 ether);
+        suckerRegistry.setRemoteValues({supply: 0, surplus: 90 ether});
 
         // Build a context that, with the buggy math, makes the non-fee reclaim equal local surplus.
         // local=10, remote=90, effective=100. 500-of-1000 cashOut at 50% tax → grossReclaim ~36 ETH, capped at 10.
@@ -209,7 +216,7 @@ contract CashOutFeeLocalCapScalingTest is TestBaseWorkflow {
     /// @notice When effective surplus equals local surplus (no remote), the fee must equal what the previous
     /// implementation computed. This locks in backward compatibility for the simple case.
     function test_feeMatchesLegacyComputationWhenEffectiveEqualsLocal() public {
-        suckerRegistry.setRemoteValues(0, 0);
+        suckerRegistry.setRemoteValues({supply: 0, surplus: 0});
 
         JBBeforeCashOutRecordedContext memory context = JBBeforeCashOutRecordedContext({
             terminal: address(jbMultiTerminal()),
@@ -240,9 +247,15 @@ contract CashOutFeeLocalCapScalingTest is TestBaseWorkflow {
         // Reference computation: feeCount=2.5 of 100, reclaim from full surplus, fee from leftover.
         uint256 feeCount = (100 ether * 25) / 1000;
         uint256 nonFeeCount = 100 ether - feeCount;
-        uint256 expectedReclaim = JBCashOuts.cashOutFrom(100 ether, nonFeeCount, 1000 ether, 5000);
-        uint256 expectedFee =
-            JBCashOuts.cashOutFrom(100 ether - expectedReclaim, feeCount, 1000 ether - nonFeeCount, 5000);
+        uint256 expectedReclaim = JBCashOuts.cashOutFrom({
+            surplus: 100 ether, cashOutCount: nonFeeCount, totalSupply: 1000 ether, cashOutTaxRate: 5000
+        });
+        uint256 expectedFee = JBCashOuts.cashOutFrom({
+            surplus: 100 ether - expectedReclaim,
+            cashOutCount: feeCount,
+            totalSupply: 1000 ether - nonFeeCount,
+            cashOutTaxRate: 5000
+        });
 
         assertEq(feeAmount, expectedFee, "fee in no-remote-surplus case must match legacy computation");
     }
