@@ -21,6 +21,18 @@ This file describes the verified change from `revnet-core-v5` to the current `re
 - The v6 test tree is substantially broader than the v5 tree, with dedicated regression, fork, attack, and invariant coverage for loans, cash-outs, split weights, and lifecycle edges.
 - The repo moved from the v5 `0.8.23` baseline to `0.8.28`.
 
+## In-v6 changes
+
+### `0.0.52` — Cap reported surplus on `REVOwner.beforeCashOutRecordedWith` to fit local liquidity
+
+PR #149 scaled the fee + reclaim proportionally when the gross global outflow exceeded local terminal liquidity, preserving a nonzero fee. But the data hook still returned the **unscaled** `effectiveSurplusValue` to `JBTerminalStore._cashOutWithDataHook`, which recomputes the beneficiary reclaim as `cashOutFrom(effSurplus, cashOutCount, totalSupply, taxRate)` and caps it at local surplus before adding the fee spec — so `balanceDiff = localSurplus + feeAmount > localSurplus` reverted with `InadequateTerminalStoreBalance`. Omnichain holders could not cash out locally when global surplus dominated.
+
+`cashOutFrom` is linear in `surplus`. After the existing PR #149 scaling, `REVOwner` now lowers the reported `effectiveSurplusValue` proportionally so the store's recomputed reclaim is at most `localSurplus - feeAmount`, leaving exact room for the (preserved) fee spec. The buyback hook still receives the full pre-cap global surplus for its routing decision — only the store-facing return is capped.
+
+The fee is **never** trimmed or zeroed: that was the regression PR #149 fixed.
+
+Integrator impact: omnichain cash-outs that previously reverted with `InadequateTerminalStoreBalance` when local liquidity was the binding cap now settle. The beneficiary receives `localSurplus - feeAmount` and the fee revnet receives `feeAmount`. The user still burns the full `context.cashOutCount` tokens — semantics are the same as the pre-existing local-cap protocol behavior, just now reachable end-to-end.
+
 ## Operator delegation
 
 - Added new `JBPermissionIds` for operator delegation in `@bananapus/permission-ids-v6`:

@@ -64,6 +64,8 @@ The repo does not replace core treasury accounting. Its critical economic logic 
 
 `REVOwner` also composes payment and cash-out hooks. On pay, it can merge 721-tier split forwarding with buyback-hook behavior and scale mint weight so the terminal only mints against the share that actually enters the project. On cash out, it can use omnichain supply and surplus for reclaim math, exempt trusted suckers, and append fee-hook specs.
 
+When global effective surplus exceeds local terminal liquidity, `beforeCashOutRecordedWith` scales the unscaled bonding-curve reclaim and fee proportionally to fit the local cap, then lowers the surplus value it reports back to `JBTerminalStore` so the store's recomputed reclaim leaves room for the (preserved) fee spec. The buyback hook still sees the full pre-cap global surplus for its routing decision. The user burns the full requested `cashOutCount` and receives `localSurplus - feeAmount`; the protocol fee is never zeroed by this scaling.
+
 ## Security Model
 
 - The highest-risk interactions sit where stage economics, treasury state, and loan borrowability meet.
