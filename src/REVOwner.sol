@@ -239,6 +239,12 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
             cashOutTaxRate: context.cashOutTaxRate
         });
 
+        // Snapshot the unscaled reclaim before the local-liquidity proportional scaling below mutates it. This is
+        // what `JBTerminalStore._cashOutWithDataHook` will recompute when it calls
+        // `JBCashOuts.cashOutFrom(effectiveSurplusValue, cashOutCount, totalSupply, cashOutTaxRate)` — same inputs,
+        // same output. Used to cap the surplus we report to the store so the recompute leaves room for the fee.
+        uint256 unscaledReclaim = postFeeReclaimedAmount;
+
         // If the gross outflow exceeds local terminal liquidity, scale reclaim AND fee proportionally so the fee
         // is preserved instead of being capped to zero when the reclaim alone consumes all local surplus.
         uint256 grossOutflow = postFeeReclaimedAmount + feeAmount;
@@ -270,6 +276,21 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         // If the fee rounds down to zero, return the buyback hook's response directly — no fee to process.
         if (feeAmount == 0) {
             return (cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplusValue, buybackHookSpecifications);
+        }
+
+        // The store will recompute the beneficiary reclaim as `cashOutFrom(effectiveSurplusValue, cashOutCount,
+        // totalSupply, cashOutTaxRate)` and add the fee spec on top. When local liquidity is the binding cap, that
+        // sum can exceed local surplus and revert. `cashOutFrom` is linear in `surplus`, so scale the surplus we
+        // report so the store-side reclaim is at most `localSurplus - feeAmount`, preserving room for the fee.
+        // `feeAmount ≤ localSurplus` after scaling (both factors are ≤ `localSurplus / grossOutflow`), so the
+        // subtraction never underflows.
+        uint256 reclaimCap = context.surplus.value - feeAmount;
+        if (unscaledReclaim > reclaimCap) {
+            // Linear scaling: new_surplus = effectiveSurplusValue * reclaimCap / unscaledReclaim guarantees
+            // `cashOutFrom(new_surplus, ...) ≤ reclaimCap` (modulo a wei of rounding-down). The buyback hook
+            // already received the full pre-cap surplus for its routing decision; only the store-facing surplus
+            // is capped.
+            effectiveSurplusValue = mulDiv({x: effectiveSurplusValue, y: reclaimCap, denominator: unscaledReclaim});
         }
 
         // Build a hook spec that routes the fee amount to this contract's `afterCashOutRecordedWith` for processing.
