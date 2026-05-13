@@ -478,7 +478,7 @@ contract DeployScript is Script, Sphinx {
                 feeRevnetId: FEE_PROJECT_ID,
                 suckerRegistry: suckers.registry,
                 loans: revloans,
-                deployerBinder: msg.sender
+                deployer: msg.sender
             });
 
         // Deploy REVDeployer with the REVLoans, buyback hook, and REVOwner addresses.
