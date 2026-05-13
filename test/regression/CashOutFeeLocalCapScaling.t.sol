@@ -162,7 +162,7 @@ contract CashOutFeeLocalCapScalingTest is TestBaseWorkflow {
             feeRevnetId: feeRevnetId,
             suckerRegistry: IJBSuckerRegistry(address(suckerRegistry)),
             loans: IREVLoans(address(0)),
-            deployerBinder: address(this)
+            deployer: address(this)
         });
     }
 

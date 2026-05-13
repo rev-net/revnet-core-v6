@@ -96,7 +96,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     //*********************************************************************//
 
     /// @notice The account allowed to bind the canonical deployer exactly once.
-    address private immutable _DEPLOYER_BINDER;
+    address private immutable _DEPLOYER;
 
     //*********************************************************************//
     // -------------------------- constructor ---------------------------- //
@@ -107,7 +107,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     /// @param feeRevnetId The Juicebox project ID of the fee revnet.
     /// @param suckerRegistry The sucker registry.
     /// @param loans The loan contract.
-    /// @param deployerBinder The account allowed to bind the canonical deployer via `setDeployer`. Passed explicitly
+    /// @param deployer The account allowed to bind the canonical deployer via `setDeployer`. Passed explicitly
     /// because CREATE2 deployments set `msg.sender` to the factory, not the intended operator.
     constructor(
         IJBBuybackHookRegistry buybackHook,
@@ -115,14 +115,14 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         uint256 feeRevnetId,
         IJBSuckerRegistry suckerRegistry,
         IREVLoans loans,
-        address deployerBinder
+        address deployer
     ) {
         BUYBACK_HOOK = buybackHook;
         DIRECTORY = directory;
         FEE_REVNET_ID = feeRevnetId;
         SUCKER_REGISTRY = suckerRegistry;
         LOANS = loans;
-        _DEPLOYER_BINDER = deployerBinder;
+        _DEPLOYER = deployer;
     }
 
     //*********************************************************************//
@@ -508,9 +508,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     /// @param deployer The canonical REVDeployer instance that will manage revnet runtime state.
     function setDeployer(IREVDeployer deployer) external {
         // Only the account that deployed this REVOwner may complete the one-time deployer binding.
-        if (msg.sender != _DEPLOYER_BINDER) {
-            revert REVOwner_Unauthorized({caller: msg.sender, expectedCaller: _DEPLOYER_BINDER});
-        }
+        if (msg.sender != _DEPLOYER) revert REVOwner_Unauthorized({caller: msg.sender, expectedCaller: _DEPLOYER});
         // Prevent the deployer binding from being overwritten after initialization.
         if (address(DEPLOYER) != address(0)) revert REVOwner_AlreadyInitialized({deployer: address(DEPLOYER)});
         // Store the canonical REVDeployer that is authorized to manage runtime hook state.
