@@ -213,6 +213,120 @@ contract CashOutFeeLocalCapScalingTest is TestBaseWorkflow {
         assertLe(feeAmount, 10 ether, "fee must respect local surplus cap");
     }
 
+    /// @notice Post-PR-#149: scaling preserves a nonzero fee, but the data hook still returns the unscaled
+    /// `effectiveCashOutCount` and `effectiveSurplusValue`. `JBTerminalStore._cashOutWithDataHook` recomputes
+    /// `reclaim = cashOutFrom(effSurplus, effCount, ...)` (which exceeds local surplus, then caps at local),
+    /// and `recordCashOutFor` adds the fee spec on top — `balanceDiff = local + fee > local` reverts with
+    /// `InadequateTerminalStoreBalance`. The fix scales the returned `effCount` down so the recomputed reclaim
+    /// fits inside local surplus, leaving room for the fee spec.
+    function test_omnichainCashOutBalanceDiffFitsWithinLocalSurplus() public {
+        // Local=10, remote=90 → effective surplus=100. Cashing 500 of 1000 at 50% tax yields a global reclaim
+        // far exceeding 10 ETH. The store caps reclaim at local=10, then adds the fee spec on top.
+        suckerRegistry.setRemoteValues({supply: 0, surplus: 90 ether});
+
+        JBBeforeCashOutRecordedContext memory context = JBBeforeCashOutRecordedContext({
+            terminal: address(jbMultiTerminal()),
+            holder: address(0xCAFE),
+            projectId: feeRevnetId + 1,
+            rulesetId: 0,
+            cashOutCount: 500 ether,
+            totalSupply: 1000 ether,
+            surplus: JBTokenAmount({
+                token: JBConstants.NATIVE_TOKEN, value: 10 ether, decimals: 18, currency: JBCurrencyIds.ETH
+            }),
+            scopeCashOutsToLocalBalances: false,
+            cashOutTaxRate: 5000,
+            beneficiaryIsFeeless: false,
+            metadata: ""
+        });
+
+        (
+            uint256 cashOutTaxRate,
+            uint256 effectiveCashOutCount,
+            uint256 effectiveTotalSupply,
+            uint256 effectiveSurplusValue,
+            JBCashOutHookSpecification[] memory specs
+        ) = ownerHook.beforeCashOutRecordedWith(context);
+
+        // Mirror `JBTerminalStore._cashOutWithDataHook` exactly.
+        uint256 reclaim = JBCashOuts.cashOutFrom({
+            surplus: effectiveSurplusValue,
+            cashOutCount: effectiveCashOutCount,
+            totalSupply: effectiveTotalSupply,
+            cashOutTaxRate: cashOutTaxRate
+        });
+        if (reclaim > context.surplus.value) reclaim = context.surplus.value;
+
+        // Mirror `JBTerminalStore.recordCashOutFor` — sum every hook spec amount.
+        uint256 hookTotal;
+        for (uint256 i; i < specs.length; ++i) {
+            hookTotal += specs[i].amount;
+        }
+        uint256 balanceDiff = reclaim + hookTotal;
+
+        // The store reverts when `balanceDiff > currentBalance` (currentBalance equals local surplus here).
+        assertLe(
+            balanceDiff,
+            context.surplus.value,
+            "data hook output + hook specs must fit within local surplus to avoid store revert"
+        );
+
+        // The fee spec must remain nonzero — this is the property PR #149 was originally protecting.
+        uint256 feeAmount;
+        for (uint256 i; i < specs.length; ++i) {
+            if (address(specs[i].hook) == address(ownerHook) && !specs[i].noop) {
+                feeAmount = specs[i].amount;
+                break;
+            }
+        }
+        assertGt(feeAmount, 0, "fee must be preserved when local liquidity caps the reclaim");
+    }
+
+    /// @notice When the ruleset scopes cash-outs to local balances, no remote scaling logic should apply and the
+    /// data hook output must always fit within local surplus.
+    function test_localOnlyCashOutAlwaysFitsWithinLocalSurplus() public {
+        // Scoped to local, so any remote-surplus injection is ignored.
+        suckerRegistry.setRemoteValues({supply: 0, surplus: 999_999 ether});
+
+        JBBeforeCashOutRecordedContext memory context = JBBeforeCashOutRecordedContext({
+            terminal: address(jbMultiTerminal()),
+            holder: address(0xCAFE),
+            projectId: feeRevnetId + 1,
+            rulesetId: 0,
+            cashOutCount: 100 ether,
+            totalSupply: 1000 ether,
+            surplus: JBTokenAmount({
+                token: JBConstants.NATIVE_TOKEN, value: 100 ether, decimals: 18, currency: JBCurrencyIds.ETH
+            }),
+            scopeCashOutsToLocalBalances: true,
+            cashOutTaxRate: 5000,
+            beneficiaryIsFeeless: false,
+            metadata: ""
+        });
+
+        (
+            uint256 cashOutTaxRate,
+            uint256 effectiveCashOutCount,
+            uint256 effectiveTotalSupply,
+            uint256 effectiveSurplusValue,
+            JBCashOutHookSpecification[] memory specs
+        ) = ownerHook.beforeCashOutRecordedWith(context);
+
+        uint256 reclaim = JBCashOuts.cashOutFrom({
+            surplus: effectiveSurplusValue,
+            cashOutCount: effectiveCashOutCount,
+            totalSupply: effectiveTotalSupply,
+            cashOutTaxRate: cashOutTaxRate
+        });
+        if (reclaim > context.surplus.value) reclaim = context.surplus.value;
+
+        uint256 hookTotal;
+        for (uint256 i; i < specs.length; ++i) {
+            hookTotal += specs[i].amount;
+        }
+        assertLe(reclaim + hookTotal, context.surplus.value, "local-only cash-out must fit local surplus");
+    }
+
     /// @notice When effective surplus equals local surplus (no remote), the fee must equal what the previous
     /// implementation computed. This locks in backward compatibility for the simple case.
     function test_feeMatchesLegacyComputationWhenEffectiveEqualsLocal() public {

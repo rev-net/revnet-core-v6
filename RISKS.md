@@ -90,9 +90,21 @@ Reserved-token split recipients are intentionally excluded from this hash. They 
 
 In `REVLoans._adjust`, `totalCollateralOf[revnetId]` is incremented after external calls (`useAllowanceOf`, fee payment). A reentrant `borrowFrom` would see a lower `totalCollateralOf`. This is documented inline (lines 1128-1132) and requires an adversarial pay hook on the revnet's own terminal -- a trust-level configuration that is not realistic in standard deployments.
 
-### 7.8 Remote loan corrections not reflected in local borrowability
+### 7.8 Omnichain cash-outs settle at local liquidity, not theoretical global share
 
-`_borrowableAmountFrom` adds back local `totalBorrowed` and `totalCollateral` to reconstitute pre-loan economic state for the bonding curve. However, remote chain snapshots (built by `JBSuckerLib.buildSnapshotMessage`) capture raw surplus/supply WITHOUT loan corrections from the remote chain. This is accepted because:
+When omnichain effective surplus exceeds the local terminal balance, `REVOwner.beforeCashOutRecordedWith` proportionally scales the bonding-curve reclaim and the protocol fee so their sum equals local liquidity, then lowers the `effectiveSurplusValue` it reports to `JBTerminalStore` by the same ratio so the store's recomputed reclaim leaves exact room for the fee spec. The user still burns the full requested `cashOutCount` and receives `localSurplus - feeAmount` — strictly less than the global-surplus formula would suggest.
+
+This is intentional: the alternative (revert with `InadequateTerminalStoreBalance`) was the bug fixed in PR #149 + this change. The protocol fee is **never** zeroed by the scaling; the regression PR #149 specifically protected against was the prior `feeAmount = max(localSurplus - reclaim, 0)` formulation which dropped to zero whenever the unscaled reclaim consumed all local surplus.
+
+Holders with `minReclaimAmount` set on their `cashOutTokensOf` call are protected from getting less than they expect. Holders without minimums should be aware that local liquidity caps their reclaim; the surplus on other chains is reachable by cashing out there (or by waiting for bridge messages to rebalance local surplus).
+
+### 7.9 Remote loan corrections not reflected in local borrowability
+
+`_borrowableAmountFrom` adds back local `totalBorrowed` and `totalCollateral` to reconstitute pre-loan economic state for the bonding curve. However, remote chain snapshots (built by `JBSuckerLib.buildSnapshotMessage`) capture raw surplus/supply WITHOUT loan corrections from the remote chain.
+
+(This subsection was renumbered from 7.8 → 7.9 to accommodate the new 7.8 above. The remote-loan-correction analysis is unchanged.)
+
+This is accepted because:
 
 1. Suckers are a general-purpose bridging layer and should not need knowledge of revnet-specific loan mechanics.
 2. The `localSurplus` cap (REVLoans line 386-387) prevents extraction beyond what the local terminal actually holds.
