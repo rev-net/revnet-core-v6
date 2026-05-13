@@ -225,12 +225,15 @@ contract TestLongTailEconomics is TestBaseWorkflow {
         });
 
         // Stage 1: Lower issuance inherited with cut, 180-day frequency, lower tax.
+        // `weight = 1` is core's "inherit decayed weight from previous ruleset" sentinel. The pre-existing
+        // `initialIssuance: 0` was being treated as "no issuance" — every stage-1 payment minted zero tokens
+        // once stage 0 cycled out, failing the assertion.
         stageConfigurations[1] = REVStageConfig({
             startsAtOrAfter: uint40(block.timestamp + 365 days),
             autoIssuances: new REVAutoIssuance[](0),
             splitPercent: 500, // 5% reserved split
             splits: splits,
-            initialIssuance: 0, // inherit from previous
+            initialIssuance: 1, // inherit decayed weight from previous stage
             issuanceCutFrequency: 180 days,
             issuanceCutPercent: JBConstants.MAX_WEIGHT_CUT_PERCENT / 2,
             cashOutTaxRate: 3000, // 30%
