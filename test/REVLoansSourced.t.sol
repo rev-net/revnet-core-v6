@@ -1915,9 +1915,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
 
         JBSingleAllowance memory allowance;
         vm.prank(USER);
-        vm.expectRevert(
-            abi.encodeWithSelector(REVLoans.REVLoans_LoanOwnerChanged.selector, loanId, USER, attacker)
-        );
+        vm.expectRevert(abi.encodeWithSelector(REVLoans.REVLoans_LoanOwnerChanged.selector, loanId, USER, attacker));
         // Full repay: return all collateral so `repayBorrowAmount > 0` and the function progresses to
         // `_acceptFundsFor`, which is where the reentrant transfer (and therefore the ownership re-check) occurs.
         LOANS_CONTRACT.repayLoan(loanId, loan.amount * 2, loan.collateral, payable(USER), allowance);
