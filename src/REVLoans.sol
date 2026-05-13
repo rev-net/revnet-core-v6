@@ -62,6 +62,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     error REVLoans_InvalidTerminal(address terminal, uint256 revnetId);
     error REVLoans_LoanExpired(uint256 timeSinceLoanCreated, uint256 loanLiquidationDuration);
     error REVLoans_LoanIdOverflow(uint256 revnetId, uint256 loanNumber, uint256 maxLoanNumber);
+    error REVLoans_LoanOwnerChanged(uint256 loanId, address expectedOwner, address actualOwner);
     error REVLoans_NewBorrowAmountGreaterThanLoanAmount(uint256 newBorrowAmount, uint256 loanAmount);
     error REVLoans_NoMsgValueAllowed(uint256 msgValue, address token);
     error REVLoans_NotEnoughCollateral(uint256 collateralCountToRemove, uint256 loanCollateral);
@@ -883,6 +884,16 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Accept the funds that'll be used to pay off loans.
         maxRepayBorrowAmount =
             _acceptFundsFor({token: loan.source.token, amount: maxRepayBorrowAmount, allowance: allowance});
+
+        // Re-check ownership: an ERC-777/ERC-1363 source token can reenter during the transfer above and transfer
+        // the loan NFT to another account. Without this check, `_repayLoan` would burn the new owner's NFT while
+        // returning collateral to the stale cached owner.
+        {
+            address currentOwner = _ownerOf(loanId);
+            if (currentOwner != loanOwner) {
+                revert REVLoans_LoanOwnerChanged({loanId: loanId, expectedOwner: loanOwner, actualOwner: currentOwner});
+            }
+        }
 
         // Make sure the minimum borrow amount is met.
         if (repayBorrowAmount > maxRepayBorrowAmount) {

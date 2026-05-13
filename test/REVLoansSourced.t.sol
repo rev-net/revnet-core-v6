@@ -48,11 +48,43 @@ import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
+import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 struct FeeProjectConfig {
     REVConfig configuration;
     JBTerminalConfig[] terminalConfigurations;
     REVSuckerDeploymentConfig suckerDeploymentConfiguration;
+}
+
+/// @notice Mock token whose `transferFrom` reenters into REVLoans during `_acceptFundsFor` to transfer the loan NFT
+/// to a different address. Used to verify that `repayLoan` re-checks NFT ownership after the source-token transfer.
+/// @dev Inherits MockERC20 so storage layout matches the original token when this contract's runtime is etched over
+/// the existing source-token address with `vm.etch`. Immutables stay valid because they are baked into runtime code.
+contract ReentrantSourceTokenMock is MockERC20 {
+    IREVLoans private immutable I_REV_LOANS;
+    uint256 private immutable I_LOAN_ID;
+    address private immutable I_LOAN_OWNER;
+    address private immutable I_ATTACKER;
+
+    constructor(
+        IREVLoans revLoans,
+        uint256 loanId,
+        address loanOwner,
+        address attacker
+    )
+        MockERC20("Reentrant", "REENT")
+    {
+        I_REV_LOANS = revLoans;
+        I_LOAN_ID = loanId;
+        I_LOAN_OWNER = loanOwner;
+        I_ATTACKER = attacker;
+    }
+
+    function transferFrom(address from, address to, uint256 amount) public override returns (bool) {
+        // Reenter: transfer the loan NFT out from under REVLoans's cached `loanOwner` before the function continues.
+        IERC721(address(I_REV_LOANS)).transferFrom(I_LOAN_OWNER, I_ATTACKER, I_LOAN_ID);
+        return super.transferFrom(from, to, amount);
+    }
 }
 
 contract REVLoansSourcedTests is TestBaseWorkflow {
@@ -1831,6 +1863,62 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         LOANS_CONTRACT.repayLoan{value: 0}( // collateral exceeds with + 1
             loanId, 0, loan.collateral + 1, payable(USER), allowance
         );
+    }
+
+    /// @notice Regression test for the audit fix that re-checks loan-NFT ownership after `_acceptFundsFor` in
+    /// `REVLoans.repayLoan`. A non-standard source token (ERC-777, ERC-1363, or a malicious mock) can reenter during
+    /// the inbound transfer and move the loan NFT to another account; without the re-check, `_repayLoan` would burn
+    /// the new owner's NFT while returning collateral to the stale cached owner.
+    function test_repay_revertsWhenLoanOwnerChangesDuringFundsAcceptance() external {
+        uint256 payableAmount = 1e12;
+
+        // Fund USER with the (still benign) source token and pay into the revnet to mint REV credits.
+        deal(address(TOKEN), USER, payableAmount);
+        vm.prank(USER);
+        TOKEN.approve(address(jbMultiTerminal()), payableAmount);
+        vm.prank(USER);
+        uint256 tokens = jbMultiTerminal().pay(REVNET_ID, address(TOKEN), payableAmount, USER, 0, "", "");
+
+        uint256 loanable = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 6, uint32(uint160(address(TOKEN))));
+        assertGt(loanable, 0);
+
+        // Spoof the BORROW_FROM_REVNET / REPAY_LOAN permissions, mirroring the other tests in this file.
+        mockExpect(
+            address(jbPermissions()),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, 2, 11, true, true)),
+            abi.encode(true)
+        );
+
+        REVLoanSource memory sauce = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
+        vm.prank(USER);
+        (uint256 loanId, REVLoan memory loan) =
+            LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 100, USER);
+
+        // Build a malicious replacement for the source token. Its runtime is etched over the existing TOKEN address
+        // so the revnet's accounting context, price feed, and recorded balances all stay valid.
+        address attacker = makeAddr("attacker");
+        ReentrantSourceTokenMock malicious = new ReentrantSourceTokenMock({
+            revLoans: LOANS_CONTRACT, loanId: loanId, loanOwner: USER, attacker: attacker
+        });
+        vm.etch(address(TOKEN), address(malicious).code);
+
+        // For the reentrant call to succeed, the malicious token must be authorized to move USER's loan NFT.
+        // ERC-777 / ERC-1363 callbacks can grant equivalent authority in the wild (e.g. via a `tokensToSend` hook
+        // implemented by a smart-contract wallet that approves the source token on its NFT holdings).
+        vm.prank(USER);
+        IERC721(address(LOANS_CONTRACT)).setApprovalForAll(address(TOKEN), true);
+
+        // Fund the repay and approve TOKEN to be pulled by REVLoans.
+        deal(address(TOKEN), USER, loanable * 2);
+        vm.prank(USER);
+        TOKEN.approve(address(LOANS_CONTRACT), type(uint256).max);
+
+        JBSingleAllowance memory allowance;
+        vm.prank(USER);
+        vm.expectRevert(abi.encodeWithSelector(REVLoans.REVLoans_LoanOwnerChanged.selector, loanId, USER, attacker));
+        // Full repay: return all collateral so `repayBorrowAmount > 0` and the function progresses to
+        // `_acceptFundsFor`, which is where the reentrant transfer (and therefore the ownership re-check) occurs.
+        LOANS_CONTRACT.repayLoan(loanId, loan.amount * 2, loan.collateral, payable(USER), allowance);
     }
 
     function _balanceOf(address token, address user) internal view returns (uint256) {
