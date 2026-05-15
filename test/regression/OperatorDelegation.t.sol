@@ -196,7 +196,7 @@ contract RegressionOperatorDelegationTest is TestBaseWorkflow {
         REVConfig memory feeConfig = REVConfig({
             description: REVDescription("Fee Revnet", "FEE", "", ERC20_SALT),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });
@@ -244,7 +244,7 @@ contract RegressionOperatorDelegationTest is TestBaseWorkflow {
             // forge-lint: disable-next-line(unsafe-typecast)
             description: REVDescription("Revnet", "REV", "", bytes32("REV_TOKEN_2")),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });

@@ -283,7 +283,7 @@ contract REVLoansRegressions is TestBaseWorkflow {
             // forge-lint: disable-next-line(named-struct-fields)
             description: REVDescription("H6Test", "H6T", "ipfs://h6test", "H6_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stageConfigurations
         });

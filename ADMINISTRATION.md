@@ -6,7 +6,7 @@
 | --- | --- |
 | Scope | Revnet deployment shape, bounded runtime operators, loan-owner cosmetics, and optional integration control surfaces |
 | Control posture | Intentionally narrow and mostly deployment-defined |
-| Highest-risk actions | Bad stage design, wrong split-operator assignment, and misunderstanding which runtime surfaces stay live after launch |
+| Highest-risk actions | Bad stage design, wrong operator assignment, and misunderstanding which runtime surfaces stay live after launch |
 | Recovery posture | Usually replacement, not patching; the design intentionally avoids easy admin escape hatches |
 
 ## Purpose
@@ -34,7 +34,7 @@
 ## Privileged Surfaces
 
 - `deployFor(...)` defines the revnet's long-lived shape
-- split-operator paths can manage only the permissions left open by deployment
+- operator paths can manage only the permissions left open by deployment
 - `autoIssueFor(...)` consumes preconfigured stage issuance
 - loan operators can redirect borrowed value if a holder delegates loan permissions
 ## Immutable And One-Way
@@ -45,7 +45,7 @@
 ## Operational Notes
 
 - Treat revnet launch as the real governance decision.
-- Validate stage timing, split-operator scope, and optional integrations before deployment.
+- Validate stage timing, operator scope, and optional integrations before deployment.
 - Review cash-out delay and loan permissions together.
 - Do not assume there is a broad admin override for bad economics after launch.
 

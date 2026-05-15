@@ -61,7 +61,7 @@ Integrator impact: omnichain cash-outs that previously reverted with `Inadequate
 - `deployWith721sFor(...)` was removed.
 - `deployFor(...)` overloads changed shape and return the deployed 721 hook.
 - `REVConfig` no longer carries `loanSources` or `loans`.
-- `REVDeploy721TiersHookConfig` now uses `REVBaseline721HookConfig` and inverted `preventSplitOperator*` booleans.
+- `REVDeploy721TiersHookConfig` now uses `REVBaseline721HookConfig` and inverted `preventOperator*` booleans.
 - `IREVOwner` is a new interface that some integrations must track separately from `IREVDeployer`.
 
 ## Indexer impact

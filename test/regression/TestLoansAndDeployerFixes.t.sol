@@ -387,7 +387,7 @@ contract TestLoansAndDeployerFixes is REVLoansFeeRecovery {
                 name: "StageOrderTest", ticker: "$SOT", uri: "ipfs://test", salt: "STAGE_ORDER_SALT_REVERT"
             }),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stageConfigurations
         });
@@ -477,7 +477,7 @@ contract TestLoansAndDeployerFixes is REVLoansFeeRecovery {
                 name: "StageOrderTestOK", ticker: "$SOTOK", uri: "ipfs://test", salt: "STAGE_ORDER_SALT_SUCCESS"
             }),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stageConfigurations
         });
@@ -561,7 +561,7 @@ contract TestLoansAndDeployerFixes is REVLoansFeeRecovery {
                 name: "StageOrderEqual", ticker: "$SOTEQ", uri: "ipfs://test", salt: "STAGE_ORDER_SALT_EQUAL"
             }),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stageConfigurations
         });

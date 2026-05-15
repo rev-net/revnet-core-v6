@@ -128,7 +128,7 @@ contract TestLowRegressions is TestBaseWorkflow {
             // forge-lint: disable-next-line(named-struct-fields)
             description: REVDescription("Revnet", "$REV", "ipfs://test", ERC20_SALT),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stageConfigurations
         });
@@ -199,7 +199,7 @@ contract TestLowRegressions is TestBaseWorkflow {
             // forge-lint: disable-next-line(named-struct-fields)
             description: REVDescription("TwoStage", "$TWO", "ipfs://test", "TWO_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stageConfigurations
         });
@@ -257,7 +257,7 @@ contract TestLowRegressions is TestBaseWorkflow {
             // forge-lint: disable-next-line(named-struct-fields)
             description: REVDescription("Single", "$SGL", "ipfs://test", "SGL_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stageConfigurations
         });

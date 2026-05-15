@@ -267,7 +267,7 @@ contract DeployScript is Script, Sphinx {
         REVConfig memory revnetConfiguration = REVConfig({
             description: REVDescription({name: NAME, ticker: SYMBOL, uri: PROJECT_URI, salt: ERC20_SALT}),
             baseCurrency: ETH_CURRENCY,
-            splitOperator: OPERATOR,
+            operator: OPERATOR,
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stageConfigurations
         });
@@ -339,10 +339,10 @@ contract DeployScript is Script, Sphinx {
                     })
                 }),
                 salt: bytes32(0),
-                preventSplitOperatorAdjustingTiers: false,
-                preventSplitOperatorUpdatingMetadata: false,
-                preventSplitOperatorMinting: false,
-                preventSplitOperatorIncreasingDiscountPercent: false
+                preventOperatorAdjustingTiers: false,
+                preventOperatorUpdatingMetadata: false,
+                preventOperatorMinting: false,
+                preventOperatorIncreasingDiscountPercent: false
             }),
             allowedPosts: new REVCroptopAllowedPost[](0)
         });

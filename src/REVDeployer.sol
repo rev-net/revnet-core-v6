@@ -161,7 +161,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     // ------------------- internal stored properties -------------------- //
     //*********************************************************************//
 
-    /// @notice A list of `JBPermissonIds` indices to grant to the split operator of a specific revnet.
+    /// @notice A list of `JBPermissonIds` indices to grant to the operator of a specific revnet.
     /// @dev These should be set in the revnet's deployment process.
     /// @custom:param revnetId The ID of the revnet to look up.
     mapping(uint256 revnetId => uint256[]) internal _extraOperatorPermissions;
@@ -229,16 +229,16 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     // -------------------------- public views --------------------------- //
     //*********************************************************************//
 
-    /// @notice Check whether an address is a revnet's split operator.
+    /// @notice Check whether an address is a revnet's operator.
     /// @param revnetId The ID of the revnet to check.
     /// @param addr The address to check.
-    /// @return flag A flag indicating whether the address is the revnet's split operator.
-    function isSplitOperatorOf(uint256 revnetId, address addr) public view override returns (bool) {
+    /// @return flag A flag indicating whether the address is the revnet's operator.
+    function isOperatorOf(uint256 revnetId, address addr) public view override returns (bool) {
         return PERMISSIONS.hasPermissions({
             operator: addr,
             account: address(this),
             projectId: revnetId,
-            permissionIds: _splitOperatorPermissionIndexesOf(revnetId),
+            permissionIds: _operatorPermissionIndexesOf(revnetId),
             includeRoot: false,
             includeWildcardProjectId: false
         });
@@ -255,11 +255,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     // -------------------------- internal views ------------------------- //
     //*********************************************************************//
 
-    /// @notice If the specified address is not the revnet's current split operator, revert.
+    /// @notice If the specified address is not the revnet's current operator, revert.
     /// @param revnetId The ID of the revnet to check.
     /// @param operator The address to check.
-    function _checkIfIsSplitOperatorOf(uint256 revnetId, address operator) internal view {
-        if (!isSplitOperatorOf({revnetId: revnetId, addr: operator})) {
+    function _checkIfIsOperatorOf(uint256 revnetId, address operator) internal view {
+        if (!isOperatorOf({revnetId: revnetId, addr: operator})) {
             revert REVDeployer_Unauthorized({revnetId: revnetId, caller: operator});
         }
     }
@@ -359,20 +359,20 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         });
     }
 
-    /// @notice Returns the permissions that the split operator should have for a revnet.
+    /// @notice Returns the permissions that the operator should have for a revnet.
     /// @param revnetId The ID of the revnet to look up.
-    /// @return allOperatorPermissions The permissions the split operator should have for the revnet,
+    /// @return allOperatorPermissions The permissions the operator should have for the revnet,
     /// including both default and custom permissions.
-    function _splitOperatorPermissionIndexesOf(uint256 revnetId)
+    function _operatorPermissionIndexesOf(uint256 revnetId)
         internal
         view
         returns (uint256[] memory allOperatorPermissions)
     {
-        // Keep a reference to the custom split operator permissions.
-        uint256[] memory customSplitOperatorPermissionIndexes = _extraOperatorPermissions[revnetId];
+        // Keep a reference to the custom operator permissions.
+        uint256[] memory customOperatorPermissionIndexes = _extraOperatorPermissions[revnetId];
 
         // Make the array that merges the default and custom operator permissions.
-        allOperatorPermissions = new uint256[](9 + customSplitOperatorPermissionIndexes.length);
+        allOperatorPermissions = new uint256[](9 + customOperatorPermissionIndexes.length);
         allOperatorPermissions[0] = JBPermissionIds.SET_SPLIT_GROUPS;
         allOperatorPermissions[1] = JBPermissionIds.SET_BUYBACK_POOL;
         allOperatorPermissions[2] = JBPermissionIds.SET_BUYBACK_TWAP;
@@ -384,8 +384,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         allOperatorPermissions[8] = JBPermissionIds.SIGN_FOR_ERC20;
 
         // Copy the custom permissions into the array.
-        for (uint256 i; i < customSplitOperatorPermissionIndexes.length;) {
-            allOperatorPermissions[9 + i] = customSplitOperatorPermissionIndexes[i];
+        for (uint256 i; i < customOperatorPermissionIndexes.length;) {
+            allOperatorPermissions[9 + i] = customOperatorPermissionIndexes[i];
             unchecked {
                 ++i;
             }
@@ -595,22 +595,22 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         // Store the tiered ERC-721 hook in the owner contract.
         REVOwner(OWNER).setTiered721HookOf({revnetId: revnetId, hook: hook});
 
-        // Grant the split operator all 721 permissions (no prevent* flags for default config).
-        // These permission IDs are only consumed by `_setSplitOperatorOf` below, after revnet setup has either
+        // Grant the operator all 721 permissions (no prevent* flags for default config).
+        // These permission IDs are only consumed by `_setOperatorOf` below, after revnet setup has either
         // completed or reverted atomically.
         _extraOperatorPermissions[revnetId].push(JBPermissionIds.ADJUST_721_TIERS);
         _extraOperatorPermissions[revnetId].push(JBPermissionIds.SET_721_METADATA);
         _extraOperatorPermissions[revnetId].push(JBPermissionIds.MINT_721);
         _extraOperatorPermissions[revnetId].push(JBPermissionIds.SET_721_DISCOUNT_PERCENT);
 
-        // Give the split operator their permissions (base + 721 extras).
-        _setSplitOperatorOf({revnetId: revnetId, operator: configuration.splitOperator});
+        // Give the operator their permissions (base + 721 extras).
+        _setOperatorOf({revnetId: revnetId, operator: configuration.operator});
 
         return (revnetId, hook);
     }
 
     /// @notice Deploy new suckers for an existing revnet.
-    /// @dev Only the revnet's split operator can deploy new suckers.
+    /// @dev Only the revnet's operator can deploy new suckers.
     /// @param revnetId The ID of the revnet to deploy suckers for.
     /// @param suckerDeploymentConfiguration The suckers to set up for the revnet.
     function deploySuckersFor(
@@ -621,8 +621,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         override
         returns (address[] memory suckers)
     {
-        // Make sure the caller is the revnet's split operator.
-        _checkIfIsSplitOperatorOf({revnetId: revnetId, operator: _msgSender()});
+        // Make sure the caller is the revnet's operator.
+        _checkIfIsOperatorOf({revnetId: revnetId, operator: _msgSender()});
 
         // Check if the current ruleset allows deploying new suckers.
         (, JBRulesetMetadata memory metadata) = CONTROLLER.currentRulesetOf(revnetId);
@@ -642,25 +642,25 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         });
     }
 
-    /// @notice Change a revnet's split operator.
-    /// @dev Only a revnet's current split operator can set a new split operator.
-    /// @dev Passing `address(0)` as `newSplitOperator` relinquishes operator powers permanently — the permissions
+    /// @notice Change a revnet's operator.
+    /// @dev Only a revnet's current operator can set a new operator.
+    /// @dev Passing `address(0)` as `newOperator` relinquishes operator powers permanently — the permissions
     /// are granted to the zero address (which cannot execute transactions), effectively burning them.
-    /// @param revnetId The ID of the revnet to change the split operator for.
-    /// @param newSplitOperator The new split operator's address. Use `address(0)` to relinquish operator powers.
-    function setSplitOperatorOf(uint256 revnetId, address newSplitOperator) external override {
+    /// @param revnetId The ID of the revnet to change the operator for.
+    /// @param newOperator The new operator's address. Use `address(0)` to relinquish operator powers.
+    function setOperatorOf(uint256 revnetId, address newOperator) external override {
         // Enforce permissions.
-        _checkIfIsSplitOperatorOf({revnetId: revnetId, operator: _msgSender()});
+        _checkIfIsOperatorOf({revnetId: revnetId, operator: _msgSender()});
 
-        emit ReplaceSplitOperator({revnetId: revnetId, newSplitOperator: newSplitOperator, caller: _msgSender()});
+        emit ReplaceOperator({revnetId: revnetId, newOperator: newOperator, caller: _msgSender()});
 
-        // Remove operator permissions from the old split operator.
+        // Remove operator permissions from the old operator.
         _setPermissionsFor({
             account: address(this), operator: _msgSender(), revnetId: revnetId, permissionIds: new uint8[](0)
         });
 
-        // Set the new split operator.
-        _setSplitOperatorOf({revnetId: revnetId, operator: newSplitOperator});
+        // Set the new operator.
+        _setOperatorOf({revnetId: revnetId, operator: newOperator});
     }
 
     //*********************************************************************//
@@ -719,32 +719,32 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         // Store the tiered ERC-721 hook in the owner contract.
         REVOwner(OWNER).setTiered721HookOf({revnetId: revnetId, hook: hook});
 
-        // These permission IDs are only consumed by `_setSplitOperatorOf` below, after revnet setup has either
+        // These permission IDs are only consumed by `_setOperatorOf` below, after revnet setup has either
         // completed or reverted atomically.
 
-        // Give the split operator permission to add and remove tiers unless prevented.
-        if (!tiered721HookConfiguration.preventSplitOperatorAdjustingTiers) {
+        // Give the operator permission to add and remove tiers unless prevented.
+        if (!tiered721HookConfiguration.preventOperatorAdjustingTiers) {
             _extraOperatorPermissions[revnetId].push(JBPermissionIds.ADJUST_721_TIERS);
         }
 
-        // Give the split operator permission to set ERC-721 tier metadata unless prevented.
-        if (!tiered721HookConfiguration.preventSplitOperatorUpdatingMetadata) {
+        // Give the operator permission to set ERC-721 tier metadata unless prevented.
+        if (!tiered721HookConfiguration.preventOperatorUpdatingMetadata) {
             _extraOperatorPermissions[revnetId].push(JBPermissionIds.SET_721_METADATA);
         }
 
-        // Give the split operator permission to mint ERC-721s (without a payment)
+        // Give the operator permission to mint ERC-721s (without a payment)
         // from tiers with `allowOwnerMint` set to true, unless prevented.
-        if (!tiered721HookConfiguration.preventSplitOperatorMinting) {
+        if (!tiered721HookConfiguration.preventOperatorMinting) {
             _extraOperatorPermissions[revnetId].push(JBPermissionIds.MINT_721);
         }
 
-        // Give the split operator permission to increase the discount of a tier unless prevented.
-        if (!tiered721HookConfiguration.preventSplitOperatorIncreasingDiscountPercent) {
+        // Give the operator permission to increase the discount of a tier unless prevented.
+        if (!tiered721HookConfiguration.preventOperatorIncreasingDiscountPercent) {
             _extraOperatorPermissions[revnetId].push(JBPermissionIds.SET_721_DISCOUNT_PERCENT);
         }
 
-        // Give the split operator their permissions (base + 721 extras).
-        _setSplitOperatorOf({revnetId: revnetId, operator: configuration.splitOperator});
+        // Give the operator their permissions (base + 721 extras).
+        _setOperatorOf({revnetId: revnetId, operator: configuration.operator});
 
         // If there are posts to allow, configure them.
         if (allowedPosts.length != 0) {
@@ -1136,13 +1136,13 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         PERMISSIONS.setPermissionsFor({account: account, permissionsData: permissionData});
     }
 
-    /// @notice Give a split operator their permissions.
-    /// @dev Only a revnet's current split operator can set a new split operator, by calling `setSplitOperatorOf(…)`.
-    /// @param revnetId The ID of the revnet to grant split operator permissions for.
-    /// @param operator The new split operator's address.
-    function _setSplitOperatorOf(uint256 revnetId, address operator) internal {
-        // Get the permission indexes for the split operator.
-        uint256[] memory permissionIndexes = _splitOperatorPermissionIndexesOf(revnetId);
+    /// @notice Give a operator their permissions.
+    /// @dev Only a revnet's current operator can set a new operator, by calling `setOperatorOf(…)`.
+    /// @param revnetId The ID of the revnet to grant operator permissions for.
+    /// @param operator The new operator's address.
+    function _setOperatorOf(uint256 revnetId, address operator) internal {
+        // Get the permission indexes for the operator.
+        uint256[] memory permissionIndexes = _operatorPermissionIndexesOf(revnetId);
         uint8[] memory permissionIds = new uint8[](permissionIndexes.length);
 
         for (uint256 i; i < permissionIndexes.length;) {

@@ -14,29 +14,29 @@ import {REVConfig} from "../../src/structs/REVConfig.sol";
 import {REVSuckerDeploymentConfig} from "../../src/structs/REVSuckerDeploymentConfig.sol";
 
 contract WeakConfigurationHashTest is TestTerminalEncodingInHash {
-    function test_configurationHashExcludesSplitOperatorAuthority() public {
+    function test_configurationHashExcludesOperatorAuthority() public {
         address operatorA = makeAddr("operatorA");
         address operatorB = makeAddr("operatorB");
         uint256 snapshot = vm.snapshotState();
 
-        REVConfig memory configA = _baseRevConfig("HASH_SPLIT_OPERATOR");
-        configA.splitOperator = operatorA;
+        REVConfig memory configA = _baseRevConfig("HASH_OPERATOR");
+        configA.operator = operatorA;
         uint256 revnetA = _deployPlainRevnet(configA);
         bytes32 hashA = REV_DEPLOYER.hashedEncodedConfigurationOf(revnetA);
 
-        assertTrue(REV_DEPLOYER.isSplitOperatorOf(revnetA, operatorA), "operator A should control revnet A");
-        assertFalse(REV_DEPLOYER.isSplitOperatorOf(revnetA, operatorB), "operator B should not control revnet A");
+        assertTrue(REV_DEPLOYER.isOperatorOf(revnetA, operatorA), "operator A should control revnet A");
+        assertFalse(REV_DEPLOYER.isOperatorOf(revnetA, operatorB), "operator B should not control revnet A");
 
         vm.revertToState(snapshot);
 
-        REVConfig memory configB = _baseRevConfig("HASH_SPLIT_OPERATOR");
-        configB.splitOperator = operatorB;
+        REVConfig memory configB = _baseRevConfig("HASH_OPERATOR");
+        configB.operator = operatorB;
         uint256 revnetB = _deployPlainRevnet(configB);
         bytes32 hashB = REV_DEPLOYER.hashedEncodedConfigurationOf(revnetB);
 
-        assertEq(hashA, hashB, "split operator differences should not affect the configuration hash");
-        assertTrue(REV_DEPLOYER.isSplitOperatorOf(revnetB, operatorB), "operator B should control revnet B");
-        assertFalse(REV_DEPLOYER.isSplitOperatorOf(revnetB, operatorA), "operator A should not control revnet B");
+        assertEq(hashA, hashB, "operator differences should not affect the configuration hash");
+        assertTrue(REV_DEPLOYER.isOperatorOf(revnetB, operatorB), "operator B should control revnet B");
+        assertFalse(REV_DEPLOYER.isOperatorOf(revnetB, operatorA), "operator A should not control revnet B");
     }
 
     function test_configurationHashExcludesReservedSplitRouting() public {

@@ -164,7 +164,7 @@ contract RegressionSuckerCallerDeterminismTest is TestBaseWorkflow {
         REVSuckerDeploymentConfig memory config = _suckerConfig(bytes32("CALLER_SALTED"));
 
         vm.prank(OPERATOR_A);
-        REV_DEPLOYER.setSplitOperatorOf(revnetB, OPERATOR_B);
+        REV_DEPLOYER.setOperatorOf(revnetB, OPERATOR_B);
 
         vm.prank(OPERATOR_A);
         address suckerA = REV_DEPLOYER.deploySuckersFor(revnetA, config)[0];
@@ -181,7 +181,7 @@ contract RegressionSuckerCallerDeterminismTest is TestBaseWorkflow {
         );
     }
 
-    function test_onlySplitOperatorCanDeploySuckersForRevnet() public {
+    function test_onlyOperatorCanDeploySuckersForRevnet() public {
         // forge-lint: disable-next-line(unsafe-typecast)
         uint256 revnetId = _deployRevnetWith(OPERATOR_A, OPERATOR_A, bytes32("OP_CHAIN_CTRL"), uint40(block.timestamp));
         // forge-lint: disable-next-line(unsafe-typecast)
@@ -218,7 +218,7 @@ contract RegressionSuckerCallerDeterminismTest is TestBaseWorkflow {
             // forge-lint: disable-next-line(unsafe-typecast)
             description: REVDescription("Fee Revnet", "FEE", "", bytes32("FEE_TOKEN")),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });
@@ -238,7 +238,7 @@ contract RegressionSuckerCallerDeterminismTest is TestBaseWorkflow {
 
     function _deployRevnetWith(
         address caller,
-        address splitOperator,
+        address operator,
         bytes32 descriptionSalt,
         uint40 start
     )
@@ -269,7 +269,7 @@ contract RegressionSuckerCallerDeterminismTest is TestBaseWorkflow {
         REVConfig memory config = REVConfig({
             description: REVDescription("Caller Salt Revnet", "CSR", "", descriptionSalt),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: splitOperator,
+            operator: operator,
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });

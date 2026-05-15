@@ -180,7 +180,7 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
             // forge-lint: disable-next-line(named-struct-fields)
             description: REVDescription("Revnet", "$REV", "ipfs://fee", "REV_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });
@@ -229,7 +229,7 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
             // forge-lint: disable-next-line(named-struct-fields)
             description: REVDescription("CrossCurrency", "XCRCY", "ipfs://cross", "XCRCY_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });

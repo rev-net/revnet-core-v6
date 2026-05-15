@@ -489,7 +489,7 @@ contract TestRegressionFixVerification is TestBaseWorkflow {
         REVConfig memory feeConfig = REVConfig({
             description: REVDescription("Fee Revnet", "FEE", "", ERC20_SALT),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });
@@ -533,7 +533,7 @@ contract TestRegressionFixVerification is TestBaseWorkflow {
             // forge-lint: disable-next-line(unsafe-typecast)
             description: REVDescription("Test Revnet", "TEST", "", bytes32("TEST_TOKEN")),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });

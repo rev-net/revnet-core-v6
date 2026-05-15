@@ -177,7 +177,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
             // forge-lint: disable-next-line(named-struct-fields)
             description: REVDescription("TestRevnet", "TREV", "ipfs://test", bytes32(uint256(numStages))),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });

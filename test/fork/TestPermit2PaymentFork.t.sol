@@ -103,7 +103,7 @@ contract TestPermit2PaymentFork is ForkTestBase {
         REVConfig memory cfg = REVConfig({
             description: REVDescription("Permit2 Test", "P2T", "ipfs://p2t", "PERMIT2_SALT"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });

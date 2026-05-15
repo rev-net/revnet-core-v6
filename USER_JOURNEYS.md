@@ -31,7 +31,7 @@ This repo packages autonomous Revnets: staged Juicebox projects whose runtime be
 
 **Main Flow**
 
-1. Use `REVDeployer` with the staged config, split operators, and optional integrations.
+1. Use `REVDeployer` with the staged config, operators, and optional integrations.
 2. The deployer launches the underlying project and preserves the intended ownership model.
 3. Stage and auxiliary behavior are committed at launch instead of left to ordinary owner discretion.
 4. The Revnet can now accept payments and progress through stages under the encoded rules.

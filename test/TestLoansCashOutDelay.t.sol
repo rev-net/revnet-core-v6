@@ -126,7 +126,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
                 // forge-lint: disable-next-line(named-struct-fields)
                 description: REVDescription("Revnet", "$REV", "ipfs://fee", ERC20_SALT),
                 baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-                splitOperator: multisig(),
+                operator: multisig(),
                 scopeCashOutsToLocalBalances: false,
                 stageConfigurations: stageConfigurations
             }),
@@ -185,7 +185,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
                 // forge-lint: disable-next-line(named-struct-fields)
                 description: REVDescription(name, symbol, "ipfs://test", salt),
                 baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-                splitOperator: multisig(),
+                operator: multisig(),
                 scopeCashOutsToLocalBalances: false,
                 stageConfigurations: stageConfigurations
             }),

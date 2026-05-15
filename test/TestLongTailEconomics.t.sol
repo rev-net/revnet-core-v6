@@ -178,7 +178,7 @@ contract TestLongTailEconomics is TestBaseWorkflow {
             // forge-lint: disable-next-line(named-struct-fields)
             description: REVDescription("Revnet", "$REV", "ipfs://fee", "REV_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });
@@ -257,7 +257,7 @@ contract TestLongTailEconomics is TestBaseWorkflow {
             // forge-lint: disable-next-line(named-struct-fields)
             description: REVDescription("LongTail", "LTAIL", "ipfs://longtail", "LTAIL_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stageConfigurations
         });

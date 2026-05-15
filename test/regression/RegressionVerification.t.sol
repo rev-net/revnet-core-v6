@@ -7,7 +7,7 @@ import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBCashOuts} from "@bananapus/core-v6/src/libraries/JBCashOuts.sol";
 
 contract RegressionVerificationTest is Test {
-    function testConfigurationHashDoesNotCommitSplitOperatorSplitsOrExtraMetadata() public pure {
+    function testConfigurationHashDoesNotCommitOperatorSplitsOrExtraMetadata() public pure {
         bytes32 hashA = _revDeployerEncodedConfigurationHash();
         bytes32 hashB = _revDeployerEncodedConfigurationHash();
 

@@ -292,7 +292,7 @@ contract RegressionPhantomSurplusTerminalTest is TestBaseWorkflow {
         REVConfig memory feeConfig = REVConfig({
             description: REVDescription("Fee Revnet", "FEE", "", "FEE_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });
@@ -337,7 +337,7 @@ contract RegressionPhantomSurplusTerminalTest is TestBaseWorkflow {
         REVConfig memory config = REVConfig({
             description: REVDescription("Phantom", "PHM", "", "PHM_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });

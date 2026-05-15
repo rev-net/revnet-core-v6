@@ -2,7 +2,7 @@
 
 ## Use This File For
 
-- Use this file when the task involves revnet deployment, staged issuance, split-operator logic, auto-issuance, or the revnet loan system.
+- Use this file when the task involves revnet deployment, staged issuance, operator logic, auto-issuance, or the revnet loan system.
 - Start here, then decide whether the issue is really in `REVDeployer`, `REVOwner`, or `REVLoans`.
 
 ## Read This Next
