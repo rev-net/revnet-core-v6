@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.0.56 — Bump v6 deps to nana-core-v6 0.0.53 cohort
+
+- `@bananapus/core-v6`: `^0.0.48 → ^0.0.53` ([PR #145](https://github.com/Bananapus/nana-core-v6/pull/145)).
+- `@bananapus/721-hook-v6`: `^0.0.47 → ^0.0.50`.
+- `@bananapus/buyback-hook-v6`: `^0.0.39 → ^0.0.46`.
+- `@bananapus/router-terminal-v6`: `^0.0.37 → ^0.0.43`.
+- `@bananapus/suckers-v6`: `^0.0.37 → ^0.0.46`.
+- `@bananapus/permission-ids-v6`: `^0.0.24 → ^0.0.25`.
+- Test updates:
+  - `jbMultiTerminal().FEE()` → `JBConstants.FEE` (FEE moved to a compile-time constant in core 0.0.52+).
+  - `JBBuybackHook` constructor signature changed in 0.0.45 (V4 PoolManager + Hooks moved to a one-shot setter). Updated `ForkTestBase` and `TestSplitWeightFork` to construct then call `setChainSpecificConstants`.
+  - All `JBRulesetMetadata` test literals patched to include `pauseCrossProjectFeeFreeInflows: false`. `REVConfig` and `JBBeforeCashOutRecordedContext` literals are unchanged (no new fields).
+
 ## Scope
 
 This file describes the verified change from `revnet-core-v5` to the current `revnet-core-v6` repo.

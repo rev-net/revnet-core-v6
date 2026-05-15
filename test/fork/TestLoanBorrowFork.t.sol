@@ -105,7 +105,7 @@ contract TestLoanBorrowFork is ForkTestBase {
 
         // Calculate expected fees.
         // The allowance fee is taken by the terminal's useAllowanceOf (2.5% JB protocol fee).
-        uint256 allowanceFee = JBFees.feeAmountFrom({amountBeforeFee: borrowable, feePercent: jbMultiTerminal().FEE()});
+        uint256 allowanceFee = JBFees.feeAmountFrom({amountBeforeFee: borrowable, feePercent: JBConstants.FEE});
         // REV fee (1%).
         uint256 revFee =
             JBFees.feeAmountFrom({amountBeforeFee: borrowable, feePercent: LOANS_CONTRACT.REV_PREPAID_FEE_PERCENT()});
