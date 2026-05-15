@@ -261,12 +261,23 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
             }
         }
 
-        // Build a context for the buyback hook using the non-fee token count and cross-chain-adjusted values
-        // so the buyback hook sees the global state for its swap-vs-passthrough routing decision.
+        // Build a context for the buyback hook using the non-fee token count and the surplus that
+        // produces the LOCALLY-CAPPED direct reclaim. The buyback hook compares this direct reclaim
+        // against its pool route to decide noop-vs-swap; passing the global pre-cap surplus would
+        // make it score the direct path against an amount the terminal cannot actually deliver,
+        // so the hook would skip pools that would have paid more than the final local reclaim.
+        // `cashOutFrom` is linear in surplus, so scaling the surplus by the same factor that
+        // scaled the reclaim recovers the locally-capped reclaim at the same cashOutCount/
+        // totalSupply/tax inputs.
+        uint256 buybackSurplus = effectiveSurplusValue;
+        if (postFeeReclaimedAmount != unscaledReclaim && unscaledReclaim != 0) {
+            buybackSurplus = mulDiv({x: effectiveSurplusValue, y: postFeeReclaimedAmount, denominator: unscaledReclaim});
+        }
+
         JBBeforeCashOutRecordedContext memory buybackHookContext = context;
         buybackHookContext.cashOutCount = nonFeeCashOutCount;
         buybackHookContext.totalSupply = totalSupply;
-        buybackHookContext.surplus.value = effectiveSurplusValue;
+        buybackHookContext.surplus.value = buybackSurplus;
 
         // Let the buyback hook adjust the cash out parameters and optionally return a hook specification.
         JBCashOutHookSpecification[] memory buybackHookSpecifications;

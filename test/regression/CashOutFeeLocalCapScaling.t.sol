@@ -91,6 +91,69 @@ contract EchoBuybackRegistry is IJBRulesetDataHook {
     }
 }
 
+contract ThresholdBuybackRegistry is IJBRulesetDataHook {
+    uint256 public immutable minimumSwapAmountOut;
+
+    constructor(uint256 minAmountOut) {
+        minimumSwapAmountOut = minAmountOut;
+    }
+
+    function beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext calldata context)
+        external
+        view
+        returns (
+            uint256 cashOutTaxRate,
+            uint256 cashOutCount,
+            uint256 totalSupply,
+            uint256 effectiveSurplusValue,
+            JBCashOutHookSpecification[] memory hookSpecifications
+        )
+    {
+        uint256 directCashOutAmount = JBCashOuts.cashOutFrom({
+            surplus: context.surplus.value,
+            cashOutCount: context.cashOutCount,
+            totalSupply: context.totalSupply,
+            cashOutTaxRate: context.cashOutTaxRate
+        });
+
+        bool noop = directCashOutAmount >= minimumSwapAmountOut;
+
+        hookSpecifications = new JBCashOutHookSpecification[](1);
+        hookSpecifications[0] = JBCashOutHookSpecification({
+            hook: IJBCashOutHook(address(this)),
+            noop: noop,
+            amount: 0,
+            metadata: abi.encode(directCashOutAmount, minimumSwapAmountOut)
+        });
+
+        cashOutTaxRate = noop ? context.cashOutTaxRate : JBConstants.MAX_CASH_OUT_TAX_RATE;
+        cashOutCount = context.cashOutCount;
+        totalSupply = context.totalSupply;
+        effectiveSurplusValue = noop ? context.surplus.value : 0;
+    }
+
+    function beforePayRecordedWith(JBBeforePayRecordedContext calldata context)
+        external
+        pure
+        returns (uint256 weight, JBPayHookSpecification[] memory hookSpecifications)
+    {
+        weight = context.weight;
+        hookSpecifications = new JBPayHookSpecification[](0);
+    }
+
+    function hasMintPermissionFor(uint256, JBRuleset calldata, address) external pure returns (bool) {
+        return false;
+    }
+
+    function setPoolFor(uint256, PoolKey calldata, uint256, address) external pure {}
+    function setPoolFor(uint256, uint24, int24, uint256, address) external pure {}
+    function initializePoolFor(uint256, uint24, int24, uint256, address, uint160) external pure {}
+
+    function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
+        return interfaceId == type(IJBRulesetDataHook).interfaceId || interfaceId == type(IERC165).interfaceId;
+    }
+}
+
 /// @notice Regression test: when local surplus is exhausted by the non-fee reclaim, the cash-out fee must still be
 /// preserved (scaled proportionally to local liquidity). Previously the fee was capped at `localSurplus - reclaim`,
 /// which rounded to zero whenever `reclaim` consumed all local surplus.
@@ -372,5 +435,57 @@ contract CashOutFeeLocalCapScalingTest is TestBaseWorkflow {
         });
 
         assertEq(feeAmount, expectedFee, "fee in no-remote-surplus case must match legacy computation");
+    }
+
+    /// @notice The buyback hook now scores its route against the locally-capped direct reclaim
+    /// instead of the pre-cap omnichain reclaim. A cross-chain cash-out that has more omnichain
+    /// surplus than local liquidity correctly selects the pool route when the swap pays more than
+    /// the local-capped direct path, instead of being misrouted by the higher pre-cap number.
+    function test_omnichainBuybackSwapWinsWhenLocalReclaimIsBelowSwapFloor() public {
+        ThresholdBuybackRegistry thresholdBuyback = new ThresholdBuybackRegistry(20 ether);
+        ownerHook = new REVOwner({
+            buybackHook: IJBBuybackHookRegistry(address(thresholdBuyback)),
+            directory: jbDirectory(),
+            feeRevnetId: feeRevnetId,
+            suckerRegistry: IJBSuckerRegistry(address(suckerRegistry)),
+            loans: IREVLoans(address(0)),
+            deployer: address(this)
+        });
+
+        // Local=10, remote=90. The pre-cap omnichain direct reclaim for the non-fee tranche is above 20 ETH,
+        // but the terminal-facing reclaim is later scaled below 10 ETH to preserve local liquidity for the fee.
+        // The fix scales the surplus passed to the buyback hook so it scores the swap floor against the
+        // locally-capped reclaim, not the pre-cap omnichain one.
+        suckerRegistry.setRemoteValues({supply: 0, surplus: 90 ether});
+
+        JBBeforeCashOutRecordedContext memory context = JBBeforeCashOutRecordedContext({
+            terminal: address(jbMultiTerminal()),
+            holder: address(0xCAFE),
+            projectId: feeRevnetId + 1,
+            rulesetId: 0,
+            cashOutCount: 500 ether,
+            totalSupply: 1000 ether,
+            surplus: JBTokenAmount({
+                token: JBConstants.NATIVE_TOKEN, value: 10 ether, decimals: 18, currency: JBCurrencyIds.ETH
+            }),
+            scopeCashOutsToLocalBalances: false,
+            cashOutTaxRate: 5000,
+            beneficiaryIsFeeless: false,
+            metadata: ""
+        });
+
+        (uint256 cashOutTaxRate,,,, JBCashOutHookSpecification[] memory specs) =
+            ownerHook.beforeCashOutRecordedWith(context);
+
+        assertEq(address(specs[0].hook), address(thresholdBuyback), "buyback spec should be first");
+        assertFalse(specs[0].noop, "buyback route is selected once the direct reclaim is properly capped");
+        assertEq(
+            cashOutTaxRate,
+            JBConstants.MAX_CASH_OUT_TAX_RATE,
+            "cash-out tax maxed out because the buyback hook took over reclaim"
+        );
+
+        (uint256 cappedDirect, uint256 swapFloor) = abi.decode(specs[0].metadata, (uint256, uint256));
+        assertLt(cappedDirect, swapFloor, "locally-capped direct reclaim is now correctly scored below the swap floor");
     }
 }
