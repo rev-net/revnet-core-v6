@@ -183,7 +183,7 @@ contract REVnet_Integrations is TestBaseWorkflow {
             // forge-lint: disable-next-line(named-struct-fields)
             description: REVDescription(name, symbol, projectUri, ERC20_SALT),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stageConfigurations
         });
@@ -338,9 +338,9 @@ contract REVnet_Integrations is TestBaseWorkflow {
 
     function test_change_split_operator() public {
         vm.prank(multisig());
-        REV_DEPLOYER.setSplitOperatorOf(REVNET_ID, address(this));
+        REV_DEPLOYER.setOperatorOf(REVNET_ID, address(this));
 
-        bool isNewOperator = REV_DEPLOYER.isSplitOperatorOf(REVNET_ID, address(this));
+        bool isNewOperator = REV_DEPLOYER.isOperatorOf(REVNET_ID, address(this));
 
         assertEq(isNewOperator, true);
     }
@@ -348,7 +348,7 @@ contract REVnet_Integrations is TestBaseWorkflow {
     function test_operator_has_default_permissions() public view {
         address operator = multisig();
 
-        // Base permissions every split operator should have.
+        // Base permissions every operator should have.
         assertTrue(
             jbPermissions()
                 .hasPermission(

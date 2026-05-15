@@ -215,7 +215,7 @@ contract RegressionRouterRegistrySourceDebtRepricingTest is TestBaseWorkflow {
         cfg = REVConfig({
             description: REVDescription(name, ticker, "ipfs://test", salt),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });

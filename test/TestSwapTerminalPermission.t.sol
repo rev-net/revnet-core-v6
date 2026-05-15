@@ -43,7 +43,7 @@ import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
 /// @notice Tests for default operator permissions including SET_ROUTER_TERMINAL.
-/// Verifies that all default split operator permissions are granted correctly.
+/// Verifies that all default operator permissions are granted correctly.
 contract TestSwapTerminalPermission is TestBaseWorkflow {
     // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
@@ -193,7 +193,7 @@ contract TestSwapTerminalPermission is TestBaseWorkflow {
             // forge-lint: disable-next-line(named-struct-fields)
             description: REVDescription(name, ticker, "ipfs://test", salt),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });
@@ -203,8 +203,8 @@ contract TestSwapTerminalPermission is TestBaseWorkflow {
         });
     }
 
-    /// @notice Verify the split operator has SET_BUYBACK_HOOK and SET_ROUTER_TERMINAL permissions.
-    function test_splitOperator_hasRegistryPermissions() public view {
+    /// @notice Verify the operator has SET_BUYBACK_HOOK and SET_ROUTER_TERMINAL permissions.
+    function test_operator_hasRegistryPermissions() public view {
         bool hasBuybackHook = jbPermissions()
             .hasPermission({
             operator: multisig(),
@@ -228,7 +228,7 @@ contract TestSwapTerminalPermission is TestBaseWorkflow {
         assertTrue(hasRouterTerminal, "Split operator should have SET_ROUTER_TERMINAL permission");
     }
 
-    /// @notice Verify the core default permissions are present for the split operator.
+    /// @notice Verify the core default permissions are present for the operator.
     function test_allDefaultPermissionsPresent() public view {
         // `ADD_PRICE_FEED` is intentionally excluded from the default operator grant.
         uint256[7] memory expectedPermissions = [

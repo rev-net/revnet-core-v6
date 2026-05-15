@@ -90,7 +90,7 @@ contract TestLoanERC20Fork is ForkTestBase {
             // forge-lint: disable-next-line(named-struct-fields)
             description: REVDescription("ERC20 Fork Test", "ERC20F", "ipfs://erc20fork", "ERC20F_SALT"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });

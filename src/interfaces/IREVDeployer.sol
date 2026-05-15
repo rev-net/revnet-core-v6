@@ -66,11 +66,11 @@ interface IREVDeployer {
         address caller
     );
 
-    /// @notice Emitted when the split operator of a revnet is replaced.
+    /// @notice Emitted when the operator of a revnet is replaced.
     /// @param revnetId The ID of the revnet.
-    /// @param newSplitOperator The address of the new split operator.
-    /// @param caller The address that replaced the split operator.
-    event ReplaceSplitOperator(uint256 indexed revnetId, address indexed newSplitOperator, address caller);
+    /// @param newOperator The address of the new operator.
+    /// @param caller The address that replaced the operator.
+    event ReplaceOperator(uint256 indexed revnetId, address indexed newOperator, address caller);
 
     /// @notice Emitted when the cash out delay is set for a revnet.
     /// @param revnetId The ID of the revnet.
@@ -136,11 +136,11 @@ interface IREVDeployer {
     /// @return The hook deployer contract.
     function HOOK_DEPLOYER() external view returns (IJB721TiersHookDeployer);
 
-    /// @notice Check whether an address is a revnet's split operator.
+    /// @notice Check whether an address is a revnet's operator.
     /// @param revnetId The ID of the revnet to check.
     /// @param addr The address to check.
-    /// @return A flag indicating whether the address is the revnet's split operator.
-    function isSplitOperatorOf(uint256 revnetId, address addr) external view returns (bool);
+    /// @return A flag indicating whether the address is the revnet's operator.
+    function isOperatorOf(uint256 revnetId, address addr) external view returns (bool);
 
     /// @notice The loan contract used by all revnets.
     /// @return The loans contract address.
@@ -225,8 +225,8 @@ interface IREVDeployer {
         external
         returns (address[] memory suckers);
 
-    /// @notice Change a revnet's split operator. Only the current split operator can call this.
+    /// @notice Change a revnet's operator. Only the current operator can call this.
     /// @param revnetId The ID of the revnet.
-    /// @param newSplitOperator The new split operator's address.
-    function setSplitOperatorOf(uint256 revnetId, address newSplitOperator) external;
+    /// @param newOperator The new operator's address.
+    function setOperatorOf(uint256 revnetId, address newOperator) external;
 }

@@ -10,7 +10,7 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 
 | Contract | Role |
 |----------|------|
-| `REVDeployer` | Deploys revnets, permanently owns the project NFT. Manages stages, splits, auto-issuance, buyback hooks, suckers, split operators, and configuration state storage. Exposes `OWNER()` view returning the REVOwner address. Calls DEPLOYER-restricted setters on REVOwner during deployment to store `cashOutDelayOf` and `tiered721HookOf`. |
+| `REVDeployer` | Deploys revnets, permanently owns the project NFT. Manages stages, splits, auto-issuance, buyback hooks, suckers, operators, and configuration state storage. Exposes `OWNER()` view returning the REVOwner address. Calls DEPLOYER-restricted setters on REVOwner during deployment to store `cashOutDelayOf` and `tiered721HookOf`. |
 | `REVOwner` | Runtime hook contract for all revnets. Implements `IJBRulesetDataHook` + `IJBCashOutHook`. Set as the `dataHook` in each revnet's ruleset metadata. Handles pay hooks, cash-out hooks, mint permissions, and sucker verification. Stores `cashOutDelayOf` and `tiered721HookOf` mappings (set by REVDeployer via DEPLOYER-restricted setters `setCashOutDelayOf()` and `setTiered721HookOf()`). |
 | `REVLoans` | Issues token-collateralized loans from revnet treasuries. Each loan is an ERC-721 NFT. Burns collateral on borrow, re-mints on repay. Charges tiered fees (REV protocol fee + source fee + prepaid fee). |
 
@@ -20,7 +20,7 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 
 | Function | Permissions | What it does |
 |----------|------------|-------------|
-| `REVDeployer.deployFor(revnetId, config, terminals, suckerConfig)` | Permissionless | Deploy a new revnet (`revnetId=0`) or convert an existing Juicebox project. Encodes stage configs into rulesets, deploys ERC-20 token, initializes buyback pool at 1:1 price, sets up split operator, suckers, loans permissions, and deploys a default empty tiered ERC-721 hook. |
+| `REVDeployer.deployFor(revnetId, config, terminals, suckerConfig)` | Permissionless | Deploy a new revnet (`revnetId=0`) or convert an existing Juicebox project. Encodes stage configs into rulesets, deploys ERC-20 token, initializes buyback pool at 1:1 price, sets up operator, suckers, loans permissions, and deploys a default empty tiered ERC-721 hook. |
 | `REVDeployer.deployFor(revnetId, config, terminals, suckerConfig, hookConfig, allowedPosts)` | Permissionless | Same as `deployFor` but deploys a tiered ERC-721 hook with pre-configured tiers. Optionally configures Croptop posting criteria and grants publisher permission to add tiers. |
 | `REVDeployer.deploySuckersFor(revnetId, suckerConfig)` | Split operator | Deploy new cross-chain suckers post-launch. Validates ruleset allows sucker deployment (bit 2 of `extraMetadata`). Uses stored config hash for cross-chain matching. |
 
@@ -34,11 +34,11 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 | `REVOwner.hasMintPermissionFor(revnetId, ruleset, addr)` | View | Returns `true` for: loans contract, buyback hook, buyback hook delegates, or suckers. |
 | `REVOwner.cashOutDelayOf(revnetId)` | View | Returns the cash-out delay timestamp from REVOwner storage. Exposed for REVLoans compatibility (REVLoans imports IREVOwner for this). |
 
-### Split Operator
+### Operator
 
 | Function | Permissions | What it does |
 |----------|------------|-------------|
-| `REVDeployer.setSplitOperatorOf(revnetId, newOperator)` | Split operator | Replace the current split operator. Revokes old permissions, grants new ones. |
+| `REVDeployer.setOperatorOf(revnetId, newOperator)` | Split operator | Replace the current operator. Revokes old permissions, grants new ones. |
 
 ### Auto-Issuance
 
@@ -84,13 +84,13 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 
 | Struct | Key Fields | Used In |
 |--------|------------|---------|
-| `REVConfig` | `description` (REVDescription), `baseCurrency`, `splitOperator`, `stageConfigurations[]` | `deployFor` |
+| `REVConfig` | `description` (REVDescription), `baseCurrency`, `operator`, `stageConfigurations[]` | `deployFor` |
 | `REVStageConfig` | `startsAtOrAfter` (uint48), `initialIssuance` (uint112), `issuanceCutFrequency` (uint32), `issuanceCutPercent` (uint32), `cashOutTaxRate` (uint16), `splitPercent` (uint16), `splits[]`, `autoIssuances[]`, `extraMetadata` (uint16) | Translated into `JBRulesetConfig` |
 | `REVDescription` | `name`, `ticker`, `uri`, `salt` | ERC-20 token deployment and project metadata |
 | `REVAutoIssuance` | `chainId` (uint32), `count` (uint104), `beneficiary` | Per-stage cross-chain token auto-minting |
 | `REVLoan` | `amount` (uint112), `collateral` (uint112), `createdAt` (uint48), `prepaidFeePercent` (uint16), `prepaidDuration` (uint32), `source` (REVLoanSource) | Per-loan state in `REVLoans` |
 | `REVLoanSource` | `token`, `terminal` (IJBPayoutTerminal) | Identifies which terminal and token a loan draws from |
-| `REVDeploy721TiersHookConfig` | `baseline721HookConfiguration` (REVBaseline721HookConfig), `salt`, `preventSplitOperatorAdjustingTiers`, `preventSplitOperatorUpdatingMetadata`, `preventSplitOperatorMinting`, `preventSplitOperatorIncreasingDiscountPercent` | 721 hook deployment with operator permissions (preventive flags — `false` = allowed). Uses `REVBaseline721HookConfig` (not `JBDeploy721TiersHookConfig`) to omit `issueTokensForSplits` — revnets always force it to `false`. |
+| `REVDeploy721TiersHookConfig` | `baseline721HookConfiguration` (REVBaseline721HookConfig), `salt`, `preventOperatorAdjustingTiers`, `preventOperatorUpdatingMetadata`, `preventOperatorMinting`, `preventOperatorIncreasingDiscountPercent` | 721 hook deployment with operator permissions (preventive flags — `false` = allowed). Uses `REVBaseline721HookConfig` (not `JBDeploy721TiersHookConfig`) to omit `issueTokensForSplits` — revnets always force it to `false`. |
 | `REVBaseline721HookConfig` | `name`, `symbol`, `baseUri`, `tokenUriResolver`, `contractUri`, `tiersConfig`, `reserveBeneficiary`, `flags` (REV721TiersHookFlags) | Same as `JBDeploy721TiersHookConfig` but uses `REV721TiersHookFlags` which omits `issueTokensForSplits`. |
 | `REV721TiersHookFlags` | `noNewTiersWithReserves`, `noNewTiersWithVotes`, `noNewTiersWithOwnerMinting`, `preventOverspending` | Same as `JB721TiersHookFlags` minus `issueTokensForSplits`. Revnets do their own weight adjustment for splits. |
 | `REVCroptopAllowedPost` | `category` (uint24), `minimumPrice` (uint104), `minimumTotalSupply` (uint32), `maximumTotalSupply` (uint32), `allowedAddresses[]` | Croptop posting criteria |

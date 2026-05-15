@@ -52,7 +52,7 @@ contract TestIssuanceDecayFork is ForkTestBase {
         REVConfig memory cfg = REVConfig({
             description: REVDescription("Decay Test", "DECAY", "ipfs://decay", "DECAY_SALT"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });

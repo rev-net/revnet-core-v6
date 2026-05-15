@@ -248,7 +248,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
                 salt: ERC20_SALT
             }),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stageConfigurations
         });
@@ -316,7 +316,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
                 salt: "NANA_TOKEN"
             }),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stageConfigurations
         });

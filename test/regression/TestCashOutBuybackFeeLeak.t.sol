@@ -218,7 +218,7 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
             configuration: REVConfig({
                 description: REVDescription(name, symbol, projectUri, salt),
                 baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-                splitOperator: multisig(),
+                operator: multisig(),
                 scopeCashOutsToLocalBalances: false,
                 stageConfigurations: stageConfigurations
             }),

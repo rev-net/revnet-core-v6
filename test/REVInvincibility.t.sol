@@ -149,7 +149,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
                     salt: "REV_TOKEN"
                 }),
                 baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-                splitOperator: multisig(),
+                operator: multisig(),
                 scopeCashOutsToLocalBalances: false,
                 stageConfigurations: stageConfigurations
             }),
@@ -220,7 +220,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
                 // forge-lint: disable-next-line(named-struct-fields)
                 description: REVDescription("NANA", "$NANA", "ipfs://nana", "NANA_TOKEN"),
                 baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-                splitOperator: multisig(),
+                operator: multisig(),
                 scopeCashOutsToLocalBalances: false,
                 stageConfigurations: stageConfigurations
             }),
@@ -550,7 +550,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
                 // forge-lint: disable-next-line(named-struct-fields)
                 description: REVDescription("H5Test", "H5T", "ipfs://h5", "H5_TOKEN"),
                 baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-                splitOperator: multisig(),
+                operator: multisig(),
                 scopeCashOutsToLocalBalances: false,
                 stageConfigurations: stages
             }),
@@ -715,7 +715,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
         }
     }
 
-    /// @notice Reserved token dilution: split operator accumulates and cashes out.
+    /// @notice Reserved token dilution: operator accumulates and cashes out.
     /// @dev Cash-out should be proportional to token share, no excess extraction.
     function test_econ_reservedTokenDilution() public {
         // Pay to create surplus + mint tokens (some go to reserved)
@@ -733,7 +733,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
         uint256 totalSupply = jbController().totalTokenSupplyWithReservedTokensOf(REVNET_ID);
 
         if (multisigTokens > 0 && totalSupply > 0) {
-            // The split operator's share should be proportional
+            // The operator's share should be proportional
             // They should not be able to extract more than their proportional surplus
             uint256 operatorShare = mulDiv(multisigTokens, 1e18, totalSupply);
             assertTrue(operatorShare <= 1e18, "Operator share cannot exceed 100%");
@@ -895,8 +895,8 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
     }
 
     /// @notice Split operator rug: redirect splits + cash out 90% reserved tokens.
-    /// @dev Quantifies max split operator extraction.
-    function test_econ_splitOperatorRug() public {
+    /// @dev Quantifies max operator extraction.
+    function test_econ_operatorRug() public {
         // Pay to build up surplus and reserved tokens
         vm.prank(USER);
         jbMultiTerminal().pay{value: 50e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 50e18, USER, 0, "", "");
@@ -904,7 +904,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
         // Send reserved tokens to splits (multisig = split beneficiary)
         try jbController().sendReservedTokensToSplitsOf(REVNET_ID) {} catch {}
 
-        // Check how many tokens the split operator got
+        // Check how many tokens the operator got
         IJBToken projectToken = jbTokens().tokenOf(REVNET_ID);
         uint256 operatorTokens = projectToken.balanceOf(multisig());
         uint256 totalSupply = jbController().totalTokenSupplyWithReservedTokensOf(REVNET_ID);
@@ -1119,7 +1119,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
                     // forge-lint: disable-next-line(named-struct-fields)
                     description: REVDescription("Revnet", "$REV", "ipfs://rev", "REV_TOKEN_INV"),
                     baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-                    splitOperator: multisig(),
+                    operator: multisig(),
                     scopeCashOutsToLocalBalances: false,
                     stageConfigurations: stages
                 }),
@@ -1197,7 +1197,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
                     // forge-lint: disable-next-line(named-struct-fields)
                     description: REVDescription("NANA", "$NANA", "ipfs://nana", "NANA_TOKEN_INV"),
                     baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-                    splitOperator: multisig(),
+                    operator: multisig(),
                     scopeCashOutsToLocalBalances: false,
                     stageConfigurations: stages
                 }),

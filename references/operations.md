@@ -12,7 +12,7 @@ Use this file when you need revnet-specific risks, state reads, constants, or ex
 | `BurnHeldTokens(revnetId, count, caller)` | When held tokens are burned from the deployer contract via `burnHeldTokensOf`. |
 | `DeployRevnet(revnetId, configuration, terminalConfigurations, suckerDeploymentConfiguration, rulesetConfigurations, encodedConfigurationHash, caller)` | When a new revnet is deployed via `deployFor`. |
 | `DeploySuckers(revnetId, encodedConfigurationHash, suckerDeploymentConfiguration, caller)` | When suckers are deployed for a revnet via `deploySuckersFor`. |
-| `ReplaceSplitOperator(revnetId, newSplitOperator, caller)` | When the split operator of a revnet is replaced via `setSplitOperatorOf`. |
+| `ReplaceOperator(revnetId, newOperator, caller)` | When the operator of a revnet is replaced via `setOperatorOf`. |
 | `SetCashOutDelay(revnetId, cashOutDelay, caller)` | When the cash out delay is set for a revnet during deployment to a new chain. |
 | `StoreAutoIssuanceAmount(revnetId, stageId, beneficiary, count, caller)` | When an auto-issuance amount is stored for a beneficiary during deployment. |
 
@@ -42,7 +42,7 @@ Use this file when you need revnet-specific risks, state reads, constants, or ex
 | `REVDeployer_StageNotStarted(stageId)` | When `autoIssueFor` is called for a stage that hasn't started yet. |
 | `REVDeployer_StagesRequired()` | When `deployFor` is called with zero stage configurations. |
 | `REVDeployer_StageTimesMustIncrease()` | When stage `startsAtOrAfter` values are not strictly increasing. |
-| `REVDeployer_Unauthorized(revnetId, caller)` | When a non-split-operator calls a split-operator-only function. |
+| `REVDeployer_Unauthorized(revnetId, caller)` | When a non-operator calls a operator-only function. |
 
 ### REVLoans
 
@@ -98,7 +98,7 @@ Use this file when you need revnet-specific risks, state reads, constants, or ex
 |---------|-----------|------|---------|
 | `amountToAutoIssue` | `public` | `revnetId => stageId => beneficiary => uint256` | Premint tokens per stage per beneficiary |
 | `hashedEncodedConfigurationOf` | `public` | `revnetId => bytes32` | Config hash for cross-chain sucker validation |
-| `_extraOperatorPermissions` | `internal` | `revnetId => uint256[]` | Custom permissions for split operator (no auto-getter) |
+| `_extraOperatorPermissions` | `internal` | `revnetId => uint256[]` | Custom permissions for operator (no auto-getter) |
 
 ### REVOwner
 
@@ -131,7 +131,7 @@ Use this file when you need revnet-specific risks, state reads, constants, or ex
 7. **Cash-out fee stacking.** Cash outs incur both the Juicebox terminal fee (2.5%) and the revnet cash-out fee (2.5% to fee revnet). These compound. The 2.5% fee is deducted from the TOKEN AMOUNT being cashed out, not from the reclaim value. 2.5% of the tokens are redirected to the fee revnet, which then redeems them at the bonding curve independently. The net reclaim to the caller is based on 97.5% of the tokens, not 97.5% of the computed ETH value. This is by design.
 8. **30-day cash-out delay.** Applied when deploying an existing revnet to a new chain where the first stage has already started. Prevents cross-chain liquidity arbitrage. Enforced in both `beforeCashOutRecordedWith` (direct cash outs) and `REVLoans.borrowFrom` / `borrowableAmountFrom` (loans). The delay is stored on REVOwner (`cashOutDelayOf(revnetId)`) and set by REVDeployer during deployment via `setCashOutDelayOf()`. REVLoans imports IREVOwner (not IREVDeployer) to read it.
 9. **`cashOutTaxRate` cannot be MAX.** Must be strictly less than `MAX_CASH_OUT_TAX_RATE` (10,000). Revnets cannot fully disable cash outs.
-10. **Split operator is singular.** Only ONE address can be split operator at a time. The operator can replace itself via `setSplitOperatorOf` but cannot delegate or multi-sig.
+10. **Split operator is singular.** Only ONE address can be operator at a time. The operator can replace itself via `setOperatorOf` but cannot delegate or multi-sig.
 11. **NATIVE_TOKEN on non-ETH chains.** `JBConstants.NATIVE_TOKEN` on Celo means CELO, on Polygon means MATIC -- not ETH. Use ERC-20 WETH instead. The config matching hash does NOT catch terminal configuration differences.
 12. **Loan source array is unbounded.** `_loanSourcesOf[revnetId]` grows without limit. No validation that a terminal is actually registered for the project.
 13. **Flash-loan surplus exposure.** `borrowableAmountFrom` reads live surplus. A flash loan can temporarily inflate the treasury to borrow more than the sustained value supports.
@@ -141,7 +141,7 @@ Use this file when you need revnet-specific risks, state reads, constants, or ex
 17. **Loan fee model has three layers.** See Constants table for exact values: REV protocol fee, terminal fee, and prepaid source fee (borrower-chosen, buys interest-free window). After the prepaid window, source fee accrues linearly over the remaining loan duration.
 18. **Permit2 fallback.** `REVLoans` uses permit2 for ERC-20 transfers as a fallback when standard allowance is insufficient. Wrapped in try-catch.
 19. **39.16% cash-out tax crossover.** Below ~39% cash-out tax, cashing out is more capital-efficient than borrowing. Above ~39%, loans become more efficient because they preserve upside while providing liquidity. Based on CryptoEconLab academic research. Design implication: revnets intended for active token trading should consider this threshold when setting `cashOutTaxRate`.
-20. **REVDeployer always deploys a 721 hook** via `HOOK_DEPLOYER.deployHookFor` — even if `baseline721HookConfiguration` has empty tiers. This is correct by design: it lets the split operator add and sell NFTs later without migration. Non-revnet projects should follow the same pattern by using `JB721TiersHookProjectDeployer.launchProjectFor` (or `JBOmnichainDeployer.launchProjectFor`) instead of bare `launchProjectFor`.
+20. **REVDeployer always deploys a 721 hook** via `HOOK_DEPLOYER.deployHookFor` — even if `baseline721HookConfiguration` has empty tiers. This is correct by design: it lets the operator add and sell NFTs later without migration. Non-revnet projects should follow the same pattern by using `JB721TiersHookProjectDeployer.launchProjectFor` (or `JBOmnichainDeployer.launchProjectFor`) instead of bare `launchProjectFor`.
 21. **REVOwner deployer binding is precomputed.** REVOwner records the account that created it as an internal one-time binder. That account must call `setDeployer(precomputedRevDeployerAddress)` exactly once before the canonical REVDeployer is deployed. This avoids an ambient public initializer while keeping the circular dependency manageable. If `setDeployer(...)` is never called, all DEPLOYER-gated runtime configuration breaks.
 ### NATIVE_TOKEN Accounting on Non-ETH Chains
 
@@ -177,11 +177,11 @@ Quick-reference for common read operations. All functions are `view`/`pure` and 
 | All queued rulesets | `IJBController(CONTROLLER).allRulesetsOf(revnetId, startingId, size)` | `JBRulesetWithMetadata[]` -- paginated list of stages |
 | Specific stage by ID | `IJBController(CONTROLLER).getRulesetOf(revnetId, stageId)` | `(JBRuleset, JBRulesetMetadata)` for that stage |
 
-### Split Operator
+### Operator
 
 | What | Call | Returns |
 |------|------|---------|
-| Check if address is split operator | `REVDeployer.isSplitOperatorOf(revnetId, addr)` | `bool` |
+| Check if address is operator | `REVDeployer.isOperatorOf(revnetId, addr)` | `bool` |
 
 ### Token Supply & Surplus
 
@@ -257,7 +257,7 @@ REVConfig memory config = REVConfig({
         salt: bytes32(0)
     }),
     baseCurrency: 1,                       // ETH
-    splitOperator: msg.sender,
+    operator: msg.sender,
     scopeCashOutsToLocalBalances: false,
     stageConfigurations: stages
 });

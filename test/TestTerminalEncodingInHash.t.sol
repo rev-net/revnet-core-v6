@@ -311,7 +311,7 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
         return REVConfig({
             description: REVDescription("Terminal Test", "TERM", "", salt),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });
@@ -336,7 +336,7 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
         return REVConfig({
             description: REVDescription("Terminal Test", "TERM", "", salt),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });
@@ -374,7 +374,7 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
             // forge-lint: disable-next-line(unsafe-typecast)
             description: REVDescription("Fee Project", "FEE", "", bytes32("FEE")),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            splitOperator: multisig(),
+            operator: multisig(),
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stages
         });
