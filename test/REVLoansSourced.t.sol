@@ -677,7 +677,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
 
         // The fees to be paid to NANA.
         // forge-lint: disable-next-line(mixed-case-variable)
-        uint256 allowance_fees = JBFees.feeAmountFrom({amountBeforeFee: loanable, feePercent: jbMultiTerminal().FEE()});
+        uint256 allowance_fees = JBFees.feeAmountFrom({amountBeforeFee: loanable, feePercent: JBConstants.FEE});
         // The fees to be paid to REV.
         // forge-lint: disable-next-line(mixed-case-variable)
         uint256 rev_fees =
@@ -793,8 +793,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
 
         assertGe(fullReclaimableSurplus, loanable);
 
-        uint256 feeTokenCount =
-            cashOutTaxRate == 0 ? 0 : mulDiv(tokensToCashout, jbMultiTerminal().FEE(), JBConstants.MAX_FEE);
+        uint256 feeTokenCount = cashOutTaxRate == 0 ? 0 : mulDiv(tokensToCashout, JBConstants.FEE, JBConstants.MAX_FEE);
 
         uint256 reclaimableSurplus = jbMultiTerminal().STORE()
             .currentReclaimableSurplusOf({
@@ -836,7 +835,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         uint256 balance = _balanceOf(token, USER) - balanceBefore;
         uint256 nanaFee = cashOutTaxRate == 0
             ? 0
-            : JBFees.feeAmountResultingIn({amountAfterFee: balance, feePercent: jbMultiTerminal().FEE()});
+            : JBFees.feeAmountResultingIn({amountAfterFee: balance, feePercent: JBConstants.FEE});
 
         assertApproxEqAbs(balance, reclaimableSurplus - nanaFee, 1);
 

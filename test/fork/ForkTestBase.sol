@@ -317,17 +317,18 @@ abstract contract ForkTestBase is TestBaseWorkflow {
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
 
-        // Deploy REAL buyback hook with real PoolManager.
+        // Deploy REAL buyback hook with real PoolManager. V4 PoolManager + Hooks moved to a one-shot setter
+        // in buyback-hook-v6 0.0.45+, so configure them post-construction.
         BUYBACK_HOOK = new JBBuybackHook(
             jbDirectory(),
             jbPermissions(),
             jbPrices(),
             jbProjects(),
             jbTokens(),
-            poolManager,
-            IHooks(address(0)), // oracleHook
+            address(this), // deployer
             address(0) // trustedForwarder
         );
+        BUYBACK_HOOK.setChainSpecificConstants({poolManager: poolManager, oracleHook: IHooks(address(0))});
 
         // Deploy the registry and set the buyback hook as the default.
         BUYBACK_REGISTRY = new JBBuybackHookRegistry(
