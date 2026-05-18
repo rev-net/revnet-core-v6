@@ -9,6 +9,7 @@ import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDa
 import {IJBTerminal} from "@bananapus/core-v6/src/interfaces/IJBTerminal.sol";
 import {JBCashOuts} from "@bananapus/core-v6/src/libraries/JBCashOuts.sol";
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
+import {JBFees} from "@bananapus/core-v6/src/libraries/JBFees.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
 import {JBAfterCashOutRecordedContext} from "@bananapus/core-v6/src/structs/JBAfterCashOutRecordedContext.sol";
 import {JBBeforeCashOutRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforeCashOutRecordedContext.sol";
@@ -45,15 +46,6 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     error REVOwner_AlreadyInitialized(address deployer);
     error REVOwner_CashOutDelayNotFinished(uint256 cashOutDelay, uint256 blockTimestamp);
     error REVOwner_Unauthorized(address caller, address expectedCaller);
-
-    //*********************************************************************//
-    // ------------------------- public constants ------------------------ //
-    //*********************************************************************//
-
-    /// @notice The cash out fee (as a fraction out of `JBConstants.MAX_FEE`).
-    /// @dev Cashout fees are paid to the revnet with the `FEE_REVNET_ID`.
-    /// @dev When suckers withdraw funds, they do not pay cash out fees.
-    uint256 public constant FEE = 25; // 2.5%
 
     //*********************************************************************//
     // --------------- public immutable stored properties ---------------- //
@@ -219,7 +211,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         // a better price. This is by design.
         // Micro cash outs (< 40 wei at 2.5% fee) round feeCashOutCount to zero, bypassing the fee.
         // Economically insignificant: the gas cost of the transaction far exceeds the bypassed fee. No fix needed.
-        uint256 feeCashOutCount = mulDiv({x: context.cashOutCount, y: FEE, denominator: JBConstants.MAX_FEE});
+        uint256 feeCashOutCount = JBFees.standardFeeAmountFrom(context.cashOutCount);
         uint256 nonFeeCashOutCount = context.cashOutCount - feeCashOutCount;
 
         // Compute the gross (effective-surplus) reclaim and fee amounts. The bonding curve uses cross-chain effective

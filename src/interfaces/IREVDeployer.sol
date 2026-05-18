@@ -119,10 +119,6 @@ interface IREVDeployer {
     /// @return The directory contract.
     function DIRECTORY() external view returns (IJBDirectory);
 
-    /// @notice The cash out fee as a fraction out of `JBConstants.MAX_FEE`.
-    /// @return The fee value.
-    function FEE() external view returns (uint256);
-
     /// @notice The Juicebox project ID of the revnet that receives cash out fees.
     /// @return The fee revnet ID.
     function FEE_REVNET_ID() external view returns (uint256);

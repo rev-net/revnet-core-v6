@@ -79,12 +79,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @dev 30 days, in seconds.
     uint256 public constant override CASH_OUT_DELAY = 2_592_000;
 
-    /// @notice The cash out fee (as a fraction out of `JBConstants.MAX_FEE`).
-    /// Cashout fees are paid to the revnet with the `FEE_REVNET_ID`.
-    /// @dev Fees are charged on cashouts if the cash out tax rate is greater than 0%.
-    /// @dev When suckers withdraw funds, they do not pay cash out fees.
-    uint256 public constant override FEE = 25; // 2.5%
-
     /// @notice The default Uniswap pool fee tier used when auto-configuring buyback pools.
     /// @dev 10_000 = 1%. This is the standard fee tier for most project token pairs.
     uint24 public constant DEFAULT_BUYBACK_POOL_FEE = 10_000;

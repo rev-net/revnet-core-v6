@@ -28,6 +28,7 @@ import "@bananapus/721-hook-v6/src/JB721CheckpointsDeployer.sol";
 import {IJB721CheckpointsDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721CheckpointsDeployer.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
+import {JBFees} from "@bananapus/core-v6/src/libraries/JBFees.sol";
 import {JBSuckerRegistry} from "@bananapus/suckers-v6/src/JBSuckerRegistry.sol";
 import {IJBBuybackHookRegistry} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHookRegistry.sol";
 
@@ -150,7 +151,7 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
         assertGt(fullCashOutCount, 0, "user should have tokens");
 
         // The non-fee count: what the buyback hook SHOULD process.
-        uint256 feeCashOutCount = fullCashOutCount * revDeployer.FEE() / JBConstants.MAX_FEE;
+        uint256 feeCashOutCount = JBFees.standardFeeAmountFrom(fullCashOutCount);
         uint256 expectedNonFeeCount = fullCashOutCount - feeCashOutCount;
 
         // Perform the cash out.
