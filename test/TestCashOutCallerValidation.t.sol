@@ -24,6 +24,7 @@ import "@croptop/core-v6/script/helpers/CroptopDeploymentLib.sol";
 import "@bananapus/router-terminal-v6/script/helpers/RouterTerminalDeploymentLib.sol";
 import {JBCashOuts} from "@bananapus/core-v6/src/libraries/JBCashOuts.sol";
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
+import {JBFees} from "@bananapus/core-v6/src/libraries/JBFees.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
 import {JBBeforeCashOutRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforeCashOutRecordedContext.sol";
 import {JBCashOutHookSpecification} from "@bananapus/core-v6/src/structs/JBCashOutHookSpecification.sol";
@@ -371,7 +372,7 @@ contract TestCashOutCallerValidation is TestBaseWorkflow {
             JBCashOutHookSpecification[] memory hookSpecifications
         ) = REV_OWNER.beforeCashOutRecordedWith(context);
 
-        uint256 feeCashOutCount = context.cashOutCount * REV_DEPLOYER.FEE() / JBConstants.MAX_FEE;
+        uint256 feeCashOutCount = JBFees.standardFeeAmountFrom(context.cashOutCount);
         uint256 nonFeeCashOutCount = context.cashOutCount - feeCashOutCount;
         uint256 postFeeReclaimedAmount = JBCashOuts.cashOutFrom({
             surplus: context.surplus.value,

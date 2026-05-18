@@ -272,7 +272,7 @@ contract TestLoanERC20Fork is ForkTestBase {
 
         // Calculate expected fees (all in 6-decimal USDC).
         // The allowance fee is taken by the terminal's useAllowanceOf (2.5% JB protocol fee).
-        uint256 allowanceFee = JBFees.feeAmountFrom({amountBeforeFee: borrowable, feePercent: JBConstants.FEE});
+        uint256 allowanceFee = JBFees.standardFeeAmountFrom(borrowable);
         // REV fee (1%).
         uint256 revFee =
             JBFees.feeAmountFrom({amountBeforeFee: borrowable, feePercent: LOANS_CONTRACT.REV_PREPAID_FEE_PERCENT()});
@@ -444,7 +444,7 @@ contract TestLoanERC20Fork is ForkTestBase {
         LOANS_CONTRACT.borrowableAmountFrom(revnetId, borrowerTokens, USDC_DECIMALS, uint32(uint160(USDC)));
 
         // Calculate each fee component using JBFees (same as the contract does internally).
-        uint256 expectedAllowanceFee = JBFees.feeAmountFrom({amountBeforeFee: borrowable, feePercent: JBConstants.FEE});
+        uint256 expectedAllowanceFee = JBFees.standardFeeAmountFrom(borrowable);
         uint256 expectedRevFee =
             JBFees.feeAmountFrom({amountBeforeFee: borrowable, feePercent: LOANS_CONTRACT.REV_PREPAID_FEE_PERCENT()});
         uint256 expectedSourceFee = JBFees.feeAmountFrom({amountBeforeFee: borrowable, feePercent: prepaidFeePercent});
