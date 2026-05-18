@@ -67,54 +67,31 @@ contract DeployScript is Script, Sphinx {
     SuckerDeployment suckers;
     /// @notice tracks the deployment of the router terminal.
     RouterTerminalDeployment routerTerminal;
-
-    // forge-lint: disable-next-line(mixed-case-variable)
-    uint32 PREMINT_CHAIN_ID = 1;
-    // forge-lint: disable-next-line(mixed-case-variable)
-    string NAME = "Revnet";
-    // forge-lint: disable-next-line(mixed-case-variable)
-    string SYMBOL = "REV";
-    // forge-lint: disable-next-line(mixed-case-variable)
-    string PROJECT_URI = "ipfs://QmcCBD5fM927LjkLDSJWtNEU9FohcbiPSfqtGRHXFHzJ4W";
-    // forge-lint: disable-next-line(mixed-case-variable)
-    uint32 NATIVE_CURRENCY = uint32(uint160(JBConstants.NATIVE_TOKEN));
-    // forge-lint: disable-next-line(mixed-case-variable)
-    uint32 ETH_CURRENCY = JBCurrencyIds.ETH;
-    // forge-lint: disable-next-line(mixed-case-variable)
-    uint8 DECIMALS = 18;
-    // forge-lint: disable-next-line(mixed-case-variable)
-    uint256 DECIMAL_MULTIPLIER = 10 ** DECIMALS;
-    // forge-lint: disable-next-line(mixed-case-variable)
-    bytes32 ERC20_SALT = "_REV_ERC20_SALT_V6_";
-    // forge-lint: disable-next-line(mixed-case-variable)
-    bytes32 SUCKER_SALT = "_REV_SUCKER_SALT_V6_";
-    // forge-lint: disable-next-line(mixed-case-variable)
-    bytes32 DEPLOYER_SALT = "_REV_DEPLOYER_SALT_V6_";
-    // forge-lint: disable-next-line(mixed-case-variable)
-    bytes32 REVLOANS_SALT = "_REV_LOANS_SALT_V6_";
-    // forge-lint: disable-next-line(mixed-case-variable)
-    bytes32 REVOWNER_SALT = "_REV_OWNER_SALT_V6_";
-    // forge-lint: disable-next-line(mixed-case-variable)
-    address LOANS_OWNER;
-    // forge-lint: disable-next-line(mixed-case-variable)
-    address OPERATOR;
-    // forge-lint: disable-next-line(mixed-case-variable)
-    address TRUSTED_FORWARDER;
-    // forge-lint: disable-next-line(mixed-case-variable)
-    IPermit2 PERMIT2;
-    // forge-lint: disable-next-line(mixed-case-variable)
-    uint48 REV_START_TIME = 1_740_089_444;
-    // forge-lint: disable-next-line(mixed-case-variable)
-    uint104 REV_MAINNET_AUTO_ISSUANCE_ = 1_050_482_341_387_116_262_330_122;
-    // forge-lint: disable-next-line(mixed-case-variable)
-    uint104 REV_BASE_AUTO_ISSUANCE_ = 38_544_322_230_437_559_731_228;
-    // forge-lint: disable-next-line(mixed-case-variable)
-    uint104 REV_OP_AUTO_ISSUANCE_ = 32_069_388_242_375_817_844;
-    // forge-lint: disable-next-line(mixed-case-variable)
-    uint104 REV_ARB_AUTO_ISSUANCE_ = 3_479_431_776_906_850_000_000;
+    uint32 private constant _PREMINT_CHAIN_ID = 1;
+    string private constant _NAME = "Revnet";
+    string private constant _SYMBOL = "REV";
+    string private constant _PROJECT_URI = "ipfs://QmcCBD5fM927LjkLDSJWtNEU9FohcbiPSfqtGRHXFHzJ4W";
+    uint32 private constant _NATIVE_CURRENCY = uint32(uint160(JBConstants.NATIVE_TOKEN));
+    uint32 private constant _ETH_CURRENCY = JBCurrencyIds.ETH;
+    uint8 private constant _DECIMALS = 18;
+    uint256 private constant _DECIMAL_MULTIPLIER = 10 ** _DECIMALS;
+    bytes32 private constant _ERC20_SALT = "_REV_ERC20_SALT_V6_";
+    bytes32 private constant _SUCKER_SALT = "_REV_SUCKER_SALT_V6_";
+    bytes32 private constant _DEPLOYER_SALT = "_REV_DEPLOYER_SALT_V6_";
+    bytes32 private constant _REVLOANS_SALT = "_REV_LOANS_SALT_V6_";
+    bytes32 private constant _REVOWNER_SALT = "_REV_OWNER_SALT_V6_";
+    address private loansOwner;
+    address private operator;
+    address private trustedForwarder;
+    IPermit2 private permit2;
+    uint48 private constant _REV_START_TIME = 1_740_089_444;
+    uint104 private constant _REV_MAINNET_AUTO_ISSUANCE = 1_050_482_341_387_116_262_330_122;
+    uint104 private constant _REV_BASE_AUTO_ISSUANCE = 38_544_322_230_437_559_731_228;
+    uint104 private constant _REV_OP_AUTO_ISSUANCE = 32_069_388_242_375_817_844;
+    uint104 private constant _REV_ARB_AUTO_ISSUANCE = 3_479_431_776_906_850_000_000;
 
     function configureSphinx() public override {
-        // TODO: Update to contain revnet devs.
+        // Safe owners and threshold are resolved by the Sphinx project config.
         sphinxConfig.projectName = "revnet-core-v6";
         sphinxConfig.mainnets = ["ethereum", "optimism", "base", "arbitrum"];
         sphinxConfig.testnets = ["ethereum_sepolia", "optimism_sepolia", "base_sepolia", "arbitrum_sepolia"];
@@ -122,9 +99,9 @@ contract DeployScript is Script, Sphinx {
 
     function run() public {
         // Get the operator address.
-        OPERATOR = safeAddress();
+        operator = safeAddress();
         // Get the loans owner address.
-        LOANS_OWNER = safeAddress();
+        loansOwner = safeAddress();
 
         // Get the deployment addresses for the nana CORE for this chain.
         // We want to do this outside of the `sphinx` modifier.
@@ -169,8 +146,8 @@ contract DeployScript is Script, Sphinx {
         );
 
         // We use the same trusted forwarder and permit2 as the core deployment.
-        TRUSTED_FORWARDER = core.controller.trustedForwarder();
-        PERMIT2 = core.terminal.PERMIT2();
+        trustedForwarder = core.controller.trustedForwarder();
+        permit2 = core.terminal.PERMIT2();
 
         // Perform the deployment transactions.
         deploy();
@@ -182,7 +159,7 @@ contract DeployScript is Script, Sphinx {
 
         // Accept the chain's native currency through the multi terminal.
         accountingContextsToAccept[0] =
-            JBAccountingContext({token: JBConstants.NATIVE_TOKEN, decimals: DECIMALS, currency: NATIVE_CURRENCY});
+            JBAccountingContext({token: JBConstants.NATIVE_TOKEN, decimals: _DECIMALS, currency: _NATIVE_CURRENCY});
 
         // The terminals that the project will accept funds through.
         JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](2);
@@ -202,25 +179,25 @@ contract DeployScript is Script, Sphinx {
             preferAddToBalance: false,
             percent: JBConstants.SPLITS_TOTAL_PERCENT,
             projectId: 0,
-            beneficiary: payable(OPERATOR),
+            beneficiary: payable(operator),
             lockedUntil: 0,
             hook: IJBSplitHook(address(0))
         });
 
         {
             REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](4);
-            issuanceConfs[0] = REVAutoIssuance({chainId: 1, count: REV_MAINNET_AUTO_ISSUANCE_, beneficiary: OPERATOR});
-            issuanceConfs[1] = REVAutoIssuance({chainId: 8453, count: REV_BASE_AUTO_ISSUANCE_, beneficiary: OPERATOR});
-            issuanceConfs[2] = REVAutoIssuance({chainId: 10, count: REV_OP_AUTO_ISSUANCE_, beneficiary: OPERATOR});
-            issuanceConfs[3] = REVAutoIssuance({chainId: 42_161, count: REV_ARB_AUTO_ISSUANCE_, beneficiary: OPERATOR});
+            issuanceConfs[0] = REVAutoIssuance({chainId: 1, count: _REV_MAINNET_AUTO_ISSUANCE, beneficiary: operator});
+            issuanceConfs[1] = REVAutoIssuance({chainId: 8453, count: _REV_BASE_AUTO_ISSUANCE, beneficiary: operator});
+            issuanceConfs[2] = REVAutoIssuance({chainId: 10, count: _REV_OP_AUTO_ISSUANCE, beneficiary: operator});
+            issuanceConfs[3] = REVAutoIssuance({chainId: 42_161, count: _REV_ARB_AUTO_ISSUANCE, beneficiary: operator});
 
             stageConfigurations[0] = REVStageConfig({
-                startsAtOrAfter: REV_START_TIME,
+                startsAtOrAfter: _REV_START_TIME,
                 autoIssuances: issuanceConfs,
                 splitPercent: 3800, // 38%
                 splits: splits,
                 // forge-lint: disable-next-line(unsafe-typecast)
-                initialIssuance: uint112(10_000 * DECIMAL_MULTIPLIER),
+                initialIssuance: uint112(10_000 * _DECIMAL_MULTIPLIER),
                 issuanceCutFrequency: 90 days,
                 issuanceCutPercent: 380_000_000, // 38%
                 cashOutTaxRate: 1000, // 0.1
@@ -232,10 +209,10 @@ contract DeployScript is Script, Sphinx {
             REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
             issuanceConfs[0] = REVAutoIssuance({
                 // forge-lint: disable-next-line(unsafe-typecast)
-                chainId: PREMINT_CHAIN_ID,
+                chainId: _PREMINT_CHAIN_ID,
                 // forge-lint: disable-next-line(unsafe-typecast)
-                count: uint104(1_550_000 * DECIMAL_MULTIPLIER),
-                beneficiary: OPERATOR
+                count: uint104(1_550_000 * _DECIMAL_MULTIPLIER),
+                beneficiary: operator
             });
 
             stageConfigurations[1] = REVStageConfig({
@@ -265,9 +242,9 @@ contract DeployScript is Script, Sphinx {
 
         // The project's revnet configuration
         REVConfig memory revnetConfiguration = REVConfig({
-            description: REVDescription({name: NAME, ticker: SYMBOL, uri: PROJECT_URI, salt: ERC20_SALT}),
-            baseCurrency: ETH_CURRENCY,
-            operator: OPERATOR,
+            description: REVDescription({name: _NAME, ticker: _SYMBOL, uri: _PROJECT_URI, salt: _ERC20_SALT}),
+            baseCurrency: _ETH_CURRENCY,
+            operator: operator,
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stageConfigurations
         });
@@ -314,7 +291,7 @@ contract DeployScript is Script, Sphinx {
             }
             // Specify all sucker deployments.
             suckerDeploymentConfiguration =
-                REVSuckerDeploymentConfig({deployerConfigurations: suckerDeployerConfigurations, salt: SUCKER_SALT});
+                REVSuckerDeploymentConfig({deployerConfigurations: suckerDeployerConfigurations, salt: _SUCKER_SALT});
         }
 
         return FeeProjectConfig({
@@ -329,7 +306,7 @@ contract DeployScript is Script, Sphinx {
                     tokenUriResolver: IJB721TokenUriResolver(address(0)),
                     contractUri: "",
                     tiersConfig: JB721InitTiersConfig({
-                        tiers: new JB721TierConfig[](0), currency: ETH_CURRENCY, decimals: 18
+                        tiers: new JB721TierConfig[](0), currency: _ETH_CURRENCY, decimals: 18
                     }),
                     flags: REV721TiersHookFlags({
                         noNewTiersWithReserves: false,
@@ -351,8 +328,7 @@ contract DeployScript is Script, Sphinx {
     function deploy() public sphinx {
         // Check if singletons are already deployed before creating a new fee project.
         // This prevents creating orphan projects on script restarts.
-        // forge-lint: disable-next-line(mixed-case-variable)
-        uint256 FEE_PROJECT_ID;
+        uint256 feeProjectId;
 
         // Predict the REVLoans address for an arbitrary fee project ID to check if it exists.
         // We can't predict without a fee project ID, so we first check the REVDeployer which also stores it.
@@ -360,7 +336,7 @@ contract DeployScript is Script, Sphinx {
 
         // First, check if REVLoans is already deployed by trying with project ID = 0 (placeholder).
         // We need to iterate: if either singleton exists, extract the fee project ID from it.
-        // Since both encode FEE_PROJECT_ID, we check if any code exists at the predicted address
+        // Since both encode feeProjectId, we check if any code exists at the predicted address
         // for sequential project IDs starting from 1.
 
         // A simpler approach: predict the REVDeployer address for each possible fee project ID
@@ -385,10 +361,10 @@ contract DeployScript is Script, Sphinx {
         for (uint256 _candidateId = 1; _candidateId < _nextProjectId; _candidateId++) {
             // Predict REVLoans address for this candidate fee project ID.
             (address _candidateRevloansAddr, bool _candidateRevloansDeployed) = _isDeployed({
-                salt: REVLOANS_SALT,
+                salt: _REVLOANS_SALT,
                 creationCode: type(REVLoans).creationCode,
                 arguments: abi.encode(
-                    core.controller, suckers.registry, _candidateId, LOANS_OWNER, PERMIT2, TRUSTED_FORWARDER
+                    core.controller, suckers.registry, _candidateId, loansOwner, permit2, trustedForwarder
                 )
             });
 
@@ -396,14 +372,14 @@ contract DeployScript is Script, Sphinx {
                 // Verify the fee project ID matches by reading the immutable.
                 if (REVLoans(payable(_candidateRevloansAddr)).REV_ID() == _candidateId) {
                     // Record the fee project ID from the existing deployment.
-                    FEE_PROJECT_ID = _candidateId;
+                    feeProjectId = _candidateId;
                     // Record the existing REVLoans address.
                     _existingRevloansAddr = _candidateRevloansAddr;
                     _revloansExists = true;
 
                     // Also predict and verify the owner.
                     (_existingOwnerAddr, _revOwnerExists) = _isDeployed({
-                        salt: REVOWNER_SALT,
+                        salt: _REVOWNER_SALT,
                         creationCode: type(REVOwner).creationCode,
                         arguments: abi.encode(
                             IJBBuybackHookRegistry(address(buybackHook.registry)),
@@ -417,7 +393,7 @@ contract DeployScript is Script, Sphinx {
 
                     // Also predict and verify the deployer.
                     (_existingDeployerAddr, _revDeployerExists) = _isDeployed({
-                        salt: DEPLOYER_SALT,
+                        salt: _DEPLOYER_SALT,
                         creationCode: type(REVDeployer).creationCode,
                         arguments: abi.encode(
                             core.controller,
@@ -427,7 +403,7 @@ contract DeployScript is Script, Sphinx {
                             croptop.publisher,
                             IJBBuybackHookRegistry(address(buybackHook.registry)),
                             _candidateRevloansAddr,
-                            TRUSTED_FORWARDER,
+                            trustedForwarder,
                             _existingOwnerAddr
                         )
                     });
@@ -445,91 +421,90 @@ contract DeployScript is Script, Sphinx {
             for (uint256 i = _nextProjectId - 1; i >= 1; i--) {
                 if (core.projects.ownerOf(i) == safeAddress()) {
                     if (address(core.controller.DIRECTORY().controllerOf(i)) == address(0)) {
-                        FEE_PROJECT_ID = i;
+                        feeProjectId = i;
                         _foundExisting = true;
                         break;
                     }
                 }
             }
             if (!_foundExisting) {
-                // forge-lint: disable-next-line(mixed-case-variable)
-                FEE_PROJECT_ID = core.projects.createFor(safeAddress());
+                feeProjectId = core.projects.createFor(safeAddress());
             }
         }
 
         // Deploy REVLoans first — it only depends on the controller.
         REVLoans revloans = _revloansExists
             ? REVLoans(payable(_existingRevloansAddr))
-            : new REVLoans{salt: REVLOANS_SALT}({
+            : new REVLoans{salt: _REVLOANS_SALT}({
                 controller: core.controller,
                 suckerRegistry: suckers.registry,
-                revId: FEE_PROJECT_ID,
-                owner: LOANS_OWNER,
-                permit2: PERMIT2,
-                trustedForwarder: TRUSTED_FORWARDER
+                revId: feeProjectId,
+                owner: loansOwner,
+                permit2: permit2,
+                trustedForwarder: trustedForwarder
             });
 
         // Deploy REVOwner — the runtime data hook that handles pay and cash out callbacks.
         REVOwner revOwner = _revOwnerExists
             ? REVOwner(_existingOwnerAddr)
-            : new REVOwner{salt: REVOWNER_SALT}({
+            : new REVOwner{salt: _REVOWNER_SALT}({
                 buybackHook: IJBBuybackHookRegistry(address(buybackHook.registry)),
                 directory: core.controller.DIRECTORY(),
-                feeRevnetId: FEE_PROJECT_ID,
+                feeRevnetId: feeProjectId,
                 suckerRegistry: suckers.registry,
                 loans: revloans,
-                deployer: msg.sender
+                deployerAddress: msg.sender
             });
 
         // Deploy REVDeployer with the REVLoans, buyback hook, and REVOwner addresses.
         (address _deployerAddr, bool _deployerIsDeployed) = _revDeployerExists
             ? (_existingDeployerAddr, true)
             : _isDeployed({
-                salt: DEPLOYER_SALT,
+                salt: _DEPLOYER_SALT,
                 creationCode: type(REVDeployer).creationCode,
                 arguments: abi.encode(
                     core.controller,
                     suckers.registry,
-                    FEE_PROJECT_ID,
+                    feeProjectId,
                     hook.hook_deployer,
                     croptop.publisher,
                     IJBBuybackHookRegistry(address(buybackHook.registry)),
                     revloans,
-                    TRUSTED_FORWARDER,
+                    trustedForwarder,
                     address(revOwner)
                 )
             });
-        if (address(revOwner.DEPLOYER()) == address(0)) {
+        if (address(revOwner.deployer()) == address(0)) {
             revOwner.setDeployer(IREVDeployer(_deployerAddr));
         }
         REVDeployer _basicDeployer = _deployerIsDeployed
             ? REVDeployer(payable(_deployerAddr))
-            : new REVDeployer{salt: DEPLOYER_SALT}({
+            : new REVDeployer{salt: _DEPLOYER_SALT}({
                 controller: core.controller,
                 suckerRegistry: suckers.registry,
-                feeRevnetId: FEE_PROJECT_ID,
+                feeRevnetId: feeProjectId,
                 hookDeployer: hook.hook_deployer,
                 publisher: croptop.publisher,
                 buybackHook: IJBBuybackHookRegistry(address(buybackHook.registry)),
                 loans: revloans,
-                trustedForwarder: TRUSTED_FORWARDER,
+                trustedForwarder: trustedForwarder,
                 owner: address(revOwner)
             });
 
         // Only configure the fee project if it doesn't already have a controller.
         // This handles both fresh deploys and restarts where singletons exist but the fee project
         // was not yet configured.
-        bool _feeProjectConfigured = address(core.controller.DIRECTORY().controllerOf(FEE_PROJECT_ID)) != address(0);
+        bool _feeProjectConfigured = address(core.controller.DIRECTORY().controllerOf(feeProjectId)) != address(0);
         if (!_feeProjectConfigured) {
             // Approve the basic deployer to configure the project.
-            core.projects.approve({to: address(_basicDeployer), tokenId: FEE_PROJECT_ID});
+            core.projects.approve({to: address(_basicDeployer), tokenId: feeProjectId});
 
             // Build the config.
             FeeProjectConfig memory feeProjectConfig = getFeeProjectConfig();
 
             // Configure the project.
             _basicDeployer.deployFor({
-                revnetId: FEE_PROJECT_ID,
+                revnetId: feeProjectId,
                 configuration: feeProjectConfig.configuration,
                 terminalConfigurations: feeProjectConfig.terminalConfigurations,
                 suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration,

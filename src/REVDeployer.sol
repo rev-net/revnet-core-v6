@@ -415,10 +415,12 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
                 sqrtPriceX96 = uint160(1 << 96);
             } else if (normalizedTerminalToken < projectToken) {
                 // token0 = terminal, token1 = project → price = issuance / terminalTokenUnit
-                sqrtPriceX96 = uint160(sqrt(mulDiv(uint256(initialIssuance), 1 << 192, terminalTokenUnit)));
+                sqrtPriceX96 =
+                    uint160(sqrt(mulDiv({x: uint256(initialIssuance), y: 1 << 192, denominator: terminalTokenUnit})));
             } else {
                 // token0 = project, token1 = terminal → price = terminalTokenUnit / issuance
-                sqrtPriceX96 = uint160(sqrt(mulDiv(terminalTokenUnit, 1 << 192, uint256(initialIssuance))));
+                sqrtPriceX96 =
+                    uint160(sqrt(mulDiv({x: terminalTokenUnit, y: 1 << 192, denominator: uint256(initialIssuance)})));
             }
         }
 

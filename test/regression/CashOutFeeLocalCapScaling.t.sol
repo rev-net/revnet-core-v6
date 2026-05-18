@@ -225,7 +225,7 @@ contract CashOutFeeLocalCapScalingTest is TestBaseWorkflow {
             feeRevnetId: feeRevnetId,
             suckerRegistry: IJBSuckerRegistry(address(suckerRegistry)),
             loans: IREVLoans(address(0)),
-            deployer: address(this)
+            deployerAddress: address(this)
         });
     }
 
@@ -449,7 +449,7 @@ contract CashOutFeeLocalCapScalingTest is TestBaseWorkflow {
             feeRevnetId: feeRevnetId,
             suckerRegistry: IJBSuckerRegistry(address(suckerRegistry)),
             loans: IREVLoans(address(0)),
-            deployer: address(this)
+            deployerAddress: address(this)
         });
 
         // Local=10, remote=90. The pre-cap omnichain direct reclaim for the non-fee tranche is above 20 ETH,

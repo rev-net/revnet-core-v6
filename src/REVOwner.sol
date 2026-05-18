@@ -81,7 +81,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
 
     /// @notice The deployer that manages revnet state.
     /// @dev Set once via `setDeployer()` using the precomputed canonical REVDeployer address.
-    IREVDeployer public DEPLOYER;
+    IREVDeployer public deployer;
 
     //*********************************************************************//
     // -------------------- private stored properties -------------------- //
@@ -99,7 +99,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     /// @param feeRevnetId The Juicebox project ID of the fee revnet.
     /// @param suckerRegistry The sucker registry.
     /// @param loans The loan contract.
-    /// @param deployer The account allowed to bind the canonical deployer via `setDeployer`. Passed explicitly
+    /// @param deployerAddress The account allowed to bind the canonical deployer via `setDeployer`. Passed explicitly
     /// because CREATE2 deployments set `msg.sender` to the factory, not the intended operator.
     constructor(
         IJBBuybackHookRegistry buybackHook,
@@ -107,14 +107,14 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         uint256 feeRevnetId,
         IJBSuckerRegistry suckerRegistry,
         IREVLoans loans,
-        address deployer
+        address deployerAddress
     ) {
         BUYBACK_HOOK = buybackHook;
         DIRECTORY = directory;
         FEE_REVNET_ID = feeRevnetId;
         SUCKER_REGISTRY = suckerRegistry;
         LOANS = loans;
-        _DEPLOYER = deployer;
+        _DEPLOYER = deployerAddress;
     }
 
     //*********************************************************************//
@@ -508,14 +508,14 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     /// @dev The deployer address is precomputed and supplied by the account that created this REVOwner instance.
     /// Only that deploy-time binder may call this, which avoids an ambient public initializer where any first caller
     /// could seize the deployer role before the deterministic REVDeployer is actually deployed.
-    /// @param deployer The canonical REVDeployer instance that will manage revnet runtime state.
-    function setDeployer(IREVDeployer deployer) external {
+    /// @param newDeployer The canonical REVDeployer instance that will manage revnet runtime state.
+    function setDeployer(IREVDeployer newDeployer) external {
         // Only the account that deployed this REVOwner may complete the one-time deployer binding.
         if (msg.sender != _DEPLOYER) revert REVOwner_Unauthorized({caller: msg.sender, expectedCaller: _DEPLOYER});
         // Prevent the deployer binding from being overwritten after initialization.
-        if (address(DEPLOYER) != address(0)) revert REVOwner_AlreadyInitialized({deployer: address(DEPLOYER)});
+        if (address(deployer) != address(0)) revert REVOwner_AlreadyInitialized({deployer: address(deployer)});
         // Store the canonical REVDeployer that is authorized to manage runtime hook state.
-        DEPLOYER = deployer;
+        deployer = newDeployer;
     }
 
     /// @notice Store the cash out delay for a revnet.
@@ -523,8 +523,8 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     /// @param revnetId The ID of the revnet.
     /// @param cashOutDelay The timestamp after which cash outs are allowed.
     function setCashOutDelayOf(uint256 revnetId, uint256 cashOutDelay) external {
-        if (msg.sender != address(DEPLOYER)) {
-            revert REVOwner_Unauthorized({caller: msg.sender, expectedCaller: address(DEPLOYER)});
+        if (msg.sender != address(deployer)) {
+            revert REVOwner_Unauthorized({caller: msg.sender, expectedCaller: address(deployer)});
         }
         cashOutDelayOf[revnetId] = cashOutDelay;
     }
@@ -534,8 +534,8 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     /// @param revnetId The ID of the revnet.
     /// @param hook The tiered ERC-721 hook.
     function setTiered721HookOf(uint256 revnetId, IJB721TiersHook hook) external {
-        if (msg.sender != address(DEPLOYER)) {
-            revert REVOwner_Unauthorized({caller: msg.sender, expectedCaller: address(DEPLOYER)});
+        if (msg.sender != address(deployer)) {
+            revert REVOwner_Unauthorized({caller: msg.sender, expectedCaller: address(deployer)});
         }
         tiered721HookOf[revnetId] = hook;
     }
