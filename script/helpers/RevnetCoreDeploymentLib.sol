@@ -10,8 +10,7 @@ import {IREVLoans} from "./../../src/interfaces/IREVLoans.sol";
 import {REVOwner} from "./../../src/REVOwner.sol";
 
 struct RevnetCoreDeployment {
-    // forge-lint: disable-next-line(mixed-case-variable)
-    IREVDeployer basic_deployer;
+    IREVDeployer basicDeployer;
     IREVLoans loans;
     REVOwner owner;
 }
@@ -23,17 +22,16 @@ library RevnetCoreDeploymentLib {
     Vm internal constant vm = Vm(VM_ADDRESS);
 
     function getDeployment(string memory path) internal returns (RevnetCoreDeployment memory deployment) {
-        // get chainId for which we need to get the deployment.
+        // Match the current chain ID to the Sphinx network name used in deployment artifacts.
         uint256 chainId = block.chainid;
 
-        // Deploy to get the constants.
-        // TODO: get constants without deploy.
+        // `SphinxConstants` exposes Sphinx's supported chain ID to network name mapping.
         SphinxConstants sphinxConstants = new SphinxConstants();
         NetworkInfo[] memory networks = sphinxConstants.getNetworkInfoArray();
 
         for (uint256 _i; _i < networks.length; _i++) {
             if (networks[_i].chainId == chainId) {
-                return getDeployment({path: path, network_name: networks[_i].name});
+                return getDeployment({path: path, networkName: networks[_i].name});
             }
         }
 
@@ -42,28 +40,27 @@ library RevnetCoreDeploymentLib {
 
     function getDeployment(
         string memory path,
-        // forge-lint: disable-next-line(mixed-case-variable)
-        string memory network_name
+        string memory networkName
     )
         internal
         view
         returns (RevnetCoreDeployment memory deployment)
     {
-        deployment.basic_deployer = IREVDeployer(
+        deployment.basicDeployer = IREVDeployer(
             _getDeploymentAddress({
-                path: path, project_name: "revnet-core-v6", network_name: network_name, contractName: "REVDeployer"
+                path: path, projectName: "revnet-core-v6", networkName: networkName, contractName: "REVDeployer"
             })
         );
 
         deployment.loans = IREVLoans(
             _getDeploymentAddress({
-                path: path, project_name: "revnet-core-v6", network_name: network_name, contractName: "REVLoans"
+                path: path, projectName: "revnet-core-v6", networkName: networkName, contractName: "REVLoans"
             })
         );
 
         deployment.owner = REVOwner(
             _getDeploymentAddress({
-                path: path, project_name: "revnet-core-v6", network_name: network_name, contractName: "REVOwner"
+                path: path, projectName: "revnet-core-v6", networkName: networkName, contractName: "REVOwner"
             })
         );
     }
@@ -75,10 +72,8 @@ library RevnetCoreDeploymentLib {
     /// @return The address of the contract.
     function _getDeploymentAddress(
         string memory path,
-        // forge-lint: disable-next-line(mixed-case-variable)
-        string memory project_name,
-        // forge-lint: disable-next-line(mixed-case-variable)
-        string memory network_name,
+        string memory projectName,
+        string memory networkName,
         string memory contractName
     )
         internal
@@ -87,7 +82,7 @@ library RevnetCoreDeploymentLib {
     {
         string memory deploymentJson =
         // forge-lint: disable-next-line(unsafe-cheatcode)
-        vm.readFile(string.concat(path, project_name, "/", network_name, "/", contractName, ".json"));
+        vm.readFile(string.concat(path, projectName, "/", networkName, "/", contractName, ".json"));
         return stdJson.readAddress({json: deploymentJson, key: ".address"});
     }
 }

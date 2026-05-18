@@ -11,6 +11,6 @@ interface IREVOwner {
     function cashOutDelayOf(uint256 revnetId) external view returns (uint256);
 
     /// @notice Bind the canonical deployer exactly once.
-    /// @param deployer The revnet deployer instance.
-    function setDeployer(IREVDeployer deployer) external;
+    /// @param newDeployer The revnet deployer instance.
+    function setDeployer(IREVDeployer newDeployer) external;
 }
