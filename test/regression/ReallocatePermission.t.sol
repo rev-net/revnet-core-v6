@@ -263,6 +263,27 @@ contract ReallocatePermissionTest is TestBaseWorkflow {
         });
     }
 
+    /// @notice Helper: Grant two permissions in a single call (setPermissionsFor replaces, doesn't add).
+    function _grantTwoPermissions(address operator, uint256 permissionIdA, uint256 permissionIdB) internal {
+        uint8[] memory permissionIds = new uint8[](2);
+        // forge-lint: disable-next-line(unsafe-typecast)
+        permissionIds[0] = uint8(permissionIdA);
+        // forge-lint: disable-next-line(unsafe-typecast)
+        permissionIds[1] = uint8(permissionIdB);
+        vm.prank(HOLDER);
+        jbPermissions()
+            .setPermissionsFor({
+            account: HOLDER,
+            permissionsData: JBPermissionsData({
+            // forge-lint: disable-next-line(unsafe-typecast)
+            operator: operator,
+            // forge-lint: disable-next-line(unsafe-typecast)
+            projectId: uint64(REVNET_ID),
+            permissionIds: permissionIds
+        })
+        });
+    }
+
     /// @notice Helper: create an initial loan for the HOLDER.
     function _createInitialLoan() internal returns (uint256 loanId, uint256 tokenCount) {
         // HOLDER pays into the revnet to get tokens.
@@ -280,8 +301,9 @@ contract ReallocatePermissionTest is TestBaseWorkflow {
         (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(HOLDER), 25, HOLDER);
     }
 
-    /// @notice After fix: an operator with only REALLOCATE_LOAN permission can reallocate.
-    /// @dev Before the fix, this would revert because the inner borrowFrom call required OPEN_LOAN.
+    /// @notice An operator with only REALLOCATE_LOAN permission can reallocate existing collateral.
+    /// @dev Pure reallocation (no fresh holder collateral added) does not require OPEN_LOAN. This proves the
+    /// REALLOCATE_LOAN-only path stays open for the operator pattern it was added for.
     function test_reallocate_succeeds_with_only_REALLOCATE_LOAN_permission() public {
         (uint256 loanId,) = _createInitialLoan();
         require(loanId != 0, "Loan setup failed");
@@ -294,11 +316,6 @@ contract ReallocatePermissionTest is TestBaseWorkflow {
             REVNET_ID, JBConstants.NATIVE_TOKEN, 500 ether, false, "", ""
         );
 
-        // HOLDER pays more to get extra tokens for the new loan's additional collateral.
-        vm.prank(HOLDER);
-        uint256 extraTokens =
-            jbMultiTerminal().pay{value: 50 ether}(REVNET_ID, JBConstants.NATIVE_TOKEN, 50 ether, HOLDER, 0, "", "");
-
         // Get the loan's collateral count.
         REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
         uint256 collateralToTransfer = loan.collateral / 10;
@@ -308,19 +325,100 @@ contract ReallocatePermissionTest is TestBaseWorkflow {
         // Grant OPERATOR only REALLOCATE_LOAN permission (NOT OPEN_LOAN).
         _grantPermission(OPERATOR, JBPermissionIds.REALLOCATE_LOAN);
 
-        // This should succeed: OPERATOR has REALLOCATE_LOAN, and _borrowFrom skips OPEN_LOAN check.
+        // This should succeed: OPERATOR has REALLOCATE_LOAN, no fresh collateral is being added, and _borrowFrom
+        // skips OPEN_LOAN check.
         vm.prank(OPERATOR);
         (uint256 reallocatedLoanId, uint256 newLoanId,,) = LOANS_CONTRACT.reallocateCollateralFromLoan(
             loanId,
             collateralToTransfer,
             source,
             0, // minBorrowAmount
-            extraTokens,
+            0, // collateralCountToAdd — no fresh holder collateral
             payable(HOLDER),
             25 // prepaidFeePercent
         );
 
         // Verify both loans were created.
+        assertTrue(reallocatedLoanId != 0, "Reallocated loan should exist");
+        assertTrue(newLoanId != 0, "New loan should exist");
+    }
+
+    /// @notice REALLOCATE_LOAN alone is NOT enough when fresh holder collateral is added.
+    /// @dev Adding `collateralCountToAdd > 0` burns the loan owner's project tokens to open a brand-new loan, which
+    /// is the OPEN_LOAN operation. Without OPEN_LOAN, the call must revert so that REALLOCATE_LOAN-only operators
+    /// cannot open new loans against the holder's fresh tokens through this entry point.
+    function test_reallocate_with_fresh_collateral_requires_OPEN_LOAN() public {
+        (uint256 loanId,) = _createInitialLoan();
+        require(loanId != 0, "Loan setup failed");
+
+        // Donate to inflate surplus.
+        address donor = makeAddr("donor");
+        vm.deal(donor, 500 ether);
+        vm.prank(donor);
+        jbMultiTerminal().addToBalanceOf{value: 500 ether}(
+            REVNET_ID, JBConstants.NATIVE_TOKEN, 500 ether, false, "", ""
+        );
+
+        // HOLDER pays more to mint extra tokens that an attacker-operator might try to convert into a new loan.
+        vm.prank(HOLDER);
+        uint256 extraTokens =
+            jbMultiTerminal().pay{value: 50 ether}(REVNET_ID, JBConstants.NATIVE_TOKEN, 50 ether, HOLDER, 0, "", "");
+
+        REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
+        uint256 collateralToTransfer = loan.collateral / 10;
+
+        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+
+        // OPERATOR has REALLOCATE_LOAN but NOT OPEN_LOAN.
+        _grantPermission(OPERATOR, JBPermissionIds.REALLOCATE_LOAN);
+
+        // Must revert: adding fresh collateral requires OPEN_LOAN.
+        vm.prank(OPERATOR);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                JBPermissioned.JBPermissioned_Unauthorized.selector,
+                HOLDER, // account
+                OPERATOR, // sender
+                REVNET_ID, // projectId
+                JBPermissionIds.OPEN_LOAN // permissionId
+            )
+        );
+        LOANS_CONTRACT.reallocateCollateralFromLoan(
+            loanId, collateralToTransfer, source, 0, extraTokens, payable(OPERATOR), 25
+        );
+    }
+
+    /// @notice REALLOCATE_LOAN + OPEN_LOAN together allow reallocation with fresh holder collateral.
+    function test_reallocate_with_fresh_collateral_succeeds_with_both_permissions() public {
+        (uint256 loanId,) = _createInitialLoan();
+        require(loanId != 0, "Loan setup failed");
+
+        // Donate to inflate surplus.
+        address donor = makeAddr("donor");
+        vm.deal(donor, 500 ether);
+        vm.prank(donor);
+        jbMultiTerminal().addToBalanceOf{value: 500 ether}(
+            REVNET_ID, JBConstants.NATIVE_TOKEN, 500 ether, false, "", ""
+        );
+
+        // HOLDER mints extra tokens.
+        vm.prank(HOLDER);
+        uint256 extraTokens =
+            jbMultiTerminal().pay{value: 50 ether}(REVNET_ID, JBConstants.NATIVE_TOKEN, 50 ether, HOLDER, 0, "", "");
+
+        REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
+        uint256 collateralToTransfer = loan.collateral / 10;
+
+        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+
+        // OPERATOR has both REALLOCATE_LOAN AND OPEN_LOAN.
+        _grantTwoPermissions(OPERATOR, JBPermissionIds.REALLOCATE_LOAN, JBPermissionIds.OPEN_LOAN);
+
+        vm.prank(OPERATOR);
+        (uint256 reallocatedLoanId, uint256 newLoanId,,) = LOANS_CONTRACT.reallocateCollateralFromLoan(
+            loanId, collateralToTransfer, source, 0, extraTokens, payable(HOLDER), 25
+        );
+
         assertTrue(reallocatedLoanId != 0, "Reallocated loan should exist");
         assertTrue(newLoanId != 0, "New loan should exist");
     }

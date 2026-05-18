@@ -2,13 +2,17 @@
 pragma solidity 0.8.28;
 
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
+import {JBPermissioned} from "@bananapus/core-v6/src/abstract/JBPermissioned.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {REVLoan} from "../../src/structs/REVLoan.sol";
 import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
-import {ReallocatePermissionTest} from "../regression/ReallocatePermission.t.sol";
+import {ReallocatePermissionTest} from "./ReallocatePermission.t.sol";
 
-contract CodexNemesisReallocateFreshCollateralTest is ReallocatePermissionTest {
-    function test_codexNemesis_reallocateOperatorCanBorrowAgainstFreshCollateralToSelf() public {
+/// @notice A REALLOCATE_LOAN-only operator must not be able to pass `collateralCountToAdd > 0` to
+/// `reallocateCollateralFromLoan`, burn the loan owner's freshly held project tokens, open a new loan, and direct
+/// the proceeds via `beneficiary` — that would bypass the OPEN_LOAN gate that `borrowFrom` enforces.
+contract ReallocateFreshCollateralPermissionTest is ReallocatePermissionTest {
+    function test_reallocateOperatorCannotBorrowAgainstFreshCollateralWithoutOpenLoan() public {
         (uint256 loanId,) = _createInitialLoan();
 
         address donor = makeAddr("donor");
@@ -28,16 +32,20 @@ contract CodexNemesisReallocateFreshCollateralTest is ReallocatePermissionTest {
 
         _grantPermission(OPERATOR, JBPermissionIds.REALLOCATE_LOAN);
 
-        uint256 operatorBalanceBefore = OPERATOR.balance;
-
+        // Operator without OPEN_LOAN attempts to add fresh holder collateral and direct the proceeds to themselves.
+        // Must revert at the OPEN_LOAN gate.
         vm.prank(OPERATOR);
-        (, uint256 newLoanId,, REVLoan memory newLoan) = LOANS_CONTRACT.reallocateCollateralFromLoan(
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                JBPermissioned.JBPermissioned_Unauthorized.selector,
+                HOLDER, // account
+                OPERATOR, // sender
+                REVNET_ID, // projectId
+                JBPermissionIds.OPEN_LOAN // permissionId
+            )
+        );
+        LOANS_CONTRACT.reallocateCollateralFromLoan(
             loanId, collateralToTransfer, source, 0, extraTokens, payable(OPERATOR), 25
         );
-
-        assertGt(newLoanId, 0, "new loan was created");
-        assertEq(newLoan.collateral, collateralToTransfer + extraTokens, "fresh holder tokens were used");
-        assertGt(newLoan.amount, 0, "new loan borrowed value");
-        assertGt(OPERATOR.balance, operatorBalanceBefore, "operator received loan proceeds");
     }
 }
