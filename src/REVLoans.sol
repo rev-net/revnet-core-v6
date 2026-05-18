@@ -747,6 +747,14 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         address loanOwner = _ownerOf(loanId);
         _requirePermissionFrom({account: loanOwner, projectId: revnetId, permissionId: JBPermissionIds.REALLOCATE_LOAN});
 
+        // If the caller is adding fresh holder collateral on top of the reallocated amount, they must also have
+        // OPEN_LOAN permission for the loan owner: that fresh collateral comes from the owner's project-token
+        // balance and would otherwise let a REALLOCATE_LOAN-only operator open a brand-new loan against the owner's
+        // tokens through this entry point, bypassing the OPEN_LOAN gate that `borrowFrom` enforces.
+        if (collateralCountToAdd != 0) {
+            _requirePermissionFrom({account: loanOwner, projectId: revnetId, permissionId: JBPermissionIds.OPEN_LOAN});
+        }
+
         // Make sure the loan hasn't expired.
         // forge-lint: disable-next-line(block-timestamp)
         if (block.timestamp - _loanOf[loanId].createdAt > LOAN_LIQUIDATION_DURATION) {
