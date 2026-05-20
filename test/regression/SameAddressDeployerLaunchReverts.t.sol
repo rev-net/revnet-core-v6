@@ -146,7 +146,9 @@ contract SameAddressDeployerLaunchReverts is TestBaseWorkflow {
 
         // Directory rejects duplicate terminals; `setTerminalsOf` reverts with the specific selector mid-launch.
         vm.expectRevert(
-            abi.encodeWithSelector(JBDirectory.JBDirectory_DuplicateTerminals.selector, IJBTerminal(address(jbMultiTerminal())))
+            abi.encodeWithSelector(
+                JBDirectory.JBDirectory_DuplicateTerminals.selector, IJBTerminal(address(jbMultiTerminal()))
+            )
         );
         REV_DEPLOYER.deployFor({
             revnetId: 0,
