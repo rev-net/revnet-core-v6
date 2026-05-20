@@ -388,12 +388,66 @@ contract TestLiquidationBehavior is TestBaseWorkflow {
         uint256 totalBorrowedAfter = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, JBConstants.NATIVE_TOKEN);
         assertEq(totalBorrowedAfter, 0, "Borrowed tracking should be 0 after liquidation");
 
-        // 4. The loan data in _loanOf[loanId] is NOT deleted (no `delete` statement),
-        //    but the loan is effectively dead since the NFT is burned and tracking is zeroed.
+        // 4. The loan struct is deleted for a gas refund, so stale loan data cannot be read after liquidation.
         REVLoan memory loanAfter = LOANS_CONTRACT.loanOf(loanId);
-        // The loan struct data is deleted for a gas refund (delete _loanOf[loanId]).
         assertEq(loanAfter.amount, 0, "Loan data should be cleared after liquidation");
         assertEq(loanAfter.collateral, 0, "Loan collateral should be cleared after liquidation");
         assertEq(loanAfter.createdAt, 0, "Loan createdAt should be cleared after liquidation");
+    }
+
+    /// @notice Liquidation starts strictly after the loan liquidation duration, not at the boundary second.
+    function test_liquidationBoundaryTriplet() public {
+        (uint256 loanId,,) = _setupLoan({user: USER, ethAmount: 10e18, prepaidFee: 25});
+        require(loanId != 0, "Loan setup failed");
+
+        REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
+        uint256 liquidationDuration = LOANS_CONTRACT.LOAN_LIQUIDATION_DURATION();
+        uint256 totalCollateralBefore = LOANS_CONTRACT.totalCollateralOf(REVNET_ID);
+        uint256 totalBorrowedBefore = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, JBConstants.NATIVE_TOKEN);
+
+        // liquidateExpiredLoansFrom takes the revnet-local loan number, while loanOf/ownerOf use the full NFT ID.
+        uint256 loanNumber = loanId - (REVNET_ID * 1_000_000_000_000);
+
+        // One second before expiry, liquidation must skip the loan and leave both storage and accounting untouched.
+        vm.warp(loan.createdAt + liquidationDuration - 1);
+        LOANS_CONTRACT.liquidateExpiredLoansFrom({revnetId: REVNET_ID, startingLoanId: loanNumber, count: 1});
+
+        assertEq(LOANS_CONTRACT.loanOf(loanId).createdAt, loan.createdAt, "Loan should remain before expiry");
+        assertEq(IERC721(address(LOANS_CONTRACT)).ownerOf(loanId), USER, "Loan NFT should remain before expiry");
+        assertEq(LOANS_CONTRACT.totalCollateralOf(REVNET_ID), totalCollateralBefore, "Collateral should be unchanged");
+        assertEq(
+            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, JBConstants.NATIVE_TOKEN),
+            totalBorrowedBefore,
+            "Borrowed amount should be unchanged"
+        );
+
+        // At the exact boundary, the loan is still repayable, so liquidation must still skip it.
+        vm.warp(loan.createdAt + liquidationDuration);
+        LOANS_CONTRACT.liquidateExpiredLoansFrom({revnetId: REVNET_ID, startingLoanId: loanNumber, count: 1});
+
+        assertEq(LOANS_CONTRACT.loanOf(loanId).createdAt, loan.createdAt, "Loan should remain at expiry boundary");
+        assertEq(IERC721(address(LOANS_CONTRACT)).ownerOf(loanId), USER, "Loan NFT should remain at boundary");
+        assertEq(LOANS_CONTRACT.totalCollateralOf(REVNET_ID), totalCollateralBefore, "Collateral should be unchanged");
+        assertEq(
+            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, JBConstants.NATIVE_TOKEN),
+            totalBorrowedBefore,
+            "Borrowed amount should be unchanged"
+        );
+
+        // One second after the boundary, the liquidation path should burn the NFT and clear loan accounting.
+        vm.warp(loan.createdAt + liquidationDuration + 1);
+        LOANS_CONTRACT.liquidateExpiredLoansFrom({revnetId: REVNET_ID, startingLoanId: loanNumber, count: 1});
+
+        vm.expectRevert();
+        IERC721(address(LOANS_CONTRACT)).ownerOf(loanId);
+
+        REVLoan memory loanAfter = LOANS_CONTRACT.loanOf(loanId);
+        assertEq(loanAfter.createdAt, 0, "Loan should be cleared after liquidation");
+        assertEq(LOANS_CONTRACT.totalCollateralOf(REVNET_ID), 0, "Collateral should be cleared after liquidation");
+        assertEq(
+            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, JBConstants.NATIVE_TOKEN),
+            0,
+            "Borrowed amount should be cleared after liquidation"
+        );
     }
 }

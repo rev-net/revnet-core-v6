@@ -487,6 +487,50 @@ contract REVLoansSourceFeeRecovery is TestBaseWorkflow {
         assertEq(address(LOANS_CONTRACT).balance, 0, "No ETH stuck");
     }
 
+    /// @notice Source fee accrual stays zero through the prepaid boundary and begins at the first nonzero fee step.
+    function test_sourceFeeAccrual_prepaidBoundaryAndFirstStep() public {
+        (uint256 loanId,) = _borrowLoan({user: USER, ethAmount: 10e18});
+
+        REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
+        uint256 feeWindow = LOANS_CONTRACT.LOAN_LIQUIDATION_DURATION() - loan.prepaidDuration;
+
+        // The fee percent is quantized into MAX_FEE steps. One second after prepaid expiry can still round to zero.
+        uint256 firstAccrualOffset = (feeWindow + JBConstants.MAX_FEE - 1) / JBConstants.MAX_FEE;
+        assertGt(firstAccrualOffset, 1, "First accrual step should be later than prepaid + 1 second");
+
+        // One second before prepaid expiry, the loan is fully inside the prepaid window.
+        vm.warp(loan.createdAt + loan.prepaidDuration - 1);
+        assertEq(
+            LOANS_CONTRACT.determineSourceFeeAmount({loan: loan, amount: loan.amount}),
+            0,
+            "No source fee before prepaid expiry"
+        );
+
+        // At the exact prepaid boundary, _determineSourceFeeAmount still returns zero because it uses <=.
+        vm.warp(loan.createdAt + loan.prepaidDuration);
+        assertEq(
+            LOANS_CONTRACT.determineSourceFeeAmount({loan: loan, amount: loan.amount}),
+            0,
+            "No source fee at prepaid expiry"
+        );
+
+        // One second after prepaid expiry is outside the prepaid window, but the elapsed fee percent still floors to 0.
+        vm.warp(loan.createdAt + loan.prepaidDuration + 1);
+        assertEq(
+            LOANS_CONTRACT.determineSourceFeeAmount({loan: loan, amount: loan.amount}),
+            0,
+            "No source fee before the first nonzero fee step"
+        );
+
+        // The first fee step is the earliest elapsed second whose floored fee percent is nonzero.
+        vm.warp(loan.createdAt + loan.prepaidDuration + firstAccrualOffset);
+        assertGt(
+            LOANS_CONTRACT.determineSourceFeeAmount({loan: loan, amount: loan.amount}),
+            0,
+            "Source fee should accrue at the first nonzero fee step"
+        );
+    }
+
     /// @notice The source fee try-catch during initial borrow (prepaid source fee) also recovers
     ///         gracefully when the canonical terminal reverts.
     function test_sourceFeeRecovery_initialBorrow() public {
