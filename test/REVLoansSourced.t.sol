@@ -700,11 +700,40 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
     {
         // Since we don't actually mint the autoIssuance tokens, we don't have to worry about it exceeding the
         // `SafeSupply`.
+        // Keep the fuzz domain in its original low-tax range; fixed boundary tests below cover the 4,000/10,000 edge.
         vm.assume(cashOutTaxRate <= JBConstants.MAX_FEE);
         vm.assume(totalSupplyExcludingAutoMint > 0 && totalSupplyExcludingAutoMint <= type(uint208).max);
         vm.assume(nativeSurplus <= type(uint104).max);
         vm.assume(totalSupplyExcludingAutoMint > tokensToCashout);
 
+        _assertCashout({
+            useNative: useNative,
+            autoIssuance: autoIssuance,
+            totalSupplyExcludingAutoMint: totalSupplyExcludingAutoMint,
+            nativeSurplus: nativeSurplus,
+            tokensToCashout: tokensToCashout,
+            cashOutTaxRate: cashOutTaxRate
+        });
+    }
+
+    /// @notice Exercises the cash-out-vs-loan parity path for one concrete scenario.
+    /// @dev Shared by the fuzz test and the fixed audit-selected tax-rate boundary tests.
+    /// @param useNative Whether to use native tokens or the ERC-20 accounting context.
+    /// @param autoIssuance The auto-issued supply included in the revnet configuration.
+    /// @param totalSupplyExcludingAutoMint The token supply minted directly to `USER`.
+    /// @param nativeSurplus The surplus amount to add before checking cash-out and loan values.
+    /// @param tokensToCashout The token amount being compared across cash-out and borrow paths.
+    /// @param cashOutTaxRate The cash-out tax rate to configure, out of `JBConstants.MAX_CASH_OUT_TAX_RATE`.
+    function _assertCashout(
+        bool useNative,
+        uint104 autoIssuance,
+        uint256 totalSupplyExcludingAutoMint,
+        uint256 nativeSurplus,
+        uint256 tokensToCashout,
+        uint16 cashOutTaxRate
+    )
+        internal
+    {
         address token = useNative ? JBConstants.NATIVE_TOKEN : address(TOKEN);
 
         // Deploy a new REVNET, that has multiple stages where the fee decrease.
@@ -836,6 +865,35 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         // Allow 2 wei absolute tolerance alongside 3% relative tolerance — at very small
         // surplus values (e.g. 90 wei), a single mulDiv rounding error exceeds 3%.
         assertGe(reclaimableSurplus + revFee + 2, mulDiv(loanable, 97, 100));
+    }
+
+    /// @notice Pins the cash-out/loan parity checks just below the 4,000 / 10,000 tax-rate boundary.
+    function test_cashOutTaxRateThreshold_3999() public {
+        _testCashOutTaxRateThreshold(3999);
+    }
+
+    /// @notice Pins the cash-out/loan parity checks at the 4,000 / 10,000 tax-rate boundary.
+    function test_cashOutTaxRateThreshold_4000() public {
+        _testCashOutTaxRateThreshold(4000);
+    }
+
+    /// @notice Pins the cash-out/loan parity checks just above the 4,000 / 10,000 tax-rate boundary.
+    function test_cashOutTaxRateThreshold_4001() public {
+        _testCashOutTaxRateThreshold(4001);
+    }
+
+    /// @notice Runs the shared cash-out/loan parity assertions with a fixed audit-selected cash-out tax rate.
+    /// @param cashOutTaxRate The tax rate to pin, out of `JBConstants.MAX_CASH_OUT_TAX_RATE`.
+    function _testCashOutTaxRateThreshold(uint16 cashOutTaxRate) internal {
+        // Use fixed, ordinary-sized values so the threshold assertions exercise economics, not min/max arithmetic.
+        _assertCashout({
+            useNative: true,
+            autoIssuance: 0,
+            totalSupplyExcludingAutoMint: 1000e18,
+            nativeSurplus: 100e18,
+            tokensToCashout: 100e18,
+            cashOutTaxRate: cashOutTaxRate
+        });
     }
 
     function test_Pay_Borrow_With_Loan_Source() public {
