@@ -323,7 +323,7 @@ contract TestSplitWeightFork is TestBaseWorkflow {
             address(this), // deployer
             address(0) // trustedForwarder
         );
-        BUYBACK_HOOK.setChainSpecificConstants({poolManager: poolManager, oracleHook: IHooks(address(0))});
+        BUYBACK_HOOK.setChainSpecificConstants({newPoolManager: poolManager, newOracleHook: IHooks(address(0))});
 
         // Deploy the registry and set the buyback hook as the default.
         BUYBACK_REGISTRY = new JBBuybackHookRegistry(
