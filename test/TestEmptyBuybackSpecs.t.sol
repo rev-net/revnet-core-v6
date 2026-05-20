@@ -100,6 +100,7 @@ contract TestEmptyBuybackSpecs is TestBaseWorkflow {
         MOCK_BUYBACK_MINT_PATH = new MockBuybackDataHookMintPath();
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            multiTerminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),

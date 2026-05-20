@@ -592,7 +592,9 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
 
         collateralCount = loans.totalCollateralOf(revnetId);
 
-        address[] memory sources = loans.loanSourcesOf(revnetId);
+        address[] memory sources = loans.loanSourceTokensOf(revnetId);
+        if (sources.length == 0) return (0, collateralCount);
+
         IJBTerminal multiTerminal = deployer.MULTI_TERMINAL();
         // Loan sources are tokens whose accounting contexts live on the canonical multi terminal.
         for (uint256 i; i < sources.length; i++) {

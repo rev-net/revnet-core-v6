@@ -549,6 +549,7 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            multiTerminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -652,7 +653,7 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow {
 
     function _calculateExpectedTotalBorrowed(uint256 _revnetId) internal view returns (uint256 totalBorrowed) {
         // Access loan sources from the Loans contract
-        address[] memory sources = LOANS_CONTRACT.loanSourcesOf(_revnetId);
+        address[] memory sources = LOANS_CONTRACT.loanSourceTokensOf(_revnetId);
 
         // Iterate through loan sources to calculate the total borrowed amount
         for (uint256 i = 0; i < sources.length; i++) {

@@ -251,6 +251,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            multiTerminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -595,14 +596,14 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
     function test_fixVerify_sourceTokensBoundedToAccountingContexts() public {
         // Loan sources are registered lazily -- only when the first borrow from that source occurs.
         // Before any borrows, the array is empty.
-        address[] memory sourcesBefore = LOANS_CONTRACT.loanSourcesOf(REVNET_ID);
+        address[] memory sourcesBefore = LOANS_CONTRACT.loanSourceTokensOf(REVNET_ID);
         assertEq(sourcesBefore.length, 0, "No loan sources registered before first borrow");
 
         // Create a legitimate loan — this registers the source
         _setupLoan(USER, 5e18, 25);
 
         // Now verify the source was registered
-        address[] memory sourcesAfter = LOANS_CONTRACT.loanSourcesOf(REVNET_ID);
+        address[] memory sourcesAfter = LOANS_CONTRACT.loanSourceTokensOf(REVNET_ID);
         assertEq(sourcesAfter.length, 1, "One loan source registered after first borrow");
         assertEq(sourcesAfter[0], JBConstants.NATIVE_TOKEN, "Source should be native token");
 
@@ -1029,6 +1030,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            multiTerminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),

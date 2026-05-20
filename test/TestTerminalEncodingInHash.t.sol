@@ -43,7 +43,7 @@ import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
 import {JBRouterTerminalRegistry} from "@bananapus/router-terminal-v6/src/JBRouterTerminalRegistry.sol";
 
-/// @notice Tests that terminal addresses are included in the encoded configuration hash.
+/// @notice Tests that terminals are constructor-pinned but not part of per-revnet accounting-context config.
 contract TestTerminalEncodingInHash is TestBaseWorkflow {
     using JBRulesetMetadataResolver for JBRuleset;
 
@@ -103,6 +103,7 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            multiTerminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -161,8 +162,8 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
         assertEq(address(terminals[1]), address(ROUTER_TERMINAL_REGISTRY), "router terminal must be registry");
     }
 
-    /// @notice The hash includes the constructor-pinned multi-terminal and router registry addresses.
-    function test_hashIncludesConstructorMultiTerminalAndRouterRegistryAddresses() public {
+    /// @notice Constructor-pinned terminals are not repeated in the per-revnet configuration hash.
+    function test_hashExcludesConstructorMultiTerminalAndRouterRegistryAddresses() public {
         // Deploy a revnet.
         (uint256 revnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
@@ -184,9 +185,6 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
             // forge-lint: disable-next-line(unsafe-typecast)
             bytes32("VERIFY") // salt
         );
-        // Canonical terminal address encoding.
-        encodedConfiguration =
-            abi.encode(encodedConfiguration, REV_DEPLOYER.MULTI_TERMINAL(), REV_DEPLOYER.ROUTER_TERMINAL_REGISTRY());
         // Stage encoding.
         encodedConfiguration = abi.encode(
             encodedConfiguration,
@@ -203,7 +201,7 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
         assertEq(
             REV_DEPLOYER.hashedEncodedConfigurationOf(revnetId),
             expectedHash,
-            "On-chain hash must match off-chain computation including canonical terminal addresses"
+            "On-chain hash must match off-chain computation without canonical terminal addresses"
         );
     }
 

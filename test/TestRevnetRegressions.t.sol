@@ -50,13 +50,14 @@ import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 contract REVLoansHarness is REVLoans {
     constructor(
         IJBController controller,
+        IJBTerminal multiTerminal,
         IJBSuckerRegistry suckerRegistry,
         uint256 revId,
         address owner,
         IPermit2 permit2,
         address trustedForwarder
     )
-        REVLoans(controller, suckerRegistry, revId, owner, permit2, trustedForwarder)
+        REVLoans(controller, multiTerminal, suckerRegistry, revId, owner, permit2, trustedForwarder)
     {}
 
     /// @notice Expose _totalBorrowedFrom for testing.
@@ -75,13 +76,13 @@ contract REVLoansHarness is REVLoans {
 
     /// @notice Set totalBorrowedFrom for testing.
     function setTotalBorrowedFrom(uint256 revnetId, address token, uint256 amount) external {
-        _totalBorrowedFromBySource[revnetId][token] = amount;
+        totalBorrowedFrom[revnetId][token] = amount;
     }
 
     /// @notice Register a loan source for testing.
     function addLoanSource(uint256 revnetId, address token) external {
-        _loanSourcesOf[revnetId].push(token);
-        _isLoanSourceOf[revnetId][token] = true;
+        _loanSourceTokensOf[revnetId].push(token);
+        isLoanSourceOf[revnetId][token] = true;
     }
 }
 
@@ -144,6 +145,7 @@ contract TestRevnetRegressions is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoansHarness({
             controller: jbController(),
+            multiTerminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),

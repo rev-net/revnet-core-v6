@@ -107,11 +107,11 @@ risk: new revnet launches should treat accepted contexts as part of the revnet's
 A project that expands to a new chain can register the canonical terminal set on that chain. Because borrowability
 calculations aggregate surplus from all registered terminals across chains, a compromised or misconfigured remote
 chain can still corrupt global surplus accounting through its canonical deployments or sucker snapshots. This is
-mitigated by including `MULTI_TERMINAL` and `ROUTER_TERMINAL_REGISTRY` in the `encodedConfigurationHash` -- cross-chain
-expansions via suckers must use the same constructor-pinned terminal identities. Terminal addresses are deterministic
-across chains (same CREATE2 deployment), so this prevents expansions from silently using a different terminal set.
-Project operators should still treat each chain expansion as a trust-boundary decision since bridge integrity and
-network assumptions remain outside protocol control.
+mitigated by constructor-pinning `MULTI_TERMINAL` and `ROUTER_TERMINAL_REGISTRY` in the deployer itself instead of
+letting revnet configs pick terminals. The per-revnet `encodedConfigurationHash` does not repeat those terminal
+addresses, because they are deployment dependencies of the canonical deployer. Project operators should still treat
+each chain expansion as a trust-boundary decision since bridge integrity, deployer provenance, and network assumptions
+remain outside protocol control.
 
 Reserved-token split recipients are intentionally excluded from this hash. They can be reconfigured over time, so only split weights participate in the identity commitment.
 

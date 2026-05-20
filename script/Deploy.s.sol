@@ -354,7 +354,13 @@ contract DeployScript is Script, Sphinx {
                 salt: _REVLOANS_SALT,
                 creationCode: type(REVLoans).creationCode,
                 arguments: abi.encode(
-                    core.controller, suckers.registry, _candidateId, loansOwner, permit2, trustedForwarder
+                    core.controller,
+                    core.terminal,
+                    suckers.registry,
+                    _candidateId,
+                    loansOwner,
+                    permit2,
+                    trustedForwarder
                 )
             });
 
@@ -424,11 +430,12 @@ contract DeployScript is Script, Sphinx {
             }
         }
 
-        // Deploy REVLoans first — it only depends on the controller.
+        // Deploy REVLoans first — it depends on the canonical controller and multi terminal.
         REVLoans revloans = _revloansExists
             ? REVLoans(payable(_existingRevloansAddr))
             : new REVLoans{salt: _REVLOANS_SALT}({
                 controller: core.controller,
+                multiTerminal: core.terminal,
                 suckerRegistry: suckers.registry,
                 revId: feeProjectId,
                 owner: loansOwner,

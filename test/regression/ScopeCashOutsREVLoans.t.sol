@@ -60,14 +60,15 @@ contract ScopeCashOutsREVLoansTest is Test {
         vm.mockCall(CONTROLLER, abi.encodeWithSelector(IJBController.PRICES.selector), abi.encode(PRICES));
         vm.mockCall(CONTROLLER, abi.encodeWithSelector(IJBPermissioned.PERMISSIONS.selector), abi.encode(PERMISSIONS));
 
-        loans = new REVLoans(
-            IJBController(CONTROLLER),
-            IJBSuckerRegistry(SUCKER_REGISTRY),
-            REV_ID,
-            OWNER,
-            IPermit2(PERMIT2),
-            address(0) // no trusted forwarder
-        );
+        loans = new REVLoans({
+            controller: IJBController(CONTROLLER),
+            multiTerminal: IJBTerminal(TERMINAL),
+            suckerRegistry: IJBSuckerRegistry(SUCKER_REGISTRY),
+            revId: REV_ID,
+            owner: OWNER,
+            permit2: IPermit2(PERMIT2),
+            trustedForwarder: address(0) // no trusted forwarder
+        });
 
         vm.mockCall(OWNER, abi.encodeWithSelector(IREVOwner.deployer.selector), abi.encode(IREVDeployer(DEPLOYER)));
         vm.mockCall(OWNER, abi.encodeWithSelector(IREVOwner.cashOutDelayOf.selector, REVNET_ID), abi.encode(uint256(0)));

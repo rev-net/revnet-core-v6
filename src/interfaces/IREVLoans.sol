@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBPrices} from "@bananapus/core-v6/src/interfaces/IJBPrices.sol";
+import {IJBTerminal} from "@bananapus/core-v6/src/interfaces/IJBTerminal.sol";
 import {IJBTokenUriResolver} from "@bananapus/core-v6/src/interfaces/IJBTokenUriResolver.sol";
 import {JBSingleAllowance} from "@bananapus/core-v6/src/structs/JBSingleAllowance.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
@@ -143,7 +144,7 @@ interface IREVLoans {
     /// revnet's accepted accounting contexts.
     /// @param revnetId The ID of the revnet to get the loan sources for.
     /// @return The array of loan source tokens.
-    function loanSourcesOf(uint256 revnetId) external view returns (address[] memory);
+    function loanSourceTokensOf(uint256 revnetId) external view returns (address[] memory);
 
     /// @notice The maximum fee percent that can be prepaid when borrowing, in terms of `JBConstants.MAX_FEE`.
     /// @return The maximum prepaid fee percent.
@@ -152,6 +153,10 @@ interface IREVLoans {
     /// @notice The minimum fee percent that must be prepaid when borrowing, in terms of `JBConstants.MAX_FEE`.
     /// @return The minimum prepaid fee percent.
     function MIN_PREPAID_FEE_PERCENT() external view returns (uint256);
+
+    /// @notice The canonical multi terminal that holds revnet treasury balances and sources all revnet loans.
+    /// @return The canonical multi terminal.
+    function MULTI_TERMINAL() external view returns (IJBTerminal);
 
     /// @notice The permit2 utility used for token transfers.
     /// @return The permit2 contract.

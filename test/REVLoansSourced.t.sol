@@ -369,6 +369,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            multiTerminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -1578,7 +1579,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         assertGt(userBalanceAfter, userBalanceBefore);
     }
 
-    function test_loanSourcesOfAndDetermineSourceFeeAmount() external {
+    function test_loanSourceTokensOfAndDetermineSourceFeeAmount() external {
         // it will add the loan source upon first borrow
         vm.prank(USER);
         uint256 tokens = jbMultiTerminal().pay{value: 1e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 1e18, USER, 0, "", "");
@@ -1597,7 +1598,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         address sauce = JBConstants.NATIVE_TOKEN;
 
         // Before a borrow the source does not exist
-        address[] memory sources = LOANS_CONTRACT.loanSourcesOf(REVNET_ID);
+        address[] memory sources = LOANS_CONTRACT.loanSourceTokensOf(REVNET_ID);
         assertEq(sources.length, 0);
 
         vm.prank(USER);
@@ -1605,7 +1606,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 100, USER);
 
         // Source should exist after a borrow
-        address[] memory sourcesUpdated = LOANS_CONTRACT.loanSourcesOf(REVNET_ID);
+        address[] memory sourcesUpdated = LOANS_CONTRACT.loanSourceTokensOf(REVNET_ID);
         assertEq(sourcesUpdated.length, 1);
         assertEq(sourcesUpdated[0], JBConstants.NATIVE_TOKEN);
         assertEq(sourcesUpdated[0], JBConstants.NATIVE_TOKEN);

@@ -143,9 +143,10 @@ contract BorrowableControllerMock {
 contract BorrowableHarness is REVLoans {
     constructor(
         IJBController controller,
+        IJBTerminal terminal,
         IJBSuckerRegistry registry
     )
-        REVLoans(controller, registry, 1, address(this), IPermit2(address(0)), address(0))
+        REVLoans(controller, terminal, registry, 1, address(this), IPermit2(address(0)), address(0))
     {}
 
     function exposedBorrowableAmountFrom(
@@ -228,7 +229,11 @@ contract RemoteLoanStateOmissionTest is Test {
 
         controller = new BorrowableControllerMock(DIRECTORY, PERMISSIONS, PRICES);
         terminal = new BorrowableSurplusTerminalMock();
-        loansHarness = new BorrowableHarness(IJBController(address(controller)), IJBSuckerRegistry(address(registry)));
+        loansHarness = new BorrowableHarness({
+            controller: IJBController(address(controller)),
+            terminal: IJBTerminal(address(terminal)),
+            registry: IJBSuckerRegistry(address(registry))
+        });
 
         registry.setRemoteVisibleState(REMOTE_VISIBLE_SUPPLY, REMOTE_VISIBLE_SURPLUS);
         controller.setTotalSupply(LOCAL_VISIBLE_SUPPLY);

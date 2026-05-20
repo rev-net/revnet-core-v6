@@ -271,6 +271,7 @@ contract TestRegressionFixVerification is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            multiTerminal: jbMultiTerminal(),
             suckerRegistry: SUCKER_REGISTRY,
             revId: FEE_PROJECT_ID,
             owner: address(this),

@@ -64,7 +64,7 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 | `REVLoans.borrowableAmountFrom(revnetId, collateralCount, decimals, currency)` | Calculate how much can be borrowed for a given collateral amount. Returns 0 during the cash-out delay period. Aggregates surplus from all terminals, applies bonding curve. |
 | `REVLoans.determineSourceFeeAmount(loan, amount)` | Calculate the time-proportional source fee for a loan repayment. Zero during prepaid window, linear accrual after. |
 | `REVLoans.loanOf(loanId)` | Returns the full `REVLoan` struct for a loan. |
-| `REVLoans.loanSourcesOf(revnetId)` | Returns all `(terminal, token)` pairs used for loans by a revnet. |
+| `REVLoans.loanSourceTokensOf(revnetId)` | Returns all token sources used for loans by a revnet. Loans always source funds from the canonical `MULTI_TERMINAL`. |
 | `REVLoans.revnetIdOfLoanWith(loanId)` | Decode the revnet ID from a loan ID (`loanId / 1_000_000_000_000`). |
 ## Integration Points
 

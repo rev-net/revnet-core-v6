@@ -117,7 +117,7 @@ Use this file when you need revnet-specific risks, state reads, constants, or ex
 | `totalBorrowedFrom` | `public` | `revnetId => token => uint256` | Tracks debt per loan source token |
 | `totalCollateralOf` | `public` | `revnetId => uint256` | Sum of all burned collateral |
 | `_loanOf` | `internal` | `loanId => REVLoan` | Per-loan state (use `loanOf(loanId)` view) |
-| `_loanSourcesOf` | `internal` | `revnetId => address[]` | Array of all loan source tokens used (use `loanSourcesOf(revnetId)` view) |
+| `_loanSourceTokensOf` | `internal` | `revnetId => address[]` | Array of all loan source tokens used (use `loanSourceTokensOf(revnetId)` view) |
 | `tokenUriResolver` | `public` | `IJBTokenUriResolver` | Resolver for loan NFT token URIs |
 
 ## Gotchas
@@ -133,7 +133,7 @@ Use this file when you need revnet-specific risks, state reads, constants, or ex
 9. **`cashOutTaxRate` cannot be MAX.** Must be strictly less than `MAX_CASH_OUT_TAX_RATE` (10,000). Revnets cannot fully disable cash outs.
 10. **Split operator is singular.** Only ONE address can be operator at a time. The operator can replace itself via `setOperatorOf` but cannot delegate or multi-sig.
 11. **NATIVE_TOKEN on non-ETH chains.** `JBConstants.NATIVE_TOKEN` on Celo means CELO, on Polygon means MATIC -- not ETH. Use ERC-20 WETH instead. The config matching hash does NOT catch terminal configuration differences.
-12. **Loan source array is unbounded.** `_loanSourcesOf[revnetId]` grows without limit. No validation that a terminal is actually registered for the project.
+12. **Loan source array is unbounded.** `_loanSourceTokensOf[revnetId]` grows without limit, bounded in practice by the token accounting contexts accepted by the canonical `MULTI_TERMINAL`.
 13. **Flash-loan surplus exposure.** `borrowableAmountFrom` reads live surplus. A flash loan can temporarily inflate the treasury to borrow more than the sustained value supports.
 14. **Fee revnet must have terminals.** Cash-out fees and loan protocol fees are paid to `FEE_REVNET_ID`. If that project has no terminal for the token, the fee silently fails (try-catch).
 15. **Buyback hook is immutable per deployer.** `BUYBACK_HOOK` is set at construction time on both REVDeployer and REVOwner. All revnets deployed by the same deployer share the same buyback hook.
@@ -205,7 +205,7 @@ Quick-reference for common read operations. All functions are `view`/`pure` and 
 | Total borrowed (per source token) | `REVLoans.totalBorrowedFrom(revnetId, token)` | `uint256` |
 | Total collateral locked | `REVLoans.totalCollateralOf(revnetId)` | `uint256` |
 | Loan details | `REVLoans.loanOf(loanId)` | `REVLoan` struct |
-| All loan sources | `REVLoans.loanSourcesOf(revnetId)` | `address[]` |
+| All loan source tokens | `REVLoans.loanSourceTokensOf(revnetId)` | `address[]` |
 | Loan count | `REVLoans.totalLoansBorrowedFor(revnetId)` | `uint256` |
 | Source fee for repayment | `REVLoans.determineSourceFeeAmount(loan, amount)` | `uint256` |
 | Revnet ID from loan ID | `REVLoans.revnetIdOfLoanWith(loanId)` | `uint256` (pure) |

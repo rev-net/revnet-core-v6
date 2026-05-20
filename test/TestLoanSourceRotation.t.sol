@@ -117,6 +117,7 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            multiTerminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -345,7 +346,7 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
             );
 
             // Loan sources array should have both entries.
-            address[] memory sources = LOANS_CONTRACT.loanSourcesOf(REVNET_ID);
+            address[] memory sources = LOANS_CONTRACT.loanSourceTokensOf(REVNET_ID);
             assertGe(sources.length, 2, "should have at least 2 loan sources");
         }
     }

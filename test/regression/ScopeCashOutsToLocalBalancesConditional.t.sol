@@ -85,7 +85,7 @@ contract ScopeCashOutsToLocalBalancesConditionalTest is Test {
         // Mock: loans returns zero (no outstanding loans)
         vm.mockCall(LOANS, abi.encodeCall(IREVLoans.totalCollateralOf, (REVNET_ID)), abi.encode(uint256(0)));
         address[] memory emptySources = new address[](0);
-        vm.mockCall(LOANS, abi.encodeCall(IREVLoans.loanSourcesOf, (REVNET_ID)), abi.encode(emptySources));
+        vm.mockCall(LOANS, abi.encodeCall(IREVLoans.loanSourceTokensOf, (REVNET_ID)), abi.encode(emptySources));
 
         // Mock: sucker registry remote values
         vm.mockCall(
