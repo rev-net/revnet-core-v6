@@ -43,6 +43,7 @@ import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSp
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
+import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
 /// @notice Regression tests for REVLoans source validation.
@@ -107,7 +108,7 @@ contract REVLoansRegressions is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
-            multiTerminal: jbMultiTerminal(),
+            terminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -127,7 +128,7 @@ contract REVLoansRegressions is TestBaseWorkflow {
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
             jbMultiTerminal(),
-            jbMultiTerminal(),
+            IJBTerminal(address(new MockEmptyTerminal())),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,

@@ -11,6 +11,7 @@ import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.s
 import {IJBPrices} from "@bananapus/core-v6/src/interfaces/IJBPrices.sol";
 import {IJBRulesetApprovalHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetApprovalHook.sol";
 import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDataHook.sol";
+import {IJBPayoutTerminal} from "@bananapus/core-v6/src/interfaces/IJBPayoutTerminal.sol";
 import {IJBTerminal} from "@bananapus/core-v6/src/interfaces/IJBTerminal.sol";
 import {JBCashOuts} from "@bananapus/core-v6/src/libraries/JBCashOuts.sol";
 import {JBRulesetMetadataResolver} from "@bananapus/core-v6/src/libraries/JBRulesetMetadataResolver.sol";
@@ -198,7 +199,7 @@ contract BorrowableControllerMock {
 contract BorrowableHarness is REVLoans {
     constructor(
         IJBController controller,
-        IJBTerminal terminal,
+        IJBPayoutTerminal terminal,
         IJBSuckerRegistry registry
     )
         REVLoans(controller, terminal, registry, 1, address(this), IPermit2(address(0)), address(0))
@@ -290,7 +291,7 @@ contract RemoteLoanStateOmissionTest is Test {
         terminal = new BorrowableSurplusTerminalMock();
         loansHarness = new BorrowableHarness({
             controller: IJBController(address(controller)),
-            terminal: IJBTerminal(address(terminal)),
+            terminal: IJBPayoutTerminal(address(terminal)),
             registry: IJBSuckerRegistry(address(registry))
         });
 

@@ -11,6 +11,7 @@ import /* {*} from */ "./../src/REVDeployer.sol";
 // forge-lint: disable-next-line(unaliased-plain-import)
 import "@croptop/core-v6/src/CTPublisher.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
+import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
 
 // forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
@@ -106,7 +107,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
             jbMultiTerminal(),
-            jbMultiTerminal(),
+            IJBTerminal(address(new MockEmptyTerminal())),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,

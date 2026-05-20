@@ -83,7 +83,7 @@ contract RegressionRouterRegistrySourceDebtRepricingTest is TestBaseWorkflow {
 
         loans = new REVLoans({
             controller: jbController(),
-            multiTerminal: jbMultiTerminal(),
+            terminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: feeProjectId,
             owner: address(this),

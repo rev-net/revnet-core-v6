@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBPrices} from "@bananapus/core-v6/src/interfaces/IJBPrices.sol";
-import {IJBTerminal} from "@bananapus/core-v6/src/interfaces/IJBTerminal.sol";
+import {IJBPayoutTerminal} from "@bananapus/core-v6/src/interfaces/IJBPayoutTerminal.sol";
 import {IJBTokenUriResolver} from "@bananapus/core-v6/src/interfaces/IJBTokenUriResolver.sol";
 import {JBSingleAllowance} from "@bananapus/core-v6/src/structs/JBSingleAllowance.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
@@ -154,9 +154,9 @@ interface IREVLoans {
     /// @return The minimum prepaid fee percent.
     function MIN_PREPAID_FEE_PERCENT() external view returns (uint256);
 
-    /// @notice The canonical multi terminal that holds revnet treasury balances and sources all revnet loans.
-    /// @return The canonical multi terminal.
-    function MULTI_TERMINAL() external view returns (IJBTerminal);
+    /// @notice The canonical payout terminal that holds revnet treasury balances and sources all revnet loans.
+    /// @return The canonical payout terminal.
+    function TERMINAL() external view returns (IJBPayoutTerminal);
 
     /// @notice The permit2 utility used for token transfers.
     /// @return The permit2 contract.

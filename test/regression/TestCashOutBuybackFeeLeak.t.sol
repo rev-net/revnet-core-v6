@@ -42,6 +42,7 @@ import {REVEmpty721Config} from "../helpers/REVEmpty721Config.sol";
 import {MockBuybackCashOutRecorder} from "../mock/MockBuybackCashOutRecorder.sol";
 import {REVOwner} from "../../src/REVOwner.sol";
 import {IREVDeployer} from "../../src/interfaces/IREVDeployer.sol";
+import {MockEmptyTerminal} from "../mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
 
 /// @title TestCashOutBuybackFeeLeak
@@ -90,7 +91,7 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
         mockBuyback = new MockBuybackCashOutRecorder();
         loans = new REVLoans({
             controller: jbController(),
-            multiTerminal: jbMultiTerminal(),
+            terminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: feeProjectId,
             owner: address(this),
@@ -110,7 +111,7 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
         revDeployer = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
             jbMultiTerminal(),
-            jbMultiTerminal(),
+            IJBTerminal(address(new MockEmptyTerminal())),
             suckerRegistry,
             feeProjectId,
             hookDeployer,

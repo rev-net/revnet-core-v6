@@ -310,7 +310,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @notice Build the canonical terminal configuration used by every revnet.
     /// @dev `MULTI_TERMINAL` accepts the revnet's accounting contexts and owns the treasury/loan accounting surface.
     /// `ROUTER_TERMINAL_REGISTRY` is registered without accounting contexts so users can pay through the router path
-    /// without letting callers choose arbitrary terminals or loan sources.
+    /// without letting callers choose arbitrary terminals or loan sources. The deployer is constructed with distinct
+    /// addresses in the two slots; reusing the same address would be rejected by the directory's duplicate check.
     /// @param accountingContextsToAccept The accounting contexts the canonical multi terminal should accept.
     /// @return terminalConfigurations The canonical terminal configuration for the revnet.
     function _makeTerminalConfigurations(JBAccountingContext[] calldata accountingContextsToAccept)
@@ -318,19 +319,12 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         view
         returns (JBTerminalConfig[] memory terminalConfigurations)
     {
-        // Most tests construct the deployer with the same terminal in both slots. Production deployers should pass
-        // distinct terminals; this branch keeps the canonical builder from producing duplicate directory entries.
-        bool hasDistinctRouterTerminalRegistry = ROUTER_TERMINAL_REGISTRY != MULTI_TERMINAL;
-
-        terminalConfigurations = new JBTerminalConfig[](hasDistinctRouterTerminalRegistry ? 2 : 1);
+        terminalConfigurations = new JBTerminalConfig[](2);
         terminalConfigurations[0] =
             JBTerminalConfig({terminal: MULTI_TERMINAL, accountingContextsToAccept: accountingContextsToAccept});
-
-        if (hasDistinctRouterTerminalRegistry) {
-            terminalConfigurations[1] = JBTerminalConfig({
-                terminal: ROUTER_TERMINAL_REGISTRY, accountingContextsToAccept: new JBAccountingContext[](0)
-            });
-        }
+        terminalConfigurations[1] = JBTerminalConfig({
+            terminal: ROUTER_TERMINAL_REGISTRY, accountingContextsToAccept: new JBAccountingContext[](0)
+        });
     }
 
     /// @notice Make a ruleset configuration for a revnet's stage.

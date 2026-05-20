@@ -53,6 +53,7 @@ import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/
 import {JBSuckersPair} from "@bananapus/suckers-v6/src/structs/JBSuckersPair.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
+import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
 /// @notice A mock buyback hook that records the context passed to `beforeCashOutRecordedWith`
@@ -271,7 +272,7 @@ contract TestRegressionFixVerification is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
-            multiTerminal: jbMultiTerminal(),
+            terminal: jbMultiTerminal(),
             suckerRegistry: SUCKER_REGISTRY,
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -291,7 +292,7 @@ contract TestRegressionFixVerification is TestBaseWorkflow {
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
             jbMultiTerminal(),
-            jbMultiTerminal(),
+            IJBTerminal(address(new MockEmptyTerminal())),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,

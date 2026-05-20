@@ -11,6 +11,7 @@ import /* {*} from */ "./../src/REVDeployer.sol";
 // forge-lint: disable-next-line(unaliased-plain-import)
 import "@croptop/core-v6/src/CTPublisher.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
+import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
@@ -242,7 +243,7 @@ contract REVnet_Integrations is TestBaseWorkflow {
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
             jbMultiTerminal(),
-            jbMultiTerminal(),
+            IJBTerminal(address(new MockEmptyTerminal())),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,

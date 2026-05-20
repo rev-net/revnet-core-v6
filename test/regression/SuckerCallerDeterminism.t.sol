@@ -36,6 +36,7 @@ import {JB721CheckpointsDeployer} from "@bananapus/721-hook-v6/src/JB721Checkpoi
 import {IJB721CheckpointsDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721CheckpointsDeployer.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {REVOwner} from "../../src/REVOwner.sol";
+import {MockEmptyTerminal} from "../mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
 
 contract RegressionSuckerCallerDeterminismTest is TestBaseWorkflow {
@@ -87,7 +88,7 @@ contract RegressionSuckerCallerDeterminismTest is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
-            multiTerminal: jbMultiTerminal(),
+            terminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -107,7 +108,7 @@ contract RegressionSuckerCallerDeterminismTest is TestBaseWorkflow {
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
             jbMultiTerminal(),
-            jbMultiTerminal(),
+            IJBTerminal(address(new MockEmptyTerminal())),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,

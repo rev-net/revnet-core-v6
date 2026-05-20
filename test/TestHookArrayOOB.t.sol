@@ -42,6 +42,7 @@ import {JBTokenAmount} from "@bananapus/core-v6/src/structs/JBTokenAmount.sol";
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
+import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
 /// @notice Tests for PR #22: fix/c2-hook-array-oob
@@ -102,7 +103,7 @@ contract TestHookArrayOOB is TestBaseWorkflow {
         MOCK_BUYBACK = new MockBuybackDataHook();
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
-            multiTerminal: jbMultiTerminal(),
+            terminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -121,7 +122,7 @@ contract TestHookArrayOOB is TestBaseWorkflow {
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
             jbMultiTerminal(),
-            jbMultiTerminal(),
+            IJBTerminal(address(new MockEmptyTerminal())),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,

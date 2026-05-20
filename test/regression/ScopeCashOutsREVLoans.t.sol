@@ -8,6 +8,7 @@ import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBPermissioned} from "@bananapus/core-v6/src/interfaces/IJBPermissioned.sol";
 import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
 import {IJBPrices} from "@bananapus/core-v6/src/interfaces/IJBPrices.sol";
+import {IJBPayoutTerminal} from "@bananapus/core-v6/src/interfaces/IJBPayoutTerminal.sol";
 import {IJBTerminal} from "@bananapus/core-v6/src/interfaces/IJBTerminal.sol";
 import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
 import {JBRulesetMetadata} from "@bananapus/core-v6/src/structs/JBRulesetMetadata.sol";
@@ -62,7 +63,7 @@ contract ScopeCashOutsREVLoansTest is Test {
 
         loans = new REVLoans({
             controller: IJBController(CONTROLLER),
-            multiTerminal: IJBTerminal(TERMINAL),
+            terminal: IJBPayoutTerminal(TERMINAL),
             suckerRegistry: IJBSuckerRegistry(SUCKER_REGISTRY),
             revId: REV_ID,
             owner: OWNER,

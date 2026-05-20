@@ -45,6 +45,7 @@ import {REVDescription} from "../../src/structs/REVDescription.sol";
 import {REVStageConfig} from "../../src/structs/REVStageConfig.sol";
 import {REVAutoIssuance} from "../../src/structs/REVStageConfig.sol";
 import {REVSuckerDeploymentConfig} from "../../src/structs/REVSuckerDeploymentConfig.sol";
+import {MockEmptyTerminal} from "../mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
 
 contract PhantomSurplusTerminal is ERC165, IJBPayoutTerminal {
@@ -191,7 +192,7 @@ contract RegressionPhantomSurplusTerminalTest is TestBaseWorkflow {
         MOCK_BUYBACK = new MockBuybackDataHook();
         LOANS = new REVLoans({
             controller: jbController(),
-            multiTerminal: jbMultiTerminal(),
+            terminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -209,7 +210,7 @@ contract RegressionPhantomSurplusTerminalTest is TestBaseWorkflow {
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
             jbMultiTerminal(),
-            jbMultiTerminal(),
+            IJBTerminal(address(new MockEmptyTerminal())),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -254,8 +255,8 @@ contract RegressionPhantomSurplusTerminalTest is TestBaseWorkflow {
         assertEq(inflatedBorrowable, honestBorrowable, "phantom terminal must not influence borrow quote");
 
         IJBTerminal[] memory terminals = jbDirectory().terminalsOf(REVNET_ID);
-        assertEq(terminals.length, 1, "test deployer registers only the canonical multi terminal");
-        assertEq(address(terminals[0]), address(jbMultiTerminal()), "unexpected terminal registered");
+        assertEq(terminals.length, 2, "deployer registers the canonical multi terminal and the router slot");
+        assertEq(address(terminals[0]), address(jbMultiTerminal()), "unexpected canonical terminal registered");
     }
 
     function _deployFeeProject() internal {

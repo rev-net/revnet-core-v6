@@ -38,6 +38,7 @@ import {REVStageConfig} from "../../src/structs/REVStageConfig.sol";
 import {REVAutoIssuance} from "../../src/structs/REVAutoIssuance.sol";
 import {REVSuckerDeploymentConfig} from "../../src/structs/REVSuckerDeploymentConfig.sol";
 import {IREVDeployer} from "../../src/interfaces/IREVDeployer.sol";
+import {MockEmptyTerminal} from "../mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
 
 contract RegressionOperatorDelegationTest is TestBaseWorkflow {
@@ -86,7 +87,7 @@ contract RegressionOperatorDelegationTest is TestBaseWorkflow {
 
         LOANS = new REVLoans({
             controller: jbController(),
-            multiTerminal: jbMultiTerminal(),
+            terminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -104,7 +105,7 @@ contract RegressionOperatorDelegationTest is TestBaseWorkflow {
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
             jbMultiTerminal(),
-            jbMultiTerminal(),
+            IJBTerminal(address(new MockEmptyTerminal())),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,

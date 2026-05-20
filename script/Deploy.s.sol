@@ -435,7 +435,7 @@ contract DeployScript is Script, Sphinx {
             ? REVLoans(payable(_existingRevloansAddr))
             : new REVLoans{salt: _REVLOANS_SALT}({
                 controller: core.controller,
-                multiTerminal: core.terminal,
+                terminal: core.terminal,
                 suckerRegistry: suckers.registry,
                 revId: feeProjectId,
                 owner: loansOwner,

@@ -46,6 +46,7 @@ import {ERC2771Forwarder} from "@openzeppelin/contracts/metatx/ERC2771Forwarder.
 import {ERC2771ForwarderMock, ForwardRequest} from "@bananapus/core-v6/test/mock/ERC2771ForwarderMock.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
+import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
 struct MetaTxProjectConfig {
@@ -298,7 +299,7 @@ contract TestERC2771MetaTx is TestBaseWorkflow {
         // Deploy LOANS_CONTRACT with the forwarder as trusted forwarder.
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
-            multiTerminal: jbMultiTerminal(),
+            terminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -318,7 +319,7 @@ contract TestERC2771MetaTx is TestBaseWorkflow {
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
             jbMultiTerminal(),
-            jbMultiTerminal(),
+            IJBTerminal(address(new MockEmptyTerminal())),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
