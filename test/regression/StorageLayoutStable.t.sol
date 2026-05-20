@@ -60,8 +60,8 @@ contract StorageLayoutStable is TestBaseWorkflow {
         address token = JBConstants.NATIVE_TOKEN;
         bytes32 outerSlot = keccak256(abi.encode(revnetId, uint256(9)));
         bytes32 innerSlot = keccak256(abi.encode(token, outerSlot));
-        vm.store(address(LOANS), innerSlot, bytes32(uint256(123456)));
-        assertEq(LOANS.totalBorrowedFrom(revnetId, token), 123456, "totalBorrowedFrom expected at slot 9");
+        vm.store(address(LOANS), innerSlot, bytes32(uint256(123_456)));
+        assertEq(LOANS.totalBorrowedFrom(revnetId, token), 123_456, "totalBorrowedFrom expected at slot 9");
     }
 
     /// @notice `totalCollateralOf` (mapping(uint256 => uint256)) sits at slot 10.

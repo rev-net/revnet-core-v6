@@ -124,18 +124,16 @@ contract SameAddressDeployerLaunchReverts is TestBaseWorkflow {
             autoIssuances: new REVAutoIssuance[](0),
             splitPercent: 0,
             splits: new JBSplit[](0),
-            initialIssuance: 1_000e18,
+            initialIssuance: 1000e18,
             issuanceCutFrequency: 0,
             issuanceCutPercent: 0,
-            cashOutTaxRate: 5_000,
+            cashOutTaxRate: 5000,
             extraMetadata: 0
         });
 
         JBAccountingContext[] memory contexts = new JBAccountingContext[](1);
         contexts[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN,
-            decimals: 18,
-            currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
         REVConfig memory config = REVConfig({
@@ -153,8 +151,7 @@ contract SameAddressDeployerLaunchReverts is TestBaseWorkflow {
             configuration: config,
             accountingContextsToAccept: contexts,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0),
-                salt: bytes32(uint256(1))
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: bytes32(uint256(1))
             }),
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()

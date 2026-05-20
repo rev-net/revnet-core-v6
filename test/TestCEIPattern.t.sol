@@ -127,7 +127,9 @@ contract ReentrantBorrower {
                     collateralCountToReturn: loan.collateral,
                     beneficiary: payable(address(this)),
                     allowance: JBSingleAllowance({sigDeadline: 0, amount: 0, expiration: 0, nonce: 0, signature: ""})
-                }) returns (uint256, REVLoan memory) {
+                }) returns (
+                    uint256, REVLoan memory
+                ) {
                     reentrantRepaySucceeded = true;
                 } catch (bytes memory reason) {
                     reentrantRepayRevertSelector = _selectorFrom(reason);
@@ -145,7 +147,9 @@ contract ReentrantBorrower {
                     collateralCountToAdd: 0,
                     beneficiary: payable(address(this)),
                     prepaidFeePercent: 25
-                }) returns (uint256, uint256, REVLoan memory, REVLoan memory) {
+                }) returns (
+                    uint256, uint256, REVLoan memory, REVLoan memory
+                ) {
                     reentrantReallocateSucceeded = true;
                 } catch (bytes memory reason) {
                     reentrantReallocateRevertSelector = _selectorFrom(reason);
@@ -701,7 +705,9 @@ contract TestCEIPattern is TestBaseWorkflow {
         uint256 expectedLoanId = REVNET_ID * 1_000_000_000_000 + (LOANS_CONTRACT.totalLoansBorrowedFor(REVNET_ID) + 1);
         attacker.setTarget(expectedLoanId);
         // Reallocate part of the collateral from the just-created loan to a new loan from the same source.
-        attacker.setReentrantReallocate({_revnetId: REVNET_ID, _source: JBConstants.NATIVE_TOKEN, _collateral: tokens / 2});
+        attacker.setReentrantReallocate({
+            _revnetId: REVNET_ID, _source: JBConstants.NATIVE_TOKEN, _collateral: tokens / 2
+        });
 
         mockExpect(
             address(jbPermissions()),
