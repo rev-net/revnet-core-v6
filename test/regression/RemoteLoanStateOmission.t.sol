@@ -13,6 +13,8 @@ import {IJBRulesetApprovalHook} from "@bananapus/core-v6/src/interfaces/IJBRules
 import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDataHook.sol";
 import {IJBTerminal} from "@bananapus/core-v6/src/interfaces/IJBTerminal.sol";
 import {JBCashOuts} from "@bananapus/core-v6/src/libraries/JBCashOuts.sol";
+import {JBRulesetMetadataResolver} from "@bananapus/core-v6/src/libraries/JBRulesetMetadataResolver.sol";
+import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
 import {JBBeforeCashOutRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforeCashOutRecordedContext.sol";
 import {JBBeforePayRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforePayRecordedContext.sol";
 import {JBCashOutHookSpecification} from "@bananapus/core-v6/src/structs/JBCashOutHookSpecification.sol";
@@ -20,12 +22,12 @@ import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSp
 import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
 import {JBRulesetMetadata} from "@bananapus/core-v6/src/structs/JBRulesetMetadata.sol";
 import {JBTokenAmount} from "@bananapus/core-v6/src/structs/JBTokenAmount.sol";
-import {JBRulesetMetadataResolver} from "@bananapus/core-v6/src/libraries/JBRulesetMetadataResolver.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IPermit2} from "@uniswap/permit2/src/interfaces/IPermit2.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
 
+import {IREVDeployer} from "../../src/interfaces/IREVDeployer.sol";
 import {IREVLoans} from "../../src/interfaces/IREVLoans.sol";
 import {REVLoans} from "../../src/REVLoans.sol";
 import {REVOwner} from "../../src/REVOwner.sol";
@@ -104,6 +106,59 @@ contract BorrowableSurplusTerminalMock {
 
     function currentSurplusOf(uint256, address[] calldata, uint256, uint256) external view returns (uint256) {
         return surplus;
+    }
+}
+
+/// @notice Minimal loans contract exposing one outstanding loan source for peer-snapshot accounting.
+contract PeerSnapshotLoanStateMock {
+    IJBPrices public immutable PRICES;
+
+    address[] internal _sources;
+    uint256 internal immutable _borrowed;
+    uint256 internal immutable _collateral;
+
+    constructor(address sourceToken, uint256 borrowed, uint256 collateral) {
+        // Same-currency accounting in this test never touches prices, but REVOwner expects the getter to exist.
+        PRICES = IJBPrices(address(0));
+        _sources.push(sourceToken);
+        _borrowed = borrowed;
+        _collateral = collateral;
+    }
+
+    function loanSourceTokensOf(uint256) external view returns (address[] memory) {
+        return _sources;
+    }
+
+    function totalBorrowedFrom(uint256, address token) external view returns (uint256) {
+        return token == _sources[0] ? _borrowed : 0;
+    }
+
+    function totalCollateralOf(uint256) external view returns (uint256) {
+        return _collateral;
+    }
+}
+
+/// @notice Minimal terminal that returns the accounting context for the tested loan source token.
+contract PeerSnapshotTerminalMock {
+    uint32 internal immutable _currency;
+    address internal immutable _sourceToken;
+
+    constructor(address sourceToken, uint32 currency) {
+        _sourceToken = sourceToken;
+        _currency = currency;
+    }
+
+    function accountingContextForTokenOf(uint256, address token) external view returns (JBAccountingContext memory) {
+        return JBAccountingContext({token: token, decimals: 18, currency: token == _sourceToken ? _currency : 0});
+    }
+}
+
+/// @notice Minimal deployer exposing the canonical multi terminal expected by REVOwner.
+contract PeerSnapshotDeployerMock {
+    IJBTerminal public immutable MULTI_TERMINAL;
+
+    constructor(IJBTerminal multiTerminal) {
+        MULTI_TERMINAL = multiTerminal;
     }
 }
 
@@ -190,6 +245,10 @@ contract BorrowableHarness is REVLoans {
     }
 }
 
+/// @notice Negative-control and export tests for Revnet loan state in cross-chain accounting.
+/// @dev Real Revnet suckers include `REVOwner.peerChainAdjustedAccountsOf(...)` in outbound snapshots. The omission
+/// tests below use a synthetic registry that leaves those adjustments out to quantify the consequence when remote
+/// snapshots are stale, missing, or produced by a non-adjusting hook.
 contract RemoteLoanStateOmissionTest is Test {
     address internal constant DIRECTORY = address(0x1001);
     address internal constant PERMISSIONS = address(0x1002);
@@ -286,6 +345,37 @@ contract RemoteLoanStateOmissionTest is Test {
         );
         assertGt(quotedCashOut, trueOmnichainCashOut, "omitting remote loan state should overstate cash-out value");
         assertGt(quotedCashOut - trueOmnichainCashOut, 4 ether, "cash-out overstatement should be material");
+    }
+
+    function test_revOwnerExportsLocalLoanStateForPeerSnapshots() external {
+        PeerSnapshotLoanStateMock loans = new PeerSnapshotLoanStateMock({
+            sourceToken: NATIVE_TOKEN, borrowed: OMITTED_REMOTE_LOAN_DEBT, collateral: OMITTED_REMOTE_LOAN_COLLATERAL
+        });
+        PeerSnapshotTerminalMock peerTerminal =
+            new PeerSnapshotTerminalMock({sourceToken: NATIVE_TOKEN, currency: ETH_CURRENCY});
+
+        REVOwner peerOwnerHook = new REVOwner({
+            buybackHook: IJBBuybackHookRegistry(address(buybackRegistry)),
+            directory: IJBDirectory(DIRECTORY),
+            feeRevnetId: 999_999,
+            suckerRegistry: IJBSuckerRegistry(address(registry)),
+            loans: IREVLoans(address(loans)),
+            deployerAddress: address(this)
+        });
+        peerOwnerHook.setDeployer({
+            newDeployer: IREVDeployer(
+                address(new PeerSnapshotDeployerMock({multiTerminal: IJBTerminal(address(peerTerminal))}))
+            )
+        });
+
+        (uint256 supply, uint256 surplus, uint256 balance) =
+            peerOwnerHook.peerChainAdjustedAccountsOf({revnetId: REVNET_ID, decimals: 18, currency: ETH_CURRENCY});
+
+        // Peer snapshots need burned loan collateral in supply, otherwise remote holders look artificially scarce.
+        assertEq(supply, OMITTED_REMOTE_LOAN_COLLATERAL, "peer snapshot should include loan collateral supply");
+        // Borrowed funds are owed back to the revnet, so they are both surplus and balance for peer-chain math.
+        assertEq(surplus, OMITTED_REMOTE_LOAN_DEBT, "peer snapshot should include loan debt surplus");
+        assertEq(balance, OMITTED_REMOTE_LOAN_DEBT, "peer snapshot should include loan debt balance");
     }
 
     function test_remoteLoanStateOmissionInflatesCrossChainBorrowableAmount() external view {

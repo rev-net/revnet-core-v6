@@ -143,20 +143,19 @@ This is intentional: the alternative (revert with `InadequateTerminalStoreBalanc
 
 Holders with `minReclaimAmount` set on their `cashOutTokensOf` call are protected from getting less than they expect. Holders without minimums should be aware that local liquidity caps their reclaim; the surplus on other chains is reachable by cashing out there (or by waiting for bridge messages to rebalance local surplus).
 
-### 7.10 Remote loan corrections not reflected in local borrowability
+### 7.10 Remote loan corrections depend on fresh adjusted peer snapshots
 
-`_borrowableAmountFrom` adds back local `totalBorrowed` and `totalCollateral` to reconstitute pre-loan economic state for the bonding curve. However, remote chain snapshots (built by `JBSuckerLib.buildSnapshotMessage`) capture raw surplus/supply WITHOUT loan corrections from the remote chain.
+`_borrowableAmountFrom` adds back local `totalBorrowed` and `totalCollateral` to reconstitute pre-loan economic state for the bonding curve. Revnet peer-chain snapshots export the same correction through `REVOwner.peerChainAdjustedAccountsOf(...)`: `JBSuckerLib.buildSnapshotMessage(...)` reads the active data hook via `IJBPeerChainAdjustedAccounts` and folds the returned loan collateral/debt into `sourceTotalSupply`, `sourceSurplus`, and `sourceBalance`.
 
-(This subsection was renumbered as new accepted-behavior sections were added. The remote-loan-correction analysis is
-unchanged.)
+This means canonical Revnet suckers do not intentionally omit remote loan state. The remaining risk is freshness and availability: peer snapshots are asynchronous, best-effort, and soft-fail if the remote data hook does not expose the optional interface or the sucker cannot deliver the latest root.
 
 This is accepted because:
 
-1. Suckers are a general-purpose bridging layer and should not need knowledge of revnet-specific loan mechanics.
-2. The `localSurplus` cap (REVLoans line 386-387) prevents extraction beyond what the local terminal actually holds.
-3. The over-lending exposure is bounded by the difference between corrected and uncorrected remote values, which is proportional to remote outstanding loans — typically a small fraction of total surplus.
+1. Suckers remain a general-purpose bridging layer: project-specific mechanics are provided by the active data hook, not hard-coded into the sucker.
+2. The `localSurplus` cap prevents borrowing more than what the local terminal actually holds.
+3. The over-lending exposure from a stale or missing adjusted snapshot is bounded by the difference between the latest delivered remote snapshot and current remote loan state.
 
-Project operators deploying cross-chain revnets with active loan markets on multiple chains should understand that local borrowability calculations do not account for remote outstanding loans.
+Project operators deploying cross-chain revnets with active loan markets on multiple chains should understand that local borrowability calculations account for remote loans only as of the latest accepted peer snapshot.
 
 ### 7.11 There is no hidden-token supply bucket in V6
 
