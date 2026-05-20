@@ -28,7 +28,6 @@ import {MockERC20} from "@bananapus/core-v6/test/mock/MockERC20.sol";
 import {REVLoans} from "../../src/REVLoans.sol";
 import {REVLoan} from "../../src/structs/REVLoan.sol";
 import {REVStageConfig, REVAutoIssuance} from "../../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../../src/structs/REVDescription.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
 import {JBSuckerRegistry} from "@bananapus/suckers-v6/src/JBSuckerRegistry.sol";
@@ -129,6 +128,8 @@ contract TestBurnPermissionRequired is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            jbMultiTerminal(),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -154,8 +155,7 @@ contract TestBurnPermissionRequired is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         acc[1] = JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
         REVStageConfig[] memory stages = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -185,7 +185,7 @@ contract TestBurnPermissionRequired is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")
             }),
@@ -200,8 +200,7 @@ contract TestBurnPermissionRequired is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         acc[1] = JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
         REVStageConfig[] memory stages = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -230,7 +229,7 @@ contract TestBurnPermissionRequired is TestBaseWorkflow {
         (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NANA")
             }),
@@ -249,7 +248,7 @@ contract TestBurnPermissionRequired is TestBaseWorkflow {
         require(tokenCount > 0, "Should have received tokens");
 
         // Attempt to borrow WITHOUT granting BURN_TOKENS permission → should revert.
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
         vm.prank(user);
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -288,7 +287,7 @@ contract TestBurnPermissionRequired is TestBaseWorkflow {
         });
 
         // Borrow should now succeed.
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
         vm.prank(user);
         (uint256 loanId, REVLoan memory loan) =
             LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), 25, user);

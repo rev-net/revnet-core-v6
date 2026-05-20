@@ -27,7 +27,6 @@ import {MockERC20} from "@bananapus/core-v6/test/mock/MockERC20.sol";
 import {REVLoans} from "../../src/REVLoans.sol";
 import {REVLoan} from "../../src/structs/REVLoan.sol";
 import {REVStageConfig, REVAutoIssuance} from "../../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../../src/structs/REVDescription.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
 import {JBSuckerRegistry} from "@bananapus/suckers-v6/src/JBSuckerRegistry.sol";
@@ -127,6 +126,8 @@ contract TestCrossRevnetLiquidation is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            jbMultiTerminal(),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -151,8 +152,7 @@ contract TestCrossRevnetLiquidation is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         acc[1] = JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
         REVStageConfig[] memory stages = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -182,7 +182,7 @@ contract TestCrossRevnetLiquidation is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")
             }),
@@ -197,8 +197,7 @@ contract TestCrossRevnetLiquidation is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         acc[1] = JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
         REVStageConfig[] memory stages = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -227,7 +226,7 @@ contract TestCrossRevnetLiquidation is TestBaseWorkflow {
         (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NANA")
             }),

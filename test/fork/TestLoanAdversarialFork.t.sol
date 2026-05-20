@@ -45,14 +45,14 @@ contract TestLoanAdversarialFork is ForkTestBase {
 
     /// @notice Deploy a revnet with a custom description salt to avoid CREATE2 collisions.
     function _deployRevnetWithSalt(uint16 cashOutTaxRate, bytes32 salt) internal returns (uint256 deployedRevnetId) {
-        (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
+        (REVConfig memory cfg, JBAccountingContext[] memory tc, REVSuckerDeploymentConfig memory sdc) =
             _buildMinimalConfig(cashOutTaxRate);
         cfg.description.salt = salt;
 
         (deployedRevnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: sdc,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -77,11 +77,11 @@ contract TestLoanAdversarialFork is ForkTestBase {
         // ── Step 1: First borrow using all tokens as collateral ──
         _grantBurnPermission(BORROWER, revnetId);
 
-        REVLoanSource memory source = _nativeLoanSource();
+        address source = _nativeLoanSource();
         vm.prank(BORROWER);
         (uint256 loanId1, REVLoan memory loan1) = LOANS_CONTRACT.borrowFrom({
             revnetId: revnetId,
-            source: source,
+            token: source,
             minBorrowAmount: 0,
             collateralCount: borrowerTokens,
             beneficiary: payable(BORROWER),
@@ -136,7 +136,7 @@ contract TestLoanAdversarialFork is ForkTestBase {
         vm.prank(BORROWER);
         (uint256 loanId2, REVLoan memory loan2) = LOANS_CONTRACT.borrowFrom({
             revnetId: revnetId,
-            source: source,
+            token: source,
             minBorrowAmount: 0,
             collateralCount: tokensAfterRepay,
             beneficiary: payable(BORROWER),
@@ -277,14 +277,13 @@ contract TestLoanAdversarialFork is ForkTestBase {
     )
         internal
         view
-        returns (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc)
+        returns (REVConfig memory cfg, JBAccountingContext[] memory tc, REVSuckerDeploymentConfig memory sdc)
     {
         JBAccountingContext[] memory acc = new JBAccountingContext[](1);
         acc[0] = JBAccountingContext({
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
-        tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        tc = acc;
 
         REVStageConfig[] memory stages = new REVStageConfig[](2);
         JBSplit[] memory splits = new JBSplit[](1);
@@ -336,13 +335,13 @@ contract TestLoanAdversarialFork is ForkTestBase {
     /// effectively undercollateralizing existing loans.
     function test_fork_adversarial_crossStage_taxIncrease() public {
         // Deploy a separate two-stage revnet: stage1 tax=2000 (20%), stage2 tax=7000 (70%).
-        (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
+        (REVConfig memory cfg, JBAccountingContext[] memory tc, REVSuckerDeploymentConfig memory sdc) =
             _buildTwoStageConfig_taxIncrease(2000, 7000);
 
         (uint256 taxRevnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: sdc,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -453,13 +452,13 @@ contract TestLoanAdversarialFork is ForkTestBase {
 
         _grantBurnPermission(splitBorrower, revnetId);
 
-        REVLoanSource memory source = _nativeLoanSource();
+        address source = _nativeLoanSource();
         uint256 ethBeforeA = splitBorrower.balance;
 
         vm.prank(splitBorrower);
         (uint256 loanIdA, REVLoan memory loanA) = LOANS_CONTRACT.borrowFrom({
             revnetId: revnetId,
-            source: source,
+            token: source,
             minBorrowAmount: 0,
             collateralCount: splitBorrowerTokens,
             beneficiary: payable(splitBorrower),
@@ -490,7 +489,7 @@ contract TestLoanAdversarialFork is ForkTestBase {
             vm.prank(splitBorrower);
             LOANS_CONTRACT.borrowFrom({
                 revnetId: revnetId,
-                source: source,
+                token: source,
                 minBorrowAmount: 0,
                 collateralCount: chunkSize,
                 beneficiary: payable(splitBorrower),
@@ -617,7 +616,7 @@ contract TestLoanAdversarialFork is ForkTestBase {
     /// large surplus with minimal collateral (should succeed).
     function test_fork_adversarial_zeroCollateral_reverts() public {
         uint256 minFeePercent = LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT();
-        REVLoanSource memory source = _nativeLoanSource();
+        address source = _nativeLoanSource();
 
         // ── Case 1: Zero collateral -- should revert with REVLoans_ZeroCollateralLoanIsInvalid ──
         // NOTE: We do NOT call _grantBurnPermission here because borrowFrom reverts with
@@ -629,7 +628,7 @@ contract TestLoanAdversarialFork is ForkTestBase {
         vm.expectRevert(abi.encodeWithSelector(REVLoans.REVLoans_ZeroCollateralLoanIsInvalid.selector, 0));
         LOANS_CONTRACT.borrowFrom({
             revnetId: revnetId,
-            source: source,
+            token: source,
             minBorrowAmount: 0,
             collateralCount: 0,
             beneficiary: payable(BORROWER),
@@ -682,7 +681,7 @@ contract TestLoanAdversarialFork is ForkTestBase {
                 );
                 LOANS_CONTRACT.borrowFrom({
                     revnetId: dustRevnetId,
-                    source: source,
+                    token: source,
                     minBorrowAmount: 0,
                     collateralCount: dustTokens,
                     beneficiary: payable(dustPayer),
@@ -728,7 +727,7 @@ contract TestLoanAdversarialFork is ForkTestBase {
                 vm.prank(smallPayer);
                 (uint256 smallLoanId, REVLoan memory smallLoan) = LOANS_CONTRACT.borrowFrom({
                     revnetId: hugeRevnetId,
-                    source: source,
+                    token: source,
                     minBorrowAmount: 0,
                     collateralCount: smallTokens,
                     beneficiary: payable(smallPayer),

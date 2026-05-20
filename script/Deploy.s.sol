@@ -20,7 +20,6 @@ import {Script} from "forge-std/Script.sol";
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBCurrencyIds} from "@bananapus/core-v6/src/libraries/JBCurrencyIds.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
-import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
 import {JBTokenMapping} from "@bananapus/suckers-v6/src/structs/JBTokenMapping.sol";
 import {IPermit2} from "@uniswap/permit2/src/interfaces/IPermit2.sol";
@@ -48,7 +47,7 @@ import {REV721TiersHookFlags} from "../src/structs/REV721TiersHookFlags.sol";
 
 struct FeeProjectConfig {
     REVConfig configuration;
-    JBTerminalConfig[] terminalConfigurations;
+    JBAccountingContext[] accountingContextsToAccept;
     REVSuckerDeploymentConfig suckerDeploymentConfiguration;
     REVDeploy721TiersHookConfig tiered721HookConfiguration;
     REVCroptopAllowedPost[] allowedPosts;
@@ -65,7 +64,7 @@ contract DeployScript is Script, Sphinx {
     Hook721Deployment hook;
     /// @notice tracks the deployment of the sucker contracts for the chain we are deploying to.
     SuckerDeployment suckers;
-    /// @notice tracks the deployment of the router terminal.
+    /// @notice tracks the deployment of the router terminal registry package.
     RouterTerminalDeployment routerTerminal;
     uint32 private constant _PREMINT_CHAIN_ID = 1;
     string private constant _NAME = "Revnet";
@@ -130,7 +129,7 @@ contract DeployScript is Script, Sphinx {
                 defaultValue: string("node_modules/@bananapus/721-hook-v6/deployments/")
             })
         );
-        // Get the deployment addresses for the router terminal contracts for this chain.
+        // Get the deployment addresses for the router terminal registry package for this chain.
         routerTerminal = RouterTerminalDeploymentLib.getDeployment(
             vm.envOr({
                 name: "NANA_ROUTER_TERMINAL_DEPLOYMENT_PATH",
@@ -160,15 +159,6 @@ contract DeployScript is Script, Sphinx {
         // Accept the chain's native currency through the multi terminal.
         accountingContextsToAccept[0] =
             JBAccountingContext({token: JBConstants.NATIVE_TOKEN, decimals: _DECIMALS, currency: _NATIVE_CURRENCY});
-
-        // The terminals that the project will accept funds through.
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](2);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: core.terminal, accountingContextsToAccept: accountingContextsToAccept});
-        terminalConfigurations[1] = JBTerminalConfig({
-            terminal: IJBTerminal(address(routerTerminal.registry)),
-            accountingContextsToAccept: new JBAccountingContext[](0)
-        });
 
         // The project's revnet stage configurations.
         REVStageConfig[] memory stageConfigurations = new REVStageConfig[](3);
@@ -296,7 +286,7 @@ contract DeployScript is Script, Sphinx {
 
         return FeeProjectConfig({
             configuration: revnetConfiguration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: accountingContextsToAccept,
             suckerDeploymentConfiguration: suckerDeploymentConfiguration,
             tiered721HookConfiguration: REVDeploy721TiersHookConfig({
                 baseline721HookConfiguration: REVBaseline721HookConfig({
@@ -397,9 +387,11 @@ contract DeployScript is Script, Sphinx {
                         creationCode: type(REVDeployer).creationCode,
                         arguments: abi.encode(
                             core.controller,
+                            core.terminal,
+                            IJBTerminal(address(routerTerminal.registry)),
                             suckers.registry,
                             _candidateId,
-                            hook.hook_deployer,
+                            hook.hookDeployer,
                             croptop.publisher,
                             IJBBuybackHookRegistry(address(buybackHook.registry)),
                             _candidateRevloansAddr,
@@ -464,9 +456,11 @@ contract DeployScript is Script, Sphinx {
                 creationCode: type(REVDeployer).creationCode,
                 arguments: abi.encode(
                     core.controller,
+                    core.terminal,
+                    IJBTerminal(address(routerTerminal.registry)),
                     suckers.registry,
                     feeProjectId,
-                    hook.hook_deployer,
+                    hook.hookDeployer,
                     croptop.publisher,
                     IJBBuybackHookRegistry(address(buybackHook.registry)),
                     revloans,
@@ -481,9 +475,11 @@ contract DeployScript is Script, Sphinx {
             ? REVDeployer(payable(_deployerAddr))
             : new REVDeployer{salt: _DEPLOYER_SALT}({
                 controller: core.controller,
+                multiTerminal: core.terminal,
+                routerTerminalRegistry: IJBTerminal(address(routerTerminal.registry)),
                 suckerRegistry: suckers.registry,
                 feeRevnetId: feeProjectId,
-                hookDeployer: hook.hook_deployer,
+                hookDeployer: hook.hookDeployer,
                 publisher: croptop.publisher,
                 buybackHook: IJBBuybackHookRegistry(address(buybackHook.registry)),
                 loans: revloans,
@@ -506,7 +502,7 @@ contract DeployScript is Script, Sphinx {
             _basicDeployer.deployFor({
                 revnetId: feeProjectId,
                 configuration: feeProjectConfig.configuration,
-                terminalConfigurations: feeProjectConfig.terminalConfigurations,
+                accountingContextsToAccept: feeProjectConfig.accountingContextsToAccept,
                 suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration,
                 tiered721HookConfiguration: feeProjectConfig.tiered721HookConfiguration,
                 allowedPosts: feeProjectConfig.allowedPosts

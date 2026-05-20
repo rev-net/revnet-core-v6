@@ -58,7 +58,7 @@ contract TestLoanERC20Fork is ForkTestBase {
     function _buildUsdcConfig(uint16 cashOutTaxRate)
         internal
         view
-        returns (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc)
+        returns (REVConfig memory cfg, JBAccountingContext[] memory tc, REVSuckerDeploymentConfig memory sdc)
     {
         JBAccountingContext[] memory acc = new JBAccountingContext[](2);
         acc[0] = JBAccountingContext({
@@ -67,8 +67,7 @@ contract TestLoanERC20Fork is ForkTestBase {
         // forge-lint: disable-next-line(unsafe-typecast)
         acc[1] = JBAccountingContext({token: USDC, decimals: USDC_DECIMALS, currency: uint32(uint160(USDC))});
 
-        tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        tc = acc;
 
         REVStageConfig[] memory stages = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
@@ -103,7 +102,7 @@ contract TestLoanERC20Fork is ForkTestBase {
 
     /// @notice Deploy the fee project with both native and USDC terminals.
     function _deployFeeProjectWithUsdc(uint16 cashOutTaxRate) internal {
-        (REVConfig memory feeCfg, JBTerminalConfig[] memory feeTc, REVSuckerDeploymentConfig memory feeSdc) =
+        (REVConfig memory feeCfg, JBAccountingContext[] memory feeTc, REVSuckerDeploymentConfig memory feeSdc) =
             _buildUsdcConfig(cashOutTaxRate);
         // forge-lint: disable-next-line(named-struct-fields)
         feeCfg.description = REVDescription("Fee", "FEE", "ipfs://fee", "FEE_USDC_SALT");
@@ -112,7 +111,7 @@ contract TestLoanERC20Fork is ForkTestBase {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: feeCfg,
-            terminalConfigurations: feeTc,
+            accountingContextsToAccept: feeTc,
             suckerDeploymentConfiguration: feeSdc,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -121,13 +120,13 @@ contract TestLoanERC20Fork is ForkTestBase {
 
     /// @notice Deploy a revnet with both native and USDC terminals.
     function _deployRevnetWithUsdc(uint16 cashOutTaxRate) internal returns (uint256 id) {
-        (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
+        (REVConfig memory cfg, JBAccountingContext[] memory tc, REVSuckerDeploymentConfig memory sdc) =
             _buildUsdcConfig(cashOutTaxRate);
 
         (id,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: sdc,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -154,8 +153,8 @@ contract TestLoanERC20Fork is ForkTestBase {
     // ─────────────────────────
 
     /// @notice Build a USDC loan source.
-    function _usdcLoanSource() internal view returns (REVLoanSource memory) {
-        return REVLoanSource({token: USDC, terminal: jbMultiTerminal()});
+    function _usdcLoanSource() internal pure returns (address) {
+        return USDC;
     }
 
     /// @notice Create a loan using USDC as the source token.
@@ -168,7 +167,7 @@ contract TestLoanERC20Fork is ForkTestBase {
         internal
         returns (uint256 loanId, REVLoan memory loan)
     {
-        REVLoanSource memory source = _usdcLoanSource();
+        address source = _usdcLoanSource();
         // forge-lint: disable-next-line(unsafe-typecast)
         uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(id, collateral, USDC_DECIMALS, uint32(uint160(USDC)));
         require(borrowable > 0, "no borrowable amount in USDC");
@@ -178,7 +177,7 @@ contract TestLoanERC20Fork is ForkTestBase {
         vm.prank(borrower);
         (loanId, loan) = LOANS_CONTRACT.borrowFrom({
             revnetId: id,
-            source: source,
+            token: source,
             minBorrowAmount: 0,
             collateralCount: collateral,
             beneficiary: payable(borrower),
@@ -190,7 +189,7 @@ contract TestLoanERC20Fork is ForkTestBase {
     // ───────────────────────── Tests
     // ─────────────────────────
 
-    /// @notice Basic borrow from USDC source: verify USDC disbursed in 6 decimals, loan state correct.
+    /// @notice Basic borrow from USDC token: verify USDC disbursed in 6 decimals, loan state correct.
     function test_fork_borrow_usdc_basic() public {
         uint256 borrowerTokens = jbTokens().totalBalanceOf(BORROWER, revnetId);
 
@@ -200,7 +199,7 @@ contract TestLoanERC20Fork is ForkTestBase {
         assertGt(borrowable, 0, "should have borrowable amount in USDC");
 
         uint256 totalCollateralBefore = LOANS_CONTRACT.totalCollateralOf(revnetId);
-        uint256 totalBorrowedBefore = LOANS_CONTRACT.totalBorrowedFrom(revnetId, jbMultiTerminal(), USDC);
+        uint256 totalBorrowedBefore = LOANS_CONTRACT.totalBorrowedFrom(revnetId, USDC);
 
         uint256 borrowerUsdcBefore = IERC20(USDC).balanceOf(BORROWER);
 
@@ -234,9 +233,7 @@ contract TestLoanERC20Fork is ForkTestBase {
             "totalCollateralOf should increase"
         );
         assertGt(
-            LOANS_CONTRACT.totalBorrowedFrom(revnetId, jbMultiTerminal(), USDC),
-            totalBorrowedBefore,
-            "totalBorrowedFrom should increase"
+            LOANS_CONTRACT.totalBorrowedFrom(revnetId, USDC), totalBorrowedBefore, "totalBorrowedFrom should increase"
         );
 
         // Loan NFT owned by borrower.
@@ -256,11 +253,11 @@ contract TestLoanERC20Fork is ForkTestBase {
         uint256 borrowerUsdcBefore = IERC20(USDC).balanceOf(BORROWER);
         _grantBurnPermission(BORROWER, revnetId);
 
-        REVLoanSource memory source = _usdcLoanSource();
+        address source = _usdcLoanSource();
         vm.prank(BORROWER);
         LOANS_CONTRACT.borrowFrom({
             revnetId: revnetId,
-            source: source,
+            token: source,
             minBorrowAmount: 0,
             collateralCount: borrowerTokens,
             beneficiary: payable(BORROWER),
@@ -320,7 +317,7 @@ contract TestLoanERC20Fork is ForkTestBase {
         uint256 feeTokensFromLoan = jbTokens().totalBalanceOf(BORROWER, revnetId);
 
         uint256 totalCollateralBefore = LOANS_CONTRACT.totalCollateralOf(revnetId);
-        uint256 totalBorrowedBefore = LOANS_CONTRACT.totalBorrowedFrom(revnetId, jbMultiTerminal(), USDC);
+        uint256 totalBorrowedBefore = LOANS_CONTRACT.totalBorrowedFrom(revnetId, USDC);
 
         // Fund borrower with enough USDC to repay (they need more than the loan amount due to potential fees).
         uint256 repayFunding = loan.amount * 2;
@@ -357,9 +354,7 @@ contract TestLoanERC20Fork is ForkTestBase {
             "totalCollateralOf should decrease"
         );
         assertLt(
-            LOANS_CONTRACT.totalBorrowedFrom(revnetId, jbMultiTerminal(), USDC),
-            totalBorrowedBefore,
-            "totalBorrowedFrom should decrease"
+            LOANS_CONTRACT.totalBorrowedFrom(revnetId, USDC), totalBorrowedBefore, "totalBorrowedFrom should decrease"
         );
     }
 

@@ -30,7 +30,6 @@ import {MockPriceFeed} from "@bananapus/core-v6/test/mock/MockPriceFeed.sol";
 import {REVLoans} from "../../src/REVLoans.sol";
 import {REVLoan} from "../../src/structs/REVLoan.sol";
 import {REVStageConfig, REVAutoIssuance} from "../../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../../src/structs/REVDescription.sol";
 // Deployment dependencies for suckers, 721 hooks, and address registry.
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
@@ -184,6 +183,8 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            jbMultiTerminal(),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -224,8 +225,7 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
         });
 
         // Configure a single terminal.
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
 
         // A single stage with auto-issuance for the multisig.
         REVStageConfig[] memory stages = new REVStageConfig[](1);
@@ -265,7 +265,7 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")
             }),
@@ -283,8 +283,7 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
         });
 
         // Configure a single terminal.
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
 
         // A single stage with auto-issuance for the multisig.
         REVStageConfig[] memory stages = new REVStageConfig[](1);
@@ -323,7 +322,7 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
         (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NANA")
             }),
@@ -357,8 +356,8 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
             abi.encode(true)
         );
 
-        // Build the loan source pointing at the real multi terminal and native token.
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        // Build the loan source token.
+        address source = JBConstants.NATIVE_TOKEN;
 
         // Borrow with minimum fee percent (25 = 2.5%).
         vm.prank(user);
@@ -406,8 +405,8 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
             "counter should be at _ONE_TRILLION after vm.store"
         );
 
-        // Build the loan source pointing at the real terminal and native token.
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        // Build the loan source token.
+        address source = JBConstants.NATIVE_TOKEN;
 
         // Expect the overflow revert.
         vm.expectRevert(
@@ -460,8 +459,8 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
             "counter should be at _ONE_TRILLION after vm.store"
         );
 
-        // Build the loan source matching the existing loan's source.
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        // Build the loan source token matching the existing loan's source.
+        address source = JBConstants.NATIVE_TOKEN;
 
         // Transfer only 1 token of collateral to trigger the reallocation path.
         uint256 collateralToTransfer = 1;

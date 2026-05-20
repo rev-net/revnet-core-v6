@@ -25,6 +25,7 @@ import "@croptop/core-v6/script/helpers/CroptopDeploymentLib.sol";
 import "@bananapus/router-terminal-v6/script/helpers/RouterTerminalDeploymentLib.sol";
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
+import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.sol";
 import {MockERC20} from "@bananapus/core-v6/test/mock/MockERC20.sol";
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
@@ -89,7 +90,7 @@ contract TestConversionDocumentation is TestBaseWorkflow {
         view
         returns (
             REVConfig memory configuration,
-            JBTerminalConfig[] memory terminalConfigurations,
+            JBAccountingContext[] memory terminalConfigurations,
             REVSuckerDeploymentConfig memory suckerDeploymentConfiguration
         )
     {
@@ -101,9 +102,7 @@ contract TestConversionDocumentation is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        terminalConfigurations = accountingContextsToAccept;
 
         REVStageConfig[] memory stageConfigurations = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
@@ -179,6 +178,8 @@ contract TestConversionDocumentation is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            jbMultiTerminal(),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -195,14 +196,14 @@ contract TestConversionDocumentation is TestBaseWorkflow {
         vm.prank(multisig());
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);
 
-        (REVConfig memory cfg, JBTerminalConfig[] memory terms, REVSuckerDeploymentConfig memory suckerCfg) =
+        (REVConfig memory cfg, JBAccountingContext[] memory terms, REVSuckerDeploymentConfig memory suckerCfg) =
             _getRevnetConfig("Revnet", "$REV", ERC20_SALT);
 
         vm.prank(multisig());
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: cfg,
-            terminalConfigurations: terms,
+            accountingContextsToAccept: terms,
             suckerDeploymentConfiguration: suckerCfg,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -220,7 +221,7 @@ contract TestConversionDocumentation is TestBaseWorkflow {
         jbProjects().approve(address(REV_DEPLOYER), blankId);
 
         // Get revnet config.
-        (REVConfig memory cfg, JBTerminalConfig[] memory terms, REVSuckerDeploymentConfig memory suckerCfg) =
+        (REVConfig memory cfg, JBAccountingContext[] memory terms, REVSuckerDeploymentConfig memory suckerCfg) =
             _getRevnetConfig("BlankConvert", "$BLK", "BLANK_TOKEN");
 
         // Deploy as revnet — should succeed since project is blank.
@@ -228,7 +229,7 @@ contract TestConversionDocumentation is TestBaseWorkflow {
         (uint256 deployed,) = REV_DEPLOYER.deployFor({
             revnetId: blankId,
             configuration: cfg,
-            terminalConfigurations: terms,
+            accountingContextsToAccept: terms,
             suckerDeploymentConfiguration: suckerCfg,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -299,7 +300,7 @@ contract TestConversionDocumentation is TestBaseWorkflow {
         vm.prank(USER);
         jbProjects().approve(address(REV_DEPLOYER), projectId);
 
-        (REVConfig memory cfg, JBTerminalConfig[] memory terms2, REVSuckerDeploymentConfig memory suckerCfg) =
+        (REVConfig memory cfg, JBAccountingContext[] memory terms2, REVSuckerDeploymentConfig memory suckerCfg) =
             _getRevnetConfig("FailConvert", "$FAIL", "FAIL_TOKEN");
 
         // Should revert because rulesets already launched.
@@ -308,7 +309,7 @@ contract TestConversionDocumentation is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: projectId,
             configuration: cfg,
-            terminalConfigurations: terms2,
+            accountingContextsToAccept: terms2,
             suckerDeploymentConfiguration: suckerCfg,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -326,7 +327,7 @@ contract TestConversionDocumentation is TestBaseWorkflow {
         jbProjects().approve(address(REV_DEPLOYER), blankId);
 
         // Get config.
-        (REVConfig memory cfg, JBTerminalConfig[] memory terms, REVSuckerDeploymentConfig memory suckerCfg) =
+        (REVConfig memory cfg, JBAccountingContext[] memory terms, REVSuckerDeploymentConfig memory suckerCfg) =
             _getRevnetConfig("Irreversible", "$IRR", "IRR_TOKEN");
 
         // Deploy as revnet.
@@ -334,7 +335,7 @@ contract TestConversionDocumentation is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: blankId,
             configuration: cfg,
-            terminalConfigurations: terms,
+            accountingContextsToAccept: terms,
             suckerDeploymentConfiguration: suckerCfg,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -349,13 +350,13 @@ contract TestConversionDocumentation is TestBaseWorkflow {
 
     /// @notice Deploy with revnetId=0 creates a new project.
     function test_deployNewRevnet_zeroRevnetId() public {
-        (REVConfig memory cfg, JBTerminalConfig[] memory terms, REVSuckerDeploymentConfig memory suckerCfg) =
+        (REVConfig memory cfg, JBAccountingContext[] memory terms, REVSuckerDeploymentConfig memory suckerCfg) =
             _getRevnetConfig("NewRevnet", "$NEW", "NEW_TOKEN");
 
         (uint256 newId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
-            terminalConfigurations: terms,
+            accountingContextsToAccept: terms,
             suckerDeploymentConfiguration: suckerCfg,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()

@@ -41,6 +41,7 @@ import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
+import {JBRouterTerminalRegistry} from "@bananapus/router-terminal-v6/src/JBRouterTerminalRegistry.sol";
 
 /// @notice Tests that terminal addresses are included in the encoded configuration hash.
 contract TestTerminalEncodingInHash is TestBaseWorkflow {
@@ -67,6 +68,8 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
     CTPublisher PUBLISHER;
     // forge-lint: disable-next-line(mixed-case-variable)
     MockBuybackDataHook MOCK_BUYBACK;
+    // forge-lint: disable-next-line(mixed-case-variable)
+    JBRouterTerminalRegistry ROUTER_TERMINAL_REGISTRY;
 
     // forge-lint: disable-next-line(mixed-case-variable)
     uint256 FEE_PROJECT_ID;
@@ -94,6 +97,9 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
         HOOK_DEPLOYER = new JB721TiersHookDeployer(exampleHook, HOOK_STORE, ADDRESS_REGISTRY, multisig());
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
         MOCK_BUYBACK = new MockBuybackDataHook();
+        ROUTER_TERMINAL_REGISTRY =
+            new JBRouterTerminalRegistry(jbPermissions(), jbProjects(), permit2(), address(this), TRUSTED_FORWARDER);
+        ROUTER_TERMINAL_REGISTRY.setDefaultTerminal(jbMultiTerminal());
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
@@ -115,6 +121,8 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            IJBTerminal(address(ROUTER_TERMINAL_REGISTRY)),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -134,13 +142,12 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
         _deployFeeProject();
     }
 
-    /// @notice Two revnets with identical base config but different terminals produce different hashes.
-    function test_differentTerminals_produceDifferentHashes() public {
-        // Deploy revnet A with the primary multi-terminal (same description salt for both).
-        (uint256 revnetA,) = REV_DEPLOYER.deployFor({
+    /// @notice Revnet callers choose accounting contexts, not terminal addresses.
+    function test_accountingContextsDoNotSelectTerminals() public {
+        (uint256 revnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: _baseRevConfig("DIFF_TERM"),
-            terminalConfigurations: _terminalConfigs(jbMultiTerminal()),
+            accountingContextsToAccept: _terminalConfigs(),
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("A")
             }),
@@ -148,31 +155,19 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
-        // Deploy revnet B with the secondary multi-terminal (same config, only terminal differs).
-        (uint256 revnetB,) = REV_DEPLOYER.deployFor({
-            revnetId: 0,
-            configuration: _baseRevConfig("DIFF_TERM"),
-            terminalConfigurations: _terminalConfigs(jbMultiTerminal2()),
-            suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("B")
-            }),
-            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
-            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
-        });
-
-        bytes32 hashA = REV_DEPLOYER.hashedEncodedConfigurationOf(revnetA);
-        bytes32 hashB = REV_DEPLOYER.hashedEncodedConfigurationOf(revnetB);
-
-        assertNotEq(hashA, hashB, "Different terminals must produce different configuration hashes");
+        IJBTerminal[] memory terminals = jbDirectory().terminalsOf(revnetId);
+        assertEq(terminals.length, 2, "canonical multi terminal and router registry should be registered");
+        assertEq(address(terminals[0]), address(jbMultiTerminal()), "accounting contexts must not select terminals");
+        assertEq(address(terminals[1]), address(ROUTER_TERMINAL_REGISTRY), "router terminal must be registry");
     }
 
-    /// @notice The hash includes the terminal address — verify by computing it off-chain.
-    function test_hashIncludesTerminalAddress() public {
+    /// @notice The hash includes the constructor-pinned multi-terminal and router registry addresses.
+    function test_hashIncludesConstructorMultiTerminalAndRouterRegistryAddresses() public {
         // Deploy a revnet.
         (uint256 revnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: _baseRevConfig("VERIFY"),
-            terminalConfigurations: _terminalConfigs(jbMultiTerminal()),
+            accountingContextsToAccept: _terminalConfigs(),
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("VERIFY")
             }),
@@ -189,8 +184,9 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
             // forge-lint: disable-next-line(unsafe-typecast)
             bytes32("VERIFY") // salt
         );
-        // Terminal address encoding.
-        encodedConfiguration = abi.encode(encodedConfiguration, jbMultiTerminal());
+        // Canonical terminal address encoding.
+        encodedConfiguration =
+            abi.encode(encodedConfiguration, REV_DEPLOYER.MULTI_TERMINAL(), REV_DEPLOYER.ROUTER_TERMINAL_REGISTRY());
         // Stage encoding.
         encodedConfiguration = abi.encode(
             encodedConfiguration,
@@ -207,25 +203,16 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
         assertEq(
             REV_DEPLOYER.hashedEncodedConfigurationOf(revnetId),
             expectedHash,
-            "On-chain hash must match off-chain computation including terminal address"
+            "On-chain hash must match off-chain computation including canonical terminal addresses"
         );
     }
 
-    /// @notice Terminal ordering matters — [A, B] != [B, A].
-    function test_terminalOrder_affectsHash() public {
-        // Deploy revnet with terminals in order [main, alt].
-        JBTerminalConfig[] memory tcAB = new JBTerminalConfig[](2);
-        JBAccountingContext[] memory acc = new JBAccountingContext[](1);
-        acc[0] = JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
-        });
-        tcAB[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
-        tcAB[1] = JBTerminalConfig({terminal: jbMultiTerminal2(), accountingContextsToAccept: acc});
-
-        (uint256 revnetAB,) = REV_DEPLOYER.deployFor({
+    /// @notice The deployer builds the terminal list from constructor state.
+    function test_terminalListIsCanonical() public {
+        (uint256 revnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: _baseRevConfig("ORDER"),
-            terminalConfigurations: tcAB,
+            accountingContextsToAccept: _terminalConfigs(),
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("AB")
             }),
@@ -233,26 +220,10 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
-        // Deploy revnet with terminals in order [alt, main].
-        JBTerminalConfig[] memory tcBA = new JBTerminalConfig[](2);
-        tcBA[0] = JBTerminalConfig({terminal: jbMultiTerminal2(), accountingContextsToAccept: acc});
-        tcBA[1] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
-
-        (uint256 revnetBA,) = REV_DEPLOYER.deployFor({
-            revnetId: 0,
-            configuration: _baseRevConfig("ORDER"),
-            terminalConfigurations: tcBA,
-            suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
-                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("BA")
-            }),
-            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
-            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
-        });
-
-        bytes32 hashAB = REV_DEPLOYER.hashedEncodedConfigurationOf(revnetAB);
-        bytes32 hashBA = REV_DEPLOYER.hashedEncodedConfigurationOf(revnetBA);
-
-        assertNotEq(hashAB, hashBA, "Terminal order must affect the configuration hash");
+        IJBTerminal[] memory terminals = jbDirectory().terminalsOf(revnetId);
+        assertEq(terminals.length, 2, "canonical terminal list must include router registry");
+        assertEq(address(terminals[0]), address(REV_DEPLOYER.MULTI_TERMINAL()), "unexpected canonical terminal");
+        assertEq(address(terminals[1]), address(REV_DEPLOYER.ROUTER_TERMINAL_REGISTRY()), "unexpected router registry");
     }
 
     /// @notice Split recipients are mutable operational config, not revnet identity.
@@ -264,7 +235,7 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
         (uint256 revnetA,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: _revConfigWithSplit({salt: "SPLIT_RECIPIENT", splitBeneficiary: makeAddr("recipientA")}),
-            terminalConfigurations: _terminalConfigs(jbMultiTerminal()),
+            accountingContextsToAccept: _terminalConfigs(),
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("SPLIT_A")
             }),
@@ -276,7 +247,7 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
         (uint256 revnetB,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: _revConfigWithSplit({salt: "SPLIT_RECIPIENT", splitBeneficiary: makeAddr("recipientB")}),
-            terminalConfigurations: _terminalConfigs(jbMultiTerminal()),
+            accountingContextsToAccept: _terminalConfigs(),
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("SPLIT_B")
             }),
@@ -342,13 +313,12 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
         });
     }
 
-    function _terminalConfigs(IJBMultiTerminal terminal) internal pure returns (JBTerminalConfig[] memory tc) {
+    function _terminalConfigs() internal pure returns (JBAccountingContext[] memory tc) {
         JBAccountingContext[] memory acc = new JBAccountingContext[](1);
         acc[0] = JBAccountingContext({
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
-        tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: terminal, accountingContextsToAccept: acc});
+        tc = acc;
     }
 
     function _deployFeeProject() internal {
@@ -356,8 +326,7 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
         acc[0] = JBAccountingContext({
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
         REVStageConfig[] memory stages = new REVStageConfig[](1);
         stages[0] = REVStageConfig({
             startsAtOrAfter: uint48(block.timestamp),
@@ -382,7 +351,7 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: feeConfig,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")
             }),

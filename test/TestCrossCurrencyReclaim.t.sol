@@ -129,6 +129,8 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            jbMultiTerminal(),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -156,8 +158,7 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         acc[1] = JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
 
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -189,7 +190,7 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")
             }),
@@ -205,8 +206,7 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         acc[1] = JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
 
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -237,7 +237,7 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
         (revnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("CROSS")
             }),

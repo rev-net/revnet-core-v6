@@ -28,7 +28,6 @@ import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
 import {JBPermissioned} from "@bananapus/core-v6/src/abstract/JBPermissioned.sol";
@@ -48,7 +47,7 @@ import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
 struct FeeProjectConfig {
     REVConfig configuration;
-    JBTerminalConfig[] terminalConfigurations;
+    JBAccountingContext[] accountingContextsToAccept;
     REVSuckerDeploymentConfig suckerDeploymentConfiguration;
 }
 
@@ -114,9 +113,7 @@ contract REVLoansUnsourcedTests is TestBaseWorkflow {
         });
 
         // The terminals that the project will accept funds through.
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         // The project's revnet stage configurations.
         REVStageConfig[] memory stageConfigurations = new REVStageConfig[](3);
@@ -185,7 +182,7 @@ contract REVLoansUnsourcedTests is TestBaseWorkflow {
 
         return FeeProjectConfig({
             configuration: revnetConfiguration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("REV"))
             })
@@ -209,9 +206,7 @@ contract REVLoansUnsourcedTests is TestBaseWorkflow {
         });
 
         // The terminals that the project will accept funds through.
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -280,7 +275,7 @@ contract REVLoansUnsourcedTests is TestBaseWorkflow {
 
         return FeeProjectConfig({
             configuration: revnetConfiguration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("NANA"))
             })
@@ -334,6 +329,8 @@ contract REVLoansUnsourcedTests is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            jbMultiTerminal(),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -358,7 +355,7 @@ contract REVLoansUnsourcedTests is TestBaseWorkflow {
         (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID, // Zero to deploy a new revnet
             configuration: feeProjectConfig.configuration,
-            terminalConfigurations: feeProjectConfig.terminalConfigurations,
+            accountingContextsToAccept: feeProjectConfig.accountingContextsToAccept,
             suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -371,7 +368,7 @@ contract REVLoansUnsourcedTests is TestBaseWorkflow {
         (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0, // Zero to deploy a new revnet
             configuration: fee2Config.configuration,
-            terminalConfigurations: fee2Config.terminalConfigurations,
+            accountingContextsToAccept: fee2Config.accountingContextsToAccept,
             suckerDeploymentConfiguration: fee2Config.suckerDeploymentConfiguration,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -403,7 +400,7 @@ contract REVLoansUnsourcedTests is TestBaseWorkflow {
             )
         );
 
-        REVLoanSource memory sauce = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address sauce = JBConstants.NATIVE_TOKEN;
 
         vm.prank(USER);
         LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 500, USER);

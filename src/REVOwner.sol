@@ -10,8 +10,8 @@ import {IJBTerminal} from "@bananapus/core-v6/src/interfaces/IJBTerminal.sol";
 import {JBCashOuts} from "@bananapus/core-v6/src/libraries/JBCashOuts.sol";
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBFees} from "@bananapus/core-v6/src/libraries/JBFees.sol";
-import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
 import {JBAfterCashOutRecordedContext} from "@bananapus/core-v6/src/structs/JBAfterCashOutRecordedContext.sol";
+import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
 import {JBBeforeCashOutRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforeCashOutRecordedContext.sol";
 import {JBBeforePayRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforePayRecordedContext.sol";
 import {JBCashOutHookSpecification} from "@bananapus/core-v6/src/structs/JBCashOutHookSpecification.sol";
@@ -26,7 +26,6 @@ import {mulDiv} from "@prb/math/src/Common.sol";
 
 import {IREVDeployer} from "./interfaces/IREVDeployer.sol";
 import {IREVLoans} from "./interfaces/IREVLoans.sol";
-import {REVLoanSource} from "./structs/REVLoanSource.sol";
 
 /// @notice The runtime hook for all revnets — set as every revnet's `dataHook` in ruleset metadata. At pay time, it
 /// coordinates the 721 hook (NFT tier minting) with the buyback hook (secondary market swap routing) and scales weight
@@ -45,6 +44,8 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
 
     error REVOwner_AlreadyInitialized(address deployer);
     error REVOwner_CashOutDelayNotFinished(uint256 cashOutDelay, uint256 blockTimestamp);
+    error REVOwner_InvalidLoanSourceToken(uint256 revnetId, address token);
+    error REVOwner_NativeFeeValueMismatch(uint256 expected, uint256 actual);
     error REVOwner_Unauthorized(address caller, address expectedCaller);
 
     //*********************************************************************//
@@ -153,17 +154,17 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
             revnetId: context.projectId, decimals: context.surplus.decimals, currency: context.surplus.currency
         });
 
+        // Start with local supply and surplus (including collateral and borrowed amounts).
+        totalSupply = context.totalSupply + totalCollateral;
+        effectiveSurplusValue = context.surplus.value + totalBorrowed;
+
         // If the cash out is from a sucker, return the full cash out amount without taxes or fees.
+        // Sucker cash-outs are the bridge accounting path: the value moving out of this chain must stay proportional
+        // to this chain's local backing. Do not add remote supply/surplus here, even for unscoped revnets.
         // This relies on the sucker registry to only contain trusted sucker contracts deployed via
         // the registry's own deploySuckersFor flow — external addresses cannot register as suckers.
         if (_isSuckerOf({revnetId: context.projectId, addr: context.holder})) {
-            return (
-                0,
-                context.cashOutCount,
-                context.totalSupply + totalCollateral,
-                context.surplus.value + totalBorrowed,
-                hookSpecifications
-            );
+            return (0, context.cashOutCount, totalSupply, effectiveSurplusValue, hookSpecifications);
         }
 
         // Keep a reference to the cash out delay of the revnet.
@@ -177,10 +178,6 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
 
         // Get the terminal that will receive the cash out fee.
         IJBTerminal feeTerminal = DIRECTORY.primaryTerminalOf({projectId: FEE_REVNET_ID, token: context.surplus.token});
-
-        // Start with local supply and surplus (including collateral and borrowed amounts).
-        totalSupply = context.totalSupply + totalCollateral;
-        effectiveSurplusValue = context.surplus.value + totalBorrowed;
 
         // If the ruleset aggregates cross-chain state, add remote supply and surplus.
         if (!context.scopeCashOutsToLocalBalances) {
@@ -452,8 +449,16 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         // No caller validation needed — this hook only pays fees to the fee project using funds forwarded by the
         // caller. A non-terminal caller would just be donating their own funds as fees. There's nothing to exploit.
 
-        // If there's sufficient approval, transfer normally.
-        if (context.forwardedAmount.token != JBConstants.NATIVE_TOKEN) {
+        if (context.forwardedAmount.token == JBConstants.NATIVE_TOKEN) {
+            // Native fee processing must be value-balanced by the current call. Otherwise a non-terminal caller could
+            // spend ETH that was forcibly sent or accidentally stranded in this hook.
+            if (msg.value != context.forwardedAmount.value) {
+                revert REVOwner_NativeFeeValueMismatch({expected: context.forwardedAmount.value, actual: msg.value});
+            }
+        } else {
+            if (msg.value != 0) revert REVOwner_NativeFeeValueMismatch({expected: 0, actual: msg.value});
+
+            // If there's sufficient approval, transfer normally.
             IERC20(context.forwardedAmount.token)
                 .safeTransferFrom({from: msg.sender, to: address(this), value: context.forwardedAmount.value});
         }
@@ -587,38 +592,39 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
 
         collateralCount = loans.totalCollateralOf(revnetId);
 
-        REVLoanSource[] memory sources = loans.loanSourcesOf(revnetId);
-        // Loan sources are project configuration, and this read-only aggregation needs the latest terminal/pricing
-        // state for each configured source.
+        address[] memory sources = loans.loanSourcesOf(revnetId);
+        IJBTerminal multiTerminal = deployer.MULTI_TERMINAL();
+        // Loan sources are tokens whose accounting contexts live on the canonical multi terminal.
         for (uint256 i; i < sources.length; i++) {
-            REVLoanSource memory source = sources[i];
+            address sourceToken = sources[i];
             // Each configured source must be queried live so cash-out math includes current outstanding debt.
-            uint256 tokensLoaned =
-                loans.totalBorrowedFrom({revnetId: revnetId, terminal: source.terminal, token: source.token});
+            uint256 tokensLoaned = loans.totalBorrowedFrom({revnetId: revnetId, token: sourceToken});
             if (tokensLoaned == 0) continue;
 
-            // Read the source token's accounting context so debt can be normalized before cross-currency conversion.
-            JBAccountingContext memory accountingContext =
-                source.terminal.accountingContextForTokenOf({projectId: revnetId, token: source.token});
+            JBAccountingContext memory sourceContext =
+                multiTerminal.accountingContextForTokenOf({projectId: revnetId, token: sourceToken});
+            if (sourceContext.token != sourceToken) {
+                revert REVOwner_InvalidLoanSourceToken({revnetId: revnetId, token: sourceToken});
+            }
 
             // Normalize each source from its native token decimals into the caller's requested decimals.
             uint256 normalizedTokens;
-            if (accountingContext.decimals > decimals) {
-                normalizedTokens = tokensLoaned / (10 ** (accountingContext.decimals - decimals));
-            } else if (accountingContext.decimals < decimals) {
-                normalizedTokens = tokensLoaned * (10 ** (decimals - accountingContext.decimals));
+            if (sourceContext.decimals > decimals) {
+                normalizedTokens = tokensLoaned / (10 ** (sourceContext.decimals - decimals));
+            } else if (sourceContext.decimals < decimals) {
+                normalizedTokens = tokensLoaned * (10 ** (decimals - sourceContext.decimals));
             } else {
                 normalizedTokens = tokensLoaned;
             }
 
-            if (accountingContext.currency == currency) {
+            if (sourceContext.currency == currency) {
                 borrowedAmount += normalizedTokens;
             } else {
                 // Convert source-token debt into the requested currency using the loans contract's shared prices.
                 uint256 pricePerUnit = loans.PRICES()
                     .pricePerUnitOf({
                     projectId: revnetId,
-                    pricingCurrency: accountingContext.currency,
+                    pricingCurrency: sourceContext.currency,
                     unitCurrency: currency,
                     decimals: decimals
                 });

@@ -26,7 +26,6 @@ import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingCo
 import {REVLoans} from "../../src/REVLoans.sol";
 import {REVLoan} from "../../src/structs/REVLoan.sol";
 import {REVStageConfig, REVAutoIssuance} from "../../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../../src/structs/REVDescription.sol";
 import {IREVLoans} from "../../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
@@ -359,6 +358,8 @@ abstract contract ForkTestBase is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: "REVDeployer_Fork"}(
             jbController(),
+            jbMultiTerminal(),
+            jbMultiTerminal(),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -385,14 +386,13 @@ abstract contract ForkTestBase is TestBaseWorkflow {
     function _buildMinimalConfig(uint16 cashOutTaxRate)
         internal
         view
-        returns (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc)
+        returns (REVConfig memory cfg, JBAccountingContext[] memory tc, REVSuckerDeploymentConfig memory sdc)
     {
         JBAccountingContext[] memory acc = new JBAccountingContext[](1);
         acc[0] = JBAccountingContext({
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
-        tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        tc = acc;
 
         REVStageConfig[] memory stages = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
@@ -443,7 +443,7 @@ abstract contract ForkTestBase is TestBaseWorkflow {
             reserveFrequency: 0,
             reserveBeneficiary: address(0),
             // forge-lint: disable-next-line(unsafe-typecast)
-            encodedIPFSUri: bytes32("tier1"),
+            encodedIpfsUri: bytes32("tier1"),
             category: 1,
             discountPercent: 0,
             flags: JB721TierConfigFlags({
@@ -490,7 +490,7 @@ abstract contract ForkTestBase is TestBaseWorkflow {
 
     /// @notice Deploy the fee project using the given tax rate.
     function _deployFeeProject(uint16 cashOutTaxRate) internal {
-        (REVConfig memory feeCfg, JBTerminalConfig[] memory feeTc, REVSuckerDeploymentConfig memory feeSdc) =
+        (REVConfig memory feeCfg, JBAccountingContext[] memory feeTc, REVSuckerDeploymentConfig memory feeSdc) =
             _buildMinimalConfig(cashOutTaxRate);
         // forge-lint: disable-next-line(named-struct-fields)
         feeCfg.description = REVDescription("Fee", "FEE", "ipfs://fee", "FEE_SALT");
@@ -499,7 +499,7 @@ abstract contract ForkTestBase is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: feeCfg,
-            terminalConfigurations: feeTc,
+            accountingContextsToAccept: feeTc,
             suckerDeploymentConfiguration: feeSdc,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -508,13 +508,13 @@ abstract contract ForkTestBase is TestBaseWorkflow {
 
     /// @notice Deploy a revnet (no 721 hook) with the given cash out tax rate.
     function _deployRevnet(uint16 cashOutTaxRate) internal returns (uint256 revnetId) {
-        (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
+        (REVConfig memory cfg, JBAccountingContext[] memory tc, REVSuckerDeploymentConfig memory sdc) =
             _buildMinimalConfig(cashOutTaxRate);
 
         (revnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: sdc,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -523,7 +523,7 @@ abstract contract ForkTestBase is TestBaseWorkflow {
 
     /// @notice Deploy a revnet with 721 tiers and the given cash out tax rate.
     function _deployRevnetWith721(uint16 cashOutTaxRate) internal returns (uint256 revnetId, IJB721TiersHook hook) {
-        (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
+        (REVConfig memory cfg, JBAccountingContext[] memory tc, REVSuckerDeploymentConfig memory sdc) =
             _buildMinimalConfig(cashOutTaxRate);
         // Use a different salt to avoid CREATE2 collision with _deployRevnet's ERC-20.
         cfg.description.salt = "FORK_721_SALT";
@@ -532,7 +532,7 @@ abstract contract ForkTestBase is TestBaseWorkflow {
         (revnetId, hook) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: sdc,
             tiered721HookConfiguration: hookConfig,
             allowedPosts: new REVCroptopAllowedPost[](0)
@@ -684,8 +684,8 @@ abstract contract ForkTestBase is TestBaseWorkflow {
     // ─────────────────────────
 
     /// @notice Build a native token loan source.
-    function _nativeLoanSource() internal view returns (REVLoanSource memory) {
-        return REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+    function _nativeLoanSource() internal pure returns (address) {
+        return JBConstants.NATIVE_TOKEN;
     }
 
     /// @notice Grant BURN_TOKENS permission to the loans contract for a given account.
@@ -708,7 +708,7 @@ abstract contract ForkTestBase is TestBaseWorkflow {
         internal
         returns (uint256 loanId, REVLoan memory loan)
     {
-        REVLoanSource memory source = _nativeLoanSource();
+        address source = _nativeLoanSource();
         uint256 borrowable =
             LOANS_CONTRACT.borrowableAmountFrom(revnetId, collateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         require(borrowable > 0, "no borrowable amount");
@@ -718,7 +718,7 @@ abstract contract ForkTestBase is TestBaseWorkflow {
         vm.prank(borrower);
         (loanId, loan) = LOANS_CONTRACT.borrowFrom({
             revnetId: revnetId,
-            source: source,
+            token: source,
             minBorrowAmount: 0,
             collateralCount: collateral,
             beneficiary: payable(borrower),

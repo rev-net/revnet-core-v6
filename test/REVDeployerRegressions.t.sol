@@ -120,6 +120,8 @@ contract REVDeployerRegressions is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            jbMultiTerminal(),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -197,9 +199,7 @@ contract REVDeployerRegressions is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         REVStageConfig[] memory stageConfigurations = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
@@ -231,7 +231,7 @@ contract REVDeployerRegressions is TestBaseWorkflow {
         (uint256 revnetId,) = REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: revnetConfiguration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("C4_TEST")
             }),
@@ -252,21 +252,20 @@ contract REVDeployerRegressions is TestBaseWorkflow {
     }
 
     //*********************************************************************//
-    // --- Auto-Issuance Stage ID Mismatch ------------------------------ //
+    // --- Auto-Issuance Stage IDs -------------------------------------- //
     //*********************************************************************//
 
-    /// @notice Tests that auto-issuance stage IDs are computed correctly for multi-stage revnets.
-    /// @dev The stage ID is computed as `block.timestamp + i` which only works if stages
-    ///      are deployed in a specific order at a specific time.
-    function test_autoIssuanceStageIdMismatch() public {
+    /// @notice Auto-issuance storage keys match the ruleset IDs assigned by `JBRulesets`.
+    /// @dev `REVDeployer.deployFor` queues all stages in one transaction, and existing-project conversion only accepts
+    ///      blank projects. `JBRulesets` therefore assigns stage IDs as `deployTimestamp + i`, matching the keys used
+    ///      by `amountToAutoIssue`.
+    function test_autoIssuanceStageIdsMatchQueuedRulesets() public {
         JBAccountingContext[] memory accountingContextsToAccept = new JBAccountingContext[](1);
         accountingContextsToAccept[0] = JBAccountingContext({
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -275,10 +274,10 @@ contract REVDeployerRegressions is TestBaseWorkflow {
         uint8 decimals = 18;
         uint256 decimalMultiplier = 10 ** decimals;
 
-        // Configure 3 stages with auto-issuance on stages 0 AND 1
+        // Configure 3 stages with auto-issuance on stages 0 and 1.
         REVStageConfig[] memory stageConfigurations = new REVStageConfig[](3);
 
-        // Stage 0: has auto-issuance
+        // Stage 0: has auto-issuance.
         {
             REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
             issuanceConfs[0] = REVAutoIssuance({
@@ -303,7 +302,7 @@ contract REVDeployerRegressions is TestBaseWorkflow {
             });
         }
 
-        // Stage 1: also has auto-issuance — this is where the mismatch manifests
+        // Stage 1: also has auto-issuance.
         {
             REVAutoIssuance[] memory issuanceConfs = new REVAutoIssuance[](1);
             issuanceConfs[0] = REVAutoIssuance({
@@ -349,11 +348,13 @@ contract REVDeployerRegressions is TestBaseWorkflow {
             stageConfigurations: stageConfigurations
         });
 
+        uint256 deployTimestamp = block.timestamp;
+
         vm.prank(multisig());
         (uint256 revnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: revnetConfiguration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("H5_TEST")
             }),
@@ -361,39 +362,31 @@ contract REVDeployerRegressions is TestBaseWorkflow {
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
-        // Verify the revnet was deployed
+        // Verify the revnet was deployed.
         assertGt(revnetId, 0, "revnet should be deployed");
 
-        // The bug: auto-issuance for stage 1 is stored at key (block.timestamp + 1),
-        // but the actual ruleset ID for stage 1 is the timestamp when that stage's ruleset
-        // was queued. These may not match.
-        // We verify the auto-issuance amounts are stored and can be queried.
-        uint256 stage0Amount = REV_DEPLOYER.amountToAutoIssue(revnetId, block.timestamp, multisig());
+        uint256 stage0RulesetId = deployTimestamp;
+        uint256 stage1RulesetId = deployTimestamp + 1;
 
-        // Stage 0 auto-issuance should be stored at block.timestamp
-        assertEq(stage0Amount, 50_000 * decimalMultiplier, "Stage 0 auto-issuance should be stored at block.timestamp");
+        // Stage 0 auto-issuance should be stored at its actual ruleset ID.
+        uint256 stage0Amount = REV_DEPLOYER.amountToAutoIssue(revnetId, stage0RulesetId, multisig());
+        assertEq(stage0Amount, 50_000 * decimalMultiplier, "Stage 0 auto-issuance should be stored at stage 0 ID");
 
-        // Stage 1 auto-issuance is stored at (block.timestamp + 1)
-        uint256 stage1Amount = REV_DEPLOYER.amountToAutoIssue(revnetId, block.timestamp + 1, multisig());
-        assertEq(
-            stage1Amount,
-            30_000 * decimalMultiplier,
-            "Stage 1 auto-issuance stored at block.timestamp + 1 (may not match ruleset ID)"
+        // Stage 1 auto-issuance should be stored at its actual ruleset ID.
+        uint256 stage1Amount = REV_DEPLOYER.amountToAutoIssue(revnetId, stage1RulesetId, multisig());
+        assertEq(stage1Amount, 30_000 * decimalMultiplier, "Stage 1 auto-issuance should be stored at stage 1 ID");
+
+        (JBRuleset memory stage0Ruleset,) =
+            jbController().getRulesetOf({projectId: revnetId, rulesetId: stage0RulesetId});
+        (JBRuleset memory stage1Ruleset,) =
+            jbController().getRulesetOf({projectId: revnetId, rulesetId: stage1RulesetId});
+
+        assertEq(stage0Ruleset.id, stage0RulesetId, "Stage 0 ruleset ID should match auto-issuance key");
+        assertEq(stage1Ruleset.id, stage1RulesetId, "Stage 1 ruleset ID should match auto-issuance key");
+        assertGe(
+            stage1Ruleset.start,
+            stageConfigurations[1].startsAtOrAfter,
+            "Stage 1 ruleset start should not precede the configured stage time"
         );
-
-        // Now check the actual ruleset IDs to demonstrate the mismatch
-        JBRuleset[] memory rulesets = jbRulesets().allOf(revnetId, 0, 3);
-        if (rulesets.length >= 2) {
-            uint256 actualStage1RulesetId = rulesets[1].id;
-
-            // The mismatch: the storage key (block.timestamp + 1) likely != the actual ruleset ID
-            // If they don't match, auto-issuance tokens for stage 1 become unclaimable
-            // forge-lint: disable-next-line(block-timestamp)
-            if (actualStage1RulesetId != block.timestamp + 1) {
-                // Verify the amount at the ACTUAL ruleset ID is 0 (the mismatch)
-                uint256 amountAtActualId = REV_DEPLOYER.amountToAutoIssue(revnetId, actualStage1RulesetId, multisig());
-                assertEq(amountAtActualId, 0, "auto-issuance at actual ruleset ID is 0 (mismatch)");
-            }
-        }
     }
 }

@@ -28,7 +28,6 @@ import {MockERC20} from "@bananapus/core-v6/test/mock/MockERC20.sol";
 import {REVLoans} from "../../src/REVLoans.sol";
 import {REVLoan} from "../../src/structs/REVLoan.sol";
 import {REVStageConfig, REVAutoIssuance} from "../../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../../src/structs/REVDescription.sol";
 import {IREVLoans} from "../../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
@@ -142,6 +141,8 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            jbMultiTerminal(),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -169,8 +170,7 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         acc[1] = JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
 
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -205,7 +205,7 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")
             }),
@@ -220,8 +220,7 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         acc[1] = JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
 
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -255,7 +254,7 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
         (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NANA")
             }),
@@ -311,7 +310,7 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
         // Step 2: Take a small loan from the ETH source.
         uint256 ethCollateral = revnetTokens / 10;
         _mockBurnPermission();
-        REVLoanSource memory ethSource = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address ethSource = JBConstants.NATIVE_TOKEN;
         vm.prank(USER);
         LOANS_CONTRACT.borrowFrom(REVNET_ID, ethSource, 0, ethCollateral, payable(USER), 25, USER);
 
@@ -323,14 +322,13 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
 
         uint256 tokenCollateral = revnetTokens / 10;
         _mockBurnPermission();
-        REVLoanSource memory tokenSource = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
+        address tokenSource = address(TOKEN);
         vm.prank(USER);
         LOANS_CONTRACT.borrowFrom(REVNET_ID, tokenSource, 0, tokenCollateral, payable(USER), 25, USER);
 
         // Verify both sources have nonzero totalBorrowedFrom.
-        uint256 borrowedFromEth =
-            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
-        uint256 borrowedFromToken = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), address(TOKEN));
+        uint256 borrowedFromEth = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, JBConstants.NATIVE_TOKEN);
+        uint256 borrowedFromToken = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, address(TOKEN));
         assertGt(borrowedFromEth, 0, "ETH source should have nonzero borrowed amount");
         assertGt(borrowedFromToken, 0, "TOKEN source should have nonzero borrowed amount");
 
@@ -395,7 +393,7 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
 
         // Step 2: Take a loan from the ETH source only (same currency as baseCurrency).
         _mockBurnPermission();
-        REVLoanSource memory ethSource = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address ethSource = JBConstants.NATIVE_TOKEN;
         vm.prank(USER);
         LOANS_CONTRACT.borrowFrom(REVNET_ID, ethSource, 0, revnetTokens / 2, payable(USER), 25, USER);
 

@@ -17,12 +17,12 @@ import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerR
 
 import {IREVDeployer} from "../../src/interfaces/IREVDeployer.sol";
 import {IREVLoans} from "../../src/interfaces/IREVLoans.sol";
-import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
 import {REVOwner} from "../../src/REVOwner.sol";
 
-/// @notice Regression test for bug AQ — `REVOwner.beforeCashOutRecordedWith` must respect
-///         `scopeCashOutsToLocalBalances`. When true, remote supply/surplus must NOT be included.
-///         When false, remote supply/surplus MUST be included.
+/// @notice Regression test for `REVOwner.beforeCashOutRecordedWith` remote-accounting boundaries.
+///         Normal holder cash-outs respect `scopeCashOutsToLocalBalances`: scoped excludes remote values, unscoped
+///         includes them. Sucker bridge cash-outs intentionally use local backing in both modes so token movement is
+///         proportional to funds on the source chain.
 contract ScopeCashOutsToLocalBalancesConditionalTest is Test {
     REVOwner revOwner;
 
@@ -32,6 +32,7 @@ contract ScopeCashOutsToLocalBalancesConditionalTest is Test {
     address constant LOANS = address(0x4444);
     address constant FEE_TERMINAL = address(0x6666);
     address constant HOLDER = address(0x7777);
+    address constant SUCKER = address(0x7778);
     address constant TOKEN = address(0x8888);
 
     uint256 constant REVNET_ID = 10;
@@ -72,6 +73,9 @@ contract ScopeCashOutsToLocalBalancesConditionalTest is Test {
         vm.mockCall(
             SUCKER_REGISTRY, abi.encodeCall(IJBSuckerRegistry.isSuckerOf, (REVNET_ID, HOLDER)), abi.encode(false)
         );
+        vm.mockCall(
+            SUCKER_REGISTRY, abi.encodeCall(IJBSuckerRegistry.isSuckerOf, (REVNET_ID, SUCKER)), abi.encode(true)
+        );
 
         // Mock: fee terminal exists
         vm.mockCall(
@@ -80,7 +84,7 @@ contract ScopeCashOutsToLocalBalancesConditionalTest is Test {
 
         // Mock: loans returns zero (no outstanding loans)
         vm.mockCall(LOANS, abi.encodeCall(IREVLoans.totalCollateralOf, (REVNET_ID)), abi.encode(uint256(0)));
-        REVLoanSource[] memory emptySources = new REVLoanSource[](0);
+        address[] memory emptySources = new address[](0);
         vm.mockCall(LOANS, abi.encodeCall(IREVLoans.loanSourcesOf, (REVNET_ID)), abi.encode(emptySources));
 
         // Mock: sucker registry remote values
@@ -112,9 +116,20 @@ contract ScopeCashOutsToLocalBalancesConditionalTest is Test {
     }
 
     function _buildContext(bool scopeToLocal) internal pure returns (JBBeforeCashOutRecordedContext memory) {
+        return _buildContextFor({holder: HOLDER, scopeToLocal: scopeToLocal});
+    }
+
+    function _buildContextFor(
+        address holder,
+        bool scopeToLocal
+    )
+        internal
+        pure
+        returns (JBBeforeCashOutRecordedContext memory)
+    {
         return JBBeforeCashOutRecordedContext({
             terminal: address(0),
-            holder: HOLDER,
+            holder: holder,
             projectId: REVNET_ID,
             rulesetId: 1,
             cashOutCount: CASH_OUT_COUNT,
@@ -149,6 +164,44 @@ contract ScopeCashOutsToLocalBalancesConditionalTest is Test {
         assertEq(
             effectiveSurplus, LOCAL_SURPLUS + REMOTE_SURPLUS, "effectiveSurplus should include remote when not scoped"
         );
+    }
+
+    /// @notice Sucker cash-outs are tax/fee exempt and use local backing even when the ruleset is unscoped.
+    function test_suckerScopeFalse_usesLocalBacking() public view {
+        JBBeforeCashOutRecordedContext memory ctx = _buildContextFor({holder: SUCKER, scopeToLocal: false});
+
+        (
+            uint256 cashOutTaxRate,
+            uint256 effectiveCashOutCount,
+            uint256 totalSupply,
+            uint256 effectiveSurplus,
+            JBCashOutHookSpecification[] memory specs
+        ) = revOwner.beforeCashOutRecordedWith(ctx);
+
+        assertEq(cashOutTaxRate, 0, "sucker cash-out should remain tax exempt");
+        assertEq(effectiveCashOutCount, CASH_OUT_COUNT, "sucker should cash out the requested count");
+        assertEq(totalSupply, LOCAL_SUPPLY, "sucker totalSupply should use local backing even when not scoped");
+        assertEq(
+            effectiveSurplus, LOCAL_SURPLUS, "sucker effectiveSurplus should use local backing even when not scoped"
+        );
+        assertEq(specs.length, 0, "sucker cash-out should not attach fee specs");
+    }
+
+    /// @notice Scoped sucker cash-outs remain local-only.
+    function test_suckerScopeTrue_excludesRemote() public view {
+        JBBeforeCashOutRecordedContext memory ctx = _buildContextFor({holder: SUCKER, scopeToLocal: true});
+
+        (
+            uint256 cashOutTaxRate,,
+            uint256 totalSupply,
+            uint256 effectiveSurplus,
+            JBCashOutHookSpecification[] memory specs
+        ) = revOwner.beforeCashOutRecordedWith(ctx);
+
+        assertEq(cashOutTaxRate, 0, "sucker cash-out should remain tax exempt");
+        assertEq(totalSupply, LOCAL_SUPPLY, "sucker totalSupply should be local-only when scoped");
+        assertEq(effectiveSurplus, LOCAL_SURPLUS, "sucker effectiveSurplus should be local-only when scoped");
+        assertEq(specs.length, 0, "sucker cash-out should not attach fee specs");
     }
 
     /// @notice When scoped to local but there are no suckers, result is the same as local-only.

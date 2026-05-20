@@ -41,7 +41,6 @@ import {REVLoans} from "../src/REVLoans.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
 import {JBSuckerRegistry} from "@bananapus/suckers-v6/src/JBSuckerRegistry.sol";
 import {JB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
@@ -290,6 +289,8 @@ contract TestRegressionFixVerification is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            jbMultiTerminal(),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -471,8 +472,7 @@ contract TestRegressionFixVerification is TestBaseWorkflow {
         acc[0] = JBAccountingContext({
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
         REVStageConfig[] memory stages = new REVStageConfig[](1);
         stages[0] = REVStageConfig({
             startsAtOrAfter: uint48(block.timestamp),
@@ -497,7 +497,7 @@ contract TestRegressionFixVerification is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: feeConfig,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")
             }),
@@ -514,8 +514,7 @@ contract TestRegressionFixVerification is TestBaseWorkflow {
         acc[1] = JBAccountingContext({
             token: address(USDC_TOKEN), decimals: 6, currency: uint32(uint160(address(USDC_TOKEN)))
         });
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
         REVStageConfig[] memory stages = new REVStageConfig[](1);
         stages[0] = REVStageConfig({
             startsAtOrAfter: uint48(block.timestamp),
@@ -540,7 +539,7 @@ contract TestRegressionFixVerification is TestBaseWorkflow {
         (uint256 revnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: revConfig,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NANA")
             }),

@@ -105,6 +105,8 @@ contract RegressionSuckerCallerDeterminismTest is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            jbMultiTerminal(),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -198,8 +200,7 @@ contract RegressionSuckerCallerDeterminismTest is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory terminals = new JBTerminalConfig[](1);
-        terminals[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContexts});
+        JBAccountingContext[] memory terminals = accountingContexts;
 
         REVStageConfig[] memory stages = new REVStageConfig[](1);
         stages[0] = REVStageConfig({
@@ -227,7 +228,7 @@ contract RegressionSuckerCallerDeterminismTest is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: config,
-            terminalConfigurations: terminals,
+            accountingContextsToAccept: terminals,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")
             }),
@@ -250,8 +251,7 @@ contract RegressionSuckerCallerDeterminismTest is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory terminals = new JBTerminalConfig[](1);
-        terminals[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContexts});
+        JBAccountingContext[] memory terminals = accountingContexts;
 
         REVStageConfig[] memory stages = new REVStageConfig[](1);
         stages[0] = REVStageConfig({
@@ -278,7 +278,7 @@ contract RegressionSuckerCallerDeterminismTest is TestBaseWorkflow {
         (revnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: config,
-            terminalConfigurations: terminals,
+            accountingContextsToAccept: terminals,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NO_INITIAL_SUCKERS")
             }),

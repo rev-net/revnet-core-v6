@@ -183,7 +183,7 @@ contract BorrowableHarness is REVLoans {
             collateralCount: collateralCount,
             decimals: decimals,
             currency: currency,
-            terminals: terminals,
+            multiTerminal: terminals[0],
             currentStage: currentStage
         });
     }

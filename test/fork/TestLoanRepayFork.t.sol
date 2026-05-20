@@ -40,8 +40,7 @@ contract TestLoanRepayFork is ForkTestBase {
     /// @notice Full repay: return all collateral, burn loan NFT.
     function test_fork_repay_full() public {
         uint256 totalCollateralBefore = LOANS_CONTRACT.totalCollateralOf(revnetId);
-        uint256 totalBorrowedBefore =
-            LOANS_CONTRACT.totalBorrowedFrom(revnetId, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
+        uint256 totalBorrowedBefore = LOANS_CONTRACT.totalBorrowedFrom(revnetId, JBConstants.NATIVE_TOKEN);
 
         // Fund borrower to repay (they need more ETH than they got from the loan due to fees).
         vm.deal(BORROWER, 100 ether);
@@ -75,7 +74,7 @@ contract TestLoanRepayFork is ForkTestBase {
             "totalCollateralOf should decrease"
         );
         assertLt(
-            LOANS_CONTRACT.totalBorrowedFrom(revnetId, jbMultiTerminal(), JBConstants.NATIVE_TOKEN),
+            LOANS_CONTRACT.totalBorrowedFrom(revnetId, JBConstants.NATIVE_TOKEN),
             totalBorrowedBefore,
             "totalBorrowedFrom should decrease"
         );

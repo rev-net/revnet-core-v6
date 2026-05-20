@@ -108,6 +108,8 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
 
         revDeployer = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            jbMultiTerminal(),
             suckerRegistry,
             feeProjectId,
             hookDeployer,
@@ -193,9 +195,7 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -223,7 +223,7 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
                 scopeCashOutsToLocalBalances: false,
                 stageConfigurations: stageConfigurations
             }),
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked(symbol))
             }),

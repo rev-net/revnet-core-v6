@@ -16,6 +16,8 @@ import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerR
 import {IPermit2} from "@uniswap/permit2/src/interfaces/IPermit2.sol";
 
 import {REVLoans} from "../../src/REVLoans.sol";
+import {IREVDeployer} from "../../src/interfaces/IREVDeployer.sol";
+import {IREVOwner} from "../../src/interfaces/IREVOwner.sol";
 
 /// @notice Regression test for `scopeCashOutsToLocalBalances` in REVLoans (Consumer 3).
 /// @dev References TEST_IMPROVEMENT_PLAN.md Section 8.2, Consumer 3.
@@ -32,6 +34,7 @@ contract ScopeCashOutsREVLoansTest is Test {
     address constant TERMINAL = address(0x6666);
     address constant PERMIT2 = address(0x7777);
     address constant OWNER = address(0x8888);
+    address constant DEPLOYER = address(0x9999);
 
     uint256 constant REVNET_ID = 10;
     uint256 constant REV_ID = 1;
@@ -49,6 +52,8 @@ contract ScopeCashOutsREVLoansTest is Test {
         vm.etch(SUCKER_REGISTRY, hex"00");
         vm.etch(TERMINAL, hex"00");
         vm.etch(PERMIT2, hex"00");
+        vm.etch(OWNER, hex"00");
+        vm.etch(DEPLOYER, hex"00");
 
         // Mock constructor dependencies
         vm.mockCall(CONTROLLER, abi.encodeWithSelector(IJBController.DIRECTORY.selector), abi.encode(DIRECTORY));
@@ -62,6 +67,12 @@ contract ScopeCashOutsREVLoansTest is Test {
             OWNER,
             IPermit2(PERMIT2),
             address(0) // no trusted forwarder
+        );
+
+        vm.mockCall(OWNER, abi.encodeWithSelector(IREVOwner.deployer.selector), abi.encode(IREVDeployer(DEPLOYER)));
+        vm.mockCall(OWNER, abi.encodeWithSelector(IREVOwner.cashOutDelayOf.selector, REVNET_ID), abi.encode(uint256(0)));
+        vm.mockCall(
+            DEPLOYER, abi.encodeWithSelector(IREVDeployer.MULTI_TERMINAL.selector), abi.encode(IJBTerminal(TERMINAL))
         );
 
         // --- Mock borrowableAmountFrom dependencies ---
@@ -102,9 +113,8 @@ contract ScopeCashOutsREVLoansTest is Test {
         // scopeCashOutsToLocalBalances(bit 79)
         metadata = uint256(cashOutTaxRate) << 16;
         metadata |= uint256(1) << 32; // baseCurrency = 1
-        if (scopeToLocal) {
-            metadata |= uint256(1) << 79;
-        }
+        if (scopeToLocal) metadata |= uint256(1) << 79;
+        metadata |= uint256(uint160(OWNER)) << 82;
     }
 
     /// @notice Build a mock ruleset with the given scope flag. No dataHook → cashOutDelay=0.

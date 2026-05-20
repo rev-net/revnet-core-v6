@@ -33,7 +33,6 @@ import {IPermit2} from "@uniswap/permit2/src/interfaces/IPermit2.sol";
 import {IREVLoans} from "./interfaces/IREVLoans.sol";
 import {IREVOwner} from "./interfaces/IREVOwner.sol";
 import {REVLoan} from "./structs/REVLoan.sol";
-import {REVLoanSource} from "./structs/REVLoanSource.sol";
 
 /// @notice Allows revnet token holders to borrow against their tokens instead of cashing out. The borrowable amount
 /// equals what a cash-out would return. Collateral tokens are burned on borrow and re-minted on repayment, keeping the
@@ -60,6 +59,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     error REVLoans_CollateralExceedsLoan(uint256 collateralToReturn, uint256 loanCollateral);
     error REVLoans_InvalidPrepaidFeePercent(uint256 prepaidFeePercent, uint256 min, uint256 max);
     error REVLoans_InvalidTerminal(address terminal, uint256 revnetId);
+    error REVLoans_InvalidAccountingContext(uint256 revnetId, address token);
     error REVLoans_LoanExpired(uint256 timeSinceLoanCreated, uint256 loanLiquidationDuration);
     error REVLoans_LoanIdOverflow(uint256 revnetId, uint256 loanNumber, uint256 maxLoanNumber);
     error REVLoans_LoanOwnerChanged(uint256 loanId, address expectedOwner, address actualOwner);
@@ -71,9 +71,8 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     error REVLoans_OverflowAlert(uint256 value, uint256 limit);
     error REVLoans_PermitAllowanceNotEnough(uint256 allowanceAmount, uint256 requiredAmount);
     error REVLoans_ReallocatingMoreCollateralThanBorrowedAmountAllows(uint256 newBorrowAmount, uint256 loanAmount);
-    error REVLoans_SourceMismatch(
-        address expectedToken, address actualToken, address expectedTerminal, address actualTerminal
-    );
+    error REVLoans_ReentrantLoanAction();
+    error REVLoans_SourceMismatch(address expectedToken, address actualToken);
     error REVLoans_UnderMinBorrowAmount(uint256 minBorrowAmount, uint256 borrowAmount);
     error REVLoans_ZeroBorrowAmount(uint256 revnetId, uint256 collateralCount);
     error REVLoans_ZeroCollateralLoanIsInvalid(uint256 collateralCount);
@@ -130,14 +129,10 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     // --------------------- public stored properties -------------------- //
     //*********************************************************************//
 
-    /// @notice An indication if a revnet currently has outstanding loans from the specified terminal in the specified
-    /// token.
+    /// @notice An indication if a revnet currently has outstanding loans from the specified token source.
     /// @custom:param revnetId The ID of the revnet to check.
-    /// @custom:param terminal The terminal to check.
-    /// @custom:param token The token to check.
-    mapping(uint256 revnetId => mapping(IJBPayoutTerminal terminal => mapping(address token => bool)))
-        public
-        override isLoanSourceOf;
+    /// @custom:param token The token source to check.
+    mapping(uint256 revnetId => mapping(address token => bool)) internal _isLoanSourceOf;
 
     /// @notice The cumulative number of loans ever created for a revnet, used as a loan ID sequence counter.
     /// @dev This counter only increments (on borrow, repay-with-new-loan, and reallocation) and never decrements.
@@ -149,13 +144,10 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @notice The contract resolving each project ID to its ERC721 URI.
     IJBTokenUriResolver public override tokenUriResolver;
 
-    /// @notice The total amount loaned out by a revnet from a specified terminal in a specified token.
+    /// @notice The total amount loaned out by a revnet from a specified token source.
     /// @custom:param revnetId The ID of the revnet to check.
-    /// @custom:param terminal The terminal to check.
-    /// @custom:param token The token to check.
-    mapping(uint256 revnetId => mapping(IJBPayoutTerminal terminal => mapping(address token => uint256)))
-        public
-        override totalBorrowedFrom;
+    /// @custom:param token The token source to check.
+    mapping(uint256 revnetId => mapping(address token => uint256)) internal _totalBorrowedFromBySource;
 
     /// @notice The total amount of collateral supporting a revnet's loans.
     /// @custom:param revnetId The ID of the revnet to check.
@@ -166,16 +158,19 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     //*********************************************************************//
 
     /// @notice The sources of each revnet's loan.
-    /// @dev This array grows monotonically -- entries are appended when a new (terminal, token) pair is first used for
-    /// borrowing, but are never removed. The `isLoanSourceOf` mapping tracks whether a source has been registered.
-    /// Since the number of distinct (terminal, token) pairs per revnet is practically bounded (typically < 10),
-    /// the gas cost of iterating this array in `loanSourcesOf` remains manageable.
+    /// @dev This array grows monotonically -- entries are appended when a token is first used for borrowing, but are
+    /// never removed. The `_isLoanSourceOf` mapping tracks whether a source has been registered. Since sources are
+    /// bounded to the revnet's accepted accounting contexts on the canonical multi terminal, iteration remains
+    /// manageable.
     /// @custom:member revnetId The ID of the revnet to look up.
-    mapping(uint256 revnetId => REVLoanSource[]) internal _loanSourcesOf;
+    mapping(uint256 revnetId => address[]) internal _loanSourcesOf;
 
     /// @notice The loans.
     /// @custom:member The ID of the loan.
     mapping(uint256 loanId => REVLoan) internal _loanOf;
+
+    /// @notice Whether a loan-changing entrypoint is currently executing.
+    bool transient _loanActionEntered;
 
     //*********************************************************************//
     // -------------------------- constructor ---------------------------- //
@@ -209,6 +204,19 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     }
 
     //*********************************************************************//
+    // ---------------------------- modifiers ---------------------------- //
+    //*********************************************************************//
+
+    /// @notice Prevent nested loan-changing calls while an external callback is in progress.
+    modifier nonReentrantLoanAction() {
+        if (_loanActionEntered) revert REVLoans_ReentrantLoanAction();
+
+        _loanActionEntered = true;
+        _;
+        _loanActionEntered = false;
+    }
+
+    //*********************************************************************//
     // ------------------------- external views -------------------------- //
     //*********************************************************************//
 
@@ -235,12 +243,14 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // forge-lint: disable-next-line(block-timestamp)
         if (_cashOutDelayOf({revnetId: revnetId, currentRuleset: currentRuleset}) > block.timestamp) return 0;
 
+        IJBTerminal multiTerminal = _multiTerminalOf({revnetId: revnetId, currentRuleset: currentRuleset});
+
         return _borrowableAmountFrom({
             revnetId: revnetId,
             collateralCount: collateralCount,
             decimals: decimals,
             currency: currency,
-            terminals: _terminalsOf(revnetId),
+            multiTerminal: multiTerminal,
             currentStage: currentRuleset
         });
     }
@@ -251,12 +261,26 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         return _loanOf[loanId];
     }
 
-    /// @notice The sources of each revnet's loan.
+    /// @notice The source tokens of each revnet's loans.
     /// @dev This array only grows -- sources are never removed. The number of distinct sources is practically bounded
-    /// by the number of unique (terminal, token) pairs used for borrowing, which is typically small.
+    /// by the number of accepted token accounting contexts, which is typically small.
     /// @param revnetId The ID of the revnet to look up.
-    function loanSourcesOf(uint256 revnetId) external view override returns (REVLoanSource[] memory) {
+    function loanSourcesOf(uint256 revnetId) external view override returns (address[] memory) {
         return _loanSourcesOf[revnetId];
+    }
+
+    /// @notice Whether a revnet currently has outstanding loans from the specified token.
+    /// @param revnetId The ID of the revnet to check.
+    /// @param token The token to check.
+    function isLoanSourceOf(uint256 revnetId, address token) external view override returns (bool) {
+        return _isLoanSourceOf[revnetId][token];
+    }
+
+    /// @notice The total amount loaned out by a revnet from a specified token.
+    /// @param revnetId The ID of the revnet to check.
+    /// @param token The token loaned.
+    function totalBorrowedFrom(uint256 revnetId, address token) external view override returns (uint256) {
+        return _totalBorrowedFromBySource[revnetId][token];
     }
 
     //*********************************************************************//
@@ -331,7 +355,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @param collateralCount The amount of collateral to secure the loan with.
     /// @param decimals The decimals to use for the resulting fixed point value.
     /// @param currency The currency to denominate the resulting amount in.
-    /// @param terminals The terminals to borrow from.
+    /// @param multiTerminal The canonical multi terminal to borrow from.
     /// @param currentStage The pre-fetched current ruleset.
     /// @return borrowableAmount The amount that can be borrowed from the revnet.
     function _borrowableAmountFrom(
@@ -339,21 +363,27 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         uint256 collateralCount,
         uint256 decimals,
         uint256 currency,
-        IJBTerminal[] memory terminals,
+        IJBTerminal multiTerminal,
         JBRuleset memory currentStage
     )
         internal
         view
         returns (uint256)
     {
-        // Get the surplus of all the revnet's terminals in terms of the native currency.
+        // Get the surplus of the revnet's canonical multi terminal in terms of the requested currency.
         uint256 totalSurplus = JBSurplus.currentSurplusOf({
-            projectId: revnetId, terminals: terminals, tokens: new address[](0), decimals: decimals, currency: currency
+            projectId: revnetId,
+            terminals: _singleTerminalArray(multiTerminal),
+            tokens: new address[](0),
+            decimals: decimals,
+            currency: currency
         });
 
         // Get the total amount the revnet currently has loaned out, in terms of the native currency with 18
         // decimals.
-        uint256 totalBorrowed = _totalBorrowedFrom({revnetId: revnetId, decimals: decimals, currency: currency});
+        uint256 totalBorrowed = _totalBorrowedFrom({
+            revnetId: revnetId, decimals: decimals, currency: currency, multiTerminal: multiTerminal
+        });
 
         // Get the total amount of tokens in circulation.
         uint256 totalSupply = CONTROLLER.totalTokenSupplyWithReservedTokensOf(revnetId);
@@ -361,8 +391,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Get a reference to the collateral being used to secure loans.
         uint256 totalCollateral = totalCollateralOf[revnetId];
 
-        // Hidden tokens are intentionally excluded from borrowing math. Operators can hide tokens as a security
-        // handle without changing the fair loan market for visible token holders.
+        // Only live token supply is counted here, then loan collateral is added back because loans burn collateral
+        // while borrowers still have a repayable claim on it. Ordinary voluntary burns are not tracked as hidden
+        // supply in v6; they destroy the holder's claim and do not need to be added back.
         uint256 localSupply = totalSupply + totalCollateral;
 
         // The local surplus includes both the treasury surplus and the outstanding borrowed amounts.
@@ -411,19 +442,17 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // If there's no collateral, there's no loan.
         if (collateralCount == 0) return 0;
 
-        // Get a reference to the accounting context for the source.
-        JBAccountingContext memory accountingContext =
-            loan.source.terminal.accountingContextForTokenOf({projectId: revnetId, token: loan.source.token});
-
-        // Keep a reference to the revnet's terminals.
-        IJBTerminal[] memory terminals = _terminalsOf(revnetId);
+        // Keep a reference to the revnet's canonical treasury terminal and the token's accounting context.
+        IJBTerminal multiTerminal = _multiTerminalOf({revnetId: revnetId, currentRuleset: currentRuleset});
+        JBAccountingContext memory context =
+            _accountingContextForTokenOf({revnetId: revnetId, terminal: multiTerminal, token: loan.sourceToken});
 
         return _borrowableAmountFrom({
             revnetId: revnetId,
             collateralCount: collateralCount,
-            decimals: accountingContext.decimals,
-            currency: accountingContext.currency,
-            terminals: terminals,
+            decimals: context.decimals,
+            currency: context.currency,
+            multiTerminal: multiTerminal,
             currentStage: currentRuleset
         });
     }
@@ -453,6 +482,52 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @return currentRuleset The current ruleset.
     function _currentRulesetOf(uint256 revnetId) internal view returns (JBRuleset memory currentRuleset) {
         (currentRuleset,) = CONTROLLER.currentRulesetOf(revnetId);
+    }
+
+    /// @notice The canonical multi terminal for a revnet according to its REV deployer.
+    /// @param revnetId The ID of the revnet.
+    /// @param currentRuleset The pre-fetched current ruleset.
+    /// @return terminal The canonical multi terminal.
+    function _multiTerminalOf(
+        uint256 revnetId,
+        JBRuleset memory currentRuleset
+    )
+        internal
+        view
+        returns (IJBTerminal terminal)
+    {
+        address dataHook = currentRuleset.dataHook();
+        if (dataHook == address(0)) revert REVLoans_InvalidTerminal({terminal: address(0), revnetId: revnetId});
+
+        terminal = IREVOwner(dataHook).deployer().MULTI_TERMINAL();
+        if (terminal == IJBTerminal(address(0))) {
+            revert REVLoans_InvalidTerminal({terminal: address(0), revnetId: revnetId});
+        }
+    }
+
+    /// @notice Returns a single-terminal array for surplus calculations.
+    function _singleTerminalArray(IJBTerminal terminal) internal pure returns (IJBTerminal[] memory terminals) {
+        terminals = new IJBTerminal[](1);
+        terminals[0] = terminal;
+    }
+
+    /// @notice The canonical multi-terminal accounting context for a source token.
+    /// @param revnetId The ID of the revnet.
+    /// @param terminal The canonical multi terminal.
+    /// @param token The requested loan source token.
+    /// @return context The token's accounting context.
+    function _accountingContextForTokenOf(
+        uint256 revnetId,
+        IJBTerminal terminal,
+        address token
+    )
+        internal
+        view
+        returns (JBAccountingContext memory context)
+    {
+        context = terminal.accountingContextForTokenOf({projectId: revnetId, token: token});
+
+        if (context.token != token) revert REVLoans_InvalidAccountingContext({revnetId: revnetId, token: token});
     }
 
     /// @notice Determines the source fee amount for a loan when paying off a certain amount.
@@ -515,13 +590,6 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         return ERC2771Context._msgSender();
     }
 
-    /// @notice Returns the terminals for a revnet. Consolidates ABI encode/decode to a single site.
-    /// @param revnetId The ID of the revnet.
-    /// @return The terminals registered for the revnet.
-    function _terminalsOf(uint256 revnetId) internal view returns (IJBTerminal[] memory) {
-        return DIRECTORY.terminalsOf(revnetId);
-    }
-
     /// @notice The total borrowed amount from a revnet, aggregated across all loan sources.
     /// @dev Each source's `totalBorrowedFrom` is stored in the source token's native decimals (e.g. 6 for USDC,
     /// 18 for ETH). Before aggregation, each amount is normalized to the target `decimals` to prevent mixed-decimal
@@ -535,7 +603,8 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     function _totalBorrowedFrom(
         uint256 revnetId,
         uint256 decimals,
-        uint256 currency
+        uint256 currency,
+        IJBTerminal multiTerminal
     )
         internal
         view
@@ -543,44 +612,40 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     {
         // Keep a reference to all sources being used to loaned out from this revnet.
         // Use storage ref to avoid bulk-copying the entire array to memory.
-        REVLoanSource[] storage sources = _loanSourcesOf[revnetId];
+        address[] storage sources = _loanSourcesOf[revnetId];
 
         // Iterate over all sources being used to loaned out.
         for (uint256 i; i < sources.length; i++) {
             // Get a reference to the token being iterated on.
-            REVLoanSource storage source = sources[i];
+            address sourceToken = sources[i];
 
             // Get a reference to the amount of tokens loaned out.
-            uint256 tokensLoaned = totalBorrowedFrom[revnetId][source.terminal][source.token];
+            uint256 tokensLoaned = _totalBorrowedFromBySource[revnetId][sourceToken];
 
-            // Skip if no tokens are loaned from this source. Checked before the external call below to avoid
-            // reverting on stale sources whose terminals may no longer support this token.
+            // Skip if no tokens are loaned from this source.
             if (tokensLoaned == 0) continue;
 
-            // Get a reference to the accounting context for the source.
-            JBAccountingContext memory accountingContext =
-                source.terminal.accountingContextForTokenOf({projectId: revnetId, token: source.token});
+            // Get the current accounting context for the source token from the canonical multi terminal.
+            JBAccountingContext memory context =
+                _accountingContextForTokenOf({revnetId: revnetId, terminal: multiTerminal, token: sourceToken});
 
             // Normalize the token amount from the source's decimals to the target decimals.
             uint256 normalizedTokens;
-            if (accountingContext.decimals > decimals) {
-                normalizedTokens = tokensLoaned / (10 ** (accountingContext.decimals - decimals));
-            } else if (accountingContext.decimals < decimals) {
-                normalizedTokens = tokensLoaned * (10 ** (decimals - accountingContext.decimals));
+            if (context.decimals > decimals) {
+                normalizedTokens = tokensLoaned / (10 ** (context.decimals - decimals));
+            } else if (context.decimals < decimals) {
+                normalizedTokens = tokensLoaned * (10 ** (decimals - context.decimals));
             } else {
                 normalizedTokens = tokensLoaned;
             }
 
             // If the currency matches, add the normalized amount directly.
-            if (accountingContext.currency == currency) {
+            if (context.currency == currency) {
                 borrowedAmount += normalizedTokens;
             } else {
                 // Otherwise, convert via the price feed.
                 uint256 pricePerUnit = PRICES.pricePerUnitOf({
-                    projectId: revnetId,
-                    pricingCurrency: accountingContext.currency,
-                    unitCurrency: currency,
-                    decimals: decimals
+                    projectId: revnetId, pricingCurrency: context.currency, unitCurrency: currency, decimals: decimals
                 });
 
                 // If the price feed returns zero, skip this source to avoid a division-by-zero panic
@@ -606,9 +671,8 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @dev A delegated operator (with OPEN_LOAN permission) can set `beneficiary` to any address, directing borrowed
     /// funds away from the holder. Holders should only grant OPEN_LOAN to fully trusted operators.
     /// @param revnetId The ID of the revnet to borrow from.
-    /// @param source The source of the loan (terminal and token).
-    /// @param minBorrowAmount The minimum amount to borrow, denominated in the token of the source's accounting
-    /// context.
+    /// @param token The token to borrow from the revnet's canonical multi terminal.
+    /// @param minBorrowAmount The minimum amount to borrow, denominated in `token`.
     /// @param collateralCount The amount of tokens to use as collateral for the loan.
     /// @param beneficiary The address that will receive the borrowed funds and the tokens resulting from fee payments.
     /// @param prepaidFeePercent The fee percent to charge upfront. Prepaying a fee is cheaper than paying later.
@@ -616,7 +680,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @return loan The loan created.
     function borrowFrom(
         uint256 revnetId,
-        REVLoanSource calldata source,
+        address token,
         uint256 minBorrowAmount,
         uint256 collateralCount,
         address payable beneficiary,
@@ -625,6 +689,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     )
         public
         override
+        nonReentrantLoanAction
         returns (uint256 loanId, REVLoan memory)
     {
         // Only the holder or a permissioned operator can open a loan on the holder's behalf.
@@ -633,7 +698,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
 
         return _borrowFrom({
             revnetId: revnetId,
-            source: source,
+            token: token,
             minBorrowAmount: minBorrowAmount,
             collateralCount: collateralCount,
             beneficiary: beneficiary,
@@ -700,7 +765,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
 
             if (loan.amount > 0) {
                 // Decrement the amount loaned.
-                totalBorrowedFrom[revnetId][loan.source.terminal][loan.source.token] -= loan.amount;
+                _totalBorrowedFromBySource[revnetId][loan.sourceToken] -= loan.amount;
             }
 
             emit Liquidate({loanId: loanId, revnetId: revnetId, loan: loan, caller: sender});
@@ -716,9 +781,8 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// borrowed funds from the new loan away from the loan owner. Grant this permission only to trusted operators.
     /// @param loanId The ID of the loan to reallocate collateral from.
     /// @param collateralCountToTransfer The amount of collateral to transfer from the original loan.
-    /// @param source The source of the new loan (terminal and token). Must match the existing loan's source.
-    /// @param minBorrowAmount The minimum amount to borrow, denominated in the token of the source's accounting
-    /// context.
+    /// @param token The token of the new loan. Must match the existing loan's source token.
+    /// @param minBorrowAmount The minimum amount to borrow, denominated in `token`.
     /// @param collateralCountToAdd The amount of collateral to add to the new loan from your balance.
     /// @param beneficiary The address that will receive the borrowed funds and the tokens resulting from fee payments.
     /// @param prepaidFeePercent The fee percent to charge upfront for the new loan.
@@ -729,7 +793,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     function reallocateCollateralFromLoan(
         uint256 loanId,
         uint256 collateralCountToTransfer,
-        REVLoanSource calldata source,
+        address token,
         uint256 minBorrowAmount,
         uint256 collateralCountToAdd,
         address payable beneficiary,
@@ -737,6 +801,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     )
         external
         override
+        nonReentrantLoanAction
         returns (uint256 reallocatedLoanId, uint256 newLoanId, REVLoan memory reallocatedLoan, REVLoan memory newLoan)
     {
         // Keep a reference to the revnet ID of the loan being reallocated.
@@ -766,14 +831,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
 
         // Make sure the new loan's source matches the existing loan's source to prevent cross-source value extraction.
         {
-            REVLoanSource storage existingSource = _loanOf[loanId].source;
-            if (source.token != existingSource.token || source.terminal != existingSource.terminal) {
-                revert REVLoans_SourceMismatch({
-                    expectedToken: existingSource.token,
-                    actualToken: source.token,
-                    expectedTerminal: address(existingSource.terminal),
-                    actualTerminal: address(source.terminal)
-                });
+            address existingToken = _loanOf[loanId].sourceToken;
+            if (token != existingToken) {
+                revert REVLoans_SourceMismatch({expectedToken: existingToken, actualToken: token});
             }
         }
 
@@ -790,7 +850,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // permission above, and requiring OPEN_LOAN here would block operators with only REALLOCATE_LOAN.
         (newLoanId, newLoan) = _borrowFrom({
             revnetId: revnetId,
-            source: source,
+            token: token,
             minBorrowAmount: minBorrowAmount,
             collateralCount: collateralCountToTransfer + collateralCountToAdd,
             beneficiary: beneficiary,
@@ -820,6 +880,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         external
         payable
         override
+        nonReentrantLoanAction
         returns (uint256 paidOffLoanId, REVLoan memory paidOffloan)
     {
         // Cache the sender to avoid repeated ERC2771 context reads.
@@ -891,7 +952,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
 
         // Accept the funds that'll be used to pay off loans.
         maxRepayBorrowAmount =
-            _acceptFundsFor({token: loan.source.token, amount: maxRepayBorrowAmount, allowance: allowance});
+            _acceptFundsFor({token: loan.sourceToken, amount: maxRepayBorrowAmount, allowance: allowance});
 
         // Re-check ownership: an ERC-777/ERC-1363 source token can reenter during the transfer above and transfer
         // the loan NFT to another account. Without this check, `_repayLoan` would burn the new owner's NFT while
@@ -911,7 +972,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         }
 
         // Cache the source token before _repayLoan deletes the loan storage.
-        address sourceToken = loan.source.token;
+        address sourceToken = loan.sourceToken;
 
         (paidOffLoanId, paidOffloan) = _repayLoan({
             loanId: loanId,
@@ -1027,39 +1088,41 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     )
         internal
     {
+        address sourceToken = loan.sourceToken;
+
         // Register the source if this is the first time its being used for this revnet.
-        // Note: Sources are only appended, never removed. Gas accumulation from iteration is bounded
-        // because the number of distinct (terminal, token) pairs per revnet is practically small (~5-20).
-        if (!isLoanSourceOf[revnetId][loan.source.terminal][loan.source.token]) {
-            isLoanSourceOf[revnetId][loan.source.terminal][loan.source.token] = true;
-            _loanSourcesOf[revnetId].push(REVLoanSource({token: loan.source.token, terminal: loan.source.terminal}));
+        // Note: Sources are only appended, never removed. Gas accumulation from iteration is bounded by the revnet's
+        // accepted accounting contexts.
+        if (!_isLoanSourceOf[revnetId][sourceToken]) {
+            _isLoanSourceOf[revnetId][sourceToken] = true;
+            _loanSourcesOf[revnetId].push(sourceToken);
         }
 
-        // Increment the amount of the token borrowed from the revnet from the terminal.
-        totalBorrowedFrom[revnetId][loan.source.terminal][loan.source.token] += addedBorrowAmount;
+        // Increment the amount of the token borrowed from the revnet.
+        _totalBorrowedFromBySource[revnetId][sourceToken] += addedBorrowAmount;
 
         uint256 netAmountPaidOut;
         {
-            // Get a reference to the accounting context for the source.
-            JBAccountingContext memory accountingContext =
-                loan.source.terminal.accountingContextForTokenOf({projectId: revnetId, token: loan.source.token});
+            IJBTerminal terminal = _multiTerminalOf({revnetId: revnetId, currentRuleset: _currentRulesetOf(revnetId)});
+            JBAccountingContext memory context =
+                _accountingContextForTokenOf({revnetId: revnetId, terminal: terminal, token: sourceToken});
+            IJBPayoutTerminal multiTerminal = IJBPayoutTerminal(address(terminal));
 
             // Pull the amount to be loaned out of the revnet. This will incure the protocol fee.
-            netAmountPaidOut = loan.source.terminal
-                .useAllowanceOf({
-                    projectId: revnetId,
-                    token: loan.source.token,
-                    amount: addedBorrowAmount,
-                    currency: accountingContext.currency,
-                    minTokensPaidOut: 0,
-                    beneficiary: payable(address(this)),
-                    feeBeneficiary: beneficiary,
-                    memo: ""
-                });
+            netAmountPaidOut = multiTerminal.useAllowanceOf({
+                projectId: revnetId,
+                token: sourceToken,
+                amount: addedBorrowAmount,
+                currency: context.currency,
+                minTokensPaidOut: 0,
+                beneficiary: payable(address(this)),
+                feeBeneficiary: beneficiary,
+                memo: ""
+            });
         }
 
         // Keep a reference to the fee terminal.
-        IJBTerminal feeTerminal = DIRECTORY.primaryTerminalOf({projectId: REV_ID, token: loan.source.token});
+        IJBTerminal feeTerminal = DIRECTORY.primaryTerminalOf({projectId: REV_ID, token: sourceToken});
 
         // Get the amount of additional fee to take for REV.
         uint256 revFeeAmount = address(feeTerminal) == address(0)
@@ -1071,7 +1134,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             if (!_tryPayFee({
                     terminal: feeTerminal,
                     projectId: REV_ID,
-                    token: loan.source.token,
+                    token: sourceToken,
                     amount: revFeeAmount,
                     beneficiary: beneficiary,
                     metadataProjectId: revnetId
@@ -1087,17 +1150,15 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         _transferFrom({
             from: address(this),
             to: beneficiary,
-            token: loan.source.token,
+            token: sourceToken,
             amount: netAmountPaidOut - revFeeAmount - sourceFeeAmount
         });
     }
 
     /// @notice Adjust a loan -- pay it back, add more, or return excess collateral.
-    /// @dev CEI ordering note: `totalCollateralOf` is not incremented until `_addCollateralTo` executes,
-    /// which happens after the external calls in `_addTo` (useAllowanceOf, fee payment, transfer). A reentrant
-    /// `borrowFrom` during those calls would see a lower `totalCollateralOf`, potentially passing collateral
-    /// checks that should fail. Practically infeasible — requires an adversarial pay hook on the revnet's own
-    /// terminal that calls back into `borrowFrom`, which is not a realistic deployment configuration.
+    /// @dev `borrowFrom`, `reallocateCollateralFromLoan`, and `repayLoan` hold a transient lock across this function.
+    /// External terminal, token, and beneficiary callbacks may observe in-progress loan state, but they cannot nest
+    /// another loan-changing action before aggregate collateral and borrowed accounting have finished updating.
     /// @param loan The loan to adjust.
     /// @param revnetId The ID of the revnet the loan is in.
     /// @param newBorrowAmount The new amount of the loan, denominated in the token of the source's accounting
@@ -1118,8 +1179,10 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         internal
     {
         // Cache frequently-read storage fields to avoid repeated SLOAD.
-        address sourceToken = loan.source.token;
-        IJBPayoutTerminal sourceTerminal = loan.source.terminal;
+        address sourceToken = loan.sourceToken;
+        IJBPayoutTerminal sourceTerminal = IJBPayoutTerminal(
+            address(_multiTerminalOf({revnetId: revnetId, currentRuleset: _currentRulesetOf(revnetId)}))
+        );
 
         // Snapshot deltas from current state before writing.
         uint256 addedBorrowAmount = newBorrowAmount > loan.amount ? newBorrowAmount - loan.amount : 0;
@@ -1205,7 +1268,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @dev Called by `borrowFrom` (after its own permission check) and by `reallocateCollateralFromLoan`
     /// (which only requires REALLOCATE_LOAN permission).
     /// @param revnetId The ID of the revnet to borrow from.
-    /// @param source The source of the loan (terminal and token).
+    /// @param token The token to borrow.
     /// @param minBorrowAmount The minimum amount to borrow.
     /// @param collateralCount The amount of tokens to use as collateral for the loan.
     /// @param beneficiary The address that will receive the borrowed funds and fee payment tokens.
@@ -1215,7 +1278,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @return loan The loan created.
     function _borrowFrom(
         uint256 revnetId,
-        REVLoanSource calldata source,
+        address token,
         uint256 minBorrowAmount,
         uint256 collateralCount,
         address payable beneficiary,
@@ -1228,10 +1291,15 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // A loan needs to have collateral.
         if (collateralCount == 0) revert REVLoans_ZeroCollateralLoanIsInvalid({collateralCount: collateralCount});
 
-        // Make sure the source terminal is registered in the directory for this revnet.
-        if (!DIRECTORY.isTerminalOf({projectId: revnetId, terminal: IJBTerminal(address(source.terminal))})) {
-            revert REVLoans_InvalidTerminal({terminal: address(source.terminal), revnetId: revnetId});
-        }
+        // Cache the current ruleset once — used by source validation, _cashOutDelayOf, and _borrowAmountFrom.
+        JBRuleset memory currentRuleset = _currentRulesetOf(revnetId);
+
+        // Make sure the token's accounting context exists on the canonical multi terminal for this revnet.
+        _accountingContextForTokenOf({
+            revnetId: revnetId,
+            terminal: _multiTerminalOf({revnetId: revnetId, currentRuleset: currentRuleset}),
+            token: token
+        });
 
         // Make sure the prepaid fee percent is between `MIN_PREPAID_FEE_PERCENT` and `MAX_PREPAID_FEE_PERCENT`. Meaning
         // an 16 year loan can be paid upfront with a
@@ -1241,9 +1309,6 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
                 prepaidFeePercent: prepaidFeePercent, min: MIN_PREPAID_FEE_PERCENT, max: MAX_PREPAID_FEE_PERCENT
             });
         }
-
-        // Cache the current ruleset once — used by both _cashOutDelayOf and _borrowAmountFrom.
-        JBRuleset memory currentRuleset = _currentRulesetOf(revnetId);
 
         // Enforce the cash out delay.
         {
@@ -1261,7 +1326,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         REVLoan storage loan = _loanOf[loanId];
 
         // Set the loan's values.
-        loan.source = source;
+        loan.sourceToken = token;
         loan.createdAt = uint48(block.timestamp);
         // forge-lint: disable-next-line(unsafe-typecast)
         loan.prepaidFeePercent = uint16(prepaidFeePercent);
@@ -1302,7 +1367,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             loanId: loanId,
             revnetId: revnetId,
             loan: loan,
-            source: source,
+            token: token,
             borrowAmount: borrowAmount,
             collateralCount: collateralCount,
             sourceFeeAmount: sourceFeeAmount,
@@ -1383,7 +1448,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         reallocatedLoan.createdAt = loan.createdAt;
         reallocatedLoan.prepaidFeePercent = loan.prepaidFeePercent;
         reallocatedLoan.prepaidDuration = loan.prepaidDuration;
-        reallocatedLoan.source = loan.source;
+        reallocatedLoan.sourceToken = loan.sourceToken;
 
         // Reduce the collateral of the reallocated loan.
         _adjust({
@@ -1419,25 +1484,30 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @param repaidBorrowAmount The amount to pay off, denominated in the token of the source's accounting
     /// context.
     function _removeFrom(REVLoan memory loan, uint256 revnetId, uint256 repaidBorrowAmount) internal {
-        // Decrement the total amount of a token being loaned out by the revnet from its terminal.
-        totalBorrowedFrom[revnetId][loan.source.terminal][loan.source.token] -= repaidBorrowAmount;
+        address sourceToken = loan.sourceToken;
+
+        // Decrement the total amount of a token being loaned out by the revnet.
+        _totalBorrowedFromBySource[revnetId][sourceToken] -= repaidBorrowAmount;
+
+        IJBPayoutTerminal multiTerminal = IJBPayoutTerminal(
+            address(_multiTerminalOf({revnetId: revnetId, currentRuleset: _currentRulesetOf(revnetId)}))
+        );
 
         // Increase the allowance for the beneficiary.
-        uint256 payValue = _beforeTransferTo({
-            to: address(loan.source.terminal), token: loan.source.token, amount: repaidBorrowAmount
-        });
+        uint256 payValue =
+            _beforeTransferTo({to: address(multiTerminal), token: sourceToken, amount: repaidBorrowAmount});
 
         // Add the loaned amount back to the revnet.
-        loan.source.terminal.addToBalanceOf{value: payValue}({
+        multiTerminal.addToBalanceOf{value: payValue}({
             projectId: revnetId,
-            token: loan.source.token,
+            token: sourceToken,
             amount: repaidBorrowAmount,
             shouldReturnHeldFees: false,
             memo: "",
             metadata: bytes(abi.encodePacked(REV_ID))
         });
 
-        _afterTransferTo({to: address(loan.source.terminal), token: loan.source.token});
+        _afterTransferTo({to: address(multiTerminal), token: sourceToken});
     }
 
     /// @notice Pay down a loan.
@@ -1514,7 +1584,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             paidOffLoan.createdAt = loan.createdAt;
             paidOffLoan.prepaidFeePercent = loan.prepaidFeePercent;
             paidOffLoan.prepaidDuration = loan.prepaidDuration;
-            paidOffLoan.source = loan.source;
+            paidOffLoan.sourceToken = loan.sourceToken;
 
             // Mint the replacement loan to the loan owner FIRST so it exists before _adjust writes data.
             _mint({to: loanOwner, tokenId: paidOffLoanId});

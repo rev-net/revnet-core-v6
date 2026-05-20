@@ -118,6 +118,8 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            jbMultiTerminal(),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -137,14 +139,13 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
     function _buildMinimalConfig()
         internal
         view
-        returns (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc)
+        returns (REVConfig memory cfg, JBAccountingContext[] memory tc, REVSuckerDeploymentConfig memory sdc)
     {
         JBAccountingContext[] memory acc = new JBAccountingContext[](1);
         acc[0] = JBAccountingContext({
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
-        tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        tc = acc;
 
         REVStageConfig[] memory stages = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
@@ -178,27 +179,27 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
 
     function _deployRevnet() internal returns (uint256 revnetId) {
         // Deploy fee project first.
-        (REVConfig memory feeCfg, JBTerminalConfig[] memory feeTc, REVSuckerDeploymentConfig memory feeSdc) =
+        (REVConfig memory feeCfg, JBAccountingContext[] memory feeTc, REVSuckerDeploymentConfig memory feeSdc) =
             _buildMinimalConfig();
         vm.prank(multisig());
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: feeCfg,
-            terminalConfigurations: feeTc,
+            accountingContextsToAccept: feeTc,
             suckerDeploymentConfiguration: feeSdc,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         // Deploy the revnet.
-        (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
+        (REVConfig memory cfg, JBAccountingContext[] memory tc, REVSuckerDeploymentConfig memory sdc) =
             _buildMinimalConfig();
         // forge-lint: disable-next-line(named-struct-fields)
         cfg.description = REVDescription("Test2", "TS2", "ipfs://test2", "TEST_SALT_2");
         (revnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: sdc,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -329,7 +330,7 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
     /// @notice 721 with splits + buyback (AMM swap path) — weight adjusted, both specs present.
     function test_beforePay_splitPlusBuybackAMM_correctWeight() public {
         // Deploy with the AMM-path buyback hook.
-        (REVConfig memory feeCfg, JBTerminalConfig[] memory feeTc, REVSuckerDeploymentConfig memory feeSdc) =
+        (REVConfig memory feeCfg, JBAccountingContext[] memory feeTc, REVSuckerDeploymentConfig memory feeSdc) =
             _buildMinimalConfig();
         vm.prank(multisig());
         jbProjects().approve(address(0), FEE_PROJECT_ID); // clear old approval
@@ -346,6 +347,8 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
         );
         REVDeployer ammDeployer = new REVDeployer{salt: "REVDeployer_AMM"}(
             jbController(),
+            jbMultiTerminal(),
+            jbMultiTerminal(),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -365,20 +368,20 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
         ammDeployer.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: feeCfg,
-            terminalConfigurations: feeTc,
+            accountingContextsToAccept: feeTc,
             suckerDeploymentConfiguration: feeSdc,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
-        (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
+        (REVConfig memory cfg, JBAccountingContext[] memory tc, REVSuckerDeploymentConfig memory sdc) =
             _buildMinimalConfig();
         // forge-lint: disable-next-line(named-struct-fields)
         cfg.description = REVDescription("AMM", "AMM", "ipfs://amm", "AMM_SALT");
         (uint256 revnetId,) = ammDeployer.deployFor({
             revnetId: 0,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: sdc,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()

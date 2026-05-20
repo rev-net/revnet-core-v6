@@ -45,7 +45,7 @@ import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
 struct FeeProjectConfig {
     REVConfig configuration;
-    JBTerminalConfig[] terminalConfigurations;
+    JBAccountingContext[] accountingContextsToAccept;
     REVSuckerDeploymentConfig suckerDeploymentConfiguration;
 }
 
@@ -99,9 +99,7 @@ contract TestBurnHeldTokens is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         REVStageConfig[] memory stageConfigurations = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
@@ -132,7 +130,7 @@ contract TestBurnHeldTokens is TestBaseWorkflow {
 
         return FeeProjectConfig({
             configuration: revnetConfiguration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("REV"))
             })
@@ -150,9 +148,7 @@ contract TestBurnHeldTokens is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         REVStageConfig[] memory stageConfigurations = new REVStageConfig[](1);
 
@@ -186,7 +182,7 @@ contract TestBurnHeldTokens is TestBaseWorkflow {
         (revnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: revnetConfiguration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("PRT"))
             }),
@@ -237,6 +233,8 @@ contract TestBurnHeldTokens is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            jbMultiTerminal(),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -258,7 +256,7 @@ contract TestBurnHeldTokens is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: feeProjectConfig.configuration,
-            terminalConfigurations: feeProjectConfig.terminalConfigurations,
+            accountingContextsToAccept: feeProjectConfig.accountingContextsToAccept,
             suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -329,9 +327,7 @@ contract TestBurnHeldTokens is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -361,7 +357,7 @@ contract TestBurnHeldTokens is TestBaseWorkflow {
                 scopeCashOutsToLocalBalances: false,
                 stageConfigurations: stageConfigurations
             }),
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("FUL"))
             }),

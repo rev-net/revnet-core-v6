@@ -30,7 +30,6 @@ import {MockERC20} from "@bananapus/core-v6/test/mock/MockERC20.sol";
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVLoan} from "../src/structs/REVLoan.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
@@ -53,7 +52,7 @@ import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
 struct Permit2ProjectConfig {
     REVConfig configuration;
-    JBTerminalConfig[] terminalConfigurations;
+    JBAccountingContext[] accountingContextsToAccept;
     REVSuckerDeploymentConfig suckerDeploymentConfiguration;
 }
 
@@ -126,9 +125,7 @@ contract TestPermit2Signatures is TestBaseWorkflow {
         accountingContextsToAccept[1] =
             JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         REVStageConfig[] memory stageConfigurations = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
@@ -168,7 +165,7 @@ contract TestPermit2Signatures is TestBaseWorkflow {
 
         return Permit2ProjectConfig({
             configuration: revnetConfiguration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("REV"))
             })
@@ -189,9 +186,7 @@ contract TestPermit2Signatures is TestBaseWorkflow {
         accountingContextsToAccept[1] =
             JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -231,7 +226,7 @@ contract TestPermit2Signatures is TestBaseWorkflow {
 
         return Permit2ProjectConfig({
             configuration: revnetConfiguration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("NANA"))
             })
@@ -288,6 +283,8 @@ contract TestPermit2Signatures is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            jbMultiTerminal(),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -310,7 +307,7 @@ contract TestPermit2Signatures is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: feeProjectConfig.configuration,
-            terminalConfigurations: feeProjectConfig.terminalConfigurations,
+            accountingContextsToAccept: feeProjectConfig.accountingContextsToAccept,
             suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -321,7 +318,7 @@ contract TestPermit2Signatures is TestBaseWorkflow {
         (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: revnetConfig.configuration,
-            terminalConfigurations: revnetConfig.terminalConfigurations,
+            accountingContextsToAccept: revnetConfig.accountingContextsToAccept,
             suckerDeploymentConfiguration: revnetConfig.suckerDeploymentConfiguration,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -408,7 +405,7 @@ contract TestPermit2Signatures is TestBaseWorkflow {
             abi.encode(true)
         );
 
-        REVLoanSource memory source = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
+        address source = address(TOKEN);
 
         vm.prank(user);
         (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee, user);

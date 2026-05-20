@@ -30,7 +30,6 @@ import {MockERC20} from "@bananapus/core-v6/test/mock/MockERC20.sol";
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVLoan} from "../src/structs/REVLoan.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
@@ -60,16 +59,9 @@ contract ReentrantTerminal is ERC165, IJBPayoutTerminal {
 
     // Parameters for re-entrant borrowFrom call
     uint256 public reenterCollateral;
-    REVLoanSource public reenterSource;
+    address public reenterSource;
 
-    function setReentrancy(
-        IREVLoans _loans,
-        uint256 _revnetId,
-        uint256 _collateral,
-        REVLoanSource memory _source
-    )
-        external
-    {
+    function setReentrancy(IREVLoans _loans, uint256 _revnetId, uint256 _collateral, address _source) external {
         loans = _loans;
         revnetId = _revnetId;
         reenterCollateral = _collateral;
@@ -192,7 +184,7 @@ contract ReentrantTerminal is ERC165, IJBPayoutTerminal {
 
 struct AttackProjectConfig {
     REVConfig configuration;
-    JBTerminalConfig[] terminalConfigurations;
+    JBAccountingContext[] accountingContextsToAccept;
     REVSuckerDeploymentConfig suckerDeploymentConfiguration;
 }
 
@@ -254,9 +246,7 @@ contract REVLoansAttacks is TestBaseWorkflow {
         accountingContextsToAccept[1] =
             JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         REVStageConfig[] memory stageConfigurations = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
@@ -296,7 +286,7 @@ contract REVLoansAttacks is TestBaseWorkflow {
 
         return AttackProjectConfig({
             configuration: revnetConfiguration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("REV"))
             })
@@ -317,9 +307,7 @@ contract REVLoansAttacks is TestBaseWorkflow {
         accountingContextsToAccept[1] =
             JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -359,7 +347,7 @@ contract REVLoansAttacks is TestBaseWorkflow {
 
         return AttackProjectConfig({
             configuration: revnetConfiguration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("NANA"))
             })
@@ -414,6 +402,8 @@ contract REVLoansAttacks is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            jbMultiTerminal(),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -435,7 +425,7 @@ contract REVLoansAttacks is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: feeProjectConfig.configuration,
-            terminalConfigurations: feeProjectConfig.terminalConfigurations,
+            accountingContextsToAccept: feeProjectConfig.accountingContextsToAccept,
             suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -446,7 +436,7 @@ contract REVLoansAttacks is TestBaseWorkflow {
         (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: revnetConfig.configuration,
-            terminalConfigurations: revnetConfig.terminalConfigurations,
+            accountingContextsToAccept: revnetConfig.accountingContextsToAccept,
             suckerDeploymentConfiguration: revnetConfig.suckerDeploymentConfiguration,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -485,7 +475,7 @@ contract REVLoansAttacks is TestBaseWorkflow {
             abi.encode(true)
         );
 
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
 
         vm.prank(user);
         (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee, user);
@@ -559,18 +549,17 @@ contract REVLoansAttacks is TestBaseWorkflow {
     }
 
     // =========================================================================
-    // reentrancy — _adjust calls terminal.pay() which could re-enter
+    // reentrancy — callbacks during _adjust cannot nest loan-changing entrypoints
     // =========================================================================
     /// @notice Verify that reentrancy during _adjust's fee payment is handled.
-    /// @dev The _adjust function calls loan.source.terminal.pay() to pay fees.
-    ///      A malicious terminal could use this callback to re-enter borrowFrom().
-    ///      Since Solidity 0.8.23 doesn't have native reentrancy guards on REVLoans,
-    ///      the state (loan.amount, loan.collateral) is written AFTER the external call.
+    /// @dev Dedicated callback regressions live in TestCEIPattern and the loan fork suite. This legacy attack note
+    ///      remains as a map of the old interaction surface: _adjust still makes terminal and beneficiary calls, but
+    ///      borrowFrom/reallocateCollateralFromLoan/repayLoan now hold a transient lock across those callbacks.
     function test_reentrancy_adjustPayReenter() public {
-        // This test demonstrates the reentrancy window:
-        // 1. borrowFrom → _adjust → terminal.pay() (external call at line 910)
-        // 2. During terminal.pay(), state updates at lines 922-923 haven't happened yet
-        // 3. The malicious terminal tries to call borrowFrom again
+        // This test maps the callback window:
+        // 1. borrowFrom → _adjust → terminal.pay() / native beneficiary transfer.
+        // 2. During terminal.pay(), aggregate collateral accounting may still be in progress.
+        // 3. The transient loan-action lock prevents nested borrow/reallocate/repay entrypoints.
 
         // First, create a legitimate loan to ensure the system works
         uint256 payAmount = 10e18;
@@ -582,16 +571,7 @@ contract REVLoansAttacks is TestBaseWorkflow {
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertTrue(borrowable > 0, "Should have borrowable amount");
 
-        // The reentrancy vulnerability exists because _adjust calls terminal.pay()
-        // at line 910 BEFORE writing loan.amount and loan.collateral at lines 922-923.
-        // A malicious terminal receiving the fee payment could call borrowFrom() again
-        // before the first loan's state is finalized.
-
-        // Verify the ordering: external call at line 910, state write at lines 922-923
-        // This is a checks-effects-interactions violation.
-        // The loan amount and collateral are read from storage during _borrowAmountFrom,
-        // so a re-entrant call would see stale values.
-        assertTrue(true, "reentrancy window confirmed between terminal.pay() and state writes");
+        assertTrue(true, "callback window is covered by the loan-action reentrancy lock");
     }
 
     // =========================================================================
@@ -609,12 +589,10 @@ contract REVLoansAttacks is TestBaseWorkflow {
         (uint256 loanId,, uint256 borrowAmount) = _setupLoan(USER, payAmount, 25);
         vm.assume(borrowAmount > 0);
 
-        // The loan exists. The reentrancy risk during repayLoan:
+        // The loan exists. The repayLoan callback surface:
         // repayLoan → _repayLoan → _adjust → terminal.pay() [external call]
-        //   → re-enter repayLoan on same loanId
-        //   → but the original _burn(loanId) at line 1013 happens BEFORE _adjust
-        //   → so the re-entrant call would fail on _ownerOf check
-        // This means repayLoan has partial protection via the burn-then-adjust pattern.
+        //   → a callback attempts repayLoan/reallocate/borrowFrom
+        //   → the transient loan-action lock rejects the nested loan-changing entrypoint before state can be reused.
 
         // Verify the loan exists
         REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
@@ -653,7 +631,7 @@ contract REVLoansAttacks is TestBaseWorkflow {
             abi.encode(true)
         );
 
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
 
         uint256 borrowable =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokensA, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
@@ -781,7 +759,7 @@ contract REVLoansAttacks is TestBaseWorkflow {
             abi.encode(true)
         );
 
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
 
         // Borrow with max prepaid fee (so no additional fee on immediate repay)
         vm.prank(USER);

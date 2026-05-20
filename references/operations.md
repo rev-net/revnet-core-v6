@@ -112,12 +112,12 @@ Use this file when you need revnet-specific risks, state reads, constants, or ex
 
 | Mapping | Visibility | Type | Purpose |
 |---------|-----------|------|---------|
-| `isLoanSourceOf` | `public` | `revnetId => terminal => token => bool` | Is this (terminal, token) pair used for loans? |
+| `isLoanSourceOf` | `public` | `revnetId => token => bool` | Is this token used for loans? |
 | `totalLoansBorrowedFor` | `public` | `revnetId => uint256` | Counter for loan numbering |
-| `totalBorrowedFrom` | `public` | `revnetId => terminal => token => uint256` | Tracks debt per loan source |
+| `totalBorrowedFrom` | `public` | `revnetId => token => uint256` | Tracks debt per loan source token |
 | `totalCollateralOf` | `public` | `revnetId => uint256` | Sum of all burned collateral |
 | `_loanOf` | `internal` | `loanId => REVLoan` | Per-loan state (use `loanOf(loanId)` view) |
-| `_loanSourcesOf` | `internal` | `revnetId => REVLoanSource[]` | Array of all loan sources used (use `loanSourcesOf(revnetId)` view) |
+| `_loanSourcesOf` | `internal` | `revnetId => address[]` | Array of all loan source tokens used (use `loanSourcesOf(revnetId)` view) |
 | `tokenUriResolver` | `public` | `IJBTokenUriResolver` | Resolver for loan NFT token URIs |
 
 ## Gotchas
@@ -202,10 +202,10 @@ Quick-reference for common read operations. All functions are `view`/`pure` and 
 | What | Call | Returns |
 |------|------|---------|
 | Borrowable amount for collateral | `REVLoans.borrowableAmountFrom(revnetId, collateralCount, decimals, currency)` | `uint256` |
-| Total borrowed (per source) | `REVLoans.totalBorrowedFrom(revnetId, terminal, token)` | `uint256` |
+| Total borrowed (per source token) | `REVLoans.totalBorrowedFrom(revnetId, token)` | `uint256` |
 | Total collateral locked | `REVLoans.totalCollateralOf(revnetId)` | `uint256` |
 | Loan details | `REVLoans.loanOf(loanId)` | `REVLoan` struct |
-| All loan sources | `REVLoans.loanSourcesOf(revnetId)` | `REVLoanSource[]` |
+| All loan sources | `REVLoans.loanSourcesOf(revnetId)` | `address[]` |
 | Loan count | `REVLoans.totalLoansBorrowedFor(revnetId)` | `uint256` |
 | Source fee for repayment | `REVLoans.determineSourceFeeAmount(loan, amount)` | `uint256` |
 | Revnet ID from loan ID | `REVLoans.revnetIdOfLoanWith(loanId)` | `uint256` (pure) |
@@ -276,7 +276,7 @@ deployer.deployFor({
 
 loans.borrowFrom({
     revnetId: revnetId,
-    source: REVLoanSource({ token: JBConstants.NATIVE_TOKEN, terminal: terminal }),
+    token: JBConstants.NATIVE_TOKEN,
     minBorrowAmount: 0,
     collateralCount: 1000e18,              // Burn 1000 tokens as collateral
     beneficiary: msg.sender,               // Receive borrowed funds
@@ -290,7 +290,7 @@ loans.borrowFrom({
 (uint256 reallocatedLoanId, uint256 newLoanId, , ) = loans.reallocateCollateralFromLoan({
     loanId: loanId,
     collateralCountToTransfer: 500e18,     // Move 500 tokens out of existing loan
-    source: REVLoanSource({ token: JBConstants.NATIVE_TOKEN, terminal: terminal }),
+    token: JBConstants.NATIVE_TOKEN,
     minBorrowAmount: 0,
     collateralCountToAdd: 200e18,          // Add 200 fresh tokens on top
     beneficiary: payable(msg.sender),      // Receive new loan proceeds

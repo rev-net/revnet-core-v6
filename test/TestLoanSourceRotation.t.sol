@@ -28,7 +28,6 @@ import {MockERC20} from "@bananapus/core-v6/test/mock/MockERC20.sol";
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVLoan} from "../src/structs/REVLoan.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
@@ -136,6 +135,8 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            jbMultiTerminal(),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -163,8 +164,7 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         acc[1] = JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
 
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -199,7 +199,7 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")
             }),
@@ -214,8 +214,7 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         acc[1] = JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
 
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -249,7 +248,7 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
         (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NANA")
             }),
@@ -262,7 +261,7 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
     function _borrowWithSource(
         address user,
         uint256 ethAmount,
-        REVLoanSource memory source
+        address source
     )
         internal
         returns (uint256 loanId, uint256 tokenCount, uint256 borrowAmount)
@@ -273,7 +272,7 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
             jbMultiTerminal().pay{value: ethAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, ethAmount, user, 0, "", "");
 
         // Check borrowable amount for the given source.
-        borrowAmount = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokenCount, 18, uint32(uint160(source.token)));
+        borrowAmount = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokenCount, 18, uint32(uint160(source)));
         if (borrowAmount == 0) return (0, tokenCount, 0);
 
         // Mock permission for burn.
@@ -298,13 +297,13 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
         vm.deal(user2, 100e18);
 
         // Loan 1: borrow from ETH source.
-        REVLoanSource memory ethSource = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address ethSource = JBConstants.NATIVE_TOKEN;
         (uint256 loanId1,,) = _borrowWithSource(USER, 10e18, ethSource);
         require(loanId1 != 0, "ETH loan setup failed");
 
         // Verify ETH is now a loan source.
         assertTrue(
-            LOANS_CONTRACT.isLoanSourceOf(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN),
+            LOANS_CONTRACT.isLoanSourceOf(REVNET_ID, JBConstants.NATIVE_TOKEN),
             "ETH should be registered as a loan source"
         );
 
@@ -322,7 +321,7 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
         uint256 user2Tokens =
             jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, user2, 0, "", "");
 
-        REVLoanSource memory tokenSource = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
+        address tokenSource = address(TOKEN);
         uint256 tokenBorrowable =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, user2Tokens, 6, uint32(uint160(address(TOKEN))));
 
@@ -342,12 +341,11 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
 
             // Both sources should now be registered.
             assertTrue(
-                LOANS_CONTRACT.isLoanSourceOf(REVNET_ID, jbMultiTerminal(), address(TOKEN)),
-                "TOKEN should be registered as a loan source"
+                LOANS_CONTRACT.isLoanSourceOf(REVNET_ID, address(TOKEN)), "TOKEN should be registered as a loan source"
             );
 
             // Loan sources array should have both entries.
-            REVLoanSource[] memory sources = LOANS_CONTRACT.loanSourcesOf(REVNET_ID);
+            address[] memory sources = LOANS_CONTRACT.loanSourcesOf(REVNET_ID);
             assertGe(sources.length, 2, "should have at least 2 loan sources");
         }
     }
@@ -355,7 +353,7 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
     /// @notice After taking a loan from ETH source, repay it fully. The source remains registered
     /// (sources array only grows, never shrinks).
     function test_repayEthLoan_sourcePersistsAfterRepay() public {
-        REVLoanSource memory ethSource = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address ethSource = JBConstants.NATIVE_TOKEN;
 
         (uint256 loanId,,) = _borrowWithSource(USER, 10e18, ethSource);
         require(loanId != 0, "Loan setup failed");
@@ -385,7 +383,7 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
 
         // Source should still be registered (sources array only grows).
         assertTrue(
-            LOANS_CONTRACT.isLoanSourceOf(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN),
+            LOANS_CONTRACT.isLoanSourceOf(REVNET_ID, JBConstants.NATIVE_TOKEN),
             "ETH source should persist after loan repay"
         );
 
@@ -397,7 +395,7 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
     /// @notice Take two sequential loans from different sources. Verify the second loan does not affect
     /// the first loan's terms (collateral, amount, source).
     function test_secondSourceDoesNotAffectFirstLoan() public {
-        REVLoanSource memory ethSource = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address ethSource = JBConstants.NATIVE_TOKEN;
 
         // First loan with ETH source.
         (uint256 loanId1,,) = _borrowWithSource(USER, 10e18, ethSource);
@@ -405,14 +403,13 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
 
         // Capture first loan details.
         REVLoan memory loan1Before = LOANS_CONTRACT.loanOf(loanId1);
-        uint256 totalBorrowedFromEthBefore =
-            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
+        uint256 totalBorrowedFromEthBefore = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, JBConstants.NATIVE_TOKEN);
 
         // Second loan: also from ETH source but by a different user.
         address user2 = makeAddr("user2");
         vm.deal(user2, 100e18);
 
-        REVLoanSource memory ethSource2 = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address ethSource2 = JBConstants.NATIVE_TOKEN;
         vm.prank(user2);
         uint256 user2Tokens =
             jbMultiTerminal().pay{value: 5e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 5e18, user2, 0, "", "");
@@ -437,16 +434,9 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
             REVLoan memory loan1After = LOANS_CONTRACT.loanOf(loanId1);
             assertEq(loan1After.amount, loan1Before.amount, "first loan amount should be unchanged");
             assertEq(loan1After.collateral, loan1Before.collateral, "first loan collateral should be unchanged");
-            assertEq(loan1After.source.token, loan1Before.source.token, "first loan source token should be unchanged");
-            assertEq(
-                address(loan1After.source.terminal),
-                address(loan1Before.source.terminal),
-                "first loan source terminal should be unchanged"
-            );
-
+            assertEq(loan1After.sourceToken, loan1Before.sourceToken, "first loan source token should be unchanged");
             // Total borrowed from ETH source should have increased.
-            uint256 totalBorrowedFromEthAfter =
-                LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
+            uint256 totalBorrowedFromEthAfter = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, JBConstants.NATIVE_TOKEN);
             assertGt(
                 totalBorrowedFromEthAfter,
                 totalBorrowedFromEthBefore,
@@ -458,7 +448,7 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
     /// @notice The fee calculation should be consistent regardless of which source is used.
     /// Both ETH and TOKEN sources should use the same prepaid fee percent logic.
     function test_feeCalculationConsistency_acrossSources() public {
-        REVLoanSource memory ethSource = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address ethSource = JBConstants.NATIVE_TOKEN;
 
         // Take ETH loan.
         (uint256 ethLoanId,,) = _borrowWithSource(USER, 10e18, ethSource);
@@ -493,26 +483,25 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
 
     /// @notice Verify that totalBorrowedFrom is tracked per-source and does not bleed across sources.
     function test_totalBorrowedFrom_isolatedPerSource() public {
-        REVLoanSource memory ethSource = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address ethSource = JBConstants.NATIVE_TOKEN;
 
         // Take ETH loan.
         (uint256 loanId,,) = _borrowWithSource(USER, 10e18, ethSource);
         require(loanId != 0, "Loan failed");
 
         // Check totalBorrowedFrom for ETH source.
-        uint256 totalBorrowedEth =
-            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
+        uint256 totalBorrowedEth = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, JBConstants.NATIVE_TOKEN);
         assertGt(totalBorrowedEth, 0, "should have nonzero total borrowed from ETH");
 
         // TOKEN source should have zero total borrowed.
-        uint256 totalBorrowedToken = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), address(TOKEN));
+        uint256 totalBorrowedToken = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, address(TOKEN));
         assertEq(totalBorrowedToken, 0, "TOKEN source should have zero total borrowed");
     }
 
     /// @notice Verify that taking a loan, then time passing, then taking another loan from the same source
     /// correctly increments the loan counter.
     function test_loanCounterIncrements_acrossTimePeriods() public {
-        REVLoanSource memory ethSource = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address ethSource = JBConstants.NATIVE_TOKEN;
 
         uint256 countBefore = LOANS_CONTRACT.totalLoansBorrowedFor(REVNET_ID);
 

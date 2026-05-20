@@ -35,8 +35,7 @@ contract TestLoanLiquidationFork is ForkTestBase {
         uint256 borrowerBalanceAfterLoan = jbTokens().totalBalanceOf(BORROWER, revnetId);
 
         uint256 totalCollateralBefore = LOANS_CONTRACT.totalCollateralOf(revnetId);
-        uint256 totalBorrowedBefore =
-            LOANS_CONTRACT.totalBorrowedFrom(revnetId, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
+        uint256 totalBorrowedBefore = LOANS_CONTRACT.totalBorrowedFrom(revnetId, JBConstants.NATIVE_TOKEN);
 
         // Warp past 10 years + 1 second.
         vm.warp(block.timestamp + LOANS_CONTRACT.LOAN_LIQUIDATION_DURATION() + 1);
@@ -57,7 +56,7 @@ contract TestLoanLiquidationFork is ForkTestBase {
 
         // Borrowed amount decreased.
         assertLt(
-            LOANS_CONTRACT.totalBorrowedFrom(revnetId, jbMultiTerminal(), JBConstants.NATIVE_TOKEN),
+            LOANS_CONTRACT.totalBorrowedFrom(revnetId, JBConstants.NATIVE_TOKEN),
             totalBorrowedBefore,
             "totalBorrowedFrom should decrease"
         );

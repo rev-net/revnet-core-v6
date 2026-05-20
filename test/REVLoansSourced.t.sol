@@ -32,7 +32,6 @@ import {MockERC20} from "@bananapus/core-v6/test/mock/MockERC20.sol";
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVLoan} from "../src/structs/REVLoan.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
@@ -52,7 +51,7 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 struct FeeProjectConfig {
     REVConfig configuration;
-    JBTerminalConfig[] terminalConfigurations;
+    JBAccountingContext[] accountingContextsToAccept;
     REVSuckerDeploymentConfig suckerDeploymentConfiguration;
 }
 
@@ -157,9 +156,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
 
         // The terminals that the project will accept funds through.
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         // The project's revnet stage configurations.
         REVStageConfig[] memory stageConfigurations = new REVStageConfig[](3);
@@ -228,7 +225,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
 
         return FeeProjectConfig({
             configuration: revnetConfiguration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("REV"))
             })
@@ -255,9 +252,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
 
         // The terminals that the project will accept funds through.
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -326,7 +321,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
 
         return FeeProjectConfig({
             configuration: revnetConfiguration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("NANA"))
             })
@@ -392,6 +387,8 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            jbMultiTerminal(),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -416,7 +413,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID, // Zero to deploy a new revnet
             configuration: feeProjectConfig.configuration,
-            terminalConfigurations: feeProjectConfig.terminalConfigurations,
+            accountingContextsToAccept: feeProjectConfig.accountingContextsToAccept,
             suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -429,7 +426,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0, // Zero to deploy a new revnet
             configuration: fee2Config.configuration,
-            terminalConfigurations: fee2Config.terminalConfigurations,
+            accountingContextsToAccept: fee2Config.accountingContextsToAccept,
             suckerDeploymentConfiguration: fee2Config.suckerDeploymentConfiguration,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -472,7 +469,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             abi.encode(true)
         );
 
-        REVLoanSource memory sauce = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
+        address sauce = address(TOKEN);
 
         vm.prank(USER);
         (uint256 newLoanId,) =
@@ -484,8 +481,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         assertEq(loan.createdAt, block.timestamp);
         assertEq(loan.prepaidFeePercent, prepaidFee);
         assertEq(loan.prepaidDuration, duration);
-        assertEq(loan.source.token, address(TOKEN));
-        assertEq(address(loan.source.terminal), address(jbMultiTerminal()));
+        assertEq(loan.sourceToken, address(TOKEN));
 
         // If we remove the minimum prepaid duration, we can see that we're still +- a day.
         assertApproxEqAbs(loan.prepaidDuration - minDuration, 30 days, 1 days);
@@ -525,7 +521,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             abi.encode(true)
         );
 
-        REVLoanSource memory sauce = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
+        address sauce = address(TOKEN);
 
         vm.prank(USER);
         (uint256 newLoanId,) =
@@ -537,8 +533,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         assertEq(loan.createdAt, block.timestamp);
         assertEq(loan.prepaidFeePercent, prepaidFee);
         assertEq(loan.prepaidDuration, duration);
-        assertEq(loan.source.token, address(TOKEN));
-        assertEq(address(loan.source.terminal), address(jbMultiTerminal()));
+        assertEq(loan.sourceToken, address(TOKEN));
 
         // Max duration is correct at ten years.
         assertEq(loan.prepaidDuration, 3650 days);
@@ -582,7 +577,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             abi.encode(true)
         );
 
-        REVLoanSource memory source = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
+        address source = address(TOKEN);
 
         // Get the balance before we receive the loan.
         uint256 balanceBeforeLoan = TOKEN.balanceOf(USER);
@@ -657,7 +652,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             abi.encode(true)
         );
 
-        REVLoanSource memory sauce = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
+        address sauce = address(TOKEN);
 
         vm.prank(USER);
         (uint256 newLoanId,) =
@@ -669,8 +664,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         assertEq(loan.createdAt, block.timestamp);
         assertEq(loan.prepaidFeePercent, prepaidFee);
         assertEq(loan.prepaidDuration, duration);
-        assertEq(loan.source.token, address(TOKEN));
-        assertEq(address(loan.source.terminal), address(jbMultiTerminal()));
+        assertEq(loan.sourceToken, address(TOKEN));
 
         // Ensure loans contract isn't hodling
         assertEq(TOKEN.balanceOf(address(LOANS_CONTRACT)), 0);
@@ -746,7 +740,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             (revnetProjectId,) = REV_DEPLOYER.deployFor({
                 revnetId: 0, // Zero to deploy a new revnet
                 configuration: projectConfig.configuration,
-                terminalConfigurations: projectConfig.terminalConfigurations,
+                accountingContextsToAccept: projectConfig.accountingContextsToAccept,
                 suckerDeploymentConfiguration: projectConfig.suckerDeploymentConfiguration,
                 tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
                 allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -857,7 +851,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             abi.encode(true)
         );
 
-        REVLoanSource memory sauce = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address sauce = JBConstants.NATIVE_TOKEN;
 
         // Check the balance of the user before the borrow.
         uint256 balanceBefore = USER.balance;
@@ -871,8 +865,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         assertEq(loan.createdAt, block.timestamp);
         assertEq(loan.prepaidFeePercent, 500);
         assertEq(loan.prepaidDuration, mulDiv(500, 3650 days, 500));
-        assertEq(loan.source.token, JBConstants.NATIVE_TOKEN);
-        assertEq(address(loan.source.terminal), address(jbMultiTerminal()));
+        assertEq(loan.sourceToken, JBConstants.NATIVE_TOKEN);
 
         // Ensure loans contract isn't hodling
         assertEq(address(LOANS_CONTRACT).balance, 0);
@@ -913,7 +906,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         uint256 newLoanId;
 
         {
-            REVLoanSource memory sauce = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+            address sauce = JBConstants.NATIVE_TOKEN;
 
             vm.prank(USER);
             (newLoanId,) =
@@ -927,8 +920,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         assertEq(loan.createdAt, block.timestamp);
         assertEq(loan.prepaidFeePercent, prepaidFeePercent);
         assertEq(loan.prepaidDuration, mulDiv(prepaidFeePercent, 3650 days, 500));
-        assertEq(loan.source.token, JBConstants.NATIVE_TOKEN);
-        assertEq(address(loan.source.terminal), address(jbMultiTerminal()));
+        assertEq(loan.sourceToken, JBConstants.NATIVE_TOKEN);
 
         // warp forward
         vm.warp(block.timestamp + daysToWarp);
@@ -1000,8 +992,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         assertEq(reducedLoan.createdAt, block.timestamp - daysToWarp);
         assertEq(reducedLoan.prepaidFeePercent, prepaidFeePercent);
         assertEq(reducedLoan.prepaidDuration, mulDiv(prepaidFeePercent, 3650 days, 500));
-        assertEq(reducedLoan.source.token, JBConstants.NATIVE_TOKEN);
-        assertEq(address(reducedLoan.source.terminal), address(jbMultiTerminal()));
+        assertEq(reducedLoan.sourceToken, JBConstants.NATIVE_TOKEN);
     }
 
     function test_Refinance_Excess_Collateral() public {
@@ -1021,7 +1012,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             abi.encode(true)
         );
 
-        REVLoanSource memory sauce = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address sauce = JBConstants.NATIVE_TOKEN;
 
         vm.prank(USER);
         (uint256 newLoanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 500, USER);
@@ -1073,8 +1064,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         assertEq(adjustedLoan.createdAt, loan.createdAt); // Should match the old loan
         assertEq(adjustedLoan.prepaidFeePercent, loan.prepaidFeePercent); // Should match the old loan
         assertEq(adjustedLoan.prepaidDuration, mulDiv(loan.prepaidFeePercent, 3650 days, 500));
-        assertEq(adjustedLoan.source.token, JBConstants.NATIVE_TOKEN);
-        assertEq(address(adjustedLoan.source.terminal), address(jbMultiTerminal()));
+        assertEq(adjustedLoan.sourceToken, JBConstants.NATIVE_TOKEN);
 
         // Check the new loan with the excess from refinancing
         assertEq(newLoan.amount, newAmount); // Excess from reallocateCollateral
@@ -1082,8 +1072,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         assertEq(newLoan.createdAt, block.timestamp);
         assertEq(newLoan.prepaidFeePercent, 25); // Configured as 25 (min) in reallocateCollateral call
         assertEq(newLoan.prepaidDuration, mulDiv(25, 3650 days, 500)); // Configured as 25 in reallocateCollateral call
-        assertEq(newLoan.source.token, JBConstants.NATIVE_TOKEN);
-        assertEq(address(newLoan.source.terminal), address(jbMultiTerminal()));
+        assertEq(newLoan.sourceToken, JBConstants.NATIVE_TOKEN);
     }
 
     function test_Refinance_Not_Enough_Collateral() public {
@@ -1103,7 +1092,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             abi.encode(true)
         );
 
-        REVLoanSource memory sauce = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address sauce = JBConstants.NATIVE_TOKEN;
 
         vm.prank(USER);
         (uint256 newLoanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 500, USER);
@@ -1168,7 +1157,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             abi.encode(true)
         );
 
-        REVLoanSource memory sauce = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address sauce = JBConstants.NATIVE_TOKEN;
 
         vm.prank(USER);
         (uint256 newLoanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 500, USER);
@@ -1263,7 +1252,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             (revnetProjectId,) = REV_DEPLOYER.deployFor({
                 revnetId: 0, // Zero to deploy a new revnet
                 configuration: projectConfig.configuration,
-                terminalConfigurations: projectConfig.terminalConfigurations,
+                accountingContextsToAccept: projectConfig.accountingContextsToAccept,
                 suckerDeploymentConfiguration: projectConfig.suckerDeploymentConfiguration,
                 tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
                 allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -1297,7 +1286,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             jbPermissions().setPermissionsFor(address(USER), permissionsData);
         }
 
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
 
         uint256 initialBorrow = 0;
         uint256 prevBorrow = 0;
@@ -1366,7 +1355,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         (uint256 revnetProjectId,) = REV_DEPLOYER.deployFor({
             revnetId: 0, // Zero to deploy a new revnet
             configuration: projectConfig.configuration,
-            terminalConfigurations: projectConfig.terminalConfigurations,
+            accountingContextsToAccept: projectConfig.accountingContextsToAccept,
             suckerDeploymentConfiguration: projectConfig.suckerDeploymentConfiguration,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -1393,7 +1382,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         );
 
         uint256 balanceBefore = USER.balance;
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
         (uint256 newLoanId, REVLoan memory loan) =
             LOANS_CONTRACT.borrowFrom(revnetProjectId, source, loanable, tokens, payable(USER), 500, USER);
 
@@ -1451,7 +1440,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             abi.encode(true)
         );
 
-        REVLoanSource memory sauce = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address sauce = JBConstants.NATIVE_TOKEN;
 
         vm.prank(USER);
         (uint256 newLoanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 500, USER);
@@ -1536,7 +1525,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             abi.encode(true)
         );
 
-        REVLoanSource memory sauce = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address sauce = JBConstants.NATIVE_TOKEN;
 
         vm.prank(USER);
         (uint256 newLoanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 500, USER);
@@ -1605,10 +1594,10 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             abi.encode(true)
         );
 
-        REVLoanSource memory sauce = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address sauce = JBConstants.NATIVE_TOKEN;
 
         // Before a borrow the source does not exist
-        REVLoanSource[] memory sources = LOANS_CONTRACT.loanSourcesOf(REVNET_ID);
+        address[] memory sources = LOANS_CONTRACT.loanSourcesOf(REVNET_ID);
         assertEq(sources.length, 0);
 
         vm.prank(USER);
@@ -1616,10 +1605,10 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 100, USER);
 
         // Source should exist after a borrow
-        REVLoanSource[] memory sourcesUpdated = LOANS_CONTRACT.loanSourcesOf(REVNET_ID);
+        address[] memory sourcesUpdated = LOANS_CONTRACT.loanSourcesOf(REVNET_ID);
         assertEq(sourcesUpdated.length, 1);
-        assertEq(sourcesUpdated[0].token, JBConstants.NATIVE_TOKEN);
-        assertEq(address(sourcesUpdated[0].terminal), address(jbMultiTerminal()));
+        assertEq(sourcesUpdated[0], JBConstants.NATIVE_TOKEN);
+        assertEq(sourcesUpdated[0], JBConstants.NATIVE_TOKEN);
 
         // Check the fee amount after warping forward past the prepaid duration
         vm.warp(block.timestamp + loan.prepaidDuration + 100 days);
@@ -1650,7 +1639,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(loanable, 0);
 
-        REVLoanSource memory sauce = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address sauce = JBConstants.NATIVE_TOKEN;
 
         vm.prank(USER);
         vm.expectRevert(
@@ -1674,7 +1663,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             abi.encode(true)
         );
 
-        REVLoanSource memory sauce = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address sauce = JBConstants.NATIVE_TOKEN;
 
         vm.prank(USER);
         (uint256 loanId, REVLoan memory loan) =
@@ -1730,7 +1719,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             abi.encode(true)
         );
 
-        REVLoanSource memory sauce = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address sauce = JBConstants.NATIVE_TOKEN;
 
         vm.prank(USER);
         (uint256 loanId, REVLoan memory loan) =
@@ -1804,7 +1793,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             abi.encode(true)
         );
 
-        REVLoanSource memory sauce = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address sauce = JBConstants.NATIVE_TOKEN;
 
         vm.prank(USER);
         (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 100, USER);
@@ -1841,7 +1830,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             abi.encode(true)
         );
 
-        REVLoanSource memory sauce = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address sauce = JBConstants.NATIVE_TOKEN;
 
         vm.prank(USER);
         (uint256 loanId, REVLoan memory loan) =
@@ -1886,7 +1875,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
             abi.encode(true)
         );
 
-        REVLoanSource memory sauce = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
+        address sauce = address(TOKEN);
         vm.prank(USER);
         (uint256 loanId, REVLoan memory loan) =
             LOANS_CONTRACT.borrowFrom(REVNET_ID, sauce, loanable, tokens, payable(USER), 100, USER);

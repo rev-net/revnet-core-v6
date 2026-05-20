@@ -30,7 +30,6 @@ import {JBSingleAllowance} from "@bananapus/core-v6/src/structs/JBSingleAllowanc
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVLoan} from "../src/structs/REVLoan.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
@@ -64,31 +63,25 @@ contract REVLoansHarness is REVLoans {
     function exposed_totalBorrowedFrom(
         uint256 revnetId,
         uint256 decimals,
-        uint256 currency
+        uint256 currency,
+        IJBTerminal terminal
     )
         external
         view
         returns (uint256)
     {
-        return _totalBorrowedFrom(revnetId, decimals, currency);
+        return _totalBorrowedFrom(revnetId, decimals, currency, terminal);
     }
 
     /// @notice Set totalBorrowedFrom for testing.
-    function setTotalBorrowedFrom(
-        uint256 revnetId,
-        IJBPayoutTerminal terminal,
-        address token,
-        uint256 amount
-    )
-        external
-    {
-        totalBorrowedFrom[revnetId][terminal][token] = amount;
+    function setTotalBorrowedFrom(uint256 revnetId, address token, uint256 amount) external {
+        _totalBorrowedFromBySource[revnetId][token] = amount;
     }
 
     /// @notice Register a loan source for testing.
-    function addLoanSource(uint256 revnetId, REVLoanSource memory source) external {
-        _loanSourcesOf[revnetId].push(source);
-        isLoanSourceOf[revnetId][source.terminal][source.token] = true;
+    function addLoanSource(uint256 revnetId, address token) external {
+        _loanSourcesOf[revnetId].push(token);
+        _isLoanSourceOf[revnetId][token] = true;
     }
 }
 
@@ -169,6 +162,8 @@ contract TestRevnetRegressions is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            jbMultiTerminal(),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -215,10 +210,8 @@ contract TestRevnetRegressions is TestBaseWorkflow {
         );
 
         // Register the loan source and set a non-zero borrowed amount via the harness.
-        LOANS_CONTRACT.addLoanSource(
-            revnetId, REVLoanSource({token: fakeToken, terminal: IJBPayoutTerminal(mockTerminal)})
-        );
-        LOANS_CONTRACT.setTotalBorrowedFrom(revnetId, IJBPayoutTerminal(mockTerminal), fakeToken, 1e18);
+        LOANS_CONTRACT.addLoanSource(revnetId, fakeToken);
+        LOANS_CONTRACT.setTotalBorrowedFrom(revnetId, fakeToken, 1e18);
 
         // Mock PRICES.pricePerUnitOf to return 0 for the cross-currency conversion.
         // This simulates a broken, stale, or uninitialized price feed.
@@ -237,8 +230,9 @@ contract TestRevnetRegressions is TestBaseWorkflow {
         // Call _totalBorrowedFrom via the harness.
         // Before the fix: this would panic with division-by-zero in mulDiv.
         // After the fix: the zero-price source is skipped with `continue`.
-        uint256 totalBorrowed =
-            LOANS_CONTRACT.exposed_totalBorrowedFrom(revnetId, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        uint256 totalBorrowed = LOANS_CONTRACT.exposed_totalBorrowedFrom(
+            revnetId, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)), IJBTerminal(mockTerminal)
+        );
 
         // The source with zero price should be skipped, so the total is 0
         // (the fake source is not counted because its price feed returned 0).
@@ -255,9 +249,7 @@ contract TestRevnetRegressions is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         REVStageConfig[] memory stageConfigurations = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
@@ -293,7 +285,7 @@ contract TestRevnetRegressions is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: revnetConfiguration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("REV"))
             }),
@@ -308,9 +300,7 @@ contract TestRevnetRegressions is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         REVStageConfig[] memory stageConfigurations = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
@@ -341,7 +331,7 @@ contract TestRevnetRegressions is TestBaseWorkflow {
         (revnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: revnetConfiguration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("BRW"))
             }),

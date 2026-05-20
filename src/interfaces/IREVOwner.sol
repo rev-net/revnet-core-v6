@@ -10,6 +10,10 @@ interface IREVOwner {
     /// @return The cash out delay timestamp.
     function cashOutDelayOf(uint256 revnetId) external view returns (uint256);
 
+    /// @notice The canonical deployer managing revnet runtime state.
+    /// @return The revnet deployer instance.
+    function deployer() external view returns (IREVDeployer);
+
     /// @notice Bind the canonical deployer exactly once.
     /// @param newDeployer The revnet deployer instance.
     function setDeployer(IREVDeployer newDeployer) external;

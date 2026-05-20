@@ -32,7 +32,6 @@ import {JBTokenAmount} from "@bananapus/core-v6/src/structs/JBTokenAmount.sol";
 import {MockERC20} from "@bananapus/core-v6/test/mock/MockERC20.sol";
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
@@ -51,7 +50,7 @@ import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
 struct FeeProjectConfig {
     REVConfig configuration;
-    JBTerminalConfig[] terminalConfigurations;
+    JBAccountingContext[] accountingContextsToAccept;
     REVSuckerDeploymentConfig suckerDeploymentConfiguration;
 }
 
@@ -108,9 +107,7 @@ contract TestCashOutCallerValidation is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         REVStageConfig[] memory stageConfigurations = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
@@ -144,7 +141,7 @@ contract TestCashOutCallerValidation is TestBaseWorkflow {
 
         return FeeProjectConfig({
             configuration: revnetConfiguration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("REV"))
             })
@@ -163,9 +160,7 @@ contract TestCashOutCallerValidation is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         REVStageConfig[] memory stageConfigurations = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
@@ -188,8 +183,8 @@ contract TestCashOutCallerValidation is TestBaseWorkflow {
             });
         }
 
-        REVLoanSource[] memory loanSources = new REVLoanSource[](1);
-        loanSources[0] = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address[] memory loanSources = new address[](1);
+        loanSources[0] = JBConstants.NATIVE_TOKEN;
 
         REVConfig memory revnetConfiguration = REVConfig({
             // forge-lint: disable-next-line(named-struct-fields)
@@ -202,7 +197,7 @@ contract TestCashOutCallerValidation is TestBaseWorkflow {
 
         return FeeProjectConfig({
             configuration: revnetConfiguration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("NANA"))
             })
@@ -251,6 +246,8 @@ contract TestCashOutCallerValidation is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            jbMultiTerminal(),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -273,7 +270,7 @@ contract TestCashOutCallerValidation is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: feeProjectConfig.configuration,
-            terminalConfigurations: feeProjectConfig.terminalConfigurations,
+            accountingContextsToAccept: feeProjectConfig.accountingContextsToAccept,
             suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -284,7 +281,7 @@ contract TestCashOutCallerValidation is TestBaseWorkflow {
         (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: revnetConfig.configuration,
-            terminalConfigurations: revnetConfig.terminalConfigurations,
+            accountingContextsToAccept: revnetConfig.accountingContextsToAccept,
             suckerDeploymentConfiguration: revnetConfig.suckerDeploymentConfiguration,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -451,5 +448,46 @@ contract TestCashOutCallerValidation is TestBaseWorkflow {
         uint256 feeBalanceAfter =
             jbTerminalStore().balanceOf(address(jbMultiTerminal()), FEE_PROJECT_ID, JBConstants.NATIVE_TOKEN);
         assertGt(feeBalanceAfter, feeBalanceBefore, "Fee project should receive the donated ETH");
+    }
+
+    function test_nonTerminalCallerCannotSpendForcedNativeBalance() public {
+        vm.deal(address(REV_OWNER), 1 ether);
+
+        JBAfterCashOutRecordedContext memory context = JBAfterCashOutRecordedContext({
+            holder: RANDOM_CALLER,
+            projectId: REVNET_ID,
+            rulesetId: 0,
+            cashOutCount: 0,
+            reclaimedAmount: JBTokenAmount({
+                token: JBConstants.NATIVE_TOKEN,
+                decimals: 18,
+                currency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
+                value: 0
+            }),
+            forwardedAmount: JBTokenAmount({
+                token: JBConstants.NATIVE_TOKEN,
+                decimals: 18,
+                currency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
+                value: 1 ether
+            }),
+            cashOutTaxRate: 0,
+            beneficiary: payable(RANDOM_CALLER),
+            hookMetadata: abi.encode(jbMultiTerminal()),
+            cashOutMetadata: ""
+        });
+
+        uint256 feeBalanceBefore =
+            jbTerminalStore().balanceOf(address(jbMultiTerminal()), FEE_PROJECT_ID, JBConstants.NATIVE_TOKEN);
+
+        vm.expectRevert(abi.encodeWithSelector(REVOwner.REVOwner_NativeFeeValueMismatch.selector, 1 ether, 0));
+        vm.prank(RANDOM_CALLER);
+        REV_OWNER.afterCashOutRecordedWith(context);
+
+        assertEq(address(REV_OWNER).balance, 1 ether, "forced balance should remain untouched");
+        assertEq(
+            jbTerminalStore().balanceOf(address(jbMultiTerminal()), FEE_PROJECT_ID, JBConstants.NATIVE_TOKEN),
+            feeBalanceBefore,
+            "fee project should not receive forced ETH"
+        );
     }
 }

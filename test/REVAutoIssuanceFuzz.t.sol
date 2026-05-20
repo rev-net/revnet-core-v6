@@ -105,6 +105,8 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            jbMultiTerminal(),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -130,8 +132,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory terminalConfigs = new JBTerminalConfig[](1);
-        terminalConfigs[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: tokensToAccept});
+        JBAccountingContext[] memory terminalConfigs = tokensToAccept;
 
         REVStageConfig[] memory stages = new REVStageConfig[](numStages);
         stageIds = new uint256[](numStages);
@@ -186,7 +187,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
         (revnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: config,
-            terminalConfigurations: terminalConfigs,
+            accountingContextsToAccept: terminalConfigs,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0),
                 salt: keccak256(abi.encodePacked("AUTOISSUE", numStages))

@@ -12,6 +12,7 @@ import {IJBPermissioned} from "@bananapus/core-v6/src/interfaces/IJBPermissioned
 import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
 import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
 import {IJBRulesetApprovalHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetApprovalHook.sol";
+import {IJBTerminal} from "@bananapus/core-v6/src/interfaces/IJBTerminal.sol";
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBSplitGroupIds} from "@bananapus/core-v6/src/libraries/JBSplitGroupIds.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
@@ -66,6 +67,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     error REVDeployer_StageNotStarted(uint256 stageId);
     error REVDeployer_StagesRequired(uint256 stageCount);
     error REVDeployer_StageTimesMustIncrease(uint256 stageIndex, uint256 previousStageStart, uint256 effectiveStart);
+    error REVDeployer_TerminalZeroAddress();
     error REVDeployer_Unauthorized(uint256 revnetId, address caller);
 
     //*********************************************************************//
@@ -115,6 +117,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// Participants can borrow up to the current cash out value of their tokens.
     IREVLoans public immutable override LOANS;
 
+    /// @notice The canonical terminal that holds revnet treasury balances.
+    IJBTerminal public immutable override MULTI_TERMINAL;
+
     /// @notice The runtime data hook contract that handles pay and cash out callbacks for revnets.
     /// @dev Set as `dataHook` in each revnet's ruleset metadata. Implements `IJBRulesetDataHook` and `IJBCashOutHook`.
     address public immutable override OWNER;
@@ -127,6 +132,10 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
 
     /// @notice Manages the publishing of ERC-721 posts to revnet's tiered ERC-721 hooks.
     CTPublisher public immutable override PUBLISHER;
+
+    /// @notice The canonical router terminal registry installed as a project terminal for alternate payment routes.
+    /// @dev Deployments pass the router terminal registry here, not the underlying router terminal implementation.
+    IJBTerminal public immutable override ROUTER_TERMINAL_REGISTRY;
 
     /// @notice Deploys and tracks suckers for revnets.
     IJBSuckerRegistry public immutable override SUCKER_REGISTRY;
@@ -165,6 +174,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     //*********************************************************************//
 
     /// @param controller The controller to use for launching and operating the Juicebox projects which will be revnets.
+    /// @param multiTerminal The canonical terminal that holds revnet treasury balances.
+    /// @param routerTerminalRegistry The canonical router terminal registry used for alternate payment routes.
     /// @param suckerRegistry The registry to use for deploying and tracking each revnet's suckers.
     /// @param feeRevnetId The Juicebox project ID of the revnet that will receive fees.
     /// @param hookDeployer The deployer to use for revnet's tiered ERC-721 hooks.
@@ -175,6 +186,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @param owner The runtime data hook contract (REVOwner) that handles pay and cash out callbacks.
     constructor(
         IJBController controller,
+        IJBTerminal multiTerminal,
+        IJBTerminal routerTerminalRegistry,
         IJBSuckerRegistry suckerRegistry,
         uint256 feeRevnetId,
         IJB721TiersHookDeployer hookDeployer,
@@ -186,10 +199,16 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     )
         ERC2771Context(trustedForwarder)
     {
+        if (multiTerminal == IJBTerminal(address(0)) || routerTerminalRegistry == IJBTerminal(address(0))) {
+            revert REVDeployer_TerminalZeroAddress();
+        }
+
         CONTROLLER = controller;
         DIRECTORY = controller.DIRECTORY();
         PROJECTS = controller.PROJECTS();
         PERMISSIONS = IJBPermissioned(address(CONTROLLER)).PERMISSIONS();
+        MULTI_TERMINAL = multiTerminal;
+        ROUTER_TERMINAL_REGISTRY = routerTerminalRegistry;
         SUCKER_REGISTRY = suckerRegistry;
         FEE_REVNET_ID = feeRevnetId;
         HOOK_DEPLOYER = hookDeployer;
@@ -259,52 +278,61 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     }
 
     /// @notice Initialize fund access limits for the loan contract.
-    /// @dev Returns an unlimited surplus allowance for each terminal+token pair derived from the terminal
-    /// configurations.
-    /// @param terminalConfigurations The terminals to set up for the revnet.
+    /// @dev Returns an unlimited surplus allowance for each accepted token in the canonical multi terminal.
+    /// @param accountingContextsToAccept The accounting contexts the canonical multi terminal should accept.
     /// @return fundAccessLimitGroups The fund access limit groups for the loans.
-    function _makeLoanFundAccessLimits(JBTerminalConfig[] calldata terminalConfigurations)
+    function _makeLoanFundAccessLimits(JBAccountingContext[] calldata accountingContextsToAccept)
         internal
-        pure
+        view
         returns (JBFundAccessLimitGroup[] memory fundAccessLimitGroups)
     {
-        // Count the total number of accounting contexts across all terminals.
-        uint256 count;
-        for (uint256 i; i < terminalConfigurations.length;) {
-            count += terminalConfigurations[i].accountingContextsToAccept.length;
+        // Initialize the fund access limit groups.
+        fundAccessLimitGroups = new JBFundAccessLimitGroup[](accountingContextsToAccept.length);
+
+        // Set up the fund access limits.
+        for (uint256 i; i < accountingContextsToAccept.length;) {
+            JBAccountingContext calldata accountingContext = accountingContextsToAccept[i];
+
+            // Set up an unlimited allowance for the loan contract to use.
+            JBCurrencyAmount[] memory loanAllowances = new JBCurrencyAmount[](1);
+            loanAllowances[0] = JBCurrencyAmount({currency: accountingContext.currency, amount: type(uint224).max});
+
+            // Set up the fund access limits for the loans.
+            fundAccessLimitGroups[i] = JBFundAccessLimitGroup({
+                terminal: address(MULTI_TERMINAL),
+                token: accountingContext.token,
+                payoutLimits: new JBCurrencyAmount[](0),
+                surplusAllowances: loanAllowances
+            });
             unchecked {
                 ++i;
             }
         }
+    }
 
-        // Initialize the fund access limit groups.
-        fundAccessLimitGroups = new JBFundAccessLimitGroup[](count);
+    /// @notice Build the canonical terminal configuration used by every revnet.
+    /// @dev `MULTI_TERMINAL` accepts the revnet's accounting contexts and owns the treasury/loan accounting surface.
+    /// `ROUTER_TERMINAL_REGISTRY` is registered without accounting contexts so users can pay through the router path
+    /// without letting callers choose arbitrary terminals or loan sources.
+    /// @param accountingContextsToAccept The accounting contexts the canonical multi terminal should accept.
+    /// @return terminalConfigurations The canonical terminal configuration for the revnet.
+    function _makeTerminalConfigurations(JBAccountingContext[] calldata accountingContextsToAccept)
+        internal
+        view
+        returns (JBTerminalConfig[] memory terminalConfigurations)
+    {
+        // Most tests construct the deployer with the same terminal in both slots. Production deployers should pass
+        // distinct terminals; this branch keeps the canonical builder from producing duplicate directory entries.
+        bool hasDistinctRouterTerminalRegistry = ROUTER_TERMINAL_REGISTRY != MULTI_TERMINAL;
 
-        // Set up the fund access limits.
-        uint256 index;
-        for (uint256 i; i < terminalConfigurations.length;) {
-            JBTerminalConfig calldata terminalConfiguration = terminalConfigurations[i];
-            for (uint256 j; j < terminalConfiguration.accountingContextsToAccept.length;) {
-                JBAccountingContext calldata accountingContext = terminalConfiguration.accountingContextsToAccept[j];
+        terminalConfigurations = new JBTerminalConfig[](hasDistinctRouterTerminalRegistry ? 2 : 1);
+        terminalConfigurations[0] =
+            JBTerminalConfig({terminal: MULTI_TERMINAL, accountingContextsToAccept: accountingContextsToAccept});
 
-                // Set up an unlimited allowance for the loan contract to use.
-                JBCurrencyAmount[] memory loanAllowances = new JBCurrencyAmount[](1);
-                loanAllowances[0] = JBCurrencyAmount({currency: accountingContext.currency, amount: type(uint224).max});
-
-                // Set up the fund access limits for the loans.
-                fundAccessLimitGroups[index++] = JBFundAccessLimitGroup({
-                    terminal: address(terminalConfiguration.terminal),
-                    token: accountingContext.token,
-                    payoutLimits: new JBCurrencyAmount[](0),
-                    surplusAllowances: loanAllowances
-                });
-                unchecked {
-                    ++j;
-                }
-            }
-            unchecked {
-                ++i;
-            }
+        if (hasDistinctRouterTerminalRegistry) {
+            terminalConfigurations[1] = JBTerminalConfig({
+                terminal: ROUTER_TERMINAL_REGISTRY, accountingContextsToAccept: new JBAccountingContext[](0)
+            });
         }
     }
 
@@ -512,7 +540,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     ///   REVDeployer, and the project becomes subject to immutable revnet rules. This cannot be undone.
     /// @param revnetId The ID of the Juicebox project to initialize as a revnet. Send 0 to deploy a new revnet.
     /// @param configuration Core revnet configuration. See `REVConfig`.
-    /// @param terminalConfigurations The terminals to set up for the revnet.
+    /// @param accountingContextsToAccept The accounting contexts the canonical multi terminal should accept.
     /// @param suckerDeploymentConfiguration The suckers to set up for cross-chain token transfers.
     /// @param tiered721HookConfiguration How to configure the tiered ERC-721 hook for the revnet.
     /// @param allowedPosts Restrictions on which croptop posts to allow on the revnet's ERC-721 tiers.
@@ -522,7 +550,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     function deployFor(
         uint256 revnetId,
         REVConfig calldata configuration,
-        JBTerminalConfig[] calldata terminalConfigurations,
+        JBAccountingContext[] calldata accountingContextsToAccept,
         REVSuckerDeploymentConfig calldata suckerDeploymentConfiguration,
         REVDeploy721TiersHookConfig calldata tiered721HookConfiguration,
         REVCroptopAllowedPost[] calldata allowedPosts
@@ -542,7 +570,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             revnetId: revnetId,
             shouldDeployNewRevnet: shouldDeployNewRevnet,
             configuration: configuration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: accountingContextsToAccept,
             suckerDeploymentConfiguration: suckerDeploymentConfiguration,
             tiered721HookConfiguration: tiered721HookConfiguration,
             allowedPosts: allowedPosts
@@ -556,7 +584,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     function deployFor(
         uint256 revnetId,
         REVConfig calldata configuration,
-        JBTerminalConfig[] calldata terminalConfigurations,
+        JBAccountingContext[] calldata accountingContextsToAccept,
         REVSuckerDeploymentConfig calldata suckerDeploymentConfiguration
     )
         external
@@ -571,7 +599,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             revnetId: revnetId,
             shouldDeployNewRevnet: shouldDeployNewRevnet,
             configuration: configuration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: accountingContextsToAccept,
             suckerDeploymentConfiguration: suckerDeploymentConfiguration
         });
 
@@ -669,7 +697,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         uint256 revnetId,
         bool shouldDeployNewRevnet,
         REVConfig calldata configuration,
-        JBTerminalConfig[] calldata terminalConfigurations,
+        JBAccountingContext[] calldata accountingContextsToAccept,
         REVSuckerDeploymentConfig calldata suckerDeploymentConfiguration,
         REVDeploy721TiersHookConfig memory tiered721HookConfiguration,
         REVCroptopAllowedPost[] memory allowedPosts
@@ -682,7 +710,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             revnetId: revnetId,
             shouldDeployNewRevnet: shouldDeployNewRevnet,
             configuration: configuration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: accountingContextsToAccept,
             suckerDeploymentConfiguration: suckerDeploymentConfiguration
         });
 
@@ -788,14 +816,14 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @param shouldDeployNewRevnet Whether the revnet ID was reserved by this deployment call, or the caller is
     /// converting an existing Juicebox project into a revnet.
     /// @param configuration Core revnet configuration. See `REVConfig`.
-    /// @param terminalConfigurations The terminals to set up for the revnet.
+    /// @param accountingContextsToAccept The accounting contexts the canonical multi terminal should accept.
     /// @param suckerDeploymentConfiguration The suckers to set up for cross-chain token transfers.
     /// @return encodedConfigurationHash A hash that represents the revnet's configuration.
     function _deployRevnetFor(
         uint256 revnetId,
         bool shouldDeployNewRevnet,
         REVConfig calldata configuration,
-        JBTerminalConfig[] calldata terminalConfigurations,
+        JBAccountingContext[] calldata accountingContextsToAccept,
         REVSuckerDeploymentConfig calldata suckerDeploymentConfiguration
     )
         internal
@@ -804,8 +832,12 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         // Normalize and encode the configurations.
         JBRulesetConfig[] memory rulesetConfigurations;
         (rulesetConfigurations, encodedConfigurationHash) = _makeRulesetConfigurations({
-            revnetId: revnetId, configuration: configuration, terminalConfigurations: terminalConfigurations
+            revnetId: revnetId, configuration: configuration, accountingContextsToAccept: accountingContextsToAccept
         });
+
+        // Build the canonical terminal set from the deployer's immutable terminal choices.
+        JBTerminalConfig[] memory terminalConfigurations =
+            _makeTerminalConfigurations({accountingContextsToAccept: accountingContextsToAccept});
 
         address owner;
         if (!shouldDeployNewRevnet) {
@@ -848,20 +880,14 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             salt: keccak256(abi.encode(configuration.description.salt, encodedConfigurationHash, _msgSender()))
         });
 
-        // Now that the ERC-20 exists, initialize buyback pools for each terminal token.
-        for (uint256 i; i < terminalConfigurations.length;) {
-            JBTerminalConfig calldata terminalConfiguration = terminalConfigurations[i];
-            for (uint256 j; j < terminalConfiguration.accountingContextsToAccept.length;) {
-                _tryInitializeBuybackPoolFor({
-                    revnetId: revnetId,
-                    terminalToken: terminalConfiguration.accountingContextsToAccept[j].token,
-                    terminalTokenDecimals: terminalConfiguration.accountingContextsToAccept[j].decimals,
-                    initialIssuance: configuration.stageConfigurations[0].initialIssuance
-                });
-                unchecked {
-                    ++j;
-                }
-            }
+        // Now that the ERC-20 exists, initialize buyback pools for each accepted treasury token.
+        for (uint256 i; i < accountingContextsToAccept.length;) {
+            _tryInitializeBuybackPoolFor({
+                revnetId: revnetId,
+                terminalToken: accountingContextsToAccept[i].token,
+                terminalTokenDecimals: accountingContextsToAccept[i].decimals,
+                initialIssuance: configuration.stageConfigurations[0].initialIssuance
+            });
             unchecked {
                 ++i;
             }
@@ -926,13 +952,13 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// configured immutably at deployment time.
     /// @param revnetId The ID of the revnet to build rulesets for.
     /// @param configuration The configuration containing the revnet's stages.
-    /// @param terminalConfigurations The terminals to set up for the revnet.
+    /// @param accountingContextsToAccept The accounting contexts the canonical multi terminal should accept.
     /// @return rulesetConfigurations A list of ruleset configurations derived from the stages.
     /// @return encodedConfigurationHash A hash that represents the revnet's configuration.
     function _makeRulesetConfigurations(
         uint256 revnetId,
         REVConfig calldata configuration,
-        JBTerminalConfig[] calldata terminalConfigurations
+        JBAccountingContext[] calldata accountingContextsToAccept
     )
         internal
         returns (JBRulesetConfig[] memory rulesetConfigurations, bytes32 encodedConfigurationHash)
@@ -954,19 +980,14 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             configuration.description.salt
         );
 
-        // Include terminal addresses in the hash so cross-chain expansions must use the same terminals.
-        // Terminal addresses are deterministic across chains. Accounting contexts are excluded because
-        // token addresses (e.g. USDC) legitimately differ per chain.
-        for (uint256 i; i < terminalConfigurations.length;) {
-            encodedConfiguration = abi.encode(encodedConfiguration, terminalConfigurations[i].terminal);
-            unchecked {
-                ++i;
-            }
-        }
+        // Include the deployer's canonical terminal addresses in the hash so cross-chain expansions must use the same
+        // terminal contracts. Accounting contexts are excluded because token addresses (e.g. USDC) legitimately differ
+        // per chain.
+        encodedConfiguration = abi.encode(encodedConfiguration, MULTI_TERMINAL, ROUTER_TERMINAL_REGISTRY);
 
         // Initialize fund access limit groups for the loan contract.
         JBFundAccessLimitGroup[] memory fundAccessLimitGroups =
-            _makeLoanFundAccessLimits({terminalConfigurations: terminalConfigurations});
+            _makeLoanFundAccessLimits({accountingContextsToAccept: accountingContextsToAccept});
 
         // Track the previous stage's effective start time for ordering validation.
         // When stage 0 uses `startsAtOrAfter == 0`, the effective value is `block.timestamp`.
