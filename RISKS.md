@@ -84,10 +84,11 @@ The model assumes that attempts to inflate surplus through donations are not pro
 
 ### 7.5 Revnet terminal set is deployer-pinned
 
-New revnet configs choose accounting contexts, not terminal addresses. `REVDeployer` registers its constructor-pinned
-`MULTI_TERMINAL` with those accounting contexts and, when distinct, also registers `ROUTER_TERMINAL_REGISTRY` with no
-accounting contexts. `ROUTER_TERMINAL_REGISTRY` is the project terminal that forwards alternate payment routes to the
-selected router terminal implementation.
+New revnet configs choose accounting contexts, not terminal addresses. `REVDeployer` assumes its constructor-pinned
+`MULTI_TERMINAL` and `ROUTER_TERMINAL_REGISTRY` are valid deployment-time dependencies. It registers
+`MULTI_TERMINAL` with the revnet's accounting contexts and, when distinct, also registers
+`ROUTER_TERMINAL_REGISTRY` with no accounting contexts. `ROUTER_TERMINAL_REGISTRY` is the project terminal that
+forwards alternate payment routes to the selected router terminal implementation.
 
 This keeps treasury balances, loan allowances, and borrow-source accounting anchored to the canonical multi-terminal
 while still allowing users to pay through the router registry. It also removes the old arbitrary-terminal deployment

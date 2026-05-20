@@ -67,7 +67,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     error REVDeployer_StageNotStarted(uint256 stageId);
     error REVDeployer_StagesRequired(uint256 stageCount);
     error REVDeployer_StageTimesMustIncrease(uint256 stageIndex, uint256 previousStageStart, uint256 effectiveStart);
-    error REVDeployer_TerminalZeroAddress();
     error REVDeployer_Unauthorized(uint256 revnetId, address caller);
 
     //*********************************************************************//
@@ -174,8 +173,10 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     //*********************************************************************//
 
     /// @param controller The controller to use for launching and operating the Juicebox projects which will be revnets.
-    /// @param multiTerminal The canonical terminal that holds revnet treasury balances.
-    /// @param routerTerminalRegistry The canonical router terminal registry used for alternate payment routes.
+    /// @param multiTerminal The canonical terminal that holds revnet treasury balances. Assumed to be a valid
+    /// deployment-time dependency.
+    /// @param routerTerminalRegistry The canonical router terminal registry used for alternate payment routes. Assumed
+    /// to be a valid deployment-time dependency.
     /// @param suckerRegistry The registry to use for deploying and tracking each revnet's suckers.
     /// @param feeRevnetId The Juicebox project ID of the revnet that will receive fees.
     /// @param hookDeployer The deployer to use for revnet's tiered ERC-721 hooks.
@@ -199,10 +200,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     )
         ERC2771Context(trustedForwarder)
     {
-        if (multiTerminal == IJBTerminal(address(0)) || routerTerminalRegistry == IJBTerminal(address(0))) {
-            revert REVDeployer_TerminalZeroAddress();
-        }
-
         CONTROLLER = controller;
         DIRECTORY = controller.DIRECTORY();
         PROJECTS = controller.PROJECTS();
