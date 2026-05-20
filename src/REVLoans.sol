@@ -674,7 +674,15 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @param revnetId The ID of the revnet to liquidate loans from.
     /// @param startingLoanId The loan number to start iterating from.
     /// @param count The number of loans to iterate over.
-    function liquidateExpiredLoansFrom(uint256 revnetId, uint256 startingLoanId, uint256 count) external override {
+    function liquidateExpiredLoansFrom(
+        uint256 revnetId,
+        uint256 startingLoanId,
+        uint256 count
+    )
+        external
+        override
+        nonReentrantLoanAction
+    {
         // Prevent cross-revnet accounting corruption: loan numbers must stay within the revnet's ID namespace.
         uint256 endLoanNumber = startingLoanId + count;
         if (endLoanNumber > _ONE_TRILLION) {
@@ -1246,8 +1254,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Make sure the token's accounting context exists on the canonical multi terminal for this revnet. An
         // unaccepted token reads as an empty accounting context from the terminal store, which must not be treated as
         // a valid zero-decimal/zero-currency loan source.
-        JBAccountingContext memory context =
-            TERMINAL.accountingContextForTokenOf({projectId: revnetId, token: token});
+        JBAccountingContext memory context = TERMINAL.accountingContextForTokenOf({projectId: revnetId, token: token});
         if (context.token != token) revert REVLoans_InvalidAccountingContext({revnetId: revnetId, token: token});
 
         // Make sure the prepaid fee percent is between `MIN_PREPAID_FEE_PERCENT` and `MAX_PREPAID_FEE_PERCENT`. Meaning
@@ -1439,8 +1446,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         totalBorrowedFrom[revnetId][sourceToken] -= repaidBorrowAmount;
 
         // Increase the allowance for the beneficiary.
-        uint256 payValue =
-            _beforeTransferTo({to: address(TERMINAL), token: sourceToken, amount: repaidBorrowAmount});
+        uint256 payValue = _beforeTransferTo({to: address(TERMINAL), token: sourceToken, amount: repaidBorrowAmount});
 
         // Add the loaned amount back to the revnet.
         TERMINAL.addToBalanceOf{value: payValue}({
