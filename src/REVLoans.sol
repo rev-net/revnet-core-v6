@@ -106,17 +106,14 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     // --------------- public immutable stored properties ---------------- //
     //*********************************************************************//
 
-    /// @notice The Permit2 contract used for token approvals and transfers.
-    IPermit2 public immutable override PERMIT2;
-
     /// @notice The controller of revnets that use this loans contract.
     IJBController public immutable override CONTROLLER;
 
     /// @notice The directory of terminals and controllers for revnets.
     IJBDirectory public immutable override DIRECTORY;
 
-    /// @notice The canonical payout terminal that holds revnet treasury balances and sources all revnet loans.
-    IJBPayoutTerminal public immutable override TERMINAL;
+    /// @notice The Permit2 contract used for token approvals and transfers.
+    IPermit2 public immutable override PERMIT2;
 
     /// @notice A contract that stores prices for each revnet.
     IJBPrices public immutable override PRICES;
@@ -126,6 +123,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
 
     /// @notice The sucker registry used to discover peer chain suckers for cross-chain awareness.
     IJBSuckerRegistry public immutable override SUCKER_REGISTRY;
+
+    /// @notice The canonical payout terminal that holds revnet treasury balances and sources all revnet loans.
+    IJBPayoutTerminal public immutable override TERMINAL;
 
     //*********************************************************************//
     // --------------------- public stored properties -------------------- //

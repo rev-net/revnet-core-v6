@@ -154,10 +154,6 @@ interface IREVLoans {
     /// @return The minimum prepaid fee percent.
     function MIN_PREPAID_FEE_PERCENT() external view returns (uint256);
 
-    /// @notice The canonical payout terminal that holds revnet treasury balances and sources all revnet loans.
-    /// @return The canonical payout terminal.
-    function TERMINAL() external view returns (IJBPayoutTerminal);
-
     /// @notice The permit2 utility used for token transfers.
     /// @return The permit2 contract.
     function PERMIT2() external view returns (IPermit2);
@@ -170,13 +166,17 @@ interface IREVLoans {
     /// @return The REV revnet ID.
     function REV_ID() external view returns (uint256);
 
+    /// @notice The fee percent charged by the REV revnet on each loan, in terms of `JBConstants.MAX_FEE`.
+    /// @return The REV prepaid fee percent.
+    function REV_PREPAID_FEE_PERCENT() external view returns (uint256);
+
     /// @notice The sucker registry used to discover peer chain suckers for cross-chain supply/surplus awareness.
     /// @return The sucker registry.
     function SUCKER_REGISTRY() external view returns (IJBSuckerRegistry);
 
-    /// @notice The fee percent charged by the REV revnet on each loan, in terms of `JBConstants.MAX_FEE`.
-    /// @return The REV prepaid fee percent.
-    function REV_PREPAID_FEE_PERCENT() external view returns (uint256);
+    /// @notice The canonical payout terminal that holds revnet treasury balances and sources all revnet loans.
+    /// @return The canonical payout terminal.
+    function TERMINAL() external view returns (IJBPayoutTerminal);
 
     /// @notice The revnet ID for a given loan ID.
     /// @param loanId The loan ID to look up.
