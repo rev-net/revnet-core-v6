@@ -23,7 +23,6 @@ import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
 import {JBRulesetConfig} from "@bananapus/core-v6/src/structs/JBRulesetConfig.sol";
 import {JBRulesetMetadata} from "@bananapus/core-v6/src/structs/JBRulesetMetadata.sol";
 import {JBSplitGroup} from "@bananapus/core-v6/src/structs/JBSplitGroup.sol";
-import {JBSplit} from "@bananapus/core-v6/src/structs/JBSplit.sol";
 import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
@@ -307,26 +306,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         }
     }
 
-    /// @notice Build the canonical terminal configuration used by every revnet.
-    /// @dev `MULTI_TERMINAL` accepts the revnet's accounting contexts and owns the treasury/loan accounting surface.
-    /// `ROUTER_TERMINAL_REGISTRY` is registered without accounting contexts so users can pay through the router path
-    /// without letting callers choose arbitrary terminals or loan sources. The deployer is constructed with distinct
-    /// addresses in the two slots; reusing the same address would be rejected by the directory's duplicate check.
-    /// @param accountingContextsToAccept The accounting contexts the canonical multi terminal should accept.
-    /// @return terminalConfigurations The canonical terminal configuration for the revnet.
-    function _makeTerminalConfigurations(JBAccountingContext[] calldata accountingContextsToAccept)
-        internal
-        view
-        returns (JBTerminalConfig[] memory terminalConfigurations)
-    {
-        terminalConfigurations = new JBTerminalConfig[](2);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: MULTI_TERMINAL, accountingContextsToAccept: accountingContextsToAccept});
-        terminalConfigurations[1] = JBTerminalConfig({
-            terminal: ROUTER_TERMINAL_REGISTRY, accountingContextsToAccept: new JBAccountingContext[](0)
-        });
-    }
-
     /// @notice Make a ruleset configuration for a revnet's stage.
     /// @param baseCurrency The base currency of the revnet.
     /// @param scopeCashOutsToLocalBalances If true, cash-out calculations use only the local terminal's surplus.
@@ -369,6 +348,26 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             metadata: metadata,
             splitGroups: splitGroups,
             fundAccessLimitGroups: fundAccessLimitGroups
+        });
+    }
+
+    /// @notice Build the canonical terminal configuration used by every revnet.
+    /// @dev `MULTI_TERMINAL` accepts the revnet's accounting contexts and owns the treasury/loan accounting surface.
+    /// `ROUTER_TERMINAL_REGISTRY` is registered without accounting contexts so users can pay through the router path
+    /// without letting callers choose arbitrary terminals or loan sources. The deployer is constructed with distinct
+    /// addresses in the two slots; reusing the same address would be rejected by the directory's duplicate check.
+    /// @param accountingContextsToAccept The accounting contexts the canonical multi terminal should accept.
+    /// @return terminalConfigurations The canonical terminal configuration for the revnet.
+    function _makeTerminalConfigurations(JBAccountingContext[] calldata accountingContextsToAccept)
+        internal
+        view
+        returns (JBTerminalConfig[] memory terminalConfigurations)
+    {
+        terminalConfigurations = new JBTerminalConfig[](2);
+        terminalConfigurations[0] =
+            JBTerminalConfig({terminal: MULTI_TERMINAL, accountingContextsToAccept: accountingContextsToAccept});
+        terminalConfigurations[1] = JBTerminalConfig({
+            terminal: ROUTER_TERMINAL_REGISTRY, accountingContextsToAccept: new JBAccountingContext[](0)
         });
     }
 

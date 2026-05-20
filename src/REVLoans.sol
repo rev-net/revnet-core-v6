@@ -136,13 +136,6 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @custom:param token The token source to check.
     mapping(uint256 revnetId => mapping(address token => bool)) public override isLoanSourceOf;
 
-    /// @notice The cumulative number of loans ever created for a revnet, used as a loan ID sequence counter.
-    /// @dev This counter only increments (on borrow, repay-with-new-loan, and reallocation) and never decrements.
-    /// It does NOT represent the number of currently active loans. Repaid and liquidated loans leave permanent gaps
-    /// in the ID sequence. Integrators should not use this to count active loans.
-    /// @custom:param revnetId The ID of the revnet to check.
-    mapping(uint256 revnetId => uint256) public override totalLoansBorrowedFor;
-
     /// @notice The contract resolving each project ID to its ERC721 URI.
     IJBTokenUriResolver public override tokenUriResolver;
 
@@ -155,9 +148,20 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @custom:param revnetId The ID of the revnet to check.
     mapping(uint256 revnetId => uint256) public override totalCollateralOf;
 
+    /// @notice The cumulative number of loans ever created for a revnet, used as a loan ID sequence counter.
+    /// @dev This counter only increments (on borrow, repay-with-new-loan, and reallocation) and never decrements.
+    /// It does NOT represent the number of currently active loans. Repaid and liquidated loans leave permanent gaps
+    /// in the ID sequence. Integrators should not use this to count active loans.
+    /// @custom:param revnetId The ID of the revnet to check.
+    mapping(uint256 revnetId => uint256) public override totalLoansBorrowedFor;
+
     //*********************************************************************//
     // --------------------- internal stored properties ------------------ //
     //*********************************************************************//
+
+    /// @notice The loans.
+    /// @custom:member The ID of the loan.
+    mapping(uint256 loanId => REVLoan) internal _loanOf;
 
     /// @notice The sources of each revnet's loan.
     /// @dev This array grows monotonically -- entries are appended when a token is first used for borrowing, but are
@@ -166,10 +170,6 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// manageable.
     /// @custom:member revnetId The ID of the revnet to look up.
     mapping(uint256 revnetId => address[]) internal _loanSourceTokensOf;
-
-    /// @notice The loans.
-    /// @custom:member The ID of the loan.
-    mapping(uint256 loanId => REVLoan) internal _loanOf;
 
     //*********************************************************************//
     // ------------------- transient stored properties ------------------- //
@@ -513,14 +513,6 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         return mulDiv({x: fullSourceFeeAmount, y: amount, denominator: loan.amount});
     }
 
-    /// @notice Returns a single-terminal array for surplus calculations.
-    /// @param terminal The terminal to place in the array.
-    /// @return terminals The one-item terminal array.
-    function _singleTerminalArray(IJBTerminal terminal) internal pure returns (IJBTerminal[] memory terminals) {
-        terminals = new IJBTerminal[](1);
-        terminals[0] = terminal;
-    }
-
     /// @notice Generate an ID for a loan given a revnet ID and a loan number within that revnet.
     /// @dev The multiplication and addition can theoretically overflow a uint256 if revnetId or loanNumber are
     /// astronomically large. In practice this is infeasible — it would require 2^256 loans or project IDs, far
@@ -542,6 +534,14 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @return sender The address which sent this call.
     function _msgSender() internal view override(ERC2771Context, Context) returns (address sender) {
         return ERC2771Context._msgSender();
+    }
+
+    /// @notice Returns a single-terminal array for surplus calculations.
+    /// @param terminal The terminal to place in the array.
+    /// @return terminals The one-item terminal array.
+    function _singleTerminalArray(IJBTerminal terminal) internal pure returns (IJBTerminal[] memory terminals) {
+        terminals = new IJBTerminal[](1);
+        terminals[0] = terminal;
     }
 
     /// @notice The total borrowed amount from a revnet, aggregated across all loan sources.

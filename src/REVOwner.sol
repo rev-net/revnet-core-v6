@@ -10,8 +10,8 @@ import {IJBTerminal} from "@bananapus/core-v6/src/interfaces/IJBTerminal.sol";
 import {JBCashOuts} from "@bananapus/core-v6/src/libraries/JBCashOuts.sol";
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBFees} from "@bananapus/core-v6/src/libraries/JBFees.sol";
-import {JBAfterCashOutRecordedContext} from "@bananapus/core-v6/src/structs/JBAfterCashOutRecordedContext.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
+import {JBAfterCashOutRecordedContext} from "@bananapus/core-v6/src/structs/JBAfterCashOutRecordedContext.sol";
 import {JBBeforeCashOutRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforeCashOutRecordedContext.sol";
 import {JBBeforePayRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforePayRecordedContext.sol";
 import {JBCashOutHookSpecification} from "@bananapus/core-v6/src/structs/JBCashOutHookSpecification.sol";
@@ -509,6 +509,17 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         }
     }
 
+    /// @notice Store the cash out delay for a revnet.
+    /// @dev Only callable by the deployer.
+    /// @param revnetId The ID of the revnet.
+    /// @param cashOutDelay The timestamp after which cash outs are allowed.
+    function setCashOutDelayOf(uint256 revnetId, uint256 cashOutDelay) external {
+        if (msg.sender != address(deployer)) {
+            revert REVOwner_Unauthorized({caller: msg.sender, expectedCaller: address(deployer)});
+        }
+        cashOutDelayOf[revnetId] = cashOutDelay;
+    }
+
     /// @notice Bind the canonical deployer address exactly once.
     /// @dev The deployer address is precomputed and supplied by the account that created this REVOwner instance.
     /// Only that deploy-time binder may call this, which avoids an ambient public initializer where any first caller
@@ -521,17 +532,6 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         if (address(deployer) != address(0)) revert REVOwner_AlreadyInitialized({deployer: address(deployer)});
         // Store the canonical REVDeployer that is authorized to manage runtime hook state.
         deployer = newDeployer;
-    }
-
-    /// @notice Store the cash out delay for a revnet.
-    /// @dev Only callable by the deployer.
-    /// @param revnetId The ID of the revnet.
-    /// @param cashOutDelay The timestamp after which cash outs are allowed.
-    function setCashOutDelayOf(uint256 revnetId, uint256 cashOutDelay) external {
-        if (msg.sender != address(deployer)) {
-            revert REVOwner_Unauthorized({caller: msg.sender, expectedCaller: address(deployer)});
-        }
-        cashOutDelayOf[revnetId] = cashOutDelay;
     }
 
     /// @notice Store the tiered ERC-721 hook for a revnet.
@@ -641,6 +641,14 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     // --------------------- internal transactions ----------------------- //
     //*********************************************************************//
 
+    /// @notice Clears any token allowance granted by `_beforeTransferTo`.
+    /// @param to The address that was approved by `_beforeTransferTo`.
+    /// @param token The token whose allowance should be revoked.
+    function _afterTransferTo(address to, address token) internal {
+        if (token == JBConstants.NATIVE_TOKEN) return;
+        IERC20(token).forceApprove({spender: to, value: 0});
+    }
+
     /// @notice Logic to trigger before transferring tokens from this contract.
     /// @param to The address to transfer to.
     /// @param token The token to transfer.
@@ -652,11 +660,5 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         if (token == JBConstants.NATIVE_TOKEN) return amount;
         IERC20(token).safeIncreaseAllowance({spender: to, value: amount});
         return 0;
-    }
-
-    /// @notice Clears any token allowance granted by `_beforeTransferTo`.
-    function _afterTransferTo(address to, address token) internal {
-        if (token == JBConstants.NATIVE_TOKEN) return;
-        IERC20(token).forceApprove({spender: to, value: 0});
     }
 }
