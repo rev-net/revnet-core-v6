@@ -27,7 +27,9 @@ This file focuses on the staged-economics, runtime-hook, and loan risks that mat
 
 - **Stage immutability cuts both ways.** A bad stage schedule or bad cash-out tax choice is expensive to unwind.
 - **Borrowability depends on live economics.** If surplus, supply, or cross-chain state are wrong, loan capacity becomes wrong.
-- **Zero or degraded price feeds can undercount debt.** If a source becomes invisible to debt aggregation, later borrowing can become too permissive. Specifically, `_debtOf` skips sources where `pricePerUnitOf` returns zero, treating them as if the borrower has no debt in that source. If a feed breaks or returns zero, existing debt in that currency is effectively invisible, inflating the borrower's apparent borrowable amount.
+- **Zero or degraded price feeds can block cross-currency loan accounting.** Revnet loans fail closed when a required
+  price is zero, because silently skipping that source would hide outstanding debt and make later borrowing too
+  permissive. If a feed breaks, affected borrowability and repayment views can revert until the feed is fixed.
 - **Auto-issuance dilutes holders predictably but still materially.** Timing is permissionless, even if the amounts are fixed at deployment.
 - **Omnichain expansion can corrupt surplus aggregation.** Since borrowability aggregates surplus from all registered terminals across chains, a compromised or misconfigured terminal on a remote chain affects global surplus accounting.
 

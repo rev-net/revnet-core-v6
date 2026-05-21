@@ -87,7 +87,7 @@ contract REVLoansHarness is REVLoans {
     }
 }
 
-/// @notice Regression tests for zero price feed DoS in REVLoans._totalBorrowedFrom.
+/// @notice Regression tests for REVLoans debt aggregation edge cases.
 contract TestRevnetRegressions is TestBaseWorkflow {
     // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
@@ -184,14 +184,14 @@ contract TestRevnetRegressions is TestBaseWorkflow {
     }
 
     //*********************************************************************//
-    // ---- Zero price feed return causes DoS in _totalBorrowedFrom ----- //
+    // ---- Zero price feed return fails closed in _totalBorrowedFrom --- //
     //*********************************************************************//
 
-    /// @notice Demonstrates that `_totalBorrowedFrom` does not revert when
-    /// `pricePerUnitOf` returns 0 for a cross-currency loan source.
-    /// Before the fix, `mulDiv(x, y, 0)` would panic with a division-by-zero,
-    /// blocking all loan operations that aggregate cross-currency borrowed amounts.
-    function test_zeroPriceFeedSkippedInTotalBorrowed() public {
+    /// @notice Demonstrates that `_totalBorrowedFrom` reverts when a price module returns 0 for a cross-currency
+    /// loan source.
+    /// @dev A zero price cannot be skipped: doing so would hide outstanding debt. Core `JBPrices` already rejects
+    /// zero prices, and this harness-level mock proves REVLoans also rejects a nonconforming zero return directly.
+    function test_zeroPriceFeedRevertsInTotalBorrowed() public {
         // Deploy the fee revnet (required by the system).
         _deployFeeRevnet();
 
@@ -216,8 +216,8 @@ contract TestRevnetRegressions is TestBaseWorkflow {
         LOANS_CONTRACT.addLoanSource(revnetId, fakeToken);
         LOANS_CONTRACT.setTotalBorrowedFrom(revnetId, fakeToken, 1e18);
 
-        // Mock PRICES.pricePerUnitOf to return 0 for the cross-currency conversion.
-        // This simulates a broken, stale, or uninitialized price feed.
+        // Mock PRICES.pricePerUnitOf to return 0 for the cross-currency conversion. Core `JBPrices` reverts before
+        // returning 0, so this direct mock covers the extra local guard in REVLoans.
         vm.mockCall(
             address(jbPrices()),
             abi.encodeWithSelector(
@@ -230,16 +230,19 @@ contract TestRevnetRegressions is TestBaseWorkflow {
             abi.encode(uint256(0))
         );
 
-        // Call _totalBorrowedFrom via the harness.
-        // Before the fix: this would panic with division-by-zero in mulDiv.
-        // After the fix: the zero-price source is skipped with `continue`.
-        uint256 totalBorrowed = LOANS_CONTRACT.exposed_totalBorrowedFrom(
+        // Call _totalBorrowedFrom via the harness. It must fail closed instead of undercounting debt by ignoring the
+        // fake source.
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                REVLoans.REVLoans_ZeroPrice.selector,
+                revnetId,
+                uint256(fakeCurrency),
+                uint256(uint32(uint160(JBConstants.NATIVE_TOKEN)))
+            )
+        );
+        LOANS_CONTRACT.exposed_totalBorrowedFrom(
             revnetId, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)), IJBTerminal(mockTerminal)
         );
-
-        // The source with zero price should be skipped, so the total is 0
-        // (the fake source is not counted because its price feed returned 0).
-        assertEq(totalBorrowed, 0, "_totalBorrowedFrom should return 0 when price feed returns 0, not panic");
     }
 
     //*********************************************************************//

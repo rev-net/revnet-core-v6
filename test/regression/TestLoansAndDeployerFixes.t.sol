@@ -274,25 +274,7 @@ contract TestLoansAndDeployerFixes is REVLoansFeeRecovery {
 
     /// @notice Verify that _totalBorrowedFrom correctly counts non-zero sources.
     function test_nonZeroSourcesStillCounted() public {
-        // Borrow from native source (leave it outstanding).
-        vm.prank(USER);
-        uint256 nativeTokens =
-            jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
-
-        _mockLoanPermission(USER);
-        address nativeSource = JBConstants.NATIVE_TOKEN;
-
-        vm.prank(USER);
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, nativeSource, 0, nativeTokens, payable(USER), 25, USER);
-
-        // Confirm totalBorrowedFrom is non-zero.
-        assertGt(
-            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, JBConstants.NATIVE_TOKEN),
-            0,
-            "totalBorrowedFrom should be non-zero for outstanding loan"
-        );
-
-        // Now borrow from ERC20 source as well — _totalBorrowedFrom should read both.
+        // Borrow from the ERC-20 source first and leave it outstanding.
         uint256 payAmount = 1_000_000;
         deal(address(TOKEN), USER, payAmount);
         vm.startPrank(USER);
@@ -312,6 +294,24 @@ contract TestLoansAndDeployerFixes is REVLoansFeeRecovery {
             LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, address(TOKEN)),
             0,
             "ERC20 borrow should record totalBorrowedFrom"
+        );
+
+        // Now borrow from the native source. This internally invokes _totalBorrowedFrom, which must read the
+        // outstanding ERC-20 source and convert it through the direct TOKEN->native price feed.
+        vm.prank(USER);
+        uint256 nativeTokens =
+            jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
+
+        _mockLoanPermission(USER);
+        address nativeSource = JBConstants.NATIVE_TOKEN;
+
+        vm.prank(USER);
+        LOANS_CONTRACT.borrowFrom(REVNET_ID, nativeSource, 0, nativeTokens, payable(USER), 25, USER);
+
+        assertGt(
+            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, JBConstants.NATIVE_TOKEN),
+            0,
+            "native borrow should record totalBorrowedFrom"
         );
     }
 

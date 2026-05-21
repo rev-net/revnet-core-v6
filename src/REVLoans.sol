@@ -76,6 +76,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     error REVLoans_UnderMinBorrowAmount(uint256 minBorrowAmount, uint256 borrowAmount);
     error REVLoans_ZeroBorrowAmount(uint256 revnetId, uint256 collateralCount);
     error REVLoans_ZeroCollateralLoanIsInvalid(uint256 collateralCount);
+    error REVLoans_ZeroPrice(uint256 revnetId, uint256 pricingCurrency, uint256 unitCurrency);
 
     //*********************************************************************//
     // ------------------------- public constants ------------------------ //
@@ -530,8 +531,8 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @dev Each source's `totalBorrowedFrom` is stored in the source token's native decimals (e.g. 6 for USDC,
     /// 18 for ETH). Before aggregation, each amount is normalized to the target `decimals` to prevent mixed-decimal
     /// arithmetic errors. For cross-currency sources, the normalized amount is then converted via the price feed.
-    /// @dev Inverse price feeds may truncate to zero at low decimal counts (e.g. a feed returning 1e21 at 6 decimals
-    /// inverts to mulDiv(1e6, 1e6, 1e21) = 0). Sources with a zero price are skipped to prevent division-by-zero.
+    /// @dev Cross-currency sources fail closed if the price is zero. Core `JBPrices` reverts before returning zero;
+    /// the local zero check below covers mocked or nonconforming price modules so a source is never silently ignored.
     /// @param revnetId The ID of the revnet to check.
     /// @param decimals The decimals to use for the resulting fixed point value.
     /// @param currency The currency to denominate the resulting value in.
@@ -579,15 +580,19 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             if (context.currency == currency) {
                 borrowedAmount += normalizedTokens;
             } else {
-                // Otherwise, convert via the price feed.
+                // Otherwise, convert via the price feed. `JBPrices` itself rejects a zero price, but the explicit
+                // local check keeps the same fail-closed behavior if tests or future modules return 0 directly.
                 uint256 pricePerUnit = PRICES.pricePerUnitOf({
                     projectId: revnetId, pricingCurrency: context.currency, unitCurrency: currency, decimals: decimals
                 });
 
-                // If the price feed returns zero, skip this source to avoid a division-by-zero panic
-                // that would DoS all loan operations. This intentionally understates total debt for
-                // the affected source — an acceptable tradeoff vs. blocking every borrow/repay.
-                if (pricePerUnit == 0) continue;
+                // A zero denominator would either panic below or, if skipped, hide outstanding debt. Revert instead
+                // so misconfigured cross-currency sources cannot make borrowers appear safer than they are.
+                if (pricePerUnit == 0) {
+                    revert REVLoans_ZeroPrice({
+                        revnetId: revnetId, pricingCurrency: context.currency, unitCurrency: currency
+                    });
+                }
 
                 borrowedAmount += mulDiv({x: normalizedTokens, y: 10 ** decimals, denominator: pricePerUnit});
             }
