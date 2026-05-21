@@ -32,6 +32,7 @@ import {IPermit2} from "@uniswap/permit2/src/interfaces/IPermit2.sol";
 
 import {IREVLoans} from "./interfaces/IREVLoans.sol";
 import {IREVOwner} from "./interfaces/IREVOwner.sol";
+import {REVLoansSourceFees} from "./libraries/REVLoansSourceFees.sol";
 import {REVLoan} from "./structs/REVLoan.sol";
 
 /// @notice Allows revnet token holders to borrow against their tokens instead of cashing out. The borrowable amount
@@ -481,36 +482,17 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @param amount The amount to pay off.
     /// @return The source fee amount for the loan.
     function _determineSourceFeeAmount(REVLoan memory loan, uint256 amount) internal view returns (uint256) {
-        // Keep a reference to the time since the loan was created.
+        // Keep a reference to the loan age here because production uses the live block timestamp while formal proofs
+        // pass explicit elapsed-time values into the same source-fee library.
         uint256 timeSinceLoanCreated = block.timestamp - loan.createdAt;
 
-        // If the loan period has passed the prepaid time frame, take a fee.
-        if (timeSinceLoanCreated <= loan.prepaidDuration) return 0;
-
-        // If the loan period has passed the liquidation time frame, do not allow loan management.
-        // Uses `>` (not `>=`) so the exact boundary second is still repayable — the liquidation path
-        // uses `<=`, and matching `>=` here would create a 1-second window where neither path is available.
-        if (timeSinceLoanCreated > LOAN_LIQUIDATION_DURATION) {
-            revert REVLoans_LoanExpired({
-                timeSinceLoanCreated: timeSinceLoanCreated, loanLiquidationDuration: LOAN_LIQUIDATION_DURATION
-            });
-        }
-
-        // Get a reference to the amount prepaid for the full loan.
-        uint256 prepaid = JBFees.feeAmountFrom({amountBeforeFee: loan.amount, feePercent: loan.prepaidFeePercent});
-
-        // This source fee ramps with elapsed time.
-        uint256 fullSourceFeeAmount = JBFees.feeAmountFrom({
-            amountBeforeFee: loan.amount - prepaid,
-            feePercent: mulDiv({
-                x: timeSinceLoanCreated - loan.prepaidDuration,
-                y: JBConstants.MAX_FEE,
-                denominator: LOAN_LIQUIDATION_DURATION - loan.prepaidDuration
-            })
+        // Delegate the arithmetic so Halmos can prove the exact fee schedule without loading the full loan contract.
+        return REVLoansSourceFees.sourceFeeAmountFrom({
+            loan: loan,
+            amount: amount,
+            timeSinceLoanCreated: timeSinceLoanCreated,
+            loanLiquidationDuration: LOAN_LIQUIDATION_DURATION
         });
-
-        // Calculate the source fee amount for the amount being paid off.
-        return mulDiv({x: fullSourceFeeAmount, y: amount, denominator: loan.amount});
     }
 
     /// @notice Generate an ID for a loan given a revnet ID and a loan number within that revnet.
