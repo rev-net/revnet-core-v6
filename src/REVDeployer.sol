@@ -174,8 +174,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @param controller The controller to use for launching and operating the Juicebox projects which will be revnets.
     /// @param multiTerminal The canonical terminal that holds revnet treasury balances. Assumed to be a valid
     /// deployment-time dependency.
-    /// @param routerTerminalRegistry The canonical router terminal registry used for alternate payment routes. Assumed
-    /// to be a valid deployment-time dependency.
+    /// @param routerTerminalRegistry The canonical router terminal registry used for alternate payment routes. May be
+    /// the zero address on chains where the router terminal stack is unavailable.
     /// @param suckerRegistry The registry to use for deploying and tracking each revnet's suckers.
     /// @param feeRevnetId The Juicebox project ID of the revnet that will receive fees.
     /// @param hookDeployer The deployer to use for revnet's tiered ERC-721 hooks.
@@ -353,9 +353,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
 
     /// @notice Build the canonical terminal configuration used by every revnet.
     /// @dev `MULTI_TERMINAL` accepts the revnet's accounting contexts and owns the treasury/loan accounting surface.
-    /// `ROUTER_TERMINAL_REGISTRY` is registered without accounting contexts so users can pay through the router path
-    /// without letting callers choose arbitrary terminals or loan sources. The deployer is constructed with distinct
-    /// addresses in the two slots; reusing the same address would be rejected by the directory's duplicate check.
+    /// When configured, `ROUTER_TERMINAL_REGISTRY` is registered without accounting contexts so users can pay through
+    /// the router path without letting callers choose arbitrary terminals or loan sources. Chains without the router
+    /// terminal stack use only `MULTI_TERMINAL`.
     /// @param accountingContextsToAccept The accounting contexts the canonical multi terminal should accept.
     /// @return terminalConfigurations The canonical terminal configuration for the revnet.
     function _makeTerminalConfigurations(JBAccountingContext[] calldata accountingContextsToAccept)
@@ -363,12 +363,15 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         view
         returns (JBTerminalConfig[] memory terminalConfigurations)
     {
-        terminalConfigurations = new JBTerminalConfig[](2);
+        bool hasRouterTerminalRegistry = address(ROUTER_TERMINAL_REGISTRY) != address(0);
+        terminalConfigurations = new JBTerminalConfig[](hasRouterTerminalRegistry ? 2 : 1);
         terminalConfigurations[0] =
             JBTerminalConfig({terminal: MULTI_TERMINAL, accountingContextsToAccept: accountingContextsToAccept});
-        terminalConfigurations[1] = JBTerminalConfig({
-            terminal: ROUTER_TERMINAL_REGISTRY, accountingContextsToAccept: new JBAccountingContext[](0)
-        });
+        if (hasRouterTerminalRegistry) {
+            terminalConfigurations[1] = JBTerminalConfig({
+                terminal: ROUTER_TERMINAL_REGISTRY, accountingContextsToAccept: new JBAccountingContext[](0)
+            });
+        }
     }
 
     /// @notice Returns the permissions that the operator should have for a revnet.

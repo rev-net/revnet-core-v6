@@ -224,6 +224,49 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
         assertEq(address(terminals[1]), address(REV_DEPLOYER.ROUTER_TERMINAL_REGISTRY()), "unexpected router registry");
     }
 
+    /// @notice Chains without the router stack should still be able to deploy revnets with only the multi terminal.
+    function test_zeroRouterTerminalRegistry_omitsRouterTerminal() public {
+        REVOwner zeroRouterOwner = new REVOwner(
+            IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
+            jbDirectory(),
+            FEE_PROJECT_ID,
+            SUCKER_REGISTRY,
+            LOANS_CONTRACT,
+            address(this)
+        );
+
+        REVDeployer zeroRouterDeployer = new REVDeployer{salt: "REVDeployer_ZeroRouter"}(
+            jbController(),
+            jbMultiTerminal(),
+            IJBTerminal(address(0)),
+            SUCKER_REGISTRY,
+            FEE_PROJECT_ID,
+            HOOK_DEPLOYER,
+            PUBLISHER,
+            IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
+            LOANS_CONTRACT,
+            TRUSTED_FORWARDER,
+            address(zeroRouterOwner)
+        );
+        zeroRouterOwner.setDeployer(zeroRouterDeployer);
+
+        (uint256 revnetId,) = zeroRouterDeployer.deployFor({
+            revnetId: 0,
+            configuration: _baseRevConfig("NO_ROUTER"),
+            accountingContextsToAccept: _terminalConfigs(),
+            suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
+                deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NO_ROUTER")
+            }),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
+        });
+
+        IJBTerminal[] memory terminals = jbDirectory().terminalsOf(revnetId);
+        assertEq(address(zeroRouterDeployer.ROUTER_TERMINAL_REGISTRY()), address(0), "router registry should be unset");
+        assertEq(terminals.length, 1, "zero router registry should not be registered as a terminal");
+        assertEq(address(terminals[0]), address(zeroRouterDeployer.MULTI_TERMINAL()), "unexpected canonical terminal");
+    }
+
     /// @notice Split recipients are mutable operational config, not revnet identity.
     function test_splitRecipient_doesNotAffectHash() public {
         address deployerA = makeAddr("deployerA");
