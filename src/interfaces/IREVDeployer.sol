@@ -165,7 +165,7 @@ interface IREVDeployer {
     function PUBLISHER() external view returns (CTPublisher);
 
     /// @notice The canonical router terminal registry installed as a project terminal for alternate payment routes.
-    /// @return The router terminal registry contract, cast as a terminal.
+    /// @return The router terminal registry contract, cast as a terminal, or zero if unavailable on this chain.
     function ROUTER_TERMINAL_REGISTRY() external view returns (IJBTerminal);
 
     /// @notice The registry that deploys and tracks suckers for revnets.
