@@ -5,6 +5,50 @@ pragma solidity 0.8.28;
 import "./ForkTestBase.sol";
 import {JBFees} from "@bananapus/core-v6/src/libraries/JBFees.sol";
 
+/// @notice Contract borrower that tries to open a nested loan when it receives a native-token loan payout.
+contract ForkReentrantLoanBeneficiary {
+    IREVLoans public immutable LOANS;
+
+    uint256 public reenterRevnetId;
+    uint256 public reenterCollateral;
+    address public reenterSource;
+    bytes4 public reentrantBorrowRevertSelector;
+    bool public reentrantBorrowAttempted;
+    bool public reentrantBorrowSucceeded;
+
+    constructor(IREVLoans loans) {
+        LOANS = loans;
+    }
+
+    function setReentrantBorrow(uint256 revnetId, address token, uint256 collateral) external {
+        reenterRevnetId = revnetId;
+        reenterSource = token;
+        reenterCollateral = collateral;
+    }
+
+    receive() external payable {
+        if (reentrantBorrowAttempted) return;
+
+        reentrantBorrowAttempted = true;
+        try LOANS.borrowFrom(
+            reenterRevnetId, reenterSource, 0, reenterCollateral, payable(address(this)), 25, address(this)
+        ) returns (
+            uint256, REVLoan memory
+        ) {
+            reentrantBorrowSucceeded = true;
+        } catch (bytes memory reason) {
+            reentrantBorrowRevertSelector = _selectorFrom(reason);
+        }
+    }
+
+    function _selectorFrom(bytes memory reason) private pure returns (bytes4 selector) {
+        if (reason.length < 4) return bytes4(0);
+        assembly ("memory-safe") {
+            selector := mload(add(reason, 32))
+        }
+    }
+}
+
 /// @notice Fork tests for REVLoans.borrowFrom() with real Uniswap V4 buyback hook.
 ///
 /// Covers: basic borrow, fee distribution, and borrow after tier splits.
@@ -38,8 +82,7 @@ contract TestLoanBorrowFork is ForkTestBase {
         assertGt(borrowable, 0, "should have borrowable amount");
 
         uint256 totalCollateralBefore = LOANS_CONTRACT.totalCollateralOf(revnetId);
-        uint256 totalBorrowedBefore =
-            LOANS_CONTRACT.totalBorrowedFrom(revnetId, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
+        uint256 totalBorrowedBefore = LOANS_CONTRACT.totalBorrowedFrom(revnetId, JBConstants.NATIVE_TOKEN);
 
         uint256 borrowerEthBefore = BORROWER.balance;
 
@@ -67,7 +110,7 @@ contract TestLoanBorrowFork is ForkTestBase {
             "totalCollateralOf should increase"
         );
         assertGt(
-            LOANS_CONTRACT.totalBorrowedFrom(revnetId, jbMultiTerminal(), JBConstants.NATIVE_TOKEN),
+            LOANS_CONTRACT.totalBorrowedFrom(revnetId, JBConstants.NATIVE_TOKEN),
             totalBorrowedBefore,
             "totalBorrowedFrom should increase"
         );
@@ -89,11 +132,11 @@ contract TestLoanBorrowFork is ForkTestBase {
         uint256 borrowerEthBefore = BORROWER.balance;
         _grantBurnPermission(BORROWER, revnetId);
 
-        REVLoanSource memory source = _nativeLoanSource();
+        address source = _nativeLoanSource();
         vm.prank(BORROWER);
         LOANS_CONTRACT.borrowFrom({
             revnetId: revnetId,
-            source: source,
+            token: source,
             minBorrowAmount: 0,
             collateralCount: borrowerTokens,
             beneficiary: payable(BORROWER),
@@ -119,6 +162,62 @@ contract TestLoanBorrowFork is ForkTestBase {
 
         // Loans contract should not hold any ETH.
         assertEq(address(LOANS_CONTRACT).balance, 0, "loans contract should not hold ETH");
+    }
+
+    /// @notice A contract borrower cannot open a nested loan during its native-token payout callback.
+    function test_fork_borrow_reentrantBeneficiaryCannotNestBorrow() public {
+        ForkReentrantLoanBeneficiary borrower = new ForkReentrantLoanBeneficiary(LOANS_CONTRACT);
+        vm.deal(address(borrower), 10 ether);
+
+        vm.prank(address(borrower));
+        uint256 borrowerTokens = jbMultiTerminal().pay{value: 5 ether}({
+            projectId: revnetId,
+            token: JBConstants.NATIVE_TOKEN,
+            amount: 5 ether,
+            beneficiary: address(borrower),
+            minReturnedTokens: 0,
+            memo: "",
+            metadata: ""
+        });
+
+        assertGt(
+            LOANS_CONTRACT.borrowableAmountFrom(
+                revnetId, borrowerTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
+            ),
+            0,
+            "should have borrowable amount"
+        );
+
+        address source = _nativeLoanSource();
+        borrower.setReentrantBorrow({revnetId: revnetId, token: source, collateral: borrowerTokens});
+
+        uint256 totalLoansBefore = LOANS_CONTRACT.totalLoansBorrowedFor(revnetId);
+        _grantBurnPermission(address(borrower), revnetId);
+
+        uint256 minFeePercent = LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT();
+
+        vm.prank(address(borrower));
+        LOANS_CONTRACT.borrowFrom({
+            revnetId: revnetId,
+            token: source,
+            minBorrowAmount: 0,
+            collateralCount: borrowerTokens,
+            beneficiary: payable(address(borrower)),
+            prepaidFeePercent: minFeePercent,
+            holder: address(borrower)
+        });
+
+        assertTrue(borrower.reentrantBorrowAttempted(), "borrower should try a nested borrow");
+        assertFalse(borrower.reentrantBorrowSucceeded(), "nested borrow should not succeed");
+        assertEq(
+            borrower.reentrantBorrowRevertSelector(),
+            REVLoans.REVLoans_ReentrantLoanAction.selector,
+            "nested borrow should hit loan action lock"
+        );
+        assertEq(
+            LOANS_CONTRACT.totalLoansBorrowedFor(revnetId), totalLoansBefore + 1, "only outer loan should be counted"
+        );
+        assertEq(LOANS_CONTRACT.totalCollateralOf(revnetId), borrowerTokens, "only outer collateral should be counted");
     }
 
     /// @notice Borrow after a payment with 30% tier splits.

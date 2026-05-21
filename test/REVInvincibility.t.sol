@@ -33,7 +33,6 @@ import {MockERC20} from "@bananapus/core-v6/test/mock/MockERC20.sol";
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVLoan} from "../src/structs/REVLoan.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
@@ -52,6 +51,7 @@ import {BrokenFeeTerminal} from "./helpers/MaliciousContracts.sol";
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
+import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
 // =========================================================================
@@ -59,7 +59,7 @@ import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 // =========================================================================
 struct InvincibilityProjectConfig {
     REVConfig configuration;
-    JBTerminalConfig[] terminalConfigurations;
+    JBAccountingContext[] accountingContextsToAccept;
     REVSuckerDeploymentConfig suckerDeploymentConfiguration;
 }
 
@@ -115,9 +115,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -153,7 +151,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
                 scopeCashOutsToLocalBalances: false,
                 stageConfigurations: stageConfigurations
             }),
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("REV"))
             })
@@ -166,9 +164,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -224,7 +220,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
                 scopeCashOutsToLocalBalances: false,
                 stageConfigurations: stageConfigurations
             }),
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("NANA"))
             })
@@ -256,6 +252,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            terminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -274,6 +271,8 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            IJBTerminal(address(new MockEmptyTerminal())),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -295,7 +294,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: feeConfig.configuration,
-            terminalConfigurations: feeConfig.terminalConfigurations,
+            accountingContextsToAccept: feeConfig.accountingContextsToAccept,
             suckerDeploymentConfiguration: feeConfig.suckerDeploymentConfiguration,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -306,7 +305,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
         (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: revConfig.configuration,
-            terminalConfigurations: revConfig.terminalConfigurations,
+            accountingContextsToAccept: revConfig.accountingContextsToAccept,
             suckerDeploymentConfiguration: revConfig.suckerDeploymentConfiguration,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -339,7 +338,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
             abi.encode(true)
         );
 
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
 
         vm.prank(user);
         (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee, user);
@@ -414,7 +413,6 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
         assertTrue(borrowable > 0, "Should have borrowable amount");
 
         // The vulnerability: In _adjust (line 862-924):
-        //   Line 910: loan.source.terminal.pay{value: payValue}(...) — EXTERNAL CALL
         //   Line 922: loan.amount = uint112(newBorrowAmount);         — STATE WRITE
         //   Line 923: loan.collateral = uint112(newCollateralCount);  — STATE WRITE
         //
@@ -504,8 +502,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: ctx});
+        JBAccountingContext[] memory tc = ctx;
 
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -554,7 +551,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
                 scopeCashOutsToLocalBalances: false,
                 stageConfigurations: stages
             }),
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("H5_INVINCIBILITY")
             }),
@@ -595,41 +592,26 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
         assertEq(amountAtWrongKey, 0, "auto-issuance unreachable at wrong key");
     }
 
-    /// @notice Unvalidated source terminal — unbounded _loanSourcesOf array growth.
-    /// @dev borrowFrom accepts any terminal in REVLoanSource without validation.
-    function test_fixVerify_unvalidatedSourceTerminal() public {
-        // The vulnerability: REVLoans._addTo (line 788-791) registers ANY terminal
-        // as a loan source without validating it's an actual project terminal:
-        //   if (!isLoanSourceOf[revnetId][loan.source.terminal][loan.source.token]) {
-        //       isLoanSourceOf[...] = true;
-        //       _loanSourcesOf[revnetId].push(...)
-        //   }
-        //
-        // This means:
-        // 1. An attacker can pass arbitrary terminals as loan sources
-        // 2. The _loanSourcesOf array grows unboundedly
-        // 3. Functions iterating over loan sources (like _totalBorrowedFrom) become
-        //    increasingly expensive, eventually hitting gas limits (DoS)
-
-        // Loan sources are registered lazily — only when the first borrow from that source occurs.
+    /// @notice Loan source tokens are bounded by the canonical multi terminal's accounting contexts.
+    /// @dev `borrowFrom` accepts a source token only. The terminal is fixed by the revnet deployer.
+    function test_fixVerify_sourceTokensBoundedToAccountingContexts() public {
+        // Loan sources are registered lazily -- only when the first borrow from that source occurs.
         // Before any borrows, the array is empty.
-        REVLoanSource[] memory sourcesBefore = LOANS_CONTRACT.loanSourcesOf(REVNET_ID);
+        address[] memory sourcesBefore = LOANS_CONTRACT.loanSourceTokensOf(REVNET_ID);
         assertEq(sourcesBefore.length, 0, "No loan sources registered before first borrow");
 
         // Create a legitimate loan — this registers the source
         _setupLoan(USER, 5e18, 25);
 
         // Now verify the source was registered
-        REVLoanSource[] memory sourcesAfter = LOANS_CONTRACT.loanSourcesOf(REVNET_ID);
+        address[] memory sourcesAfter = LOANS_CONTRACT.loanSourceTokensOf(REVNET_ID);
         assertEq(sourcesAfter.length, 1, "One loan source registered after first borrow");
-        assertEq(address(sourcesAfter[0].terminal), address(jbMultiTerminal()), "Source should be multi terminal");
+        assertEq(sourcesAfter[0], JBConstants.NATIVE_TOKEN, "Source should be native token");
 
-        // The vulnerability is that _addTo registers ANY terminal passed in REVLoanSource.
-        // There's no validation that the terminal is actually a terminal for the project.
-        // This means an attacker could register fake terminals, growing the array unboundedly.
+        // The registered source is token-only; arbitrary terminals are not accepted as user input.
         assertTrue(
-            LOANS_CONTRACT.isLoanSourceOf(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN),
-            "source registered without terminal validation"
+            LOANS_CONTRACT.isLoanSourceOf(REVNET_ID, JBConstants.NATIVE_TOKEN),
+            "source token registered after validation"
         );
     }
 
@@ -661,7 +643,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
         // The totalBorrowed from loan1 is added to surplus in borrowableAmountFrom,
         // so the second borrow should not amplify beyond what the real surplus supports.
         // The sum of all borrows should not exceed the actual terminal balance.
-        uint256 totalBorrowed = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
+        uint256 totalBorrowed = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, JBConstants.NATIVE_TOKEN);
         assertTrue(totalBorrowed > 0, "Should have outstanding borrows");
     }
 
@@ -796,7 +778,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
             abi.encode(true)
         );
 
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
         uint256 borrowableA =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokensA, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
@@ -809,7 +791,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
         // The totalCollateral is added to the denominator (totalSupply + totalCollateral)
         // and totalBorrowed is added to the numerator (surplus + totalBorrowed)
         uint256 totalCollateral = LOANS_CONTRACT.totalCollateralOf(REVNET_ID);
-        uint256 totalBorrowed = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
+        uint256 totalBorrowed = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, JBConstants.NATIVE_TOKEN);
 
         // Verify accounting consistency
         if (borrowableA > 0) {
@@ -1049,6 +1031,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            terminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -1067,6 +1050,8 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            IJBTerminal(address(new MockEmptyTerminal())),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -1085,8 +1070,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
                 token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
             });
 
-            JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-            tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: ctx});
+            JBAccountingContext[] memory tc = ctx;
 
             JBSplit[] memory splits = new JBSplit[](1);
             splits[0].beneficiary = payable(multisig());
@@ -1123,7 +1107,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
                     scopeCashOutsToLocalBalances: false,
                     stageConfigurations: stages
                 }),
-                terminalConfigurations: tc,
+                accountingContextsToAccept: tc,
                 suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                     deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("REV_INV")
                 }),
@@ -1141,8 +1125,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
                 token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
             });
 
-            JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-            tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: ctx});
+            JBAccountingContext[] memory tc = ctx;
 
             JBSplit[] memory splits = new JBSplit[](1);
             splits[0].beneficiary = payable(multisig());
@@ -1201,7 +1184,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
                     scopeCashOutsToLocalBalances: false,
                     stageConfigurations: stages
                 }),
-                terminalConfigurations: tc,
+                accountingContextsToAccept: tc,
                 suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                     deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NANA_INV")
                 }),
@@ -1248,7 +1231,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
     // =====================================================================
     /// @notice The terminal balance must always cover net outstanding borrowed amounts.
     function invariant_REV_1_surplusCoversLoans() public {
-        uint256 totalBorrowed = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
+        uint256 totalBorrowed = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, JBConstants.NATIVE_TOKEN);
 
         uint256 storeBalance = jbMultiTerminal()
             .currentSurplusOf(REVNET_ID, new address[](0), 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
@@ -1280,8 +1263,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
     // =====================================================================
     /// @notice Ghost borrowed sum must match contract's totalBorrowedFrom.
     function invariant_REV_3_borrowAccountingExact() public view {
-        uint256 actualTotalBorrowed =
-            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
+        uint256 actualTotalBorrowed = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, JBConstants.NATIVE_TOKEN);
 
         assertEq(
             actualTotalBorrowed, HANDLER.BORROWED_SUM(), "INV-REV-3: handler BORROWED_SUM must match totalBorrowedFrom"

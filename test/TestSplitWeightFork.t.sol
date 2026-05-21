@@ -70,6 +70,7 @@ import {StateLibrary} from "@uniswap/v4-core/src/libraries/StateLibrary.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
+import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
 /// @notice Helper that adds liquidity to and swaps on a V4 pool via the unlock/callback pattern.
@@ -323,7 +324,7 @@ contract TestSplitWeightFork is TestBaseWorkflow {
             address(this), // deployer
             address(0) // trustedForwarder
         );
-        BUYBACK_HOOK.setChainSpecificConstants({poolManager: poolManager, oracleHook: IHooks(address(0))});
+        BUYBACK_HOOK.setChainSpecificConstants({newPoolManager: poolManager, newOracleHook: IHooks(address(0))});
 
         // Deploy the registry and set the buyback hook as the default.
         BUYBACK_REGISTRY = new JBBuybackHookRegistry(
@@ -336,6 +337,7 @@ contract TestSplitWeightFork is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            terminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -354,6 +356,8 @@ contract TestSplitWeightFork is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: "REVDeployer_Fork"}(
             jbController(),
+            jbMultiTerminal(),
+            IJBTerminal(address(new MockEmptyTerminal())),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -379,14 +383,13 @@ contract TestSplitWeightFork is TestBaseWorkflow {
     function _buildMinimalConfig()
         internal
         view
-        returns (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc)
+        returns (REVConfig memory cfg, JBAccountingContext[] memory tc, REVSuckerDeploymentConfig memory sdc)
     {
         JBAccountingContext[] memory acc = new JBAccountingContext[](1);
         acc[0] = JBAccountingContext({
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
-        tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        tc = acc;
 
         REVStageConfig[] memory stages = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
@@ -437,7 +440,7 @@ contract TestSplitWeightFork is TestBaseWorkflow {
             reserveFrequency: 0,
             reserveBeneficiary: address(0),
             // forge-lint: disable-next-line(unsafe-typecast)
-            encodedIPFSUri: bytes32("tier1"),
+            encodedIpfsUri: bytes32("tier1"),
             category: 1,
             discountPercent: 0,
             flags: JB721TierConfigFlags({
@@ -482,7 +485,7 @@ contract TestSplitWeightFork is TestBaseWorkflow {
     /// @notice Deploy the fee project, then deploy a revnet with 721 tiers.
     function _deployRevnetWith721() internal returns (uint256 revnetId, IJB721TiersHook hook) {
         // Deploy fee project first.
-        (REVConfig memory feeCfg, JBTerminalConfig[] memory feeTc, REVSuckerDeploymentConfig memory feeSdc) =
+        (REVConfig memory feeCfg, JBAccountingContext[] memory feeTc, REVSuckerDeploymentConfig memory feeSdc) =
             _buildMinimalConfig();
         // forge-lint: disable-next-line(named-struct-fields)
         feeCfg.description = REVDescription("Fee", "FEE", "ipfs://fee", "FEE_SALT");
@@ -491,21 +494,21 @@ contract TestSplitWeightFork is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: feeCfg,
-            terminalConfigurations: feeTc,
+            accountingContextsToAccept: feeTc,
             suckerDeploymentConfiguration: feeSdc,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
         // Deploy the revnet with 721 hook.
-        (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
+        (REVConfig memory cfg, JBAccountingContext[] memory tc, REVSuckerDeploymentConfig memory sdc) =
             _buildMinimalConfig();
         REVDeploy721TiersHookConfig memory hookConfig = _build721Config();
 
         (revnetId, hook) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: sdc,
             tiered721HookConfiguration: hookConfig,
             allowedPosts: new REVCroptopAllowedPost[](0)
@@ -815,7 +818,7 @@ contract TestSplitWeightFork is TestBaseWorkflow {
 
         // --- Revnet 2: no splits (plain payment, no tier metadata) ---
         // Deploy a second revnet without 721 hook.
-        (REVConfig memory cfg2, JBTerminalConfig[] memory tc2, REVSuckerDeploymentConfig memory sdc2) =
+        (REVConfig memory cfg2, JBAccountingContext[] memory tc2, REVSuckerDeploymentConfig memory sdc2) =
             _buildMinimalConfig();
         // forge-lint: disable-next-line(named-struct-fields)
         cfg2.description = REVDescription("NoSplit Fork", "NSF", "ipfs://nosplit", "NSF_SALT");
@@ -823,7 +826,7 @@ contract TestSplitWeightFork is TestBaseWorkflow {
         (uint256 revnetId2,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg2,
-            terminalConfigurations: tc2,
+            accountingContextsToAccept: tc2,
             suckerDeploymentConfiguration: sdc2,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()

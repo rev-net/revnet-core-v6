@@ -26,7 +26,6 @@ import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
@@ -41,11 +40,12 @@ import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
+import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
 struct FeeProjectConfig {
     REVConfig configuration;
-    JBTerminalConfig[] terminalConfigurations;
+    JBAccountingContext[] accountingContextsToAccept;
     REVSuckerDeploymentConfig suckerDeploymentConfiguration;
 }
 
@@ -99,9 +99,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         REVStageConfig[] memory stageConfigurations = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
@@ -130,7 +128,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
                 scopeCashOutsToLocalBalances: false,
                 stageConfigurations: stageConfigurations
             }),
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("REV"))
             })
@@ -154,9 +152,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         REVStageConfig[] memory stageConfigurations = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
@@ -189,7 +185,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
                 scopeCashOutsToLocalBalances: false,
                 stageConfigurations: stageConfigurations
             }),
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: salt
             })
@@ -223,6 +219,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            terminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -241,6 +238,8 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            IJBTerminal(address(new MockEmptyTerminal())),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -263,7 +262,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: feeProjectConfig.configuration,
-            terminalConfigurations: feeProjectConfig.terminalConfigurations,
+            accountingContextsToAccept: feeProjectConfig.accountingContextsToAccept,
             suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -275,7 +274,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
         (DELAYED_REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: delayedConfig.configuration,
-            terminalConfigurations: delayedConfig.terminalConfigurations,
+            accountingContextsToAccept: delayedConfig.accountingContextsToAccept,
             suckerDeploymentConfiguration: delayedConfig.suckerDeploymentConfiguration,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -287,7 +286,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
         (NORMAL_REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: normalConfig.configuration,
-            terminalConfigurations: normalConfig.terminalConfigurations,
+            accountingContextsToAccept: normalConfig.accountingContextsToAccept,
             suckerDeploymentConfiguration: normalConfig.suckerDeploymentConfiguration,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -352,7 +351,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
 
         // No permission mock needed — the function reverts before reaching the permission check.
 
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
 
         // Attempt to borrow — should revert with CashOutDelayNotFinished.
         uint256 cashOutDelay = REV_OWNER.cashOutDelayOf(DELAYED_REVNET_ID);
@@ -401,7 +400,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
         // Mock permission.
         _mockBorrowPermission(DELAYED_REVNET_ID);
 
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
 
         // Borrow — should succeed.
         vm.prank(USER);
@@ -439,7 +438,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
         // Mock permission.
         _mockBorrowPermission(NORMAL_REVNET_ID);
 
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
 
         // Borrow — should succeed without any delay.
         vm.prank(USER);
@@ -484,7 +483,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
         assertEq(borrowable, 0, "Should be 0 one second before delay expires");
 
         // borrowFrom should revert before reaching the permission check.
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
 
         vm.expectRevert(
             abi.encodeWithSelector(REVLoans.REVLoans_CashOutDelayNotFinished.selector, cashOutDelay, block.timestamp)

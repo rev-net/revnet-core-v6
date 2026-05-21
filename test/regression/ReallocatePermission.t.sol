@@ -29,7 +29,6 @@ import {JBPermissionsData} from "@bananapus/core-v6/src/structs/JBPermissionsDat
 import {REVLoans} from "../../src/REVLoans.sol";
 import {REVLoan} from "../../src/structs/REVLoan.sol";
 import {REVStageConfig, REVAutoIssuance} from "../../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../../src/structs/REVDescription.sol";
 import {IREVLoans} from "../../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
@@ -43,6 +42,7 @@ import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressReg
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 import {REVOwner} from "../../src/REVOwner.sol";
 import {IREVDeployer} from "../../src/interfaces/IREVDeployer.sol";
+import {MockEmptyTerminal} from "../mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
 
 /// @notice Verify that reallocateCollateralFromLoan works with only REALLOCATE_LOAN permission,
@@ -107,6 +107,7 @@ contract ReallocatePermissionTest is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            terminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -125,6 +126,8 @@ contract ReallocatePermissionTest is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            IJBTerminal(address(new MockEmptyTerminal())),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -152,8 +155,7 @@ contract ReallocatePermissionTest is TestBaseWorkflow {
         acc[0] = JBAccountingContext({
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
 
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -187,7 +189,7 @@ contract ReallocatePermissionTest is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")
             }),
@@ -201,8 +203,7 @@ contract ReallocatePermissionTest is TestBaseWorkflow {
         acc[0] = JBAccountingContext({
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
 
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -235,7 +236,7 @@ contract ReallocatePermissionTest is TestBaseWorkflow {
         (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NANA")
             }),
@@ -295,7 +296,7 @@ contract ReallocatePermissionTest is TestBaseWorkflow {
         _grantPermission(address(LOANS_CONTRACT), JBPermissionIds.BURN_TOKENS);
 
         // HOLDER calls borrowFrom directly (sender == holder, so OPEN_LOAN check is short-circuited).
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
 
         vm.prank(HOLDER);
         (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(HOLDER), 25, HOLDER);
@@ -320,7 +321,7 @@ contract ReallocatePermissionTest is TestBaseWorkflow {
         REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
         uint256 collateralToTransfer = loan.collateral / 10;
 
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
 
         // Grant OPERATOR only REALLOCATE_LOAN permission (NOT OPEN_LOAN).
         _grantPermission(OPERATOR, JBPermissionIds.REALLOCATE_LOAN);
@@ -367,7 +368,7 @@ contract ReallocatePermissionTest is TestBaseWorkflow {
         REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
         uint256 collateralToTransfer = loan.collateral / 10;
 
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
 
         // OPERATOR has REALLOCATE_LOAN but NOT OPEN_LOAN.
         _grantPermission(OPERATOR, JBPermissionIds.REALLOCATE_LOAN);
@@ -409,7 +410,7 @@ contract ReallocatePermissionTest is TestBaseWorkflow {
         REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
         uint256 collateralToTransfer = loan.collateral / 10;
 
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
 
         // OPERATOR has both REALLOCATE_LOAN AND OPEN_LOAN.
         _grantTwoPermissions(OPERATOR, JBPermissionIds.REALLOCATE_LOAN, JBPermissionIds.OPEN_LOAN);
@@ -431,7 +432,7 @@ contract ReallocatePermissionTest is TestBaseWorkflow {
         uint256 tokenCount =
             jbMultiTerminal().pay{value: 10 ether}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10 ether, HOLDER, 0, "", "");
 
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
 
         // OPERATOR does NOT have OPEN_LOAN permission (no permission granted at all).
         vm.prank(OPERATOR);
@@ -454,7 +455,7 @@ contract ReallocatePermissionTest is TestBaseWorkflow {
         uint256 tokenCount =
             jbMultiTerminal().pay{value: 10 ether}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10 ether, HOLDER, 0, "", "");
 
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
 
         // Grant OPERATOR the OPEN_LOAN permission.
         _grantPermission(OPERATOR, JBPermissionIds.OPEN_LOAN);

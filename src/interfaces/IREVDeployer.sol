@@ -8,6 +8,8 @@ import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
 import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
+import {IJBTerminal} from "@bananapus/core-v6/src/interfaces/IJBTerminal.sol";
+import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
 import {JBRulesetConfig} from "@bananapus/core-v6/src/structs/JBRulesetConfig.sol";
 import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
@@ -142,6 +144,10 @@ interface IREVDeployer {
     /// @return The loans contract address.
     function LOANS() external view returns (IREVLoans);
 
+    /// @notice The canonical terminal that holds revnet treasury balances.
+    /// @return The multi terminal contract.
+    function MULTI_TERMINAL() external view returns (IJBTerminal);
+
     /// @notice The runtime data hook contract that handles pay and cash out callbacks for revnets.
     /// @return The owner contract address.
     function OWNER() external view returns (address);
@@ -157,6 +163,10 @@ interface IREVDeployer {
     /// @notice The croptop publisher revnets can use to publish ERC-721 posts to their tiered ERC-721 hooks.
     /// @return The publisher contract.
     function PUBLISHER() external view returns (CTPublisher);
+
+    /// @notice The canonical router terminal registry installed as a project terminal for alternate payment routes.
+    /// @return The router terminal registry contract, cast as a terminal.
+    function ROUTER_TERMINAL_REGISTRY() external view returns (IJBTerminal);
 
     /// @notice The registry that deploys and tracks suckers for revnets.
     /// @return The sucker registry contract.
@@ -176,7 +186,7 @@ interface IREVDeployer {
     /// @dev Every revnet gets a 721 hook — pass an empty config if no tiers are needed initially.
     /// @param revnetId The ID of the Juicebox project to initialize. Send 0 to deploy a new revnet.
     /// @param configuration Core revnet configuration.
-    /// @param terminalConfigurations The terminals to set up for the revnet.
+    /// @param accountingContextsToAccept The accounting contexts the canonical multi terminal should accept.
     /// @param suckerDeploymentConfiguration The suckers to set up for cross-chain token transfers.
     /// @param tiered721HookConfiguration How to configure the tiered ERC-721 hook for the revnet.
     /// @param allowedPosts Restrictions on which croptop posts to allow on the revnet's ERC-721 tiers.
@@ -185,7 +195,7 @@ interface IREVDeployer {
     function deployFor(
         uint256 revnetId,
         REVConfig memory configuration,
-        JBTerminalConfig[] memory terminalConfigurations,
+        JBAccountingContext[] memory accountingContextsToAccept,
         REVSuckerDeploymentConfig memory suckerDeploymentConfiguration,
         REVDeploy721TiersHookConfig memory tiered721HookConfiguration,
         REVCroptopAllowedPost[] memory allowedPosts
@@ -197,14 +207,14 @@ interface IREVDeployer {
     /// @dev Convenience overload — constructs an empty 721 config internally and delegates to the 6-arg version.
     /// @param revnetId The ID of the Juicebox project to initialize. Send 0 to deploy a new revnet.
     /// @param configuration Core revnet configuration.
-    /// @param terminalConfigurations The terminals to set up for the revnet.
+    /// @param accountingContextsToAccept The accounting contexts the canonical multi terminal should accept.
     /// @param suckerDeploymentConfiguration The suckers to set up for cross-chain token transfers.
     /// @return The ID of the newly created or initialized revnet.
     /// @return hook The tiered ERC-721 hook deployed for the revnet.
     function deployFor(
         uint256 revnetId,
         REVConfig memory configuration,
-        JBTerminalConfig[] memory terminalConfigurations,
+        JBAccountingContext[] memory accountingContextsToAccept,
         REVSuckerDeploymentConfig memory suckerDeploymentConfiguration
     )
         external

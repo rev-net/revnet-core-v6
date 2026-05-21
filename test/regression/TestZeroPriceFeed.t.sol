@@ -28,7 +28,6 @@ import {MockERC20} from "@bananapus/core-v6/test/mock/MockERC20.sol";
 import {REVLoans} from "../../src/REVLoans.sol";
 import {REVLoan} from "../../src/structs/REVLoan.sol";
 import {REVStageConfig, REVAutoIssuance} from "../../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../../src/structs/REVDescription.sol";
 import {IREVLoans} from "../../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
@@ -41,16 +40,16 @@ import {IJB721CheckpointsDeployer} from "@bananapus/721-hook-v6/src/interfaces/I
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 import {REVEmpty721Config} from "../helpers/REVEmpty721Config.sol";
+import {JBPrices} from "@bananapus/core-v6/src/JBPrices.sol";
 import {IJBPrices} from "@bananapus/core-v6/src/interfaces/IJBPrices.sol";
 import {REVOwner} from "../../src/REVOwner.sol";
 import {IREVDeployer} from "../../src/interfaces/IREVDeployer.sol";
+import {MockEmptyTerminal} from "../mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
 
-/// @notice Verifies that `_totalBorrowedFrom` gracefully handles zero-price feeds.
-/// @dev When a cross-currency price feed returns 0 (e.g., inverse truncation at low decimals), the affected source
-/// is skipped rather than reverting with division-by-zero. This prevents a stale or misconfigured price feed from
-/// DoS-ing all loan operations. The tradeoff is that total borrowed is intentionally understated for the affected
-/// source, which is conservative (reduces borrowable amount rather than inflating it).
+/// @notice Verifies that `_totalBorrowedFrom` fails closed when a cross-currency price feed returns zero.
+/// @dev Zero prices are treated as oracle misconfiguration. Reverting is preferable to silently skipping the affected
+/// loan source because skipped debt would make borrowers appear safer than they are.
 contract TestZeroPriceFeed is TestBaseWorkflow {
     // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
@@ -124,6 +123,7 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            terminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -142,6 +142,8 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            IJBTerminal(address(new MockEmptyTerminal())),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -169,8 +171,7 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         acc[1] = JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
 
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -205,7 +206,7 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")
             }),
@@ -220,8 +221,7 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         acc[1] = JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
 
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -255,7 +255,7 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
         (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NANA")
             }),
@@ -292,16 +292,14 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
     // --- Zero Price Feed Tests ----------------------------------------- //
     //*********************************************************************//
 
-    /// @notice When a cross-currency price feed returns 0, `_totalBorrowedFrom` skips the affected source
-    /// rather than reverting. This prevents DoS of all loan operations when a price feed is stale or
-    /// misconfigured. The result is an undercount of total borrowed (conservative: reduces borrowable amount).
+    /// @notice When a cross-currency price feed returns 0, `_totalBorrowedFrom` propagates the oracle failure.
     ///
     /// @dev Methodology: after creating a TOKEN loan source (which registers the source and sets a nonzero
     /// totalBorrowedFrom), we zero out the TOKEN balance in the terminal store via vm.store. This means:
     /// - The surplus calculation skips TOKEN (balance = 0, no price conversion needed)
     /// - But `_totalBorrowedFrom` still has the TOKEN entry and needs cross-currency conversion
-    /// When the price feed returns 0, `_totalBorrowedFrom` skips it rather than reverting.
-    function test_zeroPriceFeed_doesNotRevert_undercountsTotalBorrowed() public {
+    /// When the price feed returns 0, core `JBPrices` reverts before REVLoans can aggregate a misleading debt total.
+    function test_zeroPriceFeed_revertsInsteadOfUndercountingTotalBorrowed() public {
         // Step 1: Pay ETH to get revnet tokens BEFORE adding TOKEN liquidity.
         vm.prank(USER);
         uint256 revnetTokens =
@@ -311,7 +309,7 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
         // Step 2: Take a small loan from the ETH source.
         uint256 ethCollateral = revnetTokens / 10;
         _mockBurnPermission();
-        REVLoanSource memory ethSource = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address ethSource = JBConstants.NATIVE_TOKEN;
         vm.prank(USER);
         LOANS_CONTRACT.borrowFrom(REVNET_ID, ethSource, 0, ethCollateral, payable(USER), 25, USER);
 
@@ -323,14 +321,13 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
 
         uint256 tokenCollateral = revnetTokens / 10;
         _mockBurnPermission();
-        REVLoanSource memory tokenSource = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
+        address tokenSource = address(TOKEN);
         vm.prank(USER);
         LOANS_CONTRACT.borrowFrom(REVNET_ID, tokenSource, 0, tokenCollateral, payable(USER), 25, USER);
 
         // Verify both sources have nonzero totalBorrowedFrom.
-        uint256 borrowedFromEth =
-            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
-        uint256 borrowedFromToken = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), address(TOKEN));
+        uint256 borrowedFromEth = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, JBConstants.NATIVE_TOKEN);
+        uint256 borrowedFromToken = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, address(TOKEN));
         assertGt(borrowedFromEth, 0, "ETH source should have nonzero borrowed amount");
         assertGt(borrowedFromToken, 0, "TOKEN source should have nonzero borrowed amount");
 
@@ -347,42 +344,34 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
             "TOKEN balance should be zeroed out"
         );
 
-        // Step 5: Record the borrowable amount WITH a working price feed.
+        // Step 5: Confirm the borrowable path works while the price feed is healthy.
         vm.prank(USER);
         uint256 freshTokens =
             jbMultiTerminal().pay{value: 1e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 1e18, USER, 0, "", "");
         assertGt(freshTokens, 0, "should receive fresh tokens");
 
-        uint256 borrowableWithPrice =
-            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, freshTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        assertGt(
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, freshTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            0,
+            "healthy price feed should leave borrowable amount available"
+        );
 
         // Step 6: Mock the price feed to return 0 for the TOKEN -> ETH conversion.
         // This simulates an inverse price feed truncation scenario where the conversion
         // rounds down to zero (e.g., a feed returning 1e21 at 6 decimals inverts to 0).
         vm.mockCall(address(priceFeed), abi.encodeWithSignature("currentUnitPrice(uint256)"), abi.encode(uint256(0)));
 
-        // Step 7: Verify borrowableAmountFrom still works (no revert).
-        uint256 borrowableWithZeroPrice =
-            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, freshTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
-
-        // The call should succeed (not revert), proving the DoS protection works.
-        // With zero price, the TOKEN-denominated borrowed amount is skipped in `_totalBorrowedFrom`.
-        // This means `totalBorrowed` is understated (only includes ETH source), so
-        // `totalSurplus + totalBorrowed` is lower, producing a lower borrowable amount.
-        //
-        // NOTE: borrowableWithZeroPrice <= borrowableWithPrice because the understated totalBorrowed
-        // reduces the effective surplus-plus-debt pool used in the bonding curve calculation.
-        // This is the "acceptable tradeoff vs. blocking every borrow/repay" documented in the source.
-        assertLe(
-            borrowableWithZeroPrice,
-            borrowableWithPrice,
-            "zero-price undercount should produce equal or lower borrowable amount (conservative)"
+        // Step 7: Verify borrowableAmountFrom fails closed instead of ignoring TOKEN-denominated debt.
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                JBPrices.JBPrices_ZeroPrice.selector,
+                0,
+                uint256(uint32(uint160(address(TOKEN)))),
+                uint256(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+                priceFeed
+            )
         );
-
-        // Document the undercount: the two amounts should differ since TOKEN debt is omitted.
-        emit log_named_uint("borrowable with working price feed", borrowableWithPrice);
-        emit log_named_uint("borrowable with zero price feed", borrowableWithZeroPrice);
-        emit log_named_uint("undercount delta", borrowableWithPrice - borrowableWithZeroPrice);
+        LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, freshTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
     }
 
     /// @notice When only one source exists and it matches the target currency (same currency),
@@ -395,7 +384,7 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
 
         // Step 2: Take a loan from the ETH source only (same currency as baseCurrency).
         _mockBurnPermission();
-        REVLoanSource memory ethSource = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address ethSource = JBConstants.NATIVE_TOKEN;
         vm.prank(USER);
         LOANS_CONTRACT.borrowFrom(REVNET_ID, ethSource, 0, revnetTokens / 2, payable(USER), 25, USER);
 

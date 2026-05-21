@@ -28,7 +28,6 @@ import {MockERC20} from "@bananapus/core-v6/test/mock/MockERC20.sol";
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVLoan} from "../src/structs/REVLoan.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
@@ -43,6 +42,7 @@ import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
+import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
 /// @notice Tests for PR #13: cross-source reallocation prevention.
@@ -109,6 +109,7 @@ contract TestCrossSourceReallocation is TestBaseWorkflow {
             .addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            terminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -126,6 +127,8 @@ contract TestCrossSourceReallocation is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            IJBTerminal(address(new MockEmptyTerminal())),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -151,8 +154,7 @@ contract TestCrossSourceReallocation is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         acc[1] = JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
         REVStageConfig[] memory stages = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -182,7 +184,7 @@ contract TestCrossSourceReallocation is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")
             }),
@@ -197,8 +199,7 @@ contract TestCrossSourceReallocation is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         acc[1] = JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
         REVStageConfig[] memory stages = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -216,8 +217,8 @@ contract TestCrossSourceReallocation is TestBaseWorkflow {
             cashOutTaxRate: 6000,
             extraMetadata: 0
         });
-        REVLoanSource[] memory ls = new REVLoanSource[](1);
-        ls[0] = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address[] memory ls = new address[](1);
+        ls[0] = JBConstants.NATIVE_TOKEN;
         REVConfig memory cfg = REVConfig({
             // forge-lint: disable-next-line(named-struct-fields)
             description: REVDescription("NANA", "$NANA", "ipfs://test2", "NANA_TOKEN"),
@@ -229,7 +230,7 @@ contract TestCrossSourceReallocation is TestBaseWorkflow {
         (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NANA")
             }),
@@ -257,7 +258,7 @@ contract TestCrossSourceReallocation is TestBaseWorkflow {
             abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), user, REVNET_ID, 11, true, true)),
             abi.encode(true)
         );
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
         vm.prank(user);
         (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee, user);
     }
@@ -283,7 +284,7 @@ contract TestCrossSourceReallocation is TestBaseWorkflow {
         // Transfer a small portion of collateral so the remaining collateral (now worth much more) supports the loan
         uint256 collateralToTransfer = tokenCount / 10; // Transfer 10% of collateral
 
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
 
         // Mock burn permission for the new loan's borrowFrom call
         mockExpect(
@@ -309,8 +310,7 @@ contract TestCrossSourceReallocation is TestBaseWorkflow {
 
         // Verify new loan has correct source
         REVLoan memory newLoan = LOANS_CONTRACT.loanOf(newLoanId);
-        assertEq(newLoan.source.token, JBConstants.NATIVE_TOKEN, "New loan source token should match");
-        assertEq(address(newLoan.source.terminal), address(jbMultiTerminal()), "New loan source terminal should match");
+        assertEq(newLoan.sourceToken, JBConstants.NATIVE_TOKEN, "New loan source token should match");
     }
 
     /// @notice Reallocating with a different token should revert with SourceMismatch.
@@ -320,55 +320,15 @@ contract TestCrossSourceReallocation is TestBaseWorkflow {
         require(loanId != 0, "Loan setup failed");
 
         // Try to reallocate with a different token (TOKEN instead of NATIVE_TOKEN)
-        REVLoanSource memory wrongSource = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
+        address wrongSource = address(TOKEN);
 
         vm.prank(USER);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                REVLoans.REVLoans_SourceMismatch.selector,
-                JBConstants.NATIVE_TOKEN,
-                address(TOKEN),
-                address(jbMultiTerminal()),
-                address(jbMultiTerminal())
-            )
+            abi.encodeWithSelector(REVLoans.REVLoans_SourceMismatch.selector, JBConstants.NATIVE_TOKEN, address(TOKEN))
         );
         LOANS_CONTRACT.reallocateCollateralFromLoan(
             loanId,
             1, // collateralCountToTransfer (any nonzero value)
-            wrongSource,
-            0, // minBorrowAmount
-            0, // collateralCountToAdd
-            payable(USER),
-            25 // prepaidFeePercent
-        );
-    }
-
-    /// @notice Reallocating with a different terminal should revert with SourceMismatch.
-    function test_reallocateWithDifferentTerminal_reverts() public {
-        // Setup: user pays and borrows with jbMultiTerminal
-        (uint256 loanId,,) = _setupLoan(USER, 10e18, 25);
-        require(loanId != 0, "Loan setup failed");
-
-        // Create a fake terminal address
-        address fakeTerminal = makeAddr("fakeTerminal");
-
-        // Try to reallocate with a different terminal
-        REVLoanSource memory wrongSource =
-            REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: IJBPayoutTerminal(fakeTerminal)});
-
-        vm.prank(USER);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                REVLoans.REVLoans_SourceMismatch.selector,
-                JBConstants.NATIVE_TOKEN,
-                JBConstants.NATIVE_TOKEN,
-                address(jbMultiTerminal()),
-                fakeTerminal
-            )
-        );
-        LOANS_CONTRACT.reallocateCollateralFromLoan(
-            loanId,
-            1, // collateralCountToTransfer
             wrongSource,
             0, // minBorrowAmount
             0, // collateralCountToAdd

@@ -27,7 +27,6 @@ import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingCo
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVLoan} from "../src/structs/REVLoan.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
@@ -42,17 +41,17 @@ import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
+import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
 struct SourceFeeProjectConfig {
     REVConfig configuration;
-    JBTerminalConfig[] terminalConfigurations;
+    JBAccountingContext[] accountingContextsToAccept;
     REVSuckerDeploymentConfig suckerDeploymentConfiguration;
 }
 
 /// @title REVLoansSourceFeeRecovery
 /// @notice Tests for the source fee try-catch in REVLoans._adjust().
-/// @dev When loan.source.terminal.pay() reverts during source fee payment, the borrower
 ///      should receive the source fee amount back instead of losing it.
 contract REVLoansSourceFeeRecovery is TestBaseWorkflow {
     // forge-lint: disable-next-line(mixed-case-variable)
@@ -99,9 +98,7 @@ contract REVLoansSourceFeeRecovery is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         REVStageConfig[] memory stageConfigurations = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
@@ -145,7 +142,7 @@ contract REVLoansSourceFeeRecovery is TestBaseWorkflow {
 
         return SourceFeeProjectConfig({
             configuration: revnetConfiguration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("REV"))
             })
@@ -161,9 +158,7 @@ contract REVLoansSourceFeeRecovery is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -192,8 +187,8 @@ contract REVLoansSourceFeeRecovery is TestBaseWorkflow {
             extraMetadata: 0
         });
 
-        REVLoanSource[] memory _loanSources = new REVLoanSource[](1);
-        _loanSources[0] = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address[] memory _loanSources = new address[](1);
+        _loanSources[0] = JBConstants.NATIVE_TOKEN;
 
         REVConfig memory revnetConfiguration = REVConfig({
             description: REVDescription({
@@ -210,7 +205,7 @@ contract REVLoansSourceFeeRecovery is TestBaseWorkflow {
 
         return SourceFeeProjectConfig({
             configuration: revnetConfiguration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("NANA"))
             })
@@ -241,6 +236,7 @@ contract REVLoansSourceFeeRecovery is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            terminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -259,6 +255,8 @@ contract REVLoansSourceFeeRecovery is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            IJBTerminal(address(new MockEmptyTerminal())),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -280,7 +278,7 @@ contract REVLoansSourceFeeRecovery is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: feeProjectConfig.configuration,
-            terminalConfigurations: feeProjectConfig.terminalConfigurations,
+            accountingContextsToAccept: feeProjectConfig.accountingContextsToAccept,
             suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -291,7 +289,7 @@ contract REVLoansSourceFeeRecovery is TestBaseWorkflow {
         (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: revnetConfig.configuration,
-            terminalConfigurations: revnetConfig.terminalConfigurations,
+            accountingContextsToAccept: revnetConfig.accountingContextsToAccept,
             suckerDeploymentConfiguration: revnetConfig.suckerDeploymentConfiguration,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -320,7 +318,7 @@ contract REVLoansSourceFeeRecovery is TestBaseWorkflow {
             jbMultiTerminal().pay{value: ethAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, ethAmount, user, 0, "", "");
 
         _mockLoanPermission(user);
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
 
         vm.prank(user);
         (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), 25, user);
@@ -330,7 +328,7 @@ contract REVLoansSourceFeeRecovery is TestBaseWorkflow {
     // Test: Source fee try-catch during repay — terminal pay reverts
     // =========================================================================
 
-    /// @notice When the source terminal's pay() reverts during repay, the source fee is returned
+    /// @notice When the canonical terminal's pay() reverts during repay, the source fee is returned
     ///         to the borrower and the repayment still succeeds.
     function test_sourceFeeRecovery_repay_nativeToken() public {
         // Step 1: Borrow normally.
@@ -342,7 +340,7 @@ contract REVLoansSourceFeeRecovery is TestBaseWorkflow {
         // Step 3: Warp past the prepaid duration so the source fee accrues.
         vm.warp(block.timestamp + loan.prepaidDuration + 30 days);
 
-        // Step 4: Mock the source terminal's pay() to revert.
+        // Step 4: Mock the canonical terminal's pay() to revert.
         // This affects only `pay` calls, not `addToBalanceOf` (used by _removeFrom).
         vm.mockCallRevert(
             address(jbMultiTerminal()), abi.encodeWithSelector(IJBTerminal.pay.selector), "Source fee terminal failed"
@@ -369,7 +367,7 @@ contract REVLoansSourceFeeRecovery is TestBaseWorkflow {
         assertEq(address(LOANS_CONTRACT).balance, 0, "No ETH stuck in loans contract");
     }
 
-    /// @notice When the source terminal's pay() works normally during repay, the source fee is
+    /// @notice When the canonical terminal's pay() works normally during repay, the source fee is
     ///         deducted as expected (regression to confirm baseline).
     function test_sourceFeePayment_repay_normalOperation() public {
         // Borrow normally.
@@ -401,7 +399,7 @@ contract REVLoansSourceFeeRecovery is TestBaseWorkflow {
         assertEq(address(LOANS_CONTRACT).balance, 0, "No ETH stuck");
     }
 
-    /// @notice When the source terminal reverts, the borrower receives more ETH back than when
+    /// @notice When the canonical terminal reverts, the borrower receives more ETH back than when
     ///         it succeeds, because the source fee is returned to them.
     function test_sourceFeeRecovery_borrowerGetsMoreThanNormal() public {
         // Borrow a loan.
@@ -454,7 +452,7 @@ contract REVLoansSourceFeeRecovery is TestBaseWorkflow {
         });
         uint256 failBalance = USER.balance;
 
-        // The borrower should have more ETH when the source fee terminal fails,
+        // The borrower should have more ETH when the canonical terminal fails,
         // because the source fee is returned to them instead of being paid.
         assertGt(failBalance, normalBalance, "Borrower should receive more when source fee terminal fails");
     }
@@ -489,22 +487,66 @@ contract REVLoansSourceFeeRecovery is TestBaseWorkflow {
         assertEq(address(LOANS_CONTRACT).balance, 0, "No ETH stuck");
     }
 
+    /// @notice Source fee accrual stays zero through the prepaid boundary and begins at the first nonzero fee step.
+    function test_sourceFeeAccrual_prepaidBoundaryAndFirstStep() public {
+        (uint256 loanId,) = _borrowLoan({user: USER, ethAmount: 10e18});
+
+        REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
+        uint256 feeWindow = LOANS_CONTRACT.LOAN_LIQUIDATION_DURATION() - loan.prepaidDuration;
+
+        // The fee percent is quantized into MAX_FEE steps. One second after prepaid expiry can still round to zero.
+        uint256 firstAccrualOffset = (feeWindow + JBConstants.MAX_FEE - 1) / JBConstants.MAX_FEE;
+        assertGt(firstAccrualOffset, 1, "First accrual step should be later than prepaid + 1 second");
+
+        // One second before prepaid expiry, the loan is fully inside the prepaid window.
+        vm.warp(loan.createdAt + loan.prepaidDuration - 1);
+        assertEq(
+            LOANS_CONTRACT.determineSourceFeeAmount({loan: loan, amount: loan.amount}),
+            0,
+            "No source fee before prepaid expiry"
+        );
+
+        // At the exact prepaid boundary, _determineSourceFeeAmount still returns zero because it uses <=.
+        vm.warp(loan.createdAt + loan.prepaidDuration);
+        assertEq(
+            LOANS_CONTRACT.determineSourceFeeAmount({loan: loan, amount: loan.amount}),
+            0,
+            "No source fee at prepaid expiry"
+        );
+
+        // One second after prepaid expiry is outside the prepaid window, but the elapsed fee percent still floors to 0.
+        vm.warp(loan.createdAt + loan.prepaidDuration + 1);
+        assertEq(
+            LOANS_CONTRACT.determineSourceFeeAmount({loan: loan, amount: loan.amount}),
+            0,
+            "No source fee before the first nonzero fee step"
+        );
+
+        // The first fee step is the earliest elapsed second whose floored fee percent is nonzero.
+        vm.warp(loan.createdAt + loan.prepaidDuration + firstAccrualOffset);
+        assertGt(
+            LOANS_CONTRACT.determineSourceFeeAmount({loan: loan, amount: loan.amount}),
+            0,
+            "Source fee should accrue at the first nonzero fee step"
+        );
+    }
+
     /// @notice The source fee try-catch during initial borrow (prepaid source fee) also recovers
-    ///         gracefully when the source terminal reverts.
+    ///         gracefully when the canonical terminal reverts.
     function test_sourceFeeRecovery_initialBorrow() public {
         // Pay into the revnet first.
         vm.prank(USER);
         uint256 tokenCount =
             jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
 
-        // Now mock the source terminal's pay to revert (for source fee payment).
+        // Now mock the canonical terminal's pay to revert (for source fee payment).
         // This will also cause the REV fee payment to fail (same terminal), but both are try-caught.
         vm.mockCallRevert(
             address(jbMultiTerminal()), abi.encodeWithSelector(IJBTerminal.pay.selector), "Terminal pay failed"
         );
 
         _mockLoanPermission(USER);
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
 
         uint256 balBefore = USER.balance;
         vm.prank(USER);

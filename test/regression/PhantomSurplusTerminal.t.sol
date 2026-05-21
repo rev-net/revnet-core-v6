@@ -42,10 +42,10 @@ import {IREVLoans} from "../../src/interfaces/IREVLoans.sol";
 import {IREVDeployer} from "../../src/interfaces/IREVDeployer.sol";
 import {REVConfig} from "../../src/structs/REVConfig.sol";
 import {REVDescription} from "../../src/structs/REVDescription.sol";
-import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
 import {REVStageConfig} from "../../src/structs/REVStageConfig.sol";
 import {REVAutoIssuance} from "../../src/structs/REVStageConfig.sol";
 import {REVSuckerDeploymentConfig} from "../../src/structs/REVSuckerDeploymentConfig.sol";
+import {MockEmptyTerminal} from "../mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
 
 contract PhantomSurplusTerminal is ERC165, IJBPayoutTerminal {
@@ -192,6 +192,7 @@ contract RegressionPhantomSurplusTerminalTest is TestBaseWorkflow {
         MOCK_BUYBACK = new MockBuybackDataHook();
         LOANS = new REVLoans({
             controller: jbController(),
+            terminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -208,6 +209,8 @@ contract RegressionPhantomSurplusTerminalTest is TestBaseWorkflow {
         );
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            IJBTerminal(address(new MockEmptyTerminal())),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -224,11 +227,11 @@ contract RegressionPhantomSurplusTerminalTest is TestBaseWorkflow {
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);
 
         _deployFeeProject();
-        REVNET_ID = _deployRevnetWithPhantomTerminal();
+        REVNET_ID = _deployRevnetWithAccountingContexts();
         vm.deal(USER, 200 ether);
     }
 
-    function test_registeredPhantomTerminalInflatesBorrowAgainstRealTreasury() public {
+    function test_deployerOnlyRegistersCanonicalTerminalsForBorrowQuotes() public {
         uint256 realSurplus = 100 ether;
         uint256 phantomSurplus = 100 ether;
 
@@ -249,25 +252,11 @@ contract RegressionPhantomSurplusTerminalTest is TestBaseWorkflow {
         uint256 inflatedBorrowable =
             LOANS.borrowableAmountFrom(REVNET_ID, collateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
-        assertGt(inflatedBorrowable, honestBorrowable, "phantom terminal should inflate borrow quote");
-        assertLe(inflatedBorrowable, realSurplus, "regression should remain payable by the honest terminal");
+        assertEq(inflatedBorrowable, honestBorrowable, "phantom terminal must not influence borrow quote");
 
-        _grantBurnPermission(USER, REVNET_ID, address(LOANS));
-
-        uint256 balanceBefore = USER.balance;
-        vm.prank(USER);
-        LOANS.borrowFrom(
-            REVNET_ID,
-            REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()}),
-            inflatedBorrowable,
-            collateral,
-            payable(USER),
-            25,
-            USER
-        );
-
-        uint256 balanceDelta = USER.balance - balanceBefore;
-        assertGt(balanceDelta, honestBorrowable, "borrower extracts more ETH than real treasury surplus supports");
+        IJBTerminal[] memory terminals = jbDirectory().terminalsOf(REVNET_ID);
+        assertEq(terminals.length, 2, "deployer registers the canonical multi terminal and the router slot");
+        assertEq(address(terminals[0]), address(jbMultiTerminal()), "unexpected canonical terminal registered");
     }
 
     function _deployFeeProject() internal {
@@ -275,8 +264,7 @@ contract RegressionPhantomSurplusTerminalTest is TestBaseWorkflow {
         acc[0] = JBAccountingContext({
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
         REVStageConfig[] memory stages = new REVStageConfig[](1);
         stages[0] = REVStageConfig({
             startsAtOrAfter: uint40(block.timestamp),
@@ -300,7 +288,7 @@ contract RegressionPhantomSurplusTerminalTest is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: feeConfig,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")
             }),
@@ -309,14 +297,12 @@ contract RegressionPhantomSurplusTerminalTest is TestBaseWorkflow {
         });
     }
 
-    function _deployRevnetWithPhantomTerminal() internal returns (uint256 revnetId) {
+    function _deployRevnetWithAccountingContexts() internal returns (uint256 revnetId) {
         JBAccountingContext[] memory acc = new JBAccountingContext[](1);
         acc[0] = JBAccountingContext({
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](2);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
-        tc[1] = JBTerminalConfig({terminal: PHANTOM_TERMINAL, accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
 
         REVStageConfig[] memory stages = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
@@ -346,7 +332,7 @@ contract RegressionPhantomSurplusTerminalTest is TestBaseWorkflow {
         (revnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: config,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("PHANTOM")
             }),

@@ -10,7 +10,6 @@ import {JBSingleAllowance} from "@bananapus/core-v6/src/structs/JBSingleAllowanc
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
 import {IPermit2} from "@uniswap/permit2/src/interfaces/IPermit2.sol";
 import {REVLoan} from "../structs/REVLoan.sol";
-import {REVLoanSource} from "../structs/REVLoanSource.sol";
 
 /// @notice Manages loans against revnet token collateral.
 interface IREVLoans {
@@ -18,7 +17,7 @@ interface IREVLoans {
     /// @param loanId The ID of the newly created loan.
     /// @param revnetId The ID of the revnet being borrowed from.
     /// @param loan The loan data.
-    /// @param source The source of the loan (terminal and token).
+    /// @param token The token borrowed from the revnet's canonical multi terminal.
     /// @param borrowAmount The amount borrowed.
     /// @param collateralCount The amount of collateral tokens locked.
     /// @param sourceFeeAmount The fee amount charged by the source.
@@ -28,7 +27,7 @@ interface IREVLoans {
         uint256 indexed loanId,
         uint256 indexed revnetId,
         REVLoan loan,
-        REVLoanSource source,
+        address token,
         uint256 borrowAmount,
         uint256 collateralCount,
         uint256 sourceFeeAmount,
@@ -124,12 +123,11 @@ interface IREVLoans {
     /// @return The directory contract.
     function DIRECTORY() external view returns (IJBDirectory);
 
-    /// @notice Whether a revnet currently has outstanding loans from the specified terminal in the specified token.
+    /// @notice Whether a revnet currently has outstanding loans from the specified token.
     /// @param revnetId The ID of the revnet to check.
-    /// @param terminal The terminal to check.
     /// @param token The token to check.
     /// @return A flag indicating if the revnet has an active loan source.
-    function isLoanSourceOf(uint256 revnetId, IJBPayoutTerminal terminal, address token) external view returns (bool);
+    function isLoanSourceOf(uint256 revnetId, address token) external view returns (bool);
 
     /// @notice The duration after which a loan expires and its collateral is permanently lost.
     /// @return The loan liquidation duration in seconds.
@@ -140,13 +138,13 @@ interface IREVLoans {
     /// @return The loan data.
     function loanOf(uint256 loanId) external view returns (REVLoan memory);
 
-    /// @notice The sources of each revnet's loans.
-    /// @dev This array only grows -- sources are appended when a new (terminal, token) pair is first used for
-    /// borrowing, but are never removed. Gas cost scales linearly with the number of distinct sources, though this is
-    /// practically bounded to a small number of unique (terminal, token) pairs.
+    /// @notice The token sources of each revnet's loans.
+    /// @dev This array only grows -- sources are appended when a token is first used for borrowing, but are never
+    /// removed. Gas cost scales linearly with the number of distinct sources, though this is practically bounded to the
+    /// revnet's accepted accounting contexts.
     /// @param revnetId The ID of the revnet to get the loan sources for.
-    /// @return The array of loan sources.
-    function loanSourcesOf(uint256 revnetId) external view returns (REVLoanSource[] memory);
+    /// @return The array of loan source tokens.
+    function loanSourceTokensOf(uint256 revnetId) external view returns (address[] memory);
 
     /// @notice The maximum fee percent that can be prepaid when borrowing, in terms of `JBConstants.MAX_FEE`.
     /// @return The maximum prepaid fee percent.
@@ -168,13 +166,17 @@ interface IREVLoans {
     /// @return The REV revnet ID.
     function REV_ID() external view returns (uint256);
 
+    /// @notice The fee percent charged by the REV revnet on each loan, in terms of `JBConstants.MAX_FEE`.
+    /// @return The REV prepaid fee percent.
+    function REV_PREPAID_FEE_PERCENT() external view returns (uint256);
+
     /// @notice The sucker registry used to discover peer chain suckers for cross-chain supply/surplus awareness.
     /// @return The sucker registry.
     function SUCKER_REGISTRY() external view returns (IJBSuckerRegistry);
 
-    /// @notice The fee percent charged by the REV revnet on each loan, in terms of `JBConstants.MAX_FEE`.
-    /// @return The REV prepaid fee percent.
-    function REV_PREPAID_FEE_PERCENT() external view returns (uint256);
+    /// @notice The canonical payout terminal that holds revnet treasury balances and sources all revnet loans.
+    /// @return The canonical payout terminal.
+    function TERMINAL() external view returns (IJBPayoutTerminal);
 
     /// @notice The revnet ID for a given loan ID.
     /// @param loanId The loan ID to look up.
@@ -185,19 +187,11 @@ interface IREVLoans {
     /// @return The token URI resolver.
     function tokenUriResolver() external view returns (IJBTokenUriResolver);
 
-    /// @notice The total amount loaned out by a revnet from a specified terminal in a specified token.
+    /// @notice The total amount loaned out by a revnet from a specified token.
     /// @param revnetId The ID of the revnet to check.
-    /// @param terminal The terminal the loans were issued from.
     /// @param token The token loaned.
     /// @return The total amount borrowed.
-    function totalBorrowedFrom(
-        uint256 revnetId,
-        IJBPayoutTerminal terminal,
-        address token
-    )
-        external
-        view
-        returns (uint256);
+    function totalBorrowedFrom(uint256 revnetId, address token) external view returns (uint256);
 
     /// @notice The total amount of collateral supporting a revnet's loans.
     /// @param revnetId The ID of the revnet.
@@ -214,8 +208,8 @@ interface IREVLoans {
 
     /// @notice Open a loan by borrowing from a revnet. Collateral tokens are burned and only re-minted upon repayment.
     /// @param revnetId The ID of the revnet to borrow from.
-    /// @param source The source of the loan (terminal and token).
-    /// @param minBorrowAmount The minimum amount to borrow, denominated in the source's token.
+    /// @param token The token to borrow from the revnet's canonical multi terminal.
+    /// @param minBorrowAmount The minimum amount to borrow, denominated in `token`.
     /// @param collateralCount The amount of tokens to use as collateral for the loan.
     /// @param beneficiary The address that will receive the borrowed funds and fee payment tokens.
     /// @param prepaidFeePercent The fee percent to charge upfront, in terms of `JBConstants.MAX_FEE`.
@@ -224,7 +218,7 @@ interface IREVLoans {
     /// @return The loan created.
     function borrowFrom(
         uint256 revnetId,
-        REVLoanSource calldata source,
+        address token,
         uint256 minBorrowAmount,
         uint256 collateralCount,
         address payable beneficiary,
@@ -243,7 +237,7 @@ interface IREVLoans {
     /// @notice Refinance a loan by transferring extra collateral from an existing loan to a new loan.
     /// @param loanId The ID of the loan to reallocate collateral from.
     /// @param collateralCountToTransfer The amount of collateral to transfer from the original loan.
-    /// @param source The source of the new loan (terminal and token). Must match the existing loan's source.
+    /// @param token The token of the new loan. Must match the existing loan's source token.
     /// @param minBorrowAmount The minimum amount to borrow for the new loan.
     /// @param collateralCountToAdd Additional collateral to add to the new loan from your balance.
     /// @param beneficiary The address that will receive the borrowed funds and fee payment tokens.
@@ -255,7 +249,7 @@ interface IREVLoans {
     function reallocateCollateralFromLoan(
         uint256 loanId,
         uint256 collateralCountToTransfer,
-        REVLoanSource calldata source,
+        address token,
         uint256 minBorrowAmount,
         uint256 collateralCountToAdd,
         address payable beneficiary,

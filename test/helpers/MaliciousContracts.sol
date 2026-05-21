@@ -10,7 +10,6 @@ import {IJBPayoutTerminal} from "@bananapus/core-v6/src/interfaces/IJBPayoutTerm
 import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
 import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
 import {IREVLoans} from "../../src/interfaces/IREVLoans.sol";
-import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
 
 /// @notice A terminal that reverts on both pay() and addToBalanceOf().
 /// @dev If the fee terminal breaks, cash-outs brick because
@@ -161,7 +160,7 @@ contract SurplusInflator is ERC165, IJBPayoutTerminal {
         if (shouldInflate) {
             shouldInflate = false;
             // Try to borrow at the inflated surplus
-            REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: realTerminal});
+            address source = JBConstants.NATIVE_TOKEN;
             try loans.borrowFrom(revnetId, source, 0, 1e18, payable(address(this)), 25, address(this)) {} catch {}
         }
         return 0;

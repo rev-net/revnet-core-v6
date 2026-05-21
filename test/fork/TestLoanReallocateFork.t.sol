@@ -40,7 +40,7 @@ contract TestLoanReallocateFork is ForkTestBase {
         uint256 transferAmount = loan.collateral / 20;
         uint256 totalCollateralBefore = LOANS_CONTRACT.totalCollateralOf(revnetId);
 
-        REVLoanSource memory source = _nativeLoanSource();
+        address source = _nativeLoanSource();
 
         // Grant burn permission again for the new loan's collateral.
         _grantBurnPermission(BORROWER, revnetId);
@@ -52,7 +52,7 @@ contract TestLoanReallocateFork is ForkTestBase {
         (uint256 reallocatedLoanId, uint256 newLoanId, REVLoan memory reallocatedLoan, REVLoan memory newLoan) = LOANS_CONTRACT.reallocateCollateralFromLoan({
             loanId: loanId,
             collateralCountToTransfer: transferAmount,
-            source: source,
+            token: source,
             minBorrowAmount: 0,
             collateralCountToAdd: 0,
             beneficiary: payable(BORROWER),
@@ -85,25 +85,25 @@ contract TestLoanReallocateFork is ForkTestBase {
         );
     }
 
-    /// @notice Reallocate with a different source terminal should revert.
+    /// @notice Reallocate with a different source token should revert.
     function test_fork_reallocate_sourceMismatchReverts() public {
         uint256 borrowerTokens = jbTokens().totalBalanceOf(BORROWER, revnetId);
         (uint256 loanId, REVLoan memory loan) =
             _createLoan(revnetId, BORROWER, borrowerTokens, LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT());
 
-        // Create a source with a different terminal address.
-        REVLoanSource memory badSource =
-            REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: IJBPayoutTerminal(address(0xdead))});
+        address badSource = makeAddr("badSourceToken");
 
         // Cache before prank to avoid consuming the prank with a static call.
         uint256 minFeePercent = LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT();
 
         vm.prank(BORROWER);
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(REVLoans.REVLoans_SourceMismatch.selector, JBConstants.NATIVE_TOKEN, badSource)
+        );
         LOANS_CONTRACT.reallocateCollateralFromLoan({
             loanId: loanId,
             collateralCountToTransfer: loan.collateral / 2,
-            source: badSource,
+            token: badSource,
             minBorrowAmount: 0,
             collateralCountToAdd: 0,
             beneficiary: payable(BORROWER),

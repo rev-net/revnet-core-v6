@@ -6,7 +6,6 @@ import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBCashOuts} from "@bananapus/core-v6/src/libraries/JBCashOuts.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {JBPermissionsData} from "@bananapus/core-v6/src/structs/JBPermissionsData.sol";
-import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
 import {REVLoan} from "../../src/structs/REVLoan.sol";
 
 contract RegressionRemoteLoanAccountingGap is TestRegressionFixVerification {
@@ -47,7 +46,7 @@ contract RegressionRemoteLoanAccountingGap is TestRegressionFixVerification {
 
         _grantLoansBurnPermission(USER, REVNET_ID);
 
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
 
         vm.prank(USER);
         (, REVLoan memory loan) =

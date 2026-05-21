@@ -31,7 +31,6 @@ import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
@@ -46,11 +45,12 @@ import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/
 import {JBTest} from "@bananapus/core-v6/test/helpers/JBTest.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
+import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
 struct FeeProjectConfig {
     REVConfig configuration;
-    JBTerminalConfig[] terminalConfigurations;
+    JBAccountingContext[] accountingContextsToAccept;
     REVSuckerDeploymentConfig suckerDeploymentConfiguration;
 }
 
@@ -118,7 +118,7 @@ contract REVLoansCallHandler is JBTest {
             abi.encode(true)
         );
 
-        REVLoanSource memory sauce = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: TERMINAL});
+        address sauce = JBConstants.NATIVE_TOKEN;
         (, REVLoan memory lastLoan) =
             LOANS.borrowFrom(REVNET_ID, sauce, borrowable, receivedTokens, payable(USER), prepaidFee, USER);
 
@@ -267,7 +267,7 @@ contract REVLoansCallHandler is JBTest {
         (,,, REVLoan memory newLoan) = LOANS.reallocateCollateralFromLoan(
             id,
             collateralToTransfer,
-            REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: TERMINAL}),
+            JBConstants.NATIVE_TOKEN,
             newAmountInFull,
             collateralToAdd,
             payable(USER),
@@ -352,9 +352,7 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow {
         });
 
         // The terminals that the project will accept funds through.
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -423,7 +421,7 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow {
 
         return FeeProjectConfig({
             configuration: revnetConfiguration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("REV"))
             })
@@ -447,9 +445,7 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow {
         });
 
         // The terminals that the project will accept funds through.
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -518,7 +514,7 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow {
 
         return FeeProjectConfig({
             configuration: revnetConfiguration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("NANA"))
             })
@@ -554,6 +550,7 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            terminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -572,6 +569,8 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            IJBTerminal(address(new MockEmptyTerminal())),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -596,7 +595,7 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow {
         (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID, // Zero to deploy a new revnet
             configuration: feeProjectConfig.configuration,
-            terminalConfigurations: feeProjectConfig.terminalConfigurations,
+            accountingContextsToAccept: feeProjectConfig.accountingContextsToAccept,
             suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -609,7 +608,7 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow {
         (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0, // Zero to deploy a new revnet
             configuration: fee2Config.configuration,
-            terminalConfigurations: fee2Config.terminalConfigurations,
+            accountingContextsToAccept: fee2Config.accountingContextsToAccept,
             suckerDeploymentConfiguration: fee2Config.suckerDeploymentConfiguration,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -655,16 +654,16 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow {
 
     function _calculateExpectedTotalBorrowed(uint256 _revnetId) internal view returns (uint256 totalBorrowed) {
         // Access loan sources from the Loans contract
-        REVLoanSource[] memory sources = LOANS_CONTRACT.loanSourcesOf(_revnetId);
+        address[] memory sources = LOANS_CONTRACT.loanSourceTokensOf(_revnetId);
 
         // Iterate through loan sources to calculate the total borrowed amount
         for (uint256 i = 0; i < sources.length; i++) {
-            totalBorrowed += LOANS_CONTRACT.totalBorrowedFrom(_revnetId, sources[i].terminal, sources[i].token);
+            totalBorrowed += LOANS_CONTRACT.totalBorrowedFrom(_revnetId, sources[i]);
         }
     }
 
     function _getTotalBorrowedFromContract(uint256 _revnetId) internal view returns (uint256) {
-        return LOANS_CONTRACT.totalBorrowedFrom(_revnetId, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
+        return LOANS_CONTRACT.totalBorrowedFrom(_revnetId, JBConstants.NATIVE_TOKEN);
     }
 
     /// @notice INV-RL-3: loan.amount <= type(uint112).max for all active loans.

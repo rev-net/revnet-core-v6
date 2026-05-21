@@ -34,11 +34,11 @@ import {REVOwner} from "../../src/REVOwner.sol";
 import {IREVLoans} from "../../src/interfaces/IREVLoans.sol";
 import {REVConfig} from "../../src/structs/REVConfig.sol";
 import {REVDescription} from "../../src/structs/REVDescription.sol";
-import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
 import {REVStageConfig} from "../../src/structs/REVStageConfig.sol";
 import {REVAutoIssuance} from "../../src/structs/REVAutoIssuance.sol";
 import {REVSuckerDeploymentConfig} from "../../src/structs/REVSuckerDeploymentConfig.sol";
 import {IREVDeployer} from "../../src/interfaces/IREVDeployer.sol";
+import {MockEmptyTerminal} from "../mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
 
 contract RegressionOperatorDelegationTest is TestBaseWorkflow {
@@ -87,6 +87,7 @@ contract RegressionOperatorDelegationTest is TestBaseWorkflow {
 
         LOANS = new REVLoans({
             controller: jbController(),
+            terminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -103,6 +104,8 @@ contract RegressionOperatorDelegationTest is TestBaseWorkflow {
         );
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            IJBTerminal(address(new MockEmptyTerminal())),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -129,7 +132,7 @@ contract RegressionOperatorDelegationTest is TestBaseWorkflow {
         _grantPermission(USER, REVNET_ID, address(LOANS), JBPermissionIds.BURN_TOKENS);
         _grantPermission(USER, REVNET_ID, OPERATOR, JBPermissionIds.OPEN_LOAN);
 
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
         uint256 operatorBalanceBefore = OPERATOR.balance;
 
         vm.prank(OPERATOR);
@@ -177,8 +180,7 @@ contract RegressionOperatorDelegationTest is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
 
         REVStageConfig[] memory stages = new REVStageConfig[](1);
         stages[0] = REVStageConfig({
@@ -205,7 +207,7 @@ contract RegressionOperatorDelegationTest is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: feeConfig,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")
             }),
@@ -220,8 +222,7 @@ contract RegressionOperatorDelegationTest is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
 
         REVStageConfig[] memory stages = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
@@ -252,7 +253,7 @@ contract RegressionOperatorDelegationTest is TestBaseWorkflow {
         (revnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: config,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("REV")
             }),

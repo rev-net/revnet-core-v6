@@ -1,6 +1,6 @@
 {
   "name": "@rev-net/core-v6",
-  "version": "0.0.58",
+  "version": "0.0.61",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -26,19 +26,19 @@
     "artifacts": "source ./.env && npx sphinx artifacts --org-id 'ea165b21-7cdc-4d7b-be59-ecdd4c26bee4' --project-name 'revnet-core-v6'"
   },
   "dependencies": {
-    "@bananapus/721-hook-v6": "^0.0.51",
-    "@bananapus/buyback-hook-v6": "^0.0.47",
-    "@bananapus/core-v6": "^0.0.54",
-    "@bananapus/ownable-v6": "^0.0.25",
-    "@bananapus/permission-ids-v6": "^0.0.25",
-    "@bananapus/router-terminal-v6": "^0.0.44",
-    "@bananapus/suckers-v6": "^0.0.47",
-    "@croptop/core-v6": "^0.0.48",
+    "@bananapus/721-hook-v6": "^0.0.54",
+    "@bananapus/buyback-hook-v6": "^0.0.49",
+    "@bananapus/core-v6": "^0.0.57",
+    "@bananapus/ownable-v6": "^0.0.27",
+    "@bananapus/permission-ids-v6": "^0.0.26",
+    "@bananapus/router-terminal-v6": "^0.0.46",
+    "@bananapus/suckers-v6": "^0.0.49",
+    "@croptop/core-v6": "^0.0.52",
     "@openzeppelin/contracts": "5.6.1",
     "@uniswap/permit2": "github:Uniswap/permit2#cc56ad0f3439c502c246fc5cfcc3db92bb8b7219"
   },
   "devDependencies": {
-    "@bananapus/address-registry-v6": "0.0.25",
+    "@bananapus/address-registry-v6": "0.0.26",
     "@sphinx-labs/plugins": "0.33.3",
     "@uniswap/v4-core": "1.0.2"
   }

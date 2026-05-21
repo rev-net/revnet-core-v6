@@ -24,14 +24,13 @@ contract TestLoanCrossRulesetFork is ForkTestBase {
     )
         internal
         view
-        returns (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc)
+        returns (REVConfig memory cfg, JBAccountingContext[] memory tc, REVSuckerDeploymentConfig memory sdc)
     {
         JBAccountingContext[] memory acc = new JBAccountingContext[](1);
         acc[0] = JBAccountingContext({
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
-        tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        tc = acc;
 
         REVStageConfig[] memory stages = new REVStageConfig[](2);
         JBSplit[] memory splits = new JBSplit[](1);
@@ -86,13 +85,13 @@ contract TestLoanCrossRulesetFork is ForkTestBase {
         _deployFeeProject(5000);
 
         // Deploy two-stage revnet: 70% tax → 20% tax after 30 days.
-        (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
+        (REVConfig memory cfg, JBAccountingContext[] memory tc, REVSuckerDeploymentConfig memory sdc) =
             _buildTwoStageConfig(7000, 2000);
 
         (revnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: sdc,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -273,7 +272,7 @@ contract TestLoanCrossRulesetFork is ForkTestBase {
 
         // Reallocate a small fraction (5%) to a new loan. Using a small fraction ensures the remaining
         // collateral still supports the existing borrow amount (bonding curve non-linearity).
-        REVLoanSource memory source = _nativeLoanSource();
+        address source = _nativeLoanSource();
         uint256 transferAmount = loan.collateral / 20;
 
         // Grant burn permission for the new loan.
@@ -286,7 +285,7 @@ contract TestLoanCrossRulesetFork is ForkTestBase {
         (uint256 reallocatedLoanId, uint256 newLoanId, REVLoan memory reallocatedLoan,) = LOANS_CONTRACT.reallocateCollateralFromLoan({
             loanId: loanId,
             collateralCountToTransfer: transferAmount,
-            source: source,
+            token: source,
             minBorrowAmount: 0,
             collateralCountToAdd: 0,
             beneficiary: payable(BORROWER),

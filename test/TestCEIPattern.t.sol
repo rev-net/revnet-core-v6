@@ -29,7 +29,6 @@ import {MockERC20} from "@bananapus/core-v6/test/mock/MockERC20.sol";
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVLoan} from "../src/structs/REVLoan.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
@@ -44,6 +43,7 @@ import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
+import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
 /// @notice Contract that reenters REVLoans when it receives ETH during a borrow payout.
@@ -53,7 +53,22 @@ contract ReentrantBorrower {
     uint256 public targetLoanId;
     uint256 public observedAmount;
     uint256 public observedCollateral;
+    uint256 public reenterRevnetId;
+    uint256 public reenterCollateral;
+    address public reenterSource;
+    bytes4 public reentrantBorrowRevertSelector;
+    bytes4 public reentrantRepayRevertSelector;
+    bytes4 public reentrantReallocateRevertSelector;
+    bool public shouldReenterBorrow;
+    bool public shouldReenterRepay;
+    bool public shouldReenterReallocate;
     bool public reentered;
+    bool public reentrantBorrowAttempted;
+    bool public reentrantBorrowSucceeded;
+    bool public reentrantRepayAttempted;
+    bool public reentrantRepaySucceeded;
+    bool public reentrantReallocateAttempted;
+    bool public reentrantReallocateSucceeded;
 
     constructor(IREVLoans _loans) {
         loans = _loans;
@@ -63,6 +78,24 @@ contract ReentrantBorrower {
         targetLoanId = _loanId;
     }
 
+    function setReentrantBorrow(uint256 _revnetId, address _source, uint256 _collateral) external {
+        reenterRevnetId = _revnetId;
+        reenterSource = _source;
+        reenterCollateral = _collateral;
+        shouldReenterBorrow = true;
+    }
+
+    function setReentrantRepay() external {
+        shouldReenterRepay = true;
+    }
+
+    function setReentrantReallocate(uint256 _revnetId, address _source, uint256 _collateral) external {
+        reenterRevnetId = _revnetId;
+        reenterSource = _source;
+        reenterCollateral = _collateral;
+        shouldReenterReallocate = true;
+    }
+
     receive() external payable {
         if (!reentered) {
             reentered = true;
@@ -70,6 +103,65 @@ contract ReentrantBorrower {
             REVLoan memory loan = loans.loanOf(targetLoanId);
             observedAmount = loan.amount;
             observedCollateral = loan.collateral;
+
+            if (shouldReenterBorrow) {
+                reentrantBorrowAttempted = true;
+
+                try loans.borrowFrom(
+                    reenterRevnetId, reenterSource, 0, reenterCollateral, payable(address(this)), 25, address(this)
+                ) returns (
+                    uint256, REVLoan memory
+                ) {
+                    reentrantBorrowSucceeded = true;
+                } catch (bytes memory reason) {
+                    reentrantBorrowRevertSelector = _selectorFrom(reason);
+                }
+            }
+
+            if (shouldReenterRepay) {
+                reentrantRepayAttempted = true;
+
+                try loans.repayLoan{value: loan.amount}({
+                    loanId: targetLoanId,
+                    maxRepayBorrowAmount: loan.amount,
+                    collateralCountToReturn: loan.collateral,
+                    beneficiary: payable(address(this)),
+                    allowance: JBSingleAllowance({sigDeadline: 0, amount: 0, expiration: 0, nonce: 0, signature: ""})
+                }) returns (
+                    uint256, REVLoan memory
+                ) {
+                    reentrantRepaySucceeded = true;
+                } catch (bytes memory reason) {
+                    reentrantRepayRevertSelector = _selectorFrom(reason);
+                }
+            }
+
+            if (shouldReenterReallocate) {
+                reentrantReallocateAttempted = true;
+
+                try loans.reallocateCollateralFromLoan({
+                    loanId: targetLoanId,
+                    collateralCountToTransfer: reenterCollateral,
+                    token: reenterSource,
+                    minBorrowAmount: 0,
+                    collateralCountToAdd: 0,
+                    beneficiary: payable(address(this)),
+                    prepaidFeePercent: 25
+                }) returns (
+                    uint256, uint256, REVLoan memory, REVLoan memory
+                ) {
+                    reentrantReallocateSucceeded = true;
+                } catch (bytes memory reason) {
+                    reentrantReallocateRevertSelector = _selectorFrom(reason);
+                }
+            }
+        }
+    }
+
+    function _selectorFrom(bytes memory reason) private pure returns (bytes4 selector) {
+        if (reason.length < 4) return bytes4(0);
+        assembly ("memory-safe") {
+            selector := mload(add(reason, 32))
         }
     }
 }
@@ -146,6 +238,7 @@ contract TestCEIPattern is TestBaseWorkflow {
             .addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            terminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -163,6 +256,8 @@ contract TestCEIPattern is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            IJBTerminal(address(new MockEmptyTerminal())),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -188,8 +283,7 @@ contract TestCEIPattern is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         acc[1] = JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
         REVStageConfig[] memory stages = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -219,7 +313,7 @@ contract TestCEIPattern is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")
             }),
@@ -234,8 +328,7 @@ contract TestCEIPattern is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         acc[1] = JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
         REVStageConfig[] memory stages = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -253,8 +346,8 @@ contract TestCEIPattern is TestBaseWorkflow {
             cashOutTaxRate: 6000,
             extraMetadata: 0
         });
-        REVLoanSource[] memory ls = new REVLoanSource[](1);
-        ls[0] = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address[] memory ls = new address[](1);
+        ls[0] = JBConstants.NATIVE_TOKEN;
         REVConfig memory cfg = REVConfig({
             // forge-lint: disable-next-line(named-struct-fields)
             description: REVDescription("NANA", "$NANA", "ipfs://test2", "NANA_TOKEN"),
@@ -266,7 +359,7 @@ contract TestCEIPattern is TestBaseWorkflow {
         (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NANA")
             }),
@@ -294,7 +387,7 @@ contract TestCEIPattern is TestBaseWorkflow {
             abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), user, REVNET_ID, 11, true, true)),
             abi.encode(true)
         );
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
         vm.prank(user);
         (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee, user);
     }
@@ -358,7 +451,7 @@ contract TestCEIPattern is TestBaseWorkflow {
                 ),
                 abi.encode(true)
             );
-            REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+            address source = JBConstants.NATIVE_TOKEN;
             vm.prank(USER);
             LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens2, payable(USER), 25, USER);
         }
@@ -393,7 +486,7 @@ contract TestCEIPattern is TestBaseWorkflow {
             abi.encode(true)
         );
 
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
 
         // Pre-compute the loanId so the attacker can read it during reentrancy.
         // loanId = revnetId * 1_000_000_000_000 + (totalLoansBorrowedFor + 1)
@@ -422,6 +515,53 @@ contract TestCEIPattern is TestBaseWorkflow {
         }
     }
 
+    /// @notice A contract beneficiary cannot open a nested loan while the outer borrow is still updating aggregate
+    /// loan accounting.
+    function test_reentrantBeneficiary_cannotNestBorrowAction() public {
+        ReentrantBorrower attacker = new ReentrantBorrower(LOANS_CONTRACT);
+        vm.deal(address(attacker), 100e18);
+
+        vm.prank(address(attacker));
+        uint256 tokens = jbMultiTerminal().pay{value: 10e18}(
+            REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, address(attacker), 0, "", ""
+        );
+
+        uint256 borrowable =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        assertGt(borrowable, 0, "should have borrowable amount");
+
+        address source = JBConstants.NATIVE_TOKEN;
+
+        uint256 expectedLoanId = REVNET_ID * 1_000_000_000_000 + (LOANS_CONTRACT.totalLoansBorrowedFor(REVNET_ID) + 1);
+        attacker.setTarget(expectedLoanId);
+        attacker.setReentrantBorrow({_revnetId: REVNET_ID, _source: source, _collateral: tokens});
+
+        mockExpect(
+            address(jbPermissions()),
+            abi.encodeCall(
+                IJBPermissions.hasPermission, (address(LOANS_CONTRACT), address(attacker), REVNET_ID, 11, true, true)
+            ),
+            abi.encode(true)
+        );
+
+        vm.prank(address(attacker));
+        (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(
+            REVNET_ID, source, borrowable, tokens, payable(address(attacker)), 25, address(attacker)
+        );
+
+        assertEq(loanId, expectedLoanId, "outer loan should succeed");
+        assertTrue(attacker.reentered(), "beneficiary should receive borrowed ETH");
+        assertTrue(attacker.reentrantBorrowAttempted(), "beneficiary should try a nested borrow");
+        assertFalse(attacker.reentrantBorrowSucceeded(), "nested borrow should not succeed");
+        assertEq(
+            attacker.reentrantBorrowRevertSelector(),
+            REVLoans.REVLoans_ReentrantLoanAction.selector,
+            "nested borrow should hit loan action lock"
+        );
+        assertEq(LOANS_CONTRACT.totalLoansBorrowedFor(REVNET_ID), 1, "only outer loan should be counted");
+        assertEq(LOANS_CONTRACT.totalCollateralOf(REVNET_ID), tokens, "only outer collateral should be counted");
+    }
+
     /// @notice Verify atomic consistency: loan state matches global accounting after every operation.
     /// If _adjust wrote state AFTER external calls (old code), a reentrant observer between
     /// the external calls and the state write could see totalBorrowedFrom updated but loan.amount stale.
@@ -435,7 +575,7 @@ contract TestCEIPattern is TestBaseWorkflow {
         REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
 
         // Verify loan.amount matches what totalBorrowedFrom tracks.
-        uint256 totalBorrowed = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
+        uint256 totalBorrowed = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, JBConstants.NATIVE_TOKEN);
         assertEq(totalBorrowed, loan.amount, "totalBorrowedFrom should equal loan.amount after single borrow");
 
         // Verify collateral accounting.
@@ -453,8 +593,7 @@ contract TestCEIPattern is TestBaseWorkflow {
         });
 
         // After full repay, both should be zero atomically.
-        uint256 totalBorrowedAfter =
-            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
+        uint256 totalBorrowedAfter = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, JBConstants.NATIVE_TOKEN);
         uint256 totalCollateralAfter = LOANS_CONTRACT.totalCollateralOf(REVNET_ID);
         assertEq(totalBorrowedAfter, 0, "totalBorrowedFrom should be 0 after full repay");
         assertEq(totalCollateralAfter, 0, "totalCollateralOf should be 0 after full repay");
@@ -483,7 +622,7 @@ contract TestCEIPattern is TestBaseWorkflow {
                 abi.encode(true)
             );
 
-            REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+            address source = JBConstants.NATIVE_TOKEN;
 
             vm.prank(USER);
             (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(USER), 25, USER);
@@ -502,9 +641,93 @@ contract TestCEIPattern is TestBaseWorkflow {
         }
 
         // After all borrows repaid, accounting should be clean.
-        uint256 totalBorrowed = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
+        uint256 totalBorrowed = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, JBConstants.NATIVE_TOKEN);
         uint256 totalCollateral = LOANS_CONTRACT.totalCollateralOf(REVNET_ID);
         assertEq(totalBorrowed, 0, "totalBorrowedFrom should be 0 after all repaid");
         assertEq(totalCollateral, 0, "totalCollateralOf should be 0 after all repaid");
+    }
+
+    /// @notice Cross-action: borrow → reentrant repay of the same loan. Loan action lock must block the nested
+    /// `repayLoan` even though it operates on the loan that's still being adjusted by the outer borrow.
+    function test_reentrantBeneficiary_cannotNestRepayAction() public {
+        ReentrantBorrower attacker = new ReentrantBorrower(LOANS_CONTRACT);
+        vm.deal(address(attacker), 100e18);
+
+        vm.prank(address(attacker));
+        uint256 tokens = jbMultiTerminal().pay{value: 10e18}(
+            REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, address(attacker), 0, "", ""
+        );
+
+        uint256 borrowable =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        assertGt(borrowable, 0, "should have borrowable amount");
+
+        uint256 expectedLoanId = REVNET_ID * 1_000_000_000_000 + (LOANS_CONTRACT.totalLoansBorrowedFor(REVNET_ID) + 1);
+        attacker.setTarget(expectedLoanId);
+        attacker.setReentrantRepay();
+
+        mockExpect(
+            address(jbPermissions()),
+            abi.encodeCall(
+                IJBPermissions.hasPermission, (address(LOANS_CONTRACT), address(attacker), REVNET_ID, 11, true, true)
+            ),
+            abi.encode(true)
+        );
+
+        vm.prank(address(attacker));
+        LOANS_CONTRACT.borrowFrom(
+            REVNET_ID, JBConstants.NATIVE_TOKEN, borrowable, tokens, payable(address(attacker)), 25, address(attacker)
+        );
+
+        assertTrue(attacker.reentrantRepayAttempted(), "should attempt nested repay");
+        assertFalse(attacker.reentrantRepaySucceeded(), "nested repay must not succeed");
+        assertEq(
+            attacker.reentrantRepayRevertSelector(),
+            REVLoans.REVLoans_ReentrantLoanAction.selector,
+            "nested repay should hit loan action lock"
+        );
+    }
+
+    /// @notice Cross-action: borrow → reentrant reallocate from the same loan. Loan action lock must block.
+    function test_reentrantBeneficiary_cannotNestReallocateAction() public {
+        ReentrantBorrower attacker = new ReentrantBorrower(LOANS_CONTRACT);
+        vm.deal(address(attacker), 100e18);
+
+        vm.prank(address(attacker));
+        uint256 tokens = jbMultiTerminal().pay{value: 10e18}(
+            REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, address(attacker), 0, "", ""
+        );
+
+        uint256 borrowable =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        assertGt(borrowable, 0, "should have borrowable amount");
+
+        uint256 expectedLoanId = REVNET_ID * 1_000_000_000_000 + (LOANS_CONTRACT.totalLoansBorrowedFor(REVNET_ID) + 1);
+        attacker.setTarget(expectedLoanId);
+        // Reallocate part of the collateral from the just-created loan to a new loan from the same source.
+        attacker.setReentrantReallocate({
+            _revnetId: REVNET_ID, _source: JBConstants.NATIVE_TOKEN, _collateral: tokens / 2
+        });
+
+        mockExpect(
+            address(jbPermissions()),
+            abi.encodeCall(
+                IJBPermissions.hasPermission, (address(LOANS_CONTRACT), address(attacker), REVNET_ID, 11, true, true)
+            ),
+            abi.encode(true)
+        );
+
+        vm.prank(address(attacker));
+        LOANS_CONTRACT.borrowFrom(
+            REVNET_ID, JBConstants.NATIVE_TOKEN, borrowable, tokens, payable(address(attacker)), 25, address(attacker)
+        );
+
+        assertTrue(attacker.reentrantReallocateAttempted(), "should attempt nested reallocate");
+        assertFalse(attacker.reentrantReallocateSucceeded(), "nested reallocate must not succeed");
+        assertEq(
+            attacker.reentrantReallocateRevertSelector(),
+            REVLoans.REVLoans_ReentrantLoanAction.selector,
+            "nested reallocate should hit loan action lock"
+        );
     }
 }

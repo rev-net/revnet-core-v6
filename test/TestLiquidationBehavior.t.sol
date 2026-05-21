@@ -30,7 +30,6 @@ import {MockERC20} from "@bananapus/core-v6/test/mock/MockERC20.sol";
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVLoan} from "../src/structs/REVLoan.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
 import {JBSuckerRegistry} from "@bananapus/suckers-v6/src/JBSuckerRegistry.sol";
@@ -44,6 +43,7 @@ import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
+import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
 /// @notice Tests for PR #10: liquidation behavior documentation and collateral burn mechanics.
@@ -110,6 +110,7 @@ contract TestLiquidationBehavior is TestBaseWorkflow {
             .addPriceFeedFor(0, uint32(uint160(address(TOKEN))), uint32(uint160(JBConstants.NATIVE_TOKEN)), priceFeed);
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            terminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -127,6 +128,8 @@ contract TestLiquidationBehavior is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            IJBTerminal(address(new MockEmptyTerminal())),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -152,8 +155,7 @@ contract TestLiquidationBehavior is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         acc[1] = JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
         REVStageConfig[] memory stages = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -183,7 +185,7 @@ contract TestLiquidationBehavior is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")
             }),
@@ -198,8 +200,7 @@ contract TestLiquidationBehavior is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
         acc[1] = JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
         REVStageConfig[] memory stages = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -217,8 +218,8 @@ contract TestLiquidationBehavior is TestBaseWorkflow {
             cashOutTaxRate: 6000,
             extraMetadata: 0
         });
-        REVLoanSource[] memory ls = new REVLoanSource[](1);
-        ls[0] = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address[] memory ls = new address[](1);
+        ls[0] = JBConstants.NATIVE_TOKEN;
         REVConfig memory cfg = REVConfig({
             // forge-lint: disable-next-line(named-struct-fields)
             description: REVDescription("NANA", "$NANA", "ipfs://test2", "NANA_TOKEN"),
@@ -230,7 +231,7 @@ contract TestLiquidationBehavior is TestBaseWorkflow {
         (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NANA")
             }),
@@ -258,7 +259,7 @@ contract TestLiquidationBehavior is TestBaseWorkflow {
             abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), user, REVNET_ID, 11, true, true)),
             abi.encode(true)
         );
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
         vm.prank(user);
         (loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(user), prepaidFee, user);
     }
@@ -284,7 +285,7 @@ contract TestLiquidationBehavior is TestBaseWorkflow {
             abi.encodeCall(IJBPermissions.hasPermission, (address(LOANS_CONTRACT), USER, REVNET_ID, 11, true, true)),
             abi.encode(true)
         );
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
         vm.prank(USER);
         LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(USER), 25, USER);
 
@@ -360,8 +361,7 @@ contract TestLiquidationBehavior is TestBaseWorkflow {
 
         REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
         uint256 totalCollateralBefore = LOANS_CONTRACT.totalCollateralOf(REVNET_ID);
-        uint256 totalBorrowedBefore =
-            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
+        uint256 totalBorrowedBefore = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, JBConstants.NATIVE_TOKEN);
 
         assertTrue(totalCollateralBefore > 0, "Should have collateral before liquidation");
         assertTrue(totalBorrowedBefore > 0, "Should have borrowed amount before liquidation");
@@ -385,16 +385,69 @@ contract TestLiquidationBehavior is TestBaseWorkflow {
         assertEq(totalCollateralAfter, 0, "Collateral tracking should be 0 after liquidation");
 
         // 3. totalBorrowedFrom should be decremented
-        uint256 totalBorrowedAfter =
-            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN);
+        uint256 totalBorrowedAfter = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, JBConstants.NATIVE_TOKEN);
         assertEq(totalBorrowedAfter, 0, "Borrowed tracking should be 0 after liquidation");
 
-        // 4. The loan data in _loanOf[loanId] is NOT deleted (no `delete` statement),
-        //    but the loan is effectively dead since the NFT is burned and tracking is zeroed.
+        // 4. The loan struct is deleted for a gas refund, so stale loan data cannot be read after liquidation.
         REVLoan memory loanAfter = LOANS_CONTRACT.loanOf(loanId);
-        // The loan struct data is deleted for a gas refund (delete _loanOf[loanId]).
         assertEq(loanAfter.amount, 0, "Loan data should be cleared after liquidation");
         assertEq(loanAfter.collateral, 0, "Loan collateral should be cleared after liquidation");
         assertEq(loanAfter.createdAt, 0, "Loan createdAt should be cleared after liquidation");
+    }
+
+    /// @notice Liquidation starts strictly after the loan liquidation duration, not at the boundary second.
+    function test_liquidationBoundaryTriplet() public {
+        (uint256 loanId,,) = _setupLoan({user: USER, ethAmount: 10e18, prepaidFee: 25});
+        require(loanId != 0, "Loan setup failed");
+
+        REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
+        uint256 liquidationDuration = LOANS_CONTRACT.LOAN_LIQUIDATION_DURATION();
+        uint256 totalCollateralBefore = LOANS_CONTRACT.totalCollateralOf(REVNET_ID);
+        uint256 totalBorrowedBefore = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, JBConstants.NATIVE_TOKEN);
+
+        // liquidateExpiredLoansFrom takes the revnet-local loan number, while loanOf/ownerOf use the full NFT ID.
+        uint256 loanNumber = loanId - (REVNET_ID * 1_000_000_000_000);
+
+        // One second before expiry, liquidation must skip the loan and leave both storage and accounting untouched.
+        vm.warp(loan.createdAt + liquidationDuration - 1);
+        LOANS_CONTRACT.liquidateExpiredLoansFrom({revnetId: REVNET_ID, startingLoanId: loanNumber, count: 1});
+
+        assertEq(LOANS_CONTRACT.loanOf(loanId).createdAt, loan.createdAt, "Loan should remain before expiry");
+        assertEq(IERC721(address(LOANS_CONTRACT)).ownerOf(loanId), USER, "Loan NFT should remain before expiry");
+        assertEq(LOANS_CONTRACT.totalCollateralOf(REVNET_ID), totalCollateralBefore, "Collateral should be unchanged");
+        assertEq(
+            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, JBConstants.NATIVE_TOKEN),
+            totalBorrowedBefore,
+            "Borrowed amount should be unchanged"
+        );
+
+        // At the exact boundary, the loan is still repayable, so liquidation must still skip it.
+        vm.warp(loan.createdAt + liquidationDuration);
+        LOANS_CONTRACT.liquidateExpiredLoansFrom({revnetId: REVNET_ID, startingLoanId: loanNumber, count: 1});
+
+        assertEq(LOANS_CONTRACT.loanOf(loanId).createdAt, loan.createdAt, "Loan should remain at expiry boundary");
+        assertEq(IERC721(address(LOANS_CONTRACT)).ownerOf(loanId), USER, "Loan NFT should remain at boundary");
+        assertEq(LOANS_CONTRACT.totalCollateralOf(REVNET_ID), totalCollateralBefore, "Collateral should be unchanged");
+        assertEq(
+            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, JBConstants.NATIVE_TOKEN),
+            totalBorrowedBefore,
+            "Borrowed amount should be unchanged"
+        );
+
+        // One second after the boundary, the liquidation path should burn the NFT and clear loan accounting.
+        vm.warp(loan.createdAt + liquidationDuration + 1);
+        LOANS_CONTRACT.liquidateExpiredLoansFrom({revnetId: REVNET_ID, startingLoanId: loanNumber, count: 1});
+
+        vm.expectRevert();
+        IERC721(address(LOANS_CONTRACT)).ownerOf(loanId);
+
+        REVLoan memory loanAfter = LOANS_CONTRACT.loanOf(loanId);
+        assertEq(loanAfter.createdAt, 0, "Loan should be cleared after liquidation");
+        assertEq(LOANS_CONTRACT.totalCollateralOf(REVNET_ID), 0, "Collateral should be cleared after liquidation");
+        assertEq(
+            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, JBConstants.NATIVE_TOKEN),
+            0,
+            "Borrowed amount should be cleared after liquidation"
+        );
     }
 }

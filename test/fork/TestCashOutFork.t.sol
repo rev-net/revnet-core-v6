@@ -199,13 +199,13 @@ contract TestCashOutFork is ForkTestBase {
     /// @notice Cash out before delay expires should revert.
     function test_fork_cashOut_delayEnforcement() public {
         // Deploy a revnet whose first stage started in the past → triggers cash-out delay.
-        (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
+        (REVConfig memory cfg, JBAccountingContext[] memory tc, REVSuckerDeploymentConfig memory sdc) =
             _buildMinimalConfig(5000);
         cfg.stageConfigurations[0].startsAtOrAfter = uint40(block.timestamp - 1);
         (uint256 delayRevnet,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: sdc,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()

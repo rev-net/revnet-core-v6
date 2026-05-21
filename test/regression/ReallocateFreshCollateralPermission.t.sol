@@ -5,7 +5,6 @@ import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBPermissioned} from "@bananapus/core-v6/src/abstract/JBPermissioned.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {REVLoan} from "../../src/structs/REVLoan.sol";
-import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
 import {ReallocatePermissionTest} from "./ReallocatePermission.t.sol";
 
 /// @notice A REALLOCATE_LOAN-only operator must not be able to pass `collateralCountToAdd > 0` to
@@ -28,7 +27,7 @@ contract ReallocateFreshCollateralPermissionTest is ReallocatePermissionTest {
 
         REVLoan memory originalLoan = LOANS_CONTRACT.loanOf(loanId);
         uint256 collateralToTransfer = originalLoan.collateral / 10;
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
 
         _grantPermission(OPERATOR, JBPermissionIds.REALLOCATE_LOAN);
 

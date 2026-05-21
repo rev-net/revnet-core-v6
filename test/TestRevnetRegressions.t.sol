@@ -30,7 +30,6 @@ import {JBSingleAllowance} from "@bananapus/core-v6/src/structs/JBSingleAllowanc
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVLoan} from "../src/structs/REVLoan.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
@@ -44,6 +43,7 @@ import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressReg
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
+import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
 /// @notice A test harness that exposes REVLoans internal functions for direct testing.
@@ -51,48 +51,43 @@ import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 contract REVLoansHarness is REVLoans {
     constructor(
         IJBController controller,
+        IJBPayoutTerminal terminal,
         IJBSuckerRegistry suckerRegistry,
         uint256 revId,
         address owner,
         IPermit2 permit2,
         address trustedForwarder
     )
-        REVLoans(controller, suckerRegistry, revId, owner, permit2, trustedForwarder)
+        REVLoans(controller, terminal, suckerRegistry, revId, owner, permit2, trustedForwarder)
     {}
 
     /// @notice Expose _totalBorrowedFrom for testing.
     function exposed_totalBorrowedFrom(
         uint256 revnetId,
         uint256 decimals,
-        uint256 currency
+        uint256 currency,
+        IJBTerminal terminal
     )
         external
         view
         returns (uint256)
     {
-        return _totalBorrowedFrom(revnetId, decimals, currency);
+        return _totalBorrowedFrom(revnetId, decimals, currency, terminal);
     }
 
     /// @notice Set totalBorrowedFrom for testing.
-    function setTotalBorrowedFrom(
-        uint256 revnetId,
-        IJBPayoutTerminal terminal,
-        address token,
-        uint256 amount
-    )
-        external
-    {
-        totalBorrowedFrom[revnetId][terminal][token] = amount;
+    function setTotalBorrowedFrom(uint256 revnetId, address token, uint256 amount) external {
+        totalBorrowedFrom[revnetId][token] = amount;
     }
 
     /// @notice Register a loan source for testing.
-    function addLoanSource(uint256 revnetId, REVLoanSource memory source) external {
-        _loanSourcesOf[revnetId].push(source);
-        isLoanSourceOf[revnetId][source.terminal][source.token] = true;
+    function addLoanSource(uint256 revnetId, address token) external {
+        _loanSourceTokensOf[revnetId].push(token);
+        isLoanSourceOf[revnetId][token] = true;
     }
 }
 
-/// @notice Regression tests for zero price feed DoS in REVLoans._totalBorrowedFrom.
+/// @notice Regression tests for REVLoans debt aggregation edge cases.
 contract TestRevnetRegressions is TestBaseWorkflow {
     // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
@@ -151,6 +146,7 @@ contract TestRevnetRegressions is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoansHarness({
             controller: jbController(),
+            terminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -169,6 +165,8 @@ contract TestRevnetRegressions is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            IJBTerminal(address(new MockEmptyTerminal())),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -186,14 +184,14 @@ contract TestRevnetRegressions is TestBaseWorkflow {
     }
 
     //*********************************************************************//
-    // ---- Zero price feed return causes DoS in _totalBorrowedFrom ----- //
+    // ---- Zero price feed return fails closed in _totalBorrowedFrom --- //
     //*********************************************************************//
 
-    /// @notice Demonstrates that `_totalBorrowedFrom` does not revert when
-    /// `pricePerUnitOf` returns 0 for a cross-currency loan source.
-    /// Before the fix, `mulDiv(x, y, 0)` would panic with a division-by-zero,
-    /// blocking all loan operations that aggregate cross-currency borrowed amounts.
-    function test_zeroPriceFeedSkippedInTotalBorrowed() public {
+    /// @notice Demonstrates that `_totalBorrowedFrom` reverts when a price module returns 0 for a cross-currency
+    /// loan source.
+    /// @dev A zero price cannot be skipped: doing so would hide outstanding debt. Core `JBPrices` already rejects
+    /// zero prices, and this harness-level mock proves REVLoans also rejects a nonconforming zero return directly.
+    function test_zeroPriceFeedRevertsInTotalBorrowed() public {
         // Deploy the fee revnet (required by the system).
         _deployFeeRevnet();
 
@@ -215,13 +213,11 @@ contract TestRevnetRegressions is TestBaseWorkflow {
         );
 
         // Register the loan source and set a non-zero borrowed amount via the harness.
-        LOANS_CONTRACT.addLoanSource(
-            revnetId, REVLoanSource({token: fakeToken, terminal: IJBPayoutTerminal(mockTerminal)})
-        );
-        LOANS_CONTRACT.setTotalBorrowedFrom(revnetId, IJBPayoutTerminal(mockTerminal), fakeToken, 1e18);
+        LOANS_CONTRACT.addLoanSource(revnetId, fakeToken);
+        LOANS_CONTRACT.setTotalBorrowedFrom(revnetId, fakeToken, 1e18);
 
-        // Mock PRICES.pricePerUnitOf to return 0 for the cross-currency conversion.
-        // This simulates a broken, stale, or uninitialized price feed.
+        // Mock PRICES.pricePerUnitOf to return 0 for the cross-currency conversion. Core `JBPrices` reverts before
+        // returning 0, so this direct mock covers the extra local guard in REVLoans.
         vm.mockCall(
             address(jbPrices()),
             abi.encodeWithSelector(
@@ -234,15 +230,19 @@ contract TestRevnetRegressions is TestBaseWorkflow {
             abi.encode(uint256(0))
         );
 
-        // Call _totalBorrowedFrom via the harness.
-        // Before the fix: this would panic with division-by-zero in mulDiv.
-        // After the fix: the zero-price source is skipped with `continue`.
-        uint256 totalBorrowed =
-            LOANS_CONTRACT.exposed_totalBorrowedFrom(revnetId, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
-
-        // The source with zero price should be skipped, so the total is 0
-        // (the fake source is not counted because its price feed returned 0).
-        assertEq(totalBorrowed, 0, "_totalBorrowedFrom should return 0 when price feed returns 0, not panic");
+        // Call _totalBorrowedFrom via the harness. It must fail closed instead of undercounting debt by ignoring the
+        // fake source.
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                REVLoans.REVLoans_ZeroPrice.selector,
+                revnetId,
+                uint256(fakeCurrency),
+                uint256(uint32(uint160(JBConstants.NATIVE_TOKEN)))
+            )
+        );
+        LOANS_CONTRACT.exposed_totalBorrowedFrom(
+            revnetId, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)), IJBTerminal(mockTerminal)
+        );
     }
 
     //*********************************************************************//
@@ -255,9 +255,7 @@ contract TestRevnetRegressions is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         REVStageConfig[] memory stageConfigurations = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
@@ -293,7 +291,7 @@ contract TestRevnetRegressions is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: revnetConfiguration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("REV"))
             }),
@@ -308,9 +306,7 @@ contract TestRevnetRegressions is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         REVStageConfig[] memory stageConfigurations = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
@@ -341,7 +337,7 @@ contract TestRevnetRegressions is TestBaseWorkflow {
         (revnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: revnetConfiguration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("BRW"))
             }),

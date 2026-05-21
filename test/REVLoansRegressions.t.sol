@@ -27,7 +27,6 @@ import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
@@ -39,118 +38,15 @@ import {JB721CheckpointsDeployer} from "@bananapus/721-hook-v6/src/JB721Checkpoi
 import {IJB721CheckpointsDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721CheckpointsDeployer.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
-import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
 import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
+import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
-/// @notice A fake terminal that tracks whether useAllowanceOf was called.
-/// @dev REVLoans.borrowFrom does not validate source terminal registration.
-contract FakeTerminal is ERC165, IJBPayoutTerminal {
-    bool public useAllowanceCalled;
-    uint256 public lastProjectId;
-
-    function useAllowanceOf(
-        uint256 projectId,
-        address,
-        uint256,
-        uint256,
-        uint256,
-        address payable,
-        address payable,
-        string calldata
-    )
-        external
-        override
-        returns (uint256)
-    {
-        useAllowanceCalled = true;
-        lastProjectId = projectId;
-        // Return 0 - no actual funds sent
-        return 0;
-    }
-
-    function accountingContextForTokenOf(uint256, address) external pure override returns (JBAccountingContext memory) {
-        return JBAccountingContext({
-            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
-        });
-    }
-
-    // Stub implementations for IJBTerminal
-    function accountingContextsOf(uint256) external pure override returns (JBAccountingContext[] memory) {
-        return new JBAccountingContext[](0);
-    }
-
-    function addAccountingContextsFor(uint256, JBAccountingContext[] calldata) external override {}
-
-    function addToBalanceOf(
-        uint256,
-        address,
-        uint256,
-        bool,
-        string calldata,
-        bytes calldata
-    )
-        external
-        payable
-        override
-    {}
-
-    function currentSurplusOf(uint256, address[] calldata, uint256, uint256) external pure override returns (uint256) {
-        return 0;
-    }
-
-    function migrateBalanceOf(uint256, address, IJBTerminal) external pure override returns (uint256) {
-        return 0;
-    }
-
-    function pay(
-        uint256,
-        address,
-        uint256,
-        address,
-        uint256,
-        string calldata,
-        bytes calldata
-    )
-        external
-        payable
-        override
-        returns (uint256)
-    {
-        return 0;
-    }
-
-    function sendPayoutsOf(uint256, address, uint256, uint256, uint256) external pure override returns (uint256) {
-        return 0;
-    }
-
-    function previewPayFor(
-        uint256,
-        address,
-        uint256,
-        address,
-        bytes calldata
-    )
-        external
-        pure
-        override
-        returns (JBRuleset memory, uint256, uint256, JBPayHookSpecification[] memory)
-    {
-        JBRuleset memory ruleset;
-        return (ruleset, 0, 0, new JBPayHookSpecification[](0));
-    }
-
-    function supportsInterface(bytes4 interfaceId) public view override(ERC165, IERC165) returns (bool) {
-        return interfaceId == type(IJBTerminal).interfaceId || interfaceId == type(IJBPayoutTerminal).interfaceId
-            || super.supportsInterface(interfaceId);
-    }
-}
-
-/// @notice Regression tests for REVLoans unvalidated source terminal.
+/// @notice Regression tests for REVLoans source validation.
 contract REVLoansRegressions is TestBaseWorkflow {
     // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
@@ -212,6 +108,7 @@ contract REVLoansRegressions is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            terminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -230,6 +127,8 @@ contract REVLoansRegressions is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            IJBTerminal(address(new MockEmptyTerminal())),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -258,9 +157,7 @@ contract REVLoansRegressions is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         REVStageConfig[] memory stageConfigurations = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
@@ -292,7 +189,7 @@ contract REVLoansRegressions is TestBaseWorkflow {
         (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: revnetConfiguration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("H6_TEST")
             }),
@@ -302,56 +199,34 @@ contract REVLoansRegressions is TestBaseWorkflow {
     }
 
     //*********************************************************************//
-    // --- Unvalidated Source Terminal in REVLoans ---------------------- //
+    // --- Source Token Validation in REVLoans -------------------------- //
     //*********************************************************************//
 
-    /// @notice Demonstrates that borrowFrom accepts any terminal without validating
-    ///         it is registered in the JBDirectory for the project.
-    /// @dev The fake terminal's useAllowanceOf is called, showing no directory check occurs.
-    ///      In production, a malicious terminal could return fake amounts or misroute funds.
-    /// @notice Verifies that borrowFrom now rejects unregistered terminals.
-    /// @dev Previously this test demonstrated the vulnerability. After the fix,
-    ///      borrowFrom reverts with REVLoans_InvalidTerminal before reaching the fake terminal.
-    function test_unvalidatedSourceTerminal() public {
+    /// @notice Verifies that borrowFrom only accepts tokens configured on the canonical multi terminal.
+    /// @dev Loan sources are token-only. The terminal is fixed by the revnet's deployer, so arbitrary source
+    /// terminals are no longer user input.
+    function test_unacceptedSourceToken() public {
         // Step 1: User pays into the revnet to get tokens (collateral)
         vm.prank(USER);
         uint256 tokens = jbMultiTerminal().pay{value: 1e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 1e18, USER, 0, "", "");
         assertGt(tokens, 0, "user should receive tokens");
 
-        // Step 2: Create a fake terminal NOT registered in the directory
-        FakeTerminal fakeTerminal = new FakeTerminal();
-
-        // Verify the fake terminal is NOT in the directory
-        IJBTerminal[] memory registeredTerminals = jbDirectory().terminalsOf(REVNET_ID);
-        bool found = false;
-        for (uint256 i = 0; i < registeredTerminals.length; i++) {
-            if (address(registeredTerminals[i]) == address(fakeTerminal)) {
-                found = true;
-            }
-        }
-        assertFalse(found, "fake terminal should NOT be in the directory");
-
-        // Step 3: Try to borrow using the fake terminal as the source.
-        // This now correctly reverts with REVLoans_InvalidTerminal.
-        REVLoanSource memory fakeSource =
-            REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: IJBPayoutTerminal(address(fakeTerminal))});
+        address fakeSource = makeAddr("fakeSourceToken");
 
         uint256 borrowable =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(borrowable, 0, "should have borrowable amount");
 
-        // The borrow should revert with REVLoans_InvalidTerminal because the fake terminal
-        // is not registered in the directory. The fake terminal is never called.
         vm.expectRevert(
-            abi.encodeWithSelector(REVLoans.REVLoans_InvalidTerminal.selector, address(fakeTerminal), REVNET_ID)
+            abi.encodeWithSelector(REVLoans.REVLoans_InvalidAccountingContext.selector, REVNET_ID, fakeSource)
         );
 
         vm.prank(USER);
         LOANS_CONTRACT.borrowFrom(REVNET_ID, fakeSource, borrowable, tokens, payable(USER), 500, USER);
     }
 
-    /// @notice Verify that the configured loan source (real terminal) is properly registered.
-    function test_configuredSourceIsRegistered() public view {
+    /// @notice Verify that the deployer-pinned multi terminal is registered for the revnet.
+    function test_configuredTerminalIsRegistered() public view {
         // The real terminal should be in the directory
         IJBTerminal[] memory terminals = jbDirectory().terminalsOf(REVNET_ID);
         bool found = false;

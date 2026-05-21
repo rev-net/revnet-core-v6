@@ -27,7 +27,9 @@ This file focuses on the staged-economics, runtime-hook, and loan risks that mat
 
 - **Stage immutability cuts both ways.** A bad stage schedule or bad cash-out tax choice is expensive to unwind.
 - **Borrowability depends on live economics.** If surplus, supply, or cross-chain state are wrong, loan capacity becomes wrong.
-- **Zero or degraded price feeds can undercount debt.** If a source becomes invisible to debt aggregation, later borrowing can become too permissive. Specifically, `_debtOf` skips sources where `pricePerUnitOf` returns zero, treating them as if the borrower has no debt in that source. If a feed breaks or returns zero, existing debt in that currency is effectively invisible, inflating the borrower's apparent borrowable amount.
+- **Zero or degraded price feeds can block cross-currency loan accounting.** Revnet loans fail closed when a required
+  price is zero, because silently skipping that source would hide outstanding debt and make later borrowing too
+  permissive. If a feed breaks, affected borrowability and repayment views can revert until the feed is fixed.
 - **Auto-issuance dilutes holders predictably but still materially.** Timing is permissionless, even if the amounts are fixed at deployment.
 - **Omnichain expansion can corrupt surplus aggregation.** Since borrowability aggregates surplus from all registered terminals across chains, a compromised or misconfigured terminal on a remote chain affects global surplus accounting.
 
@@ -35,7 +37,8 @@ This file focuses on the staged-economics, runtime-hook, and loan risks that mat
 
 - **Burned collateral is not escrow.** Reviewers and integrators who model it as escrow will misread liquidation and repayment behavior.
 - **No short-term liquidation model.** Under-collateralized loans can persist until the long expiry model allows cleanup.
-- **Loan sources grow over time.** Debt aggregation cost and complexity increase as new source pairs are used.
+- **Loan source tokens grow over time.** Debt aggregation cost and complexity increase as new accepted accounting
+  context tokens are used.
 - **Reallocation still depends on live state.** Reallocate flows can change outcomes around stage boundaries.
 
 ## 4. Hook-Composition Risks
@@ -64,6 +67,11 @@ This file focuses on the staged-economics, runtime-hook, and loan risks that mat
 
 Trusted suckers are intentionally exempt so bridged value preserves its economic meaning across chains.
 
+Sucker cash-outs are also intentionally priced against the local chain's supply and surplus, even when the revnet's
+ordinary holder cash-outs are unscoped and aggregate remote snapshots. A sucker cash-out is the bridge movement path:
+the funds leaving this chain should be proportional to this chain's local backing, not to the theoretical global
+backing across all chains.
+
 ### 7.2 There is no short-horizon liquidation model
 
 Revnet loans are designed more like long-dated economic positions than instantly mark-to-market margin loans.
@@ -76,38 +84,96 @@ Anyone can trigger a valid auto-issuance once a stage is live, but the amount wa
 
 The model assumes that attempts to inflate surplus through donations are not profitable once the surrounding bonding-curve math is considered.
 
-### 7.5 Omnichain terminal expansion inherits remote-chain trust
+### 7.5 Revnet terminal set is deployer-pinned
 
-A project that expands to a new chain can register additional terminals on that chain. Because borrowability calculations aggregate surplus from all registered terminals across all chains, a compromised or misconfigured terminal on a remote chain can corrupt the project's surplus accounting globally. This is mitigated by including terminal addresses in the `encodedConfigurationHash` — cross-chain expansions via suckers must use the exact same terminal address as the host chain. Terminal addresses are deterministic across chains (same CREATE2 deployment), so this prevents expansions from silently using a different terminal. Project operators should still treat each chain expansion as a trust-boundary decision since bridge integrity and network assumptions remain outside protocol control.
+New revnet configs choose accounting contexts, not terminal addresses. `REVDeployer` assumes its constructor-pinned
+`MULTI_TERMINAL` and `ROUTER_TERMINAL_REGISTRY` are valid deployment-time dependencies. It registers
+`MULTI_TERMINAL` with the revnet's accounting contexts and, when distinct, also registers
+`ROUTER_TERMINAL_REGISTRY` with no accounting contexts. `ROUTER_TERMINAL_REGISTRY` is the project terminal that
+forwards alternate payment routes to the selected router terminal implementation.
+
+This keeps treasury balances, loan allowances, and borrow-source accounting anchored to the canonical multi-terminal
+while still allowing users to pay through the router registry. It also removes the old arbitrary-terminal deployment
+surface: a revnet deploy call cannot introduce a phantom terminal or select the router registry as a loan source.
+Loans identify their source by token only; `REVLoans` and `REVOwner` derive decimals and currency from the canonical
+multi-terminal's current accounting context for that token.
+The revnet identity commits to the registry address, not the registry's current default or project-specific router
+selection; those choices remain registry-level risk routing and do not become loan-accounting sources.
+
+Changing or removing a canonical multi-terminal accounting context after loans exist can make that token's outstanding
+debt unpriceable until a valid context is restored. That discontinuity is accepted as an accounting-context migration
+risk: new revnet launches should treat accepted contexts as part of the revnet's durable economic shape.
+
+### 7.6 Omnichain terminal expansion inherits remote-chain trust
+
+A project that expands to a new chain can register the canonical terminal set on that chain. Because borrowability
+calculations aggregate surplus from all registered terminals across chains, a compromised or misconfigured remote
+chain can still corrupt global surplus accounting through its canonical deployments or sucker snapshots. This is
+mitigated by constructor-pinning `MULTI_TERMINAL` and `ROUTER_TERMINAL_REGISTRY` in the deployer itself instead of
+letting revnet configs pick terminals. The per-revnet `encodedConfigurationHash` does not repeat those terminal
+addresses, because they are deployment dependencies of the canonical deployer. Project operators should still treat
+each chain expansion as a trust-boundary decision since bridge integrity, deployer provenance, and network assumptions
+remain outside protocol control.
 
 Reserved-token split recipients are intentionally excluded from this hash. They can be reconfigured over time, so only split weights participate in the identity commitment.
 
-### 7.6 Cross-chain surplus staleness
+### 7.7 Cross-chain surplus staleness
 
-`REVLoans._borrowableAmountFrom` and `REVOwner.beforeCashOutRecordedWith` add `remoteSurplusOf()` and `remoteTotalSupplyOf()` to local values. These remote values update only when `toRemote()` is called on the peer chain -- no heartbeat or staleness check. Stale data can inflate per-token borrowable amounts when remote supply has grown since the last bridge message. Primary safeguard: borrowable is capped at `localSurplus` (REVLoans line 386-387), preventing extraction beyond what the local terminal holds.
+`REVLoans._borrowableAmountFrom` and ordinary unscoped holder cash-outs in `REVOwner.beforeCashOutRecordedWith` add `remoteSurplusOf()` and `remoteTotalSupplyOf()` to local values. These remote values update only when `toRemote()` is called on the peer chain -- no heartbeat or staleness check. Stale data can inflate per-token borrowable amounts when remote supply has grown since the last bridge message. Primary safeguard: borrowable is capped at `localSurplus` (REVLoans line 386-387), preventing extraction beyond what the local terminal holds.
 
-### 7.7 REVLoans CEI violation in `_adjust`
+This does not apply to the registered-sucker cash-out branch. Sucker cash-outs are the cross-chain token movement path
+and deliberately use local supply/surplus so the bridge can move value out of a chain in proportion to that chain's
+funds.
 
-In `REVLoans._adjust`, `totalCollateralOf[revnetId]` is incremented after external calls (`useAllowanceOf`, fee payment). A reentrant `borrowFrom` would see a lower `totalCollateralOf`. This is documented inline (lines 1128-1132) and requires an adversarial pay hook on the revnet's own terminal -- a trust-level configuration that is not realistic in standard deployments.
+### 7.8 REVLoans callback ordering during loan adjustments
 
-### 7.8 Omnichain cash-outs settle at local liquidity, not theoretical global share
+`REVLoans._adjust` still performs terminal, token, and native-token beneficiary calls before every aggregate loan
+counter has finished updating. This ordering is part of the loan flow: funds must move through the canonical terminal,
+fees may be paid, collateral is burned or re-minted, and native-token borrowers may be contracts with `receive()`
+callbacks.
 
-When omnichain effective surplus exceeds the local terminal balance, `REVOwner.beforeCashOutRecordedWith` proportionally scales the bonding-curve reclaim and the protocol fee so their sum equals local liquidity, then lowers the `effectiveSurplusValue` it reports to `JBTerminalStore` by the same ratio so the store's recomputed reclaim leaves exact room for the fee spec. The user still burns the full requested `cashOutCount` and receives `localSurplus - feeAmount` — strictly less than the global-surplus formula would suggest.
+The loan-changing entrypoints (`borrowFrom`, `reallocateCollateralFromLoan`, and `repayLoan`) hold a transient
+reentrancy lock while these callbacks are in progress. A callback can observe the in-progress state, but it cannot
+nest another loan-changing action that would price against partially updated `totalCollateralOf` or
+`totalBorrowedFrom` accounting.
+
+### 7.9 Omnichain cash-outs settle at local liquidity, not theoretical global share
+
+When omnichain effective surplus exceeds the local terminal balance for an ordinary holder cash-out, `REVOwner.beforeCashOutRecordedWith` proportionally scales the bonding-curve reclaim and the protocol fee so their sum equals local liquidity, then lowers the `effectiveSurplusValue` it reports to `JBTerminalStore` by the same ratio so the store's recomputed reclaim leaves exact room for the fee spec. The user still burns the full requested `cashOutCount` and receives `localSurplus - feeAmount` — strictly less than the global-surplus formula would suggest.
 
 This is intentional: the alternative (revert with `InadequateTerminalStoreBalance`) was the bug fixed in PR #149 + this change. The protocol fee is **never** zeroed by the scaling; the regression PR #149 specifically protected against was the prior `feeAmount = max(localSurplus - reclaim, 0)` formulation which dropped to zero whenever the unscaled reclaim consumed all local surplus.
 
 Holders with `minReclaimAmount` set on their `cashOutTokensOf` call are protected from getting less than they expect. Holders without minimums should be aware that local liquidity caps their reclaim; the surplus on other chains is reachable by cashing out there (or by waiting for bridge messages to rebalance local surplus).
 
-### 7.9 Remote loan corrections not reflected in local borrowability
+### 7.10 Remote loan corrections depend on fresh adjusted peer snapshots
 
-`_borrowableAmountFrom` adds back local `totalBorrowed` and `totalCollateral` to reconstitute pre-loan economic state for the bonding curve. However, remote chain snapshots (built by `JBSuckerLib.buildSnapshotMessage`) capture raw surplus/supply WITHOUT loan corrections from the remote chain.
+`_borrowableAmountFrom` adds back local `totalBorrowed` and `totalCollateral` to reconstitute pre-loan economic state for the bonding curve. Revnet peer-chain snapshots export the same correction through `REVOwner.peerChainAdjustedAccountsOf(...)`: `JBSuckerLib.buildSnapshotMessage(...)` reads the active data hook via `IJBPeerChainAdjustedAccounts` and folds the returned loan collateral/debt into `sourceTotalSupply`, `sourceSurplus`, and `sourceBalance`.
 
-(This subsection was renumbered from 7.8 → 7.9 to accommodate the new 7.8 above. The remote-loan-correction analysis is unchanged.)
+This means canonical Revnet suckers do not intentionally omit remote loan state. The remaining risk is freshness and availability: peer snapshots are asynchronous, best-effort, and soft-fail if the remote data hook does not expose the optional interface or the sucker cannot deliver the latest root.
 
 This is accepted because:
 
-1. Suckers are a general-purpose bridging layer and should not need knowledge of revnet-specific loan mechanics.
-2. The `localSurplus` cap (REVLoans line 386-387) prevents extraction beyond what the local terminal actually holds.
-3. The over-lending exposure is bounded by the difference between corrected and uncorrected remote values, which is proportional to remote outstanding loans — typically a small fraction of total surplus.
+1. Suckers remain a general-purpose bridging layer: project-specific mechanics are provided by the active data hook, not hard-coded into the sucker.
+2. The `localSurplus` cap prevents borrowing more than what the local terminal actually holds.
+3. The over-lending exposure from a stale or missing adjusted snapshot is bounded by the difference between the latest delivered remote snapshot and current remote loan state.
 
-Project operators deploying cross-chain revnets with active loan markets on multiple chains should understand that local borrowability calculations do not account for remote outstanding loans.
+Project operators deploying cross-chain revnets with active loan markets on multiple chains should understand that local borrowability calculations account for remote loans only as of the latest accepted peer snapshot.
+
+### 7.11 There is no hidden-token supply bucket in V6
+
+Revnet cash-out and loan denominators ultimately start from core's `totalTokenSupplyWithReservedTokensOf()`: live
+credits, live ERC-20 supply, and pending reserved tokens. Revnet loan math then adds `totalCollateralOf[revnetId]`
+because loan collateral is burned while the borrower still has a repayable claim on it.
+
+Ordinary voluntary burns are different: they destroy the holder's tokens or credits and are not tracked as a hidden
+balance that can later be reclaimed. Burning can only shift value to the remaining live holders by deleting the
+burner's own claim. A malicious or misconfigured registered terminal can still corrupt surplus accounting, as covered
+by the terminal-trust sections above and the phantom-terminal regression test, but there is no separate hidden-token
+multiplier in this V6 codebase.
+
+### 7.12 Native cash-out fee hooks are value-balanced
+
+`REVOwner.afterCashOutRecordedWith` is intentionally callable by any address: a non-terminal caller can donate their
+own funds into the fee revnet using the same hook path. For native-token fees, the hook requires `msg.value` to exactly
+match `context.forwardedAmount.value`, so forced or accidentally stranded ETH in the hook cannot be spent by an
+arbitrary caller. For ERC-20 fees, `msg.value` must be zero and the forwarded amount is pulled from the caller.

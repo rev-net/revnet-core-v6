@@ -100,7 +100,7 @@ contract WeakConfigurationHashTest is TestTerminalEncodingInHash {
         (revnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: configuration,
-            terminalConfigurations: _terminalConfigs(jbMultiTerminal()),
+            accountingContextsToAccept: _terminalConfigs(),
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: bytes32(0)
             })

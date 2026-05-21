@@ -31,7 +31,6 @@ import {MockERC20} from "@bananapus/core-v6/test/mock/MockERC20.sol";
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVLoan} from "../src/structs/REVLoan.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
@@ -49,6 +48,7 @@ import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSp
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
+import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
 /// @notice A terminal mock that always reverts on pay(), used to simulate fee payment failure.
@@ -150,7 +150,7 @@ contract RevertingFeeTerminal is ERC165, IJBPayoutTerminal {
 
 struct FeeRecoveryProjectConfig {
     REVConfig configuration;
-    JBTerminalConfig[] terminalConfigurations;
+    JBAccountingContext[] accountingContextsToAccept;
     REVSuckerDeploymentConfig suckerDeploymentConfiguration;
 }
 
@@ -209,9 +209,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
         accountingContextsToAccept[1] =
             JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         REVStageConfig[] memory stageConfigurations = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
@@ -255,7 +253,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
 
         return FeeRecoveryProjectConfig({
             configuration: revnetConfiguration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("REV"))
             })
@@ -273,9 +271,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
         accountingContextsToAccept[1] =
             JBAccountingContext({token: address(TOKEN), decimals: 6, currency: uint32(uint160(address(TOKEN)))});
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         JBSplit[] memory splits = new JBSplit[](1);
         splits[0].beneficiary = payable(multisig());
@@ -304,9 +300,9 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
             extraMetadata: 0
         });
 
-        REVLoanSource[] memory _loanSources = new REVLoanSource[](2);
-        _loanSources[0] = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
-        _loanSources[1] = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
+        address[] memory _loanSources = new address[](2);
+        _loanSources[0] = JBConstants.NATIVE_TOKEN;
+        _loanSources[1] = address(TOKEN);
 
         REVConfig memory revnetConfiguration = REVConfig({
             description: REVDescription({
@@ -323,7 +319,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
 
         return FeeRecoveryProjectConfig({
             configuration: revnetConfiguration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("NANA"))
             })
@@ -361,6 +357,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            terminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -379,6 +376,8 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            IJBTerminal(address(new MockEmptyTerminal())),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -400,7 +399,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: feeProjectConfig.configuration,
-            terminalConfigurations: feeProjectConfig.terminalConfigurations,
+            accountingContextsToAccept: feeProjectConfig.accountingContextsToAccept,
             suckerDeploymentConfiguration: feeProjectConfig.suckerDeploymentConfiguration,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -411,7 +410,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
         (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: revnetConfig.configuration,
-            terminalConfigurations: revnetConfig.terminalConfigurations,
+            accountingContextsToAccept: revnetConfig.accountingContextsToAccept,
             suckerDeploymentConfiguration: revnetConfig.suckerDeploymentConfiguration,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -458,7 +457,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
 
         _mockLoanPermission(user);
 
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
 
         borrowerBalanceBefore = user.balance;
 
@@ -497,7 +496,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
             jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
 
         _mockLoanPermission(USER);
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
 
         // Snapshot state before borrow.
         uint256 snap = vm.snapshotState();
@@ -535,7 +534,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
     /// @notice The extra ETH the borrower receives when the fee terminal reverts matches
     ///         the expected REV fee amount (1% of borrow amount).
     function test_feePaymentFailure_nativeToken_exactFeeRecovery() public {
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
 
         // Pay into revnet.
         vm.prank(USER);
@@ -600,7 +599,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
         vm.stopPrank();
 
         _mockLoanPermission(USER);
-        REVLoanSource memory source = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
+        address source = address(TOKEN);
 
         // Check allowance to reverting terminal BEFORE borrow.
         uint256 allowanceBefore = TOKEN.allowance(address(LOANS_CONTRACT), address(REVERTING_TERMINAL));
@@ -626,7 +625,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
     ///         the fee amount that would have gone to the REV project.
     function test_feePaymentFailure_erc20_borrowerGetsMoreTokens() public {
         uint256 payAmount = 1_000_000; // 6 decimals
-        REVLoanSource memory source = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
+        address source = address(TOKEN);
 
         // Pay into revnet with ERC-20.
         deal(address(TOKEN), USER, payAmount);
@@ -709,7 +708,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
                 abi.encode(true)
             );
 
-            REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+            address source = JBConstants.NATIVE_TOKEN;
 
             vm.prank(borrower);
             LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokens, payable(borrower), 25, borrower);
@@ -746,7 +745,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
         if (borrowable == 0) return;
 
         _mockLoanPermission(borrower);
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
 
         uint256 balanceBefore = borrower.balance;
         vm.prank(borrower);

@@ -14,7 +14,6 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {IREVLoans} from "../src/interfaces/IREVLoans.sol";
 import {REVLoan} from "../src/structs/REVLoan.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {JBTest} from "@bananapus/core-v6/test/helpers/JBTest.sol";
 
 /// @title REVInvincibilityHandler
@@ -143,7 +142,7 @@ contract REVInvincibilityHandler is JBTest {
             abi.encode(true)
         );
 
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: TERMINAL});
+        address source = JBConstants.NATIVE_TOKEN;
         (, REVLoan memory loan) =
             LOANS.borrowFrom(REVNET_ID, source, borrowable, receivedTokens, payable(USER), prepaidFee, USER);
 
@@ -256,7 +255,7 @@ contract REVInvincibilityHandler is JBTest {
         try LOANS.reallocateCollateralFromLoan(
             id,
             collateralToTransfer,
-            REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: TERMINAL}),
+            JBConstants.NATIVE_TOKEN,
             newBorrowable,
             collateralToAdd,
             payable(USER),

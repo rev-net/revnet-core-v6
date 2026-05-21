@@ -11,7 +11,6 @@ import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingCo
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
 import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
-import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
 import {REVLoansFeeRecovery} from "../REVLoansFeeRecovery.t.sol";
 
 contract StickyAllowanceFeeTerminal is ERC165, IJBPayoutTerminal {
@@ -151,7 +150,7 @@ contract TestFeeAllowanceLeak is REVLoansFeeRecovery {
             abi.encode(address(terminal))
         );
 
-        REVLoanSource memory source = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
+        address source = address(TOKEN);
         uint256 payAmount = 1_000_000;
 
         deal(address(TOKEN), USER, payAmount * 2);

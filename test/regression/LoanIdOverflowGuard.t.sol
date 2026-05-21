@@ -30,7 +30,6 @@ import {MockPriceFeed} from "@bananapus/core-v6/test/mock/MockPriceFeed.sol";
 import {REVLoans} from "../../src/REVLoans.sol";
 import {REVLoan} from "../../src/structs/REVLoan.sol";
 import {REVStageConfig, REVAutoIssuance} from "../../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../../src/structs/REVDescription.sol";
 // Deployment dependencies for suckers, 721 hooks, and address registry.
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
@@ -46,6 +45,7 @@ import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/
 import {REVEmpty721Config} from "../helpers/REVEmpty721Config.sol";
 import {REVOwner} from "../../src/REVOwner.sol";
 import {IREVDeployer} from "../../src/interfaces/IREVDeployer.sol";
+import {MockEmptyTerminal} from "../mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
 
 /// @notice Regression tests for the loan ID overflow guard in REVLoans.
@@ -65,9 +65,9 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
     /// @dev The overflow boundary -- must match _ONE_TRILLION in REVLoans.sol.
     uint256 private constant _ONE_TRILLION = 1_000_000_000_000;
 
-    /// @dev Storage slot of the totalLoansBorrowedFor mapping in REVLoans (slot 8).
+    /// @dev Storage slot of the totalLoansBorrowedFor mapping in REVLoans (slot 11).
     /// Determined via `forge inspect REVLoans storage-layout`.
-    uint256 private constant TOTAL_LOANS_BORROWED_FOR_SLOT = 8;
+    uint256 private constant TOTAL_LOANS_BORROWED_FOR_SLOT = 11;
 
     /// @dev The address that is allowed to forward meta-transactions.
     address private constant TRUSTED_FORWARDER = 0xB2b5841DBeF766d4b521221732F9B618fCf34A87;
@@ -165,6 +165,7 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
         // Deploy the REVLoans contract.
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            terminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -184,6 +185,8 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            IJBTerminal(address(new MockEmptyTerminal())),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -224,8 +227,7 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
         });
 
         // Configure a single terminal.
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
 
         // A single stage with auto-issuance for the multisig.
         REVStageConfig[] memory stages = new REVStageConfig[](1);
@@ -265,7 +267,7 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FEE")
             }),
@@ -283,8 +285,7 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
         });
 
         // Configure a single terminal.
-        JBTerminalConfig[] memory tc = new JBTerminalConfig[](1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
+        JBAccountingContext[] memory tc = acc;
 
         // A single stage with auto-issuance for the multisig.
         REVStageConfig[] memory stages = new REVStageConfig[](1);
@@ -323,7 +324,7 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
         (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("NANA")
             }),
@@ -357,8 +358,8 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
             abi.encode(true)
         );
 
-        // Build the loan source pointing at the real multi terminal and native token.
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        // Build the loan source token.
+        address source = JBConstants.NATIVE_TOKEN;
 
         // Borrow with minimum fee percent (25 = 2.5%).
         vm.prank(user);
@@ -406,8 +407,8 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
             "counter should be at _ONE_TRILLION after vm.store"
         );
 
-        // Build the loan source pointing at the real terminal and native token.
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        // Build the loan source token.
+        address source = JBConstants.NATIVE_TOKEN;
 
         // Expect the overflow revert.
         vm.expectRevert(
@@ -460,8 +461,8 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
             "counter should be at _ONE_TRILLION after vm.store"
         );
 
-        // Build the loan source matching the existing loan's source.
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        // Build the loan source token matching the existing loan's source.
+        address source = JBConstants.NATIVE_TOKEN;
 
         // Transfer only 1 token of collateral to trigger the reallocation path.
         uint256 collateralToTransfer = 1;

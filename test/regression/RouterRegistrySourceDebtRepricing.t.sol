@@ -13,6 +13,7 @@ import {JBRouterTerminalRegistry} from "@bananapus/router-terminal-v6/src/JBRout
 import {IJBBuybackHookRegistry} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHookRegistry.sol";
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
+import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
 import {JBSuckerRegistry} from "@bananapus/suckers-v6/src/JBSuckerRegistry.sol";
 import {JB721TiersHookDeployer} from "@bananapus/721-hook-v6/src/JB721TiersHookDeployer.sol";
@@ -30,8 +31,8 @@ import {REVOwner} from "../../src/REVOwner.sol";
 import {IREVLoans} from "../../src/interfaces/IREVLoans.sol";
 import {REVConfig} from "../../src/structs/REVConfig.sol";
 import {REVDescription} from "../../src/structs/REVDescription.sol";
+import {REVLoan} from "../../src/structs/REVLoan.sol";
 import {REVStageConfig, REVAutoIssuance} from "../../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
 import {REVSuckerDeploymentConfig} from "../../src/structs/REVSuckerDeploymentConfig.sol";
 import {REVEmpty721Config} from "../helpers/REVEmpty721Config.sol";
 import {MockBuybackDataHook} from "../mock/MockBuybackDataHook.sol";
@@ -82,6 +83,7 @@ contract RegressionRouterRegistrySourceDebtRepricingTest is TestBaseWorkflow {
 
         loans = new REVLoans({
             controller: jbController(),
+            terminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: feeProjectId,
             owner: address(this),
@@ -98,8 +100,14 @@ contract RegressionRouterRegistrySourceDebtRepricingTest is TestBaseWorkflow {
             address(this)
         );
 
+        routerRegistry =
+            new JBRouterTerminalRegistry(jbPermissions(), jbProjects(), permit2(), address(this), TRUSTED_FORWARDER);
+        routerRegistry.setDefaultTerminal(jbMultiTerminal());
+
         revDeployer = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            IJBTerminal(address(routerRegistry)),
             suckerRegistry,
             feeProjectId,
             hookDeployer,
@@ -111,10 +119,6 @@ contract RegressionRouterRegistrySourceDebtRepricingTest is TestBaseWorkflow {
         );
         revOwner.setDeployer(revDeployer);
 
-        routerRegistry =
-            new JBRouterTerminalRegistry(jbPermissions(), jbProjects(), permit2(), address(this), TRUSTED_FORWARDER);
-        routerRegistry.setDefaultTerminal(jbMultiTerminal());
-
         vm.prank(multisig());
         jbProjects().approve(address(revDeployer), feeProjectId);
         _deployFeeRevnet();
@@ -123,37 +127,43 @@ contract RegressionRouterRegistrySourceDebtRepricingTest is TestBaseWorkflow {
         vm.deal(user, 100 ether);
     }
 
-    function test_routerRegistryCannotServeAsLoanSource() public {
+    function test_routerRegistryBackedRevnetStillBorrowsFromCanonicalMultiTerminal() public {
         vm.prank(user);
         uint256 tokenCount =
             jbMultiTerminal().pay{value: 20 ether}(revnetId, JBConstants.NATIVE_TOKEN, 20 ether, user, 0, "", "");
         assertGt(tokenCount, 1, "expected project tokens");
 
         uint256 firstCollateral = tokenCount / 2;
+        uint256 totalBorrowedBefore = loans.totalBorrowedFrom(revnetId, JBConstants.NATIVE_TOKEN);
 
-        REVLoanSource memory registrySource =
-            REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: IJBPayoutTerminal(address(routerRegistry))});
+        mockExpect(
+            address(jbPermissions()),
+            abi.encodeCall(IJBPermissions.hasPermission, (address(loans), user, revnetId, 11, true, true)),
+            abi.encode(true)
+        );
 
         vm.prank(user);
-        vm.expectRevert();
-        loans.borrowFrom(revnetId, registrySource, 0, firstCollateral, payable(user), 25, user);
+        (uint256 loanId, REVLoan memory loan) =
+            loans.borrowFrom(revnetId, JBConstants.NATIVE_TOKEN, 0, firstCollateral, payable(user), 25, user);
 
-        assertEq(
-            loans.totalBorrowedFrom(revnetId, IJBPayoutTerminal(address(routerRegistry)), JBConstants.NATIVE_TOKEN),
-            0,
-            "registry debt should never be recorded because the registry cannot pay loan allowances"
+        assertGt(loanId, 0, "loan should be created");
+        assertEq(loan.sourceToken, JBConstants.NATIVE_TOKEN, "loan source should only be token");
+        assertGt(
+            loans.totalBorrowedFrom(revnetId, JBConstants.NATIVE_TOKEN),
+            totalBorrowedBefore,
+            "debt should be recorded under the token source"
         );
     }
 
     function _deployFeeRevnet() internal {
-        (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
-            _buildConfig("FeeProject", "FEE", "FEE_TOKEN", false);
+        (REVConfig memory cfg, JBAccountingContext[] memory tc, REVSuckerDeploymentConfig memory sdc) =
+            _buildConfig("FeeProject", "FEE", "FEE_TOKEN");
 
         vm.prank(multisig());
         revDeployer.deployFor({
             revnetId: feeProjectId,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: sdc,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -161,13 +171,13 @@ contract RegressionRouterRegistrySourceDebtRepricingTest is TestBaseWorkflow {
     }
 
     function _deployRegistryBackedRevnet() internal {
-        (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc) =
-            _buildConfig("RegistryDebt", "RDEBT", "RDEBT_TOKEN", true);
+        (REVConfig memory cfg, JBAccountingContext[] memory tc, REVSuckerDeploymentConfig memory sdc) =
+            _buildConfig("RegistryDebt", "RDEBT", "RDEBT_TOKEN");
 
         (revnetId,) = revDeployer.deployFor({
             revnetId: 0,
             configuration: cfg,
-            terminalConfigurations: tc,
+            accountingContextsToAccept: tc,
             suckerDeploymentConfiguration: sdc,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -177,23 +187,18 @@ contract RegressionRouterRegistrySourceDebtRepricingTest is TestBaseWorkflow {
     function _buildConfig(
         string memory name,
         string memory ticker,
-        bytes32 salt,
-        bool includeRegistry
+        bytes32 salt
     )
         internal
         view
-        returns (REVConfig memory cfg, JBTerminalConfig[] memory tc, REVSuckerDeploymentConfig memory sdc)
+        returns (REVConfig memory cfg, JBAccountingContext[] memory tc, REVSuckerDeploymentConfig memory sdc)
     {
         JBAccountingContext[] memory acc = new JBAccountingContext[](1);
         acc[0] = JBAccountingContext({
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        tc = new JBTerminalConfig[](includeRegistry ? 2 : 1);
-        tc[0] = JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: acc});
-        if (includeRegistry) {
-            tc[1] = JBTerminalConfig({terminal: IJBTerminal(address(routerRegistry)), accountingContextsToAccept: acc});
-        }
+        tc = acc;
 
         REVStageConfig[] memory stages = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);

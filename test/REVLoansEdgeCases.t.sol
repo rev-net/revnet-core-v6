@@ -27,12 +27,9 @@ import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
 import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
 import {JBSingleAllowance} from "@bananapus/core-v6/src/structs/JBSingleAllowance.sol";
-import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVLoan} from "../src/structs/REVLoan.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
-import {REVLoanSource} from "../src/structs/REVLoanSource.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
@@ -44,115 +41,14 @@ import {JB721CheckpointsDeployer} from "@bananapus/721-hook-v6/src/JB721Checkpoi
 import {IJB721CheckpointsDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721CheckpointsDeployer.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
-import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
-import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
+import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
-/// @notice A fake terminal that returns garbage accounting contexts.
-/// Used to test unvalidated loan source terminal rejection.
-contract GarbageTerminal is ERC165, IJBPayoutTerminal {
-    function useAllowanceOf(
-        uint256,
-        address,
-        uint256,
-        uint256,
-        uint256,
-        address payable,
-        address payable,
-        string calldata
-    )
-        external
-        pure
-        override
-        returns (uint256)
-    {
-        return 0;
-    }
-
-    function accountingContextForTokenOf(uint256, address) external pure override returns (JBAccountingContext memory) {
-        // Return garbage values to demonstrate the danger.
-        return JBAccountingContext({token: address(0xdead), decimals: 42, currency: 999_999});
-    }
-
-    function accountingContextsOf(uint256) external pure override returns (JBAccountingContext[] memory) {
-        JBAccountingContext[] memory contexts = new JBAccountingContext[](1);
-        contexts[0] = JBAccountingContext({token: address(0xdead), decimals: 42, currency: 999_999});
-        return contexts;
-    }
-
-    function addAccountingContextsFor(uint256, JBAccountingContext[] calldata) external override {}
-
-    function addToBalanceOf(
-        uint256,
-        address,
-        uint256,
-        bool,
-        string calldata,
-        bytes calldata
-    )
-        external
-        payable
-        override
-    {}
-
-    function currentSurplusOf(uint256, address[] calldata, uint256, uint256) external pure override returns (uint256) {
-        return 0;
-    }
-
-    function migrateBalanceOf(uint256, address, IJBTerminal) external pure override returns (uint256) {
-        return 0;
-    }
-
-    function pay(
-        uint256,
-        address,
-        uint256,
-        address,
-        uint256,
-        string calldata,
-        bytes calldata
-    )
-        external
-        payable
-        override
-        returns (uint256)
-    {
-        return 0;
-    }
-
-    function sendPayoutsOf(uint256, address, uint256, uint256, uint256) external pure override returns (uint256) {
-        return 0;
-    }
-
-    function previewPayFor(
-        uint256,
-        address,
-        uint256,
-        address,
-        bytes calldata
-    )
-        external
-        pure
-        override
-        returns (JBRuleset memory, uint256, uint256, JBPayHookSpecification[] memory)
-    {
-        JBRuleset memory ruleset;
-        return (ruleset, 0, 0, new JBPayHookSpecification[](0));
-    }
-
-    function supportsInterface(bytes4 interfaceId) public view override(ERC165, IERC165) returns (bool) {
-        return interfaceId == type(IJBTerminal).interfaceId || interfaceId == type(IJBPayoutTerminal).interfaceId
-            || super.supportsInterface(interfaceId);
-    }
-
-    receive() external payable {}
-}
-
 /// @notice Regression tests for loan edge cases.
-/// Unvalidated loan source terminal
+/// Unaccepted loan source token
 /// RepayLoan event emits zeroed values
 /// Auto-issuance timing guard bypass (non-issue)
 /// repayLoan revert on excess collateral (non-issue)
@@ -217,6 +113,7 @@ contract REVLoansRegressions is TestBaseWorkflow {
 
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),
+            terminal: jbMultiTerminal(),
             suckerRegistry: IJBSuckerRegistry(address(new MockSuckerRegistry())),
             revId: FEE_PROJECT_ID,
             owner: address(this),
@@ -235,6 +132,8 @@ contract REVLoansRegressions is TestBaseWorkflow {
 
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(
             jbController(),
+            jbMultiTerminal(),
+            IJBTerminal(address(new MockEmptyTerminal())),
             SUCKER_REGISTRY,
             FEE_PROJECT_ID,
             HOOK_DEPLOYER,
@@ -266,9 +165,7 @@ contract REVLoansRegressions is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         REVStageConfig[] memory stageConfigurations = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
@@ -304,7 +201,7 @@ contract REVLoansRegressions is TestBaseWorkflow {
         REV_DEPLOYER.deployFor({
             revnetId: FEE_PROJECT_ID,
             configuration: revnetConfiguration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("REV"))
             }),
@@ -319,9 +216,7 @@ contract REVLoansRegressions is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         REVStageConfig[] memory stageConfigurations = new REVStageConfig[](1);
         JBSplit[] memory splits = new JBSplit[](1);
@@ -352,7 +247,7 @@ contract REVLoansRegressions is TestBaseWorkflow {
         (REVNET_ID,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: revnetConfiguration,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256(abi.encodePacked("BRW"))
             }),
@@ -382,45 +277,32 @@ contract REVLoansRegressions is TestBaseWorkflow {
 
         _mockBurnPermission();
 
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
 
         vm.prank(USER);
         (loanId, loan) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, loanable, tokens, payable(USER), 25, USER);
     }
 
     //*********************************************************************//
-    // --------- Unvalidated Loan Source Terminal ------------------- //
+    // --------- Unaccepted Loan Source Token ----------------------- //
     //*********************************************************************//
 
-    /// @notice borrowFrom rejects a fake terminal not registered in the directory.
-    function test_borrowFromRejectsUnregisteredTerminal() public {
+    /// @notice borrowFrom rejects a token without an accounting context on the canonical multi terminal.
+    function test_borrowFromRejectsUnacceptedToken() public {
         // Step 1: User pays into the revnet to get tokens.
         uint256 tokens = _payAndGetTokens(1e18);
         assertGt(tokens, 0, "user should receive tokens");
 
-        // Step 2: Create a fake terminal that returns garbage accounting contexts.
-        GarbageTerminal fakeTerminal = new GarbageTerminal();
-
-        // Step 3: Verify the fake terminal is NOT in the directory.
-        assertFalse(
-            jbDirectory().isTerminalOf(REVNET_ID, IJBTerminal(address(fakeTerminal))),
-            "fake terminal should NOT be registered"
-        );
-
-        // Step 4: Attempt to borrow using the fake terminal.
+        // Step 2: Attempt to borrow using a token that the canonical multi terminal does not accept.
         uint256 loanable =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(loanable, 0, "should have borrowable amount");
 
-        // NOTE: Do NOT mock burn permission here. The call should revert
-        // at the terminal validation check before it ever reaches the burn step.
+        address fakeSource = makeAddr("fakeSource");
 
-        REVLoanSource memory fakeSource =
-            REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: IJBPayoutTerminal(address(fakeTerminal))});
-
-        // Step 5: Expect revert with the new REVLoans_InvalidTerminal error.
+        // Step 3: Expect revert with the accounting-context validation error.
         vm.expectRevert(
-            abi.encodeWithSelector(REVLoans.REVLoans_InvalidTerminal.selector, address(fakeTerminal), REVNET_ID)
+            abi.encodeWithSelector(REVLoans.REVLoans_InvalidAccountingContext.selector, REVNET_ID, fakeSource)
         );
 
         vm.prank(USER);
@@ -497,7 +379,7 @@ contract REVLoansRegressions is TestBaseWorkflow {
         // Step 4: Find the RepayLoan event and decode the loan struct.
         Vm.Log[] memory entries = vm.getRecordedLogs();
         bytes32 repayLoanSig = keccak256(
-            "RepayLoan(uint256,uint256,uint256,(uint112,uint112,uint48,uint16,uint32,(address,address)),(uint112,uint112,uint48,uint16,uint32,(address,address)),uint256,uint256,uint256,address,address)"
+            "RepayLoan(uint256,uint256,uint256,(uint112,uint112,uint48,uint16,uint32,address),(uint112,uint112,uint48,uint16,uint32,address),uint256,uint256,uint256,address,address)"
         );
 
         bool foundEvent = false;
@@ -536,9 +418,7 @@ contract REVLoansRegressions is TestBaseWorkflow {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         REVStageConfig[] memory stages = new REVStageConfig[](2);
         JBSplit[] memory splits = new JBSplit[](1);
@@ -590,7 +470,7 @@ contract REVLoansRegressions is TestBaseWorkflow {
         (uint256 fp1RevnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: config,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: REVSuckerDeploymentConfig({
                 deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: keccak256("FP1")
             }),
@@ -690,13 +570,13 @@ contract REVLoansRegressions is TestBaseWorkflow {
             REVNET_ID, collateralToTransfer, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
 
-        REVLoanSource memory source = REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address source = JBConstants.NATIVE_TOKEN;
 
         vm.prank(USER);
         (,, REVLoan memory reallocatedLoan, REVLoan memory newLoan) = LOANS_CONTRACT.reallocateCollateralFromLoan({
             loanId: loanId,
             collateralCountToTransfer: collateralToTransfer,
-            source: source,
+            token: source,
             minBorrowAmount: minBorrow,
             collateralCountToAdd: 0,
             beneficiary: payable(USER),

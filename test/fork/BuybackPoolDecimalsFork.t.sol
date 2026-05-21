@@ -13,12 +13,8 @@ import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 /// producing an incorrect pool price for tokens like USDC (6 decimals). The fix uses
 /// `10 ** terminalTokenDecimals` instead.
 ///
-/// Run with: forge test --match-contract BuybackPoolDecimalsForkTest --fork-url $RPC_ETHEREUM_MAINNET -vvv
+/// Run with: forge test --match-contract BuybackPoolDecimalsForkTest -vvv
 contract BuybackPoolDecimalsForkTest is Test {
-    function setUp() external {
-        vm.createSelectFork("ethereum");
-    }
-
     /// @notice Compute sqrtPriceX96 the same way REVDeployer._tryInitializeBuybackPoolFor does.
     /// @param initialIssuance Project tokens per terminal token (18-decimal fixed point).
     /// @param terminalTokenDecimals Decimals of the terminal token (e.g. 6 for USDC, 18 for WETH).

@@ -15,7 +15,6 @@ import {JBSingleAllowance} from "@bananapus/core-v6/src/structs/JBSingleAllowanc
 import {JBSplit} from "@bananapus/core-v6/src/structs/JBSplit.sol";
 import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
-import {REVLoanSource} from "../../src/structs/REVLoanSource.sol";
 import {REVLoan} from "../../src/structs/REVLoan.sol";
 import {REVStageConfig, REVAutoIssuance} from "../../src/structs/REVStageConfig.sol";
 import {REVConfig} from "../../src/structs/REVConfig.sol";
@@ -80,7 +79,7 @@ contract TestLoansAndDeployerFixes is REVLoansFeeRecovery {
         vm.stopPrank();
 
         _mockLoanPermission(USER);
-        REVLoanSource memory source = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
+        address source = address(TOKEN);
 
         vm.prank(USER);
         LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(USER), 25, USER);
@@ -120,7 +119,7 @@ contract TestLoansAndDeployerFixes is REVLoansFeeRecovery {
         vm.stopPrank();
 
         _mockLoanPermission(USER);
-        REVLoanSource memory source = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
+        address source = address(TOKEN);
 
         vm.prank(USER);
         LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(USER), 25, USER);
@@ -155,7 +154,7 @@ contract TestLoansAndDeployerFixes is REVLoansFeeRecovery {
         vm.stopPrank();
 
         _mockLoanPermission(USER);
-        REVLoanSource memory source = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
+        address source = address(TOKEN);
 
         // Borrow.
         vm.prank(USER);
@@ -192,12 +191,12 @@ contract TestLoansAndDeployerFixes is REVLoansFeeRecovery {
     // ========================================================================
     // Stale Loan Source DoS Prevention
     // ========================================================================
-    // _totalBorrowedFrom must skip sources with zero balance (totalBorrowedFrom == 0)
-    // BEFORE calling accountingContextForTokenOf on the terminal. This prevents DoS
-    // when a stale terminal starts reverting.
+    // _totalBorrowedFrom must skip source tokens with zero balance (totalBorrowedFrom == 0)
+    // BEFORE calling accountingContextForTokenOf on the canonical multi terminal. This prevents DoS
+    // when a stale token accounting context starts reverting.
     // ========================================================================
 
-    /// @notice After fully repaying a loan, if the source terminal starts reverting on
+    /// @notice After fully repaying a loan, if the source token's accounting context starts reverting on
     /// accountingContextForTokenOf, subsequent borrows from other sources still work.
     function test_staleLoanSourceDoesNotBlockNewBorrows() public {
         // Step 1: Borrow from native ETH source.
@@ -206,8 +205,7 @@ contract TestLoansAndDeployerFixes is REVLoansFeeRecovery {
             jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
 
         _mockLoanPermission(USER);
-        REVLoanSource memory nativeSource =
-            REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
+        address nativeSource = JBConstants.NATIVE_TOKEN;
 
         vm.prank(USER);
         (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, nativeSource, 0, nativeTokens, payable(USER), 25, USER);
@@ -231,13 +229,13 @@ contract TestLoansAndDeployerFixes is REVLoansFeeRecovery {
 
         // Confirm the totalBorrowedFrom for native source is now 0.
         assertEq(
-            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN),
+            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, JBConstants.NATIVE_TOKEN),
             0,
             "totalBorrowedFrom should be 0 after full repay"
         );
 
-        // Step 3: Mock the terminal to revert on accountingContextForTokenOf for native token.
-        // This simulates a stale terminal that has been removed or broken.
+        // Step 3: Mock the canonical terminal to revert on accountingContextForTokenOf for native token.
+        // This simulates a stale accounting context that has been removed or broken.
         vm.mockCallRevert(
             address(jbMultiTerminal()),
             abi.encodeWithSelector(
@@ -260,15 +258,15 @@ contract TestLoansAndDeployerFixes is REVLoansFeeRecovery {
         vm.stopPrank();
 
         _mockLoanPermission(USER);
-        REVLoanSource memory erc20Source = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
+        address erc20Source = address(TOKEN);
 
-        // This should NOT revert despite the native source terminal reverting on accountingContextForTokenOf.
+        // This should NOT revert despite the native source token reverting on accountingContextForTokenOf.
         vm.prank(USER);
         LOANS_CONTRACT.borrowFrom(REVNET_ID, erc20Source, 0, erc20Tokens, payable(USER), 25, USER);
 
         // If we got here, the zero-balance source was successfully skipped.
         assertGt(
-            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), address(TOKEN)),
+            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, address(TOKEN)),
             0,
             "ERC20 borrow should succeed despite stale native source"
         );
@@ -276,26 +274,7 @@ contract TestLoansAndDeployerFixes is REVLoansFeeRecovery {
 
     /// @notice Verify that _totalBorrowedFrom correctly counts non-zero sources.
     function test_nonZeroSourcesStillCounted() public {
-        // Borrow from native source (leave it outstanding).
-        vm.prank(USER);
-        uint256 nativeTokens =
-            jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
-
-        _mockLoanPermission(USER);
-        REVLoanSource memory nativeSource =
-            REVLoanSource({token: JBConstants.NATIVE_TOKEN, terminal: jbMultiTerminal()});
-
-        vm.prank(USER);
-        LOANS_CONTRACT.borrowFrom(REVNET_ID, nativeSource, 0, nativeTokens, payable(USER), 25, USER);
-
-        // Confirm totalBorrowedFrom is non-zero.
-        assertGt(
-            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), JBConstants.NATIVE_TOKEN),
-            0,
-            "totalBorrowedFrom should be non-zero for outstanding loan"
-        );
-
-        // Now borrow from ERC20 source as well — _totalBorrowedFrom should read both.
+        // Borrow from the ERC-20 source first and leave it outstanding.
         uint256 payAmount = 1_000_000;
         deal(address(TOKEN), USER, payAmount);
         vm.startPrank(USER);
@@ -304,7 +283,7 @@ contract TestLoansAndDeployerFixes is REVLoansFeeRecovery {
         vm.stopPrank();
 
         _mockLoanPermission(USER);
-        REVLoanSource memory erc20Source = REVLoanSource({token: address(TOKEN), terminal: jbMultiTerminal()});
+        address erc20Source = address(TOKEN);
 
         // This call internally invokes _totalBorrowedFrom which reads both sources.
         // If it incorrectly skips non-zero sources, the borrowable amount calculation would be wrong.
@@ -312,9 +291,27 @@ contract TestLoansAndDeployerFixes is REVLoansFeeRecovery {
         LOANS_CONTRACT.borrowFrom(REVNET_ID, erc20Source, 0, erc20Tokens, payable(USER), 25, USER);
 
         assertGt(
-            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, jbMultiTerminal(), address(TOKEN)),
+            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, address(TOKEN)),
             0,
             "ERC20 borrow should record totalBorrowedFrom"
+        );
+
+        // Now borrow from the native source. This internally invokes _totalBorrowedFrom, which must read the
+        // outstanding ERC-20 source and convert it through the direct TOKEN->native price feed.
+        vm.prank(USER);
+        uint256 nativeTokens =
+            jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
+
+        _mockLoanPermission(USER);
+        address nativeSource = JBConstants.NATIVE_TOKEN;
+
+        vm.prank(USER);
+        LOANS_CONTRACT.borrowFrom(REVNET_ID, nativeSource, 0, nativeTokens, payable(USER), 25, USER);
+
+        assertGt(
+            LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, JBConstants.NATIVE_TOKEN),
+            0,
+            "native borrow should record totalBorrowedFrom"
         );
     }
 
@@ -378,9 +375,7 @@ contract TestLoansAndDeployerFixes is REVLoansFeeRecovery {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         REVConfig memory config = REVConfig({
             description: REVDescription({
@@ -409,7 +404,7 @@ contract TestLoansAndDeployerFixes is REVLoansFeeRecovery {
         REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: config,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: suckerConfig,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -468,9 +463,7 @@ contract TestLoansAndDeployerFixes is REVLoansFeeRecovery {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         REVConfig memory config = REVConfig({
             description: REVDescription({
@@ -491,7 +484,7 @@ contract TestLoansAndDeployerFixes is REVLoansFeeRecovery {
         (uint256 newRevnetId,) = REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: config,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: suckerConfig,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
@@ -552,9 +545,7 @@ contract TestLoansAndDeployerFixes is REVLoansFeeRecovery {
             token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
         });
 
-        JBTerminalConfig[] memory terminalConfigurations = new JBTerminalConfig[](1);
-        terminalConfigurations[0] =
-            JBTerminalConfig({terminal: jbMultiTerminal(), accountingContextsToAccept: accountingContextsToAccept});
+        JBAccountingContext[] memory terminalConfigurations = accountingContextsToAccept;
 
         REVConfig memory config = REVConfig({
             description: REVDescription({
@@ -584,7 +575,7 @@ contract TestLoansAndDeployerFixes is REVLoansFeeRecovery {
         REV_DEPLOYER.deployFor({
             revnetId: 0,
             configuration: config,
-            terminalConfigurations: terminalConfigurations,
+            accountingContextsToAccept: terminalConfigurations,
             suckerDeploymentConfiguration: suckerConfig,
             tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
