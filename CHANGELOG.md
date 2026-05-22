@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.62 — Omit unset router terminal registry
+
+- `REVDeployer` now omits `ROUTER_TERMINAL_REGISTRY` from the canonical terminal configuration when it was
+  constructed with `address(0)`.
+- This supports chains where the router terminal stack is unavailable while still launching revnets with the canonical
+  multi terminal.
+
 ## 0.0.56 — Bump v6 deps to nana-core-v6 0.0.53 cohort
 
 - `@bananapus/core-v6`: `^0.0.48 → ^0.0.53` ([PR #145](https://github.com/Bananapus/nana-core-v6/pull/145)).
