@@ -121,7 +121,19 @@ contract PhantomSurplusTerminal is ERC165, IJBPayoutTerminal {
         return (ruleset, 0, 0, new JBPayHookSpecification[](0));
     }
 
-    function sendPayoutsOf(uint256, address, uint256, uint256, uint256) external pure override returns (uint256) {
+    function sendPayoutsOf(
+        uint256,
+        address,
+        uint256,
+        uint256,
+        uint256,
+        uint256
+    )
+        external
+        pure
+        override
+        returns (uint256)
+    {
         return 0;
     }
 
@@ -138,7 +150,8 @@ contract PhantomSurplusTerminal is ERC165, IJBPayoutTerminal {
         uint256,
         address payable,
         address payable,
-        string calldata
+        string calldata,
+        uint256 /* referralProjectId */
     )
         external
         pure

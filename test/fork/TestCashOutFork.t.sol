@@ -51,7 +51,8 @@ contract TestCashOutFork is ForkTestBase {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(PAYER),
-            metadata: ""
+            metadata: "",
+            referralProjectId: 0
         });
 
         // Payer received ETH (via buyback hook swap).
@@ -88,7 +89,8 @@ contract TestCashOutFork is ForkTestBase {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(PAYER),
-            metadata: ""
+            metadata: "",
+            referralProjectId: 0
         });
 
         // With 90% tax rate, reclaim should be very small relative to surplus.
@@ -131,7 +133,8 @@ contract TestCashOutFork is ForkTestBase {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(sucker),
-            metadata: ""
+            metadata: "",
+            referralProjectId: 0
         });
 
         // Full pro-rata reclaim (0% tax).
@@ -189,7 +192,8 @@ contract TestCashOutFork is ForkTestBase {
                 tokenToReclaim: JBConstants.NATIVE_TOKEN,
                 minTokensReclaimed: 0,
                 beneficiary: payable(PAYER),
-                metadata: ""
+                metadata: "",
+                referralProjectId: 0
             });
 
             assertGt(PAYER.balance, payerEthBefore, "payer should receive ETH after tier split cashout");
@@ -226,7 +230,8 @@ contract TestCashOutFork is ForkTestBase {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(PAYER),
-            metadata: ""
+            metadata: "",
+            referralProjectId: 0
         });
 
         // Warp past delay.
@@ -245,7 +250,8 @@ contract TestCashOutFork is ForkTestBase {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(PAYER),
-            metadata: ""
+            metadata: "",
+            referralProjectId: 0
         });
 
         assertGt(PAYER.balance, payerEthBefore, "should succeed after delay expires");

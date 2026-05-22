@@ -278,7 +278,8 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(USER1),
-            metadata: ""
+            metadata: "",
+            referralProjectId: 0
         });
 
         assertGt(reclaimed, 0, "should reclaim some ETH");
@@ -320,7 +321,8 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
             tokenToReclaim: address(TOKEN),
             minTokensReclaimed: 0,
             beneficiary: payable(USER1),
-            metadata: ""
+            metadata: "",
+            referralProjectId: 0
         });
 
         assertGt(reclaimedToken, 0, "should reclaim some TOKEN");
@@ -368,7 +370,8 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
             tokenToReclaim: address(TOKEN),
             minTokensReclaimed: 0,
             beneficiary: payable(USER1),
-            metadata: ""
+            metadata: "",
+            referralProjectId: 0
         });
     }
 
@@ -405,7 +408,8 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
             tokenToReclaim: address(TOKEN),
             minTokensReclaimed: 0,
             beneficiary: payable(USER1),
-            metadata: ""
+            metadata: "",
+            referralProjectId: 0
         });
 
         assertGt(reclaimedToken, 0, "should reclaim some TOKEN");
@@ -452,7 +456,8 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(USER1),
-            metadata: ""
+            metadata: "",
+            referralProjectId: 0
         });
         assertGt(reclaimed, 0, "should reclaim ETH from mixed-currency surplus");
 
@@ -490,7 +495,8 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(USER1),
-            metadata: ""
+            metadata: "",
+            referralProjectId: 0
         });
 
         assertLe(reclaimed, 1, "tiny payment should not yield more than original amount");
@@ -527,7 +533,8 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
             tokenToReclaim: address(TOKEN),
             minTokensReclaimed: 0,
             beneficiary: payable(USER1),
-            metadata: ""
+            metadata: "",
+            referralProjectId: 0
         });
 
         // Should reclaim some TOKEN (bounded by the original payment amount).
@@ -569,7 +576,8 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
             tokenToReclaim: address(TOKEN),
             minTokensReclaimed: 0,
             beneficiary: payable(USER1),
-            metadata: ""
+            metadata: "",
+            referralProjectId: 0
         });
 
         assertLe(reclaimed, tokenAmount, "should not exceed total TOKEN paid");
@@ -605,7 +613,8 @@ contract TestCrossCurrencyReclaim is TestBaseWorkflow {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(USER1),
-            metadata: ""
+            metadata: "",
+            referralProjectId: 0
         });
 
         // With 0% cash out tax, no fee is charged on cash outs (per REVDeployer.beforeCashOutRecordedWith).

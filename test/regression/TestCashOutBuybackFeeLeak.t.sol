@@ -168,7 +168,8 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(user),
-            metadata: ""
+            metadata: "",
+            referralProjectId: 0
         });
 
         // THE INVARIANT: The buyback hook callback should receive nonFeeCashOutCount.

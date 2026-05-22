@@ -848,7 +848,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
 
         // Perform a cashout.
         vm.prank(USER);
-        jbMultiTerminal().cashOutTokensOf(USER, revnetProjectId, tokensToCashout, token, 0, payable(USER), bytes(""));
+        jbMultiTerminal().cashOutTokensOf(USER, revnetProjectId, tokensToCashout, token, 0, payable(USER), bytes(""), 0);
 
         // Make sure the contracts do not accidentally hold any tokens.
         assertEq(_balanceOf(token, address(REV_DEPLOYER)), 0);
