@@ -1055,7 +1055,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             JBAccountingContext memory context =
                 TERMINAL.accountingContextForTokenOf({projectId: revnetId, token: sourceToken});
 
-            // Pull the amount to be loaned out of the revnet. This will incure the protocol fee.
+            // Pull the amount to be loaned out of the revnet. This will incure the protocol fee. Crediting `REV_ID`
+            // as the referrer attributes the protocol fee volume from every Revnet loan back to the REV revnet
+            // itself — REV is the project that facilitated the activity, regardless of which revnet is borrowing.
             netAmountPaidOut = TERMINAL.useAllowanceOf({
                 projectId: revnetId,
                 token: sourceToken,
@@ -1065,7 +1067,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
                 beneficiary: payable(address(this)),
                 feeBeneficiary: beneficiary,
                 memo: "",
-                referralProjectId: 0
+                referralProjectId: REV_ID
             });
         }
 
