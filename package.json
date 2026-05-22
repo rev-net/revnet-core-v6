@@ -1,6 +1,6 @@
 {
   "name": "@rev-net/core-v6",
-  "version": "0.0.61",
+  "version": "0.0.63",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -32,7 +32,7 @@
     "@bananapus/ownable-v6": "^0.0.27",
     "@bananapus/permission-ids-v6": "^0.0.26",
     "@bananapus/router-terminal-v6": "^0.0.46",
-    "@bananapus/suckers-v6": "^0.0.49",
+    "@bananapus/suckers-v6": "^0.0.50",
     "@croptop/core-v6": "^0.0.52",
     "@openzeppelin/contracts": "5.6.1",
     "@uniswap/permit2": "github:Uniswap/permit2#cc56ad0f3439c502c246fc5cfcc3db92bb8b7219"

@@ -1059,8 +1059,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             // as the referrer attributes the protocol fee volume from every Revnet loan back to the REV revnet
             // itself — REV is the project that facilitated the activity, regardless of which revnet is borrowing.
             //
-            // The referrer reference is encoded as `(referralChainId << 48) | referralProjectId` per `JBMultiTerminal`'s
-            // `currentReferralProjectId` packing. REV lives on Ethereum mainnet, so we hard-code `referralChainId = 1`
+            // The referrer reference is encoded as `(referralChainId << 48) | referralProjectId` per
+            // `JBMultiTerminal`'s `currentReferralProjectId` packing. REV lives on Ethereum mainnet, so we hard-code
+            // `referralChainId = 1`
             // here: this ensures the protocol fee volume credit accrues to REV on mainnet regardless of which chain
             // the loan originates from. (Auto-resolving to `block.chainid` would scatter credit across L2s where REV
             // has no canonical project ID, so we pin mainnet explicitly.)
