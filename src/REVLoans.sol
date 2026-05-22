@@ -1064,7 +1064,8 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
                 minTokensPaidOut: 0,
                 beneficiary: payable(address(this)),
                 feeBeneficiary: beneficiary,
-                memo: ""
+                memo: "",
+                referralProjectId: 0
             });
         }
 

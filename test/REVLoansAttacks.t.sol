@@ -149,7 +149,8 @@ contract ReentrantTerminal is ERC165, IJBPayoutTerminal {
         uint256,
         address payable,
         address payable,
-        string calldata
+        string calldata,
+        uint256 /* referralProjectId */
     )
         external
         pure

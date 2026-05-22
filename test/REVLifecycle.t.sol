@@ -274,7 +274,8 @@ contract REVLifecycle_Local is TestBaseWorkflow {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(USER1),
-            metadata: ""
+            metadata: "",
+            referralProjectId: 0
         });
         assertGt(reclaimed, 0, "should reclaim some ETH");
 
@@ -320,7 +321,8 @@ contract REVLifecycle_Local is TestBaseWorkflow {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(USER1),
-            metadata: ""
+            metadata: "",
+            referralProjectId: 0
         });
         assertGt(reclaimedStage0, 0, "should reclaim in stage 0");
 
@@ -353,7 +355,8 @@ contract REVLifecycle_Local is TestBaseWorkflow {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(USER1),
-            metadata: ""
+            metadata: "",
+            referralProjectId: 0
         });
 
         // With 50% cash out tax and single holder, reclaiming full supply
@@ -395,7 +398,8 @@ contract REVLifecycle_Local is TestBaseWorkflow {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(USER1),
-            metadata: ""
+            metadata: "",
+            referralProjectId: 0
         });
 
         // Should reclaim proportional share (minus tax)

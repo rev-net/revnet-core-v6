@@ -683,7 +683,8 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(USER),
-            metadata: ""
+            metadata: "",
+            referralProjectId: 0
         }) returns (
             uint256 reclaimAmount
         ) {
@@ -935,7 +936,8 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(USER),
-            metadata: ""
+            metadata: "",
+            referralProjectId: 0
         }) returns (
             uint256 reclaimAmount
         ) {
