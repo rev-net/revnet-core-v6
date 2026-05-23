@@ -7,7 +7,6 @@
     "url": "git+https://github.com/rev-net/revnet-core-v6"
   },
   "files": [
-    "CHANGELOG.md",
     "foundry.toml",
     "references/",
     "remappings.txt",
