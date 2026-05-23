@@ -393,6 +393,13 @@ contract REVnet_Integrations is TestBaseWorkflow {
         assertTrue(
             jbPermissions()
                 .hasPermission(
+                    operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.SET_SUCKER_PEER, false, false
+                ),
+            "operator missing SET_SUCKER_PEER"
+        );
+        assertTrue(
+            jbPermissions()
+                .hasPermission(
                     operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.SET_BUYBACK_HOOK, false, false
                 ),
             "operator missing SET_BUYBACK_HOOK"

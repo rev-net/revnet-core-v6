@@ -50,7 +50,7 @@ This file focuses on the staged-economics, runtime-hook, and loan risks that mat
 ## 5. Access-Control Risks
 
 - **The deployer-held project NFT can be misunderstood.** Revnets are owner-minimized, but the deployer path still matters for the trust model.
-- **Split operator mistakes are high-impact.** Narrow powers like price-feed installation, split updates, sucker deployment, or router setup still matter.
+- **Split operator mistakes are high-impact.** Narrow powers like price-feed installation, split updates, sucker deployment, explicit sucker-peer selection, or router setup still matter.
 - **There is intentionally no broad admin recovery path.** Operational teams may try to reach for powers the design never intended to leave available.
 
 ## 6. Invariants to Verify

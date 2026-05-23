@@ -234,11 +234,12 @@ contract TestSwapTerminalPermission is TestBaseWorkflow {
     /// @notice Verify the core default permissions are present for the operator.
     function test_allDefaultPermissionsPresent() public view {
         // `ADD_PRICE_FEED` is intentionally excluded from the default operator grant.
-        uint256[7] memory expectedPermissions = [
+        uint256[8] memory expectedPermissions = [
             uint256(JBPermissionIds.SET_SPLIT_GROUPS),
             uint256(JBPermissionIds.SET_BUYBACK_POOL),
             uint256(JBPermissionIds.SET_BUYBACK_TWAP),
             uint256(JBPermissionIds.SET_PROJECT_URI),
+            uint256(JBPermissionIds.SET_SUCKER_PEER),
             uint256(JBPermissionIds.SUCKER_SAFETY),
             uint256(JBPermissionIds.SET_BUYBACK_HOOK),
             uint256(JBPermissionIds.SET_ROUTER_TERMINAL)
