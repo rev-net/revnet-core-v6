@@ -65,9 +65,12 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
     /// @dev The overflow boundary -- must match _ONE_TRILLION in REVLoans.sol.
     uint256 private constant _ONE_TRILLION = 1_000_000_000_000;
 
-    /// @dev Storage slot of the totalLoansBorrowedFor mapping in REVLoans (slot 11).
-    /// Determined via `forge inspect REVLoans storage-layout`.
-    uint256 private constant TOTAL_LOANS_BORROWED_FOR_SLOT = 11;
+    /// @dev Storage slot of the totalLoansBorrowedFor mapping in REVLoans (slot 12).
+    /// Determined via `forge inspect REVLoans storage-layout`. Bumped from 11 → 12 when `referralProjectId` was
+    /// inserted at slot 8 in alphabetical order between `isLoanSourceOf` and `tokenUriResolver` (per STYLE_GUIDE).
+    /// If you change REVLoans storage layout again, re-run `forge inspect` and update this constant in lockstep
+    /// with `test/regression/StorageLayoutStable.t.sol`.
+    uint256 private constant TOTAL_LOANS_BORROWED_FOR_SLOT = 12;
 
     /// @dev The address that is allowed to forward meta-transactions.
     address private constant TRUSTED_FORWARDER = 0xB2b5841DBeF766d4b521221732F9B618fCf34A87;
