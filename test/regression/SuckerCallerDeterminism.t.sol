@@ -16,7 +16,6 @@ import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
 import {JBSplit} from "@bananapus/core-v6/src/structs/JBSplit.sol";
 import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.sol";
-import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {REVLoans} from "../../src/REVLoans.sol";
 import {REVStageConfig, REVAutoIssuance} from "../../src/structs/REVStageConfig.sol";
 import {REVDescription} from "../../src/structs/REVDescription.sol";
@@ -195,33 +194,6 @@ contract RegressionSuckerCallerDeterminismTest is TestBaseWorkflow {
         vm.expectRevert(abi.encodeWithSelector(REVDeployer.REVDeployer_Unauthorized.selector, revnetId, OPERATOR_B));
         vm.prank(OPERATOR_B);
         REV_DEPLOYER.deploySuckersFor(revnetId, config);
-    }
-
-    function test_operatorEnvelopeIncludesSetSuckerPeerForExplicitPeerDeployments() public {
-        uint256 revnetId = _deployRevnetWith(OPERATOR_A, OPERATOR_A, bytes32("EXPLICIT_PEER"), uint40(block.timestamp));
-
-        assertTrue(
-            jbPermissions()
-                .hasPermission({
-                operator: OPERATOR_A,
-                account: address(REV_DEPLOYER),
-                projectId: revnetId,
-                permissionId: JBPermissionIds.SET_SUCKER_PEER,
-                includeRoot: false,
-                includeWildcardProjectId: false
-            }),
-            "operator missing SET_SUCKER_PEER"
-        );
-
-        // forge-lint: disable-next-line(unsafe-typecast)
-        REVSuckerDeploymentConfig memory config = _suckerConfig(bytes32("EXPLICIT_PEER_DEPLOY"));
-        bytes32 explicitPeer = bytes32(uint256(uint160(makeAddr("explicitPeer"))));
-        config.deployerConfigurations[0].peer = explicitPeer;
-
-        vm.prank(OPERATOR_A);
-        address sucker = REV_DEPLOYER.deploySuckersFor(revnetId, config)[0];
-
-        assertEq(IJBSucker(sucker).peer(), explicitPeer);
     }
 
     function _deployFeeProject() internal {

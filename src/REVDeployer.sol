@@ -387,21 +387,20 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         uint256[] memory customOperatorPermissionIndexes = _extraOperatorPermissions[revnetId];
 
         // Make the array that merges the default and custom operator permissions.
-        allOperatorPermissions = new uint256[](10 + customOperatorPermissionIndexes.length);
+        allOperatorPermissions = new uint256[](9 + customOperatorPermissionIndexes.length);
         allOperatorPermissions[0] = JBPermissionIds.SET_SPLIT_GROUPS;
         allOperatorPermissions[1] = JBPermissionIds.SET_BUYBACK_POOL;
         allOperatorPermissions[2] = JBPermissionIds.SET_BUYBACK_TWAP;
         allOperatorPermissions[3] = JBPermissionIds.SET_PROJECT_URI;
-        allOperatorPermissions[4] = JBPermissionIds.SET_SUCKER_PEER;
-        allOperatorPermissions[5] = JBPermissionIds.SUCKER_SAFETY;
-        allOperatorPermissions[6] = JBPermissionIds.SET_BUYBACK_HOOK;
-        allOperatorPermissions[7] = JBPermissionIds.SET_ROUTER_TERMINAL;
-        allOperatorPermissions[8] = JBPermissionIds.SET_TOKEN_METADATA;
-        allOperatorPermissions[9] = JBPermissionIds.SIGN_FOR_ERC20;
+        allOperatorPermissions[4] = JBPermissionIds.SUCKER_SAFETY;
+        allOperatorPermissions[5] = JBPermissionIds.SET_BUYBACK_HOOK;
+        allOperatorPermissions[6] = JBPermissionIds.SET_ROUTER_TERMINAL;
+        allOperatorPermissions[7] = JBPermissionIds.SET_TOKEN_METADATA;
+        allOperatorPermissions[8] = JBPermissionIds.SIGN_FOR_ERC20;
 
         // Copy the custom permissions into the array.
         for (uint256 i; i < customOperatorPermissionIndexes.length;) {
-            allOperatorPermissions[10 + i] = customOperatorPermissionIndexes[i];
+            allOperatorPermissions[9 + i] = customOperatorPermissionIndexes[i];
             unchecked {
                 ++i;
             }
