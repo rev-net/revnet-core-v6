@@ -82,6 +82,12 @@ interface IREVLoans {
         address caller
     );
 
+    /// @notice Emitted when the referrer reference for fee-volume credit is updated.
+    /// @param referralChainId The EIP-155 chain ID of the new referrer's home chain.
+    /// @param referralProjectId The new referring project's bare project ID on `referralChainId`.
+    /// @param caller The address that set the new referrer.
+    event SetReferralProjectId(uint256 indexed referralChainId, uint256 indexed referralProjectId, address caller);
+
     /// @notice Emitted when the token URI resolver is changed.
     /// @param resolver The new token URI resolver.
     /// @param caller The address that set the resolver.
@@ -161,6 +167,12 @@ interface IREVLoans {
     /// @notice The contract that stores prices for each revnet.
     /// @return The prices contract.
     function PRICES() external view returns (IJBPrices);
+
+    /// @notice The packed `(referralChainId << 48) | referralProjectId` reference credited as the referrer on
+    /// every `useAllowanceOf` call this contract makes. Defaults to `(1, REV_ID)` so credit accrues to REV on
+    /// Ethereum mainnet; owner-settable via `setReferralProjectId`.
+    /// @return The packed referrer reference.
+    function referralProjectId() external view returns (uint256);
 
     /// @notice The ID of the REV revnet that receives protocol fees from loans.
     /// @return The REV revnet ID.
@@ -276,6 +288,15 @@ interface IREVLoans {
         external
         payable
         returns (uint256 paidOffLoanId, REVLoan memory paidOffloan);
+
+    /// @notice Update the referrer reference credited on every `useAllowanceOf` call this contract makes.
+    /// @dev Stores the packed `(newReferralChainId << 48) | newReferralProjectId` value used by
+    /// `JBMultiTerminal.currentReferralProjectId`. Either field may be zero (passing `(0, 0)` disables the
+    /// referral credit). Bounded so the pack is lossless: `newReferralProjectId <= type(uint48).max`,
+    /// `newReferralChainId <= type(uint208).max`.
+    /// @param newReferralProjectId The referring project's bare ID on `newReferralChainId`.
+    /// @param newReferralChainId The EIP-155 chain ID of the referrer's home chain.
+    function setReferralProjectId(uint256 newReferralProjectId, uint256 newReferralChainId) external;
 
     /// @notice Set the address of the resolver used to retrieve the token URI of loans.
     /// @param resolver The new token URI resolver.

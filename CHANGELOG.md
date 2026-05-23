@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.0.64 — Owner-settable referral target on `REVLoans`
+
+- New `referralProjectId()` view returning the packed `(chainId << 48) | projectId` reference credited as the referrer on every `useAllowanceOf` call this contract makes.
+- New `setReferralProjectId(uint256 projectId, uint256 chainId)` (`onlyOwner`): takes the two fields unpacked, packs and stores them. Bounded so the pack is lossless — `projectId <= type(uint48).max`, `chainId <= type(uint208).max`. Reverts with `REVLoans_ReferralProjectIdTooLarge` / `REVLoans_ReferralChainIdTooLarge` otherwise. Emits `SetReferralProjectId(referralChainId, referralProjectId, caller)`.
+- Default at construction: `(chainId = 1, projectId = REV_ID)` — fee-volume credit still lands on the REV revnet on Ethereum mainnet regardless of which chain a loan originates from. Owner can repoint this if REV ever migrates chains, or pass `(0, 0)` to disable referral credit entirely.
+- The inline `(uint256(1) << 48) | REV_ID` pack inside `_borrowAmountFrom` is replaced by a read of the new storage slot. No external behavior change for default deployments.
+- Storage layout: `referralProjectId` was inserted at slot 8 in alphabetical order between `isLoanSourceOf` and `tokenUriResolver` (per `STYLE_GUIDE.md`), shifting all subsequent public slots by 1. `LoanIdOverflowGuard.t.sol`'s `TOTAL_LOANS_BORROWED_FOR_SLOT` was bumped 11 → 12 and `StorageLayoutStable.t.sol` was updated in lockstep. **External slot-based tooling reading `totalLoansBorrowedFor`/`totalCollateralOf`/`totalBorrowedFrom`/`tokenUriResolver` directly via raw storage must be re-pointed.**
+
 ## 0.0.62 — Omit unset router terminal registry
 
 - `REVDeployer` now omits `ROUTER_TERMINAL_REGISTRY` from the canonical terminal configuration when it was

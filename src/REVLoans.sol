@@ -72,6 +72,8 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     error REVLoans_PermitAllowanceNotEnough(uint256 allowanceAmount, uint256 requiredAmount);
     error REVLoans_ReallocatingMoreCollateralThanBorrowedAmountAllows(uint256 newBorrowAmount, uint256 loanAmount);
     error REVLoans_ReentrantLoanAction();
+    error REVLoans_ReferralChainIdTooLarge(uint256 referralChainId);
+    error REVLoans_ReferralProjectIdTooLarge(uint256 referralProjectId);
     error REVLoans_SourceMismatch(address expectedToken, address actualToken);
     error REVLoans_UnderMinBorrowAmount(uint256 minBorrowAmount, uint256 borrowAmount);
     error REVLoans_ZeroBorrowAmount(uint256 revnetId, uint256 collateralCount);
@@ -137,6 +139,12 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @custom:param revnetId The ID of the revnet to check.
     /// @custom:param token The token source to check.
     mapping(uint256 revnetId => mapping(address token => bool)) public override isLoanSourceOf;
+
+    /// @notice The packed `(referralChainId << 48) | referralProjectId` reference credited as the referrer on every
+    /// `useAllowanceOf` call this contract makes against `TERMINAL`. Defaults to `(1, REV_ID)` so fee-volume credit
+    /// accrues to the REV revnet on Ethereum mainnet regardless of which chain the loan originates from. Settable
+    /// by the contract owner via `setReferralProjectId` to retarget governance (e.g. if REV migrates chains).
+    uint256 public override referralProjectId;
 
     /// @notice The contract resolving each project ID to its ERC721 URI.
     IJBTokenUriResolver public override tokenUriResolver;
@@ -212,6 +220,10 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         REV_ID = revId;
         PERMIT2 = permit2;
         SUCKER_REGISTRY = suckerRegistry;
+
+        // Default referrer reference: REV revnet on Ethereum mainnet. Encoded `(chainId << 48) | projectId` per
+        // `JBMultiTerminal.currentReferralProjectId`. Owner can retarget via `setReferralProjectId`.
+        referralProjectId = (uint256(1) << 48) | revId;
     }
 
     //*********************************************************************//
@@ -945,6 +957,36 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         }
     }
 
+    /// @notice Update the referrer reference credited on every `useAllowanceOf` call this contract makes.
+    /// @dev Stores the packed `(newReferralChainId << 48) | newReferralProjectId` value used by
+    /// `JBMultiTerminal.currentReferralProjectId`. Either field may be zero — passing `(0, 0)` disables the
+    /// referral credit entirely (the terminal treats `referralProjectId == 0` as "no credit"). Bounded so the
+    /// pack is lossless: `newReferralProjectId` must fit in `uint48`, `newReferralChainId` must fit in
+    /// `uint208` (so the left-shift by 48 doesn't drop high bits).
+    /// @param newReferralProjectId The referring project's bare ID on `newReferralChainId`.
+    /// @param newReferralChainId The EIP-155 chain ID of the referrer's home chain.
+    function setReferralProjectId(
+        uint256 newReferralProjectId,
+        uint256 newReferralChainId
+    )
+        external
+        override
+        onlyOwner
+    {
+        // Bound the inputs to the on-chain encoding so the pack is lossless. The same shape JBMultiTerminal uses:
+        // projectId in bits [47:0], chainId in bits [255:48].
+        if (newReferralProjectId > type(uint48).max) {
+            revert REVLoans_ReferralProjectIdTooLarge(newReferralProjectId);
+        }
+        if (newReferralChainId >> 208 != 0) revert REVLoans_ReferralChainIdTooLarge(newReferralChainId);
+
+        referralProjectId = (newReferralChainId << 48) | newReferralProjectId;
+
+        emit SetReferralProjectId({
+            referralChainId: newReferralChainId, referralProjectId: newReferralProjectId, caller: _msgSender()
+        });
+    }
+
     /// @notice Set the address of the resolver used to retrieve the tokenURI of loans.
     /// @param resolver The address of the new resolver.
     function setTokenUriResolver(IJBTokenUriResolver resolver) external override onlyOwner {
@@ -1055,16 +1097,12 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             JBAccountingContext memory context =
                 TERMINAL.accountingContextForTokenOf({projectId: revnetId, token: sourceToken});
 
-            // Pull the amount to be loaned out of the revnet. This will incure the protocol fee. Crediting `REV_ID`
-            // as the referrer attributes the protocol fee volume from every Revnet loan back to the REV revnet
-            // itself — REV is the project that facilitated the activity, regardless of which revnet is borrowing.
-            //
-            // The referrer reference is encoded as `(referralChainId << 48) | referralProjectId` per
-            // `JBMultiTerminal`'s `currentReferralProjectId` packing. REV lives on Ethereum mainnet, so we hard-code
-            // `referralChainId = 1`
-            // here: this ensures the protocol fee volume credit accrues to REV on mainnet regardless of which chain
-            // the loan originates from. (Auto-resolving to `block.chainid` would scatter credit across L2s where REV
-            // has no canonical project ID, so we pin mainnet explicitly.)
+            // Pull the amount to be loaned out of the revnet. This will incure the protocol fee. The configured
+            // `referralProjectId` (default `(1, REV_ID)`, owner-settable via `setReferralProjectId`) attributes the
+            // protocol fee volume from every Revnet loan back to the REV revnet — REV is the project that
+            // facilitated the activity, regardless of which revnet is borrowing. The packing is
+            // `(chainId << 48) | projectId` per `JBMultiTerminal.currentReferralProjectId`; pinning mainnet by
+            // default avoids scattering credit across L2s where REV has no canonical project ID.
             netAmountPaidOut = TERMINAL.useAllowanceOf({
                 projectId: revnetId,
                 token: sourceToken,
@@ -1074,7 +1112,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
                 beneficiary: payable(address(this)),
                 feeBeneficiary: beneficiary,
                 memo: "",
-                referralProjectId: (uint256(1) << 48) | REV_ID
+                referralProjectId: referralProjectId
             });
         }
 
