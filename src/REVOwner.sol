@@ -559,18 +559,29 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
     /// @param revnetId The ID of the revnet being initialized.
     /// @param init The full initialization payload.
     function initializeRevnet(uint256 revnetId, REVOwnerRevnetInit calldata init) external override {
+        // Only the canonical deployer may bind a revnet's runtime state. Any other caller would let an outsider
+        // overwrite cash-out delays, hook addresses, or operator permissions for an existing revnet.
         if (msg.sender != address(deployer)) {
             revert REVOwner_Unauthorized({caller: msg.sender, expectedCaller: address(deployer)});
         }
 
+        // Store the cash-out delay if the deployer computed one (existing revnet landing on a new chain). A zero
+        // delay means cash outs are unlocked immediately, so skip the storage write to save gas in the common case.
         if (init.cashOutDelay != 0) {
             cashOutDelayOf[revnetId] = init.cashOutDelay;
         }
 
+        // Bind the tiered ERC-721 hook the deployer just created for this revnet so `beforePayRecordedWith` can
+        // route NFT-tier mints through it. The deployer always deploys a hook (empty or pre-tiered), so the zero
+        // guard is defensive.
         if (address(init.tiered721Hook) != address(0)) {
             tiered721HookOf[revnetId] = init.tiered721Hook;
         }
 
+        // Record every auto-issuance allocation that lands on this chain. The deployer pre-filtered by `chainId`
+        // and resolved each stage ID to its canonical ruleset ID, so each entry is ready to be claimed later via
+        // `autoIssueFor`. `+=` (instead of `=`) lets the deployer split the same beneficiary across multiple stage
+        // entries without one overwriting another.
         for (uint256 i; i < init.autoIssuances.length;) {
             REVOwnerAutoIssuance calldata autoIssuance = init.autoIssuances[i];
             amountToAutoIssue[revnetId][autoIssuance.stageId][autoIssuance.beneficiary] += autoIssuance.count;
@@ -579,6 +590,9 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
             }
         }
 
+        // Append any deployer-supplied extra permissions (e.g. 721 hook admin permissions) to this revnet's
+        // operator set BEFORE bootstrapping the operator below — `_setOperatorOf` reads the merged set, so the
+        // operator must see these extras on its first permissions write.
         for (uint256 i; i < init.extraOperatorPermissionIds.length;) {
             _extraOperatorPermissions[revnetId].push(init.extraOperatorPermissionIds[i]);
             unchecked {
@@ -586,10 +600,15 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
             }
         }
 
-        // Grant the operator the merged default + extra permission set in a single permissions write.
+        // Grant the operator the merged default + extra permission set in a single permissions write. Passing
+        // `address(0)` here is the explicit way to launch a revnet with no operator — no permissions get written
+        // because `_setPermissionsFor` is called with the zero address as the holder.
         _setOperatorOf({revnetId: revnetId, operator: init.operator});
 
-        // Apply per-revnet permission grants for integrations (e.g., the Croptop publisher).
+        // Apply per-revnet permission grants for integrations that aren't the operator (e.g. the Croptop
+        // publisher needs `ADJUST_721_TIERS` to post NFTs on the revnet's behalf). Each grant is scoped to a
+        // specific (revnet, operator, permissionId) triple on this contract's account so it does not leak into
+        // the operator's general authority.
         for (uint256 i; i < init.extraGrants.length;) {
             REVOwnerExtraGrant calldata grant = init.extraGrants[i];
             uint8[] memory permissionIds = new uint8[](1);
@@ -602,6 +621,8 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
             }
         }
 
+        // Emit a single marker event for off-chain indexers — the deployer side already emits granular events
+        // (`DeployRevnet`, `StoreAutoIssuanceAmount`, `SetCashOutDelay`) with the underlying data.
         emit InitializeRevnet({revnetId: revnetId, caller: msg.sender});
     }
 
@@ -687,9 +708,20 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
     /// mints the leftover to the project owner — which is this contract).
     /// @param revnetId The ID of the revnet to burn tokens for.
     function burnHeldTokensOf(uint256 revnetId) external override {
+        // Ask the controller's token registry for this contract's combined credit + ERC-20 balance for the revnet.
+        // This is the residue from reserved-token distributions where the splits don't sum to 100% — the
+        // controller mints the leftover to the project owner, which is this contract.
         uint256 balance = CONTROLLER.TOKENS().totalBalanceOf({holder: address(this), projectId: revnetId});
+
+        // If there's nothing held, fail early — burning zero would silently no-op and waste the caller's gas.
         if (balance == 0) revert REVOwner_NothingToBurn({revnetId: revnetId, holder: address(this)});
+
+        // Burn the full held balance through the controller. The controller drains credits first, then any
+        // ERC-20 supply on this contract, so a single call always clears the residue regardless of how it accrued.
         CONTROLLER.burnTokensOf({holder: address(this), projectId: revnetId, tokenCount: balance, memo: ""});
+
+        // Record the burn for off-chain accounting. `caller` is the address that paid gas, not necessarily a
+        // privileged operator — this entrypoint is intentionally permissionless.
         emit BurnHeldTokens({revnetId: revnetId, count: balance, caller: msg.sender});
     }
 
