@@ -352,11 +352,15 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @param revnetId The ID of the revnet to initialize a pool for.
     /// @param terminalToken The terminal token to create a buyback pool for.
     /// @param terminalTokenDecimals The number of decimals the terminal token uses.
-    /// @param initialIssuance The initial issuance rate (project tokens per terminal token, 18 decimals).
+    /// @param terminalCurrency The currency identifier of the terminal token's accounting context.
+    /// @param baseCurrency The revnet's base currency (the currency `initialIssuance` is denominated against).
+    /// @param initialIssuance The initial issuance rate (project tokens per unit of `baseCurrency`, 18 decimals).
     function _tryInitializeBuybackPoolFor(
         uint256 revnetId,
         address terminalToken,
         uint8 terminalTokenDecimals,
+        uint32 terminalCurrency,
+        uint32 baseCurrency,
         uint112 initialIssuance
     )
         internal
@@ -364,7 +368,35 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         uint160 sqrtPriceX96;
         uint256 terminalTokenUnit = 10 ** terminalTokenDecimals;
 
+        // When the terminal token's accounting currency differs from the revnet's base currency, convert the
+        // issuance rate to the terminal currency before seeding the pool. Without this, a USDC-accepting revnet
+        // with an ETH base currency seeds the pool at the ETH rate — 1000s of times off — and lets the first
+        // organic swap get sandwiched at the corrected price. When no price feed exists for the pair, skip
+        // pool initialization rather than reverting the whole deploy; the operator can wire the pool later via
+        // the buyback hook permission.
+        uint256 adjustedInitialIssuance;
         if (initialIssuance == 0) {
+            adjustedInitialIssuance = 0;
+        } else if (terminalCurrency == baseCurrency) {
+            adjustedInitialIssuance = uint256(initialIssuance);
+        } else {
+            try CONTROLLER.PRICES()
+                .pricePerUnitOf({
+                projectId: revnetId,
+                pricingCurrency: terminalCurrency,
+                unitCurrency: baseCurrency,
+                decimals: terminalTokenDecimals
+            }) returns (
+                uint256 rate
+            ) {
+                if (rate == 0) return;
+                adjustedInitialIssuance = mulDiv({x: uint256(initialIssuance), y: terminalTokenUnit, denominator: rate});
+            } catch {
+                return;
+            }
+        }
+
+        if (adjustedInitialIssuance == 0) {
             sqrtPriceX96 = uint160(1 << 96);
         } else {
             address normalizedTerminalToken = terminalToken == JBConstants.NATIVE_TOKEN ? address(0) : terminalToken;
@@ -373,13 +405,13 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             if (projectToken == address(0) || projectToken == normalizedTerminalToken) {
                 sqrtPriceX96 = uint160(1 << 96);
             } else if (normalizedTerminalToken < projectToken) {
-                // token0 = terminal, token1 = project → price = issuance / terminalTokenUnit
+                // token0 = terminal, token1 = project → price = adjustedIssuance / terminalTokenUnit
                 sqrtPriceX96 =
-                    uint160(sqrt(mulDiv({x: uint256(initialIssuance), y: 1 << 192, denominator: terminalTokenUnit})));
+                    uint160(sqrt(mulDiv({x: adjustedInitialIssuance, y: 1 << 192, denominator: terminalTokenUnit})));
             } else {
-                // token0 = project, token1 = terminal → price = terminalTokenUnit / issuance
+                // token0 = project, token1 = terminal → price = terminalTokenUnit / adjustedIssuance
                 sqrtPriceX96 =
-                    uint160(sqrt(mulDiv({x: terminalTokenUnit, y: 1 << 192, denominator: uint256(initialIssuance)})));
+                    uint160(sqrt(mulDiv({x: terminalTokenUnit, y: 1 << 192, denominator: adjustedInitialIssuance})));
             }
         }
 
@@ -742,6 +774,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
                 revnetId: revnetId,
                 terminalToken: accountingContextsToAccept[i].token,
                 terminalTokenDecimals: accountingContextsToAccept[i].decimals,
+                terminalCurrency: accountingContextsToAccept[i].currency,
+                baseCurrency: configuration.baseCurrency,
                 initialIssuance: configuration.stageConfigurations[0].initialIssuance
             });
             unchecked {

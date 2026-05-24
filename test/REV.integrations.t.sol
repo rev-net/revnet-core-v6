@@ -458,6 +458,140 @@ contract REVnet_Integrations is TestBaseWorkflow {
         assertEq(isSucker, true);
     }
 
+    /// @notice An operator passing a non-zero `peer` field in their sucker deployment config must NOT be able to
+    /// register an attacker-controlled bridge peer. The defense is structural: the sucker registry checks
+    /// `SET_SUCKER_PEER` against the project NFT owner (REVOwner), and REVOwner has not granted that permission
+    /// to REVDeployer in `setDeployer`. So `JBPermissioned_Unauthorized(REVOwner, REVDeployer, revnetId,
+    /// SET_SUCKER_PEER)` should bubble up through the deployer's external call.
+    function test_sucker_deploy_rejects_nonzero_peer_from_operator() public {
+        JBSuckerDeployerConfig[] memory suckerDeployerConfig = new JBSuckerDeployerConfig[](1);
+        JBTokenMapping[] memory tokenMapping = new JBTokenMapping[](1);
+        address token = makeAddr("someToken");
+        tokenMapping[0] = JBTokenMapping({
+            localToken: token, minGas: 200_000, remoteToken: bytes32(uint256(uint160(makeAddr("someOtherToken"))))
+        });
+
+        bytes32 attackerPeer = bytes32(uint256(uint160(makeAddr("attacker controlled remote sucker"))));
+        suckerDeployerConfig[0] =
+            JBSuckerDeployerConfig({deployer: ARB_SUCKER_DEPLOYER, peer: attackerPeer, mappings: tokenMapping});
+
+        REVSuckerDeploymentConfig memory revConfig =
+            REVSuckerDeploymentConfig({deployerConfigurations: suckerDeployerConfig, salt: "ATTACK"});
+
+        vm.chainId(42_161);
+        vm.mockCall(address(token), abi.encodeWithSelector(IERC20.balanceOf.selector), abi.encode(0));
+
+        // Operator is the multisig() per setUp; the registry should reject because SET_SUCKER_PEER is not
+        // granted on REVOwner's account to REVDeployer.
+        vm.prank(multisig());
+        vm.expectRevert();
+        REV_DEPLOYER.deploySuckersFor(REVNET_ID, revConfig);
+    }
+
+    /// @notice When an accepted terminal token reports an accounting currency that differs from the revnet's base
+    /// currency, the deployer must convert `initialIssuance` via the project's price feeds before seeding the
+    /// buyback pool. Otherwise the pool's first liquidity tick is denominated against the base currency, letting
+    /// the first organic swap get arbitraged at the corrected rate. This test pins the conversion call shape and
+    /// rate it returns.
+    function test_buybackPool_appliesPriceFeedConversionForCrossCurrencyAccounting() public {
+        uint32 baseCurrency = uint32(uint160(JBConstants.NATIVE_TOKEN));
+        uint32 usdAccountingCurrency = 2;
+
+        address usdcLikeToken = makeAddr("usdc-like-6-decimal-token");
+        uint8 usdcDecimals = 6;
+
+        JBAccountingContext[] memory accountingContexts = new JBAccountingContext[](1);
+        accountingContexts[0] =
+            JBAccountingContext({token: usdcLikeToken, decimals: usdcDecimals, currency: usdAccountingCurrency});
+
+        JBSplit[] memory splits = new JBSplit[](1);
+        splits[0].beneficiary = payable(multisig());
+        splits[0].percent = 10_000;
+
+        REVStageConfig[] memory stages = new REVStageConfig[](1);
+        stages[0] = REVStageConfig({
+            startsAtOrAfter: uint40(block.timestamp),
+            autoIssuances: new REVAutoIssuance[](0),
+            splitPercent: 0,
+            splits: splits,
+            initialIssuance: uint112(1000 * decimalMultiplier),
+            issuanceCutFrequency: 0,
+            issuanceCutPercent: 0,
+            cashOutTaxRate: 6000,
+            extraMetadata: 0
+        });
+
+        REVConfig memory config = REVConfig({
+            description: REVDescription("CrossX", "$X", "ipfs://cross", "X_SALT"),
+            baseCurrency: baseCurrency,
+            operator: multisig(),
+            scopeCashOutsToLocalBalances: false,
+            stageConfigurations: stages
+        });
+
+        REVSuckerDeploymentConfig memory suckerConfig =
+            REVSuckerDeploymentConfig({deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: bytes32(0)});
+
+        uint256 nextProjectId = jbProjects().count() + 1;
+        uint256 rate = 3000 * 1e6;
+
+        bytes memory pricePerUnitCall = abi.encodeWithSelector(
+            jbPrices().pricePerUnitOf.selector,
+            nextProjectId,
+            uint256(usdAccountingCurrency),
+            uint256(baseCurrency),
+            uint256(usdcDecimals)
+        );
+
+        vm.mockCall(address(jbPrices()), pricePerUnitCall, abi.encode(rate));
+        vm.expectCall(address(jbPrices()), pricePerUnitCall);
+
+        REV_DEPLOYER.deployFor(0, config, accountingContexts, suckerConfig);
+    }
+
+    /// @notice When the terminal token's accounting currency equals the revnet's base currency, the deployer
+    /// must NOT call the price feed registry — the conversion would be a no-op and a stray call would either
+    /// burn gas or hit a missing-feed revert that the deploy mustn't depend on.
+    function test_buybackPool_skipsPriceFeedLookupForSameCurrencyAccounting() public {
+        uint32 nativeCurrency = uint32(uint160(JBConstants.NATIVE_TOKEN));
+
+        JBAccountingContext[] memory accountingContexts = new JBAccountingContext[](1);
+        accountingContexts[0] =
+            JBAccountingContext({token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: nativeCurrency});
+
+        JBSplit[] memory splits = new JBSplit[](1);
+        splits[0].beneficiary = payable(multisig());
+        splits[0].percent = 10_000;
+
+        REVStageConfig[] memory stages = new REVStageConfig[](1);
+        stages[0] = REVStageConfig({
+            startsAtOrAfter: uint40(block.timestamp),
+            autoIssuances: new REVAutoIssuance[](0),
+            splitPercent: 0,
+            splits: splits,
+            initialIssuance: uint112(1000 * decimalMultiplier),
+            issuanceCutFrequency: 0,
+            issuanceCutPercent: 0,
+            cashOutTaxRate: 6000,
+            extraMetadata: 0
+        });
+
+        REVConfig memory config = REVConfig({
+            description: REVDescription("SameC", "$S", "ipfs://same", "S_SALT"),
+            baseCurrency: nativeCurrency,
+            operator: multisig(),
+            scopeCashOutsToLocalBalances: false,
+            stageConfigurations: stages
+        });
+
+        REVSuckerDeploymentConfig memory suckerConfig =
+            REVSuckerDeploymentConfig({deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: bytes32(0)});
+
+        vm.expectCall(address(jbPrices()), abi.encodeWithSelector(jbPrices().pricePerUnitOf.selector), 0);
+
+        REV_DEPLOYER.deployFor(0, config, accountingContexts, suckerConfig);
+    }
+
     /// Test that ensures that the splits are being configured for the new project.
     function test_configure_split(address payable beneficiaryA, address payable beneficiaryB) public {
         JBSplit[] memory splitsA = new JBSplit[](1);
