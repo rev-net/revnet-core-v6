@@ -186,3 +186,33 @@ multiplier in this V6 codebase.
 own funds into the fee revnet using the same hook path. For native-token fees, the hook requires `msg.value` to exactly
 match `context.forwardedAmount.value`, so forced or accidentally stranded ETH in the hook cannot be spent by an
 arbitrary caller. For ERC-20 fees, `msg.value` must be zero and the forwarded amount is pulled from the caller.
+
+### 7.13 Cash-out fees floor in token-count space on low-supply revnets
+
+`REVOwner.beforeCashOutRecordedWith` derives the fee portion of a cash-out by applying `JBFees.standardFeeAmountFrom`
+to `context.cashOutCount` (the count of tokens being cashed out). That helper computes `amount / 40` — the integer
+quotient of the 2.5% standard fee — so any individual cash-out with `cashOutCount < 40` rounds to `feeCashOutCount == 0`
+and skips the fee hook entirely. The fee revnet collects nothing on those cash-outs.
+
+The threshold is per-call, in raw token units, against the count being cashed out — not against the revnet's total
+supply or the reclaim value. For an 18-decimal revnet token, 40 raw units is dust (4e-17 tokens). In practice the
+floor only bites for either (a) revnets whose accepted token is a very-low-decimal asset where 40 raw units is a
+meaningful balance, or (b) deliberately-tiny cash-outs by a holder large enough to repeatedly split below the floor.
+Splitting to evade fees is gas-bounded — each sub-40-token cash-out costs more in gas than the avoided fee — and
+splitting attackers still pay the terminal-side protocol fee on the reclaim amount because that fee floors in value
+space, not count space.
+
+This is accepted behavior, not a bug to patch:
+
+- Restoring a `feeCashOutCount = 1` floor would change cash-out semantics for legitimate small flows (e.g. router
+  terminals routing dust amounts on every settlement) and would push a unit of token-burn responsibility onto the fee
+  hook regardless of the cashed-out count.
+- The fee-revnet revenue lost across all real-world revnets is bounded by the count-floor boundary times the per-call
+  gas cost — economically negligible against the gas baseline of any cash-out transaction.
+- The cash-out *holder* receives the same reclaim regardless of whether the fee floor triggers; only the fee revnet
+  is affected.
+
+Operators planning revnets that will accept very-low-decimal source tokens, or revnets whose primary cash-out flows
+are deliberately small, should not expect the fee revnet to collect the standard 2.5% on every cash-out at those
+sizes. Treat fee-revnet accumulation as a percentage of *median* cash-out volume, not as a strict per-cash-out
+invariant.
