@@ -475,9 +475,9 @@ contract DeployScript is Script, Sphinx {
                     address(revOwner)
                 )
             });
-        if (address(revOwner.deployer()) == address(0)) {
-            revOwner.setDeployer(IREVDeployer(_deployerAddr));
-        }
+        // Deploy `REVDeployer` (or pick up the existing bytecode) BEFORE binding it on `revOwner`. `setDeployer`
+        // reads `CONTROLLER()` / `PERMISSIONS()` / `PROJECTS()` off the bound contract, so binding a CREATE2
+        // prediction that has no code yet would revert the whole deploy on a fresh chain.
         REVDeployer _basicDeployer = _deployerIsDeployed
             ? REVDeployer(payable(_deployerAddr))
             : new REVDeployer{salt: _DEPLOYER_SALT}({
@@ -493,6 +493,9 @@ contract DeployScript is Script, Sphinx {
                 trustedForwarder: trustedForwarder,
                 owner: address(revOwner)
             });
+        if (address(revOwner.deployer()) == address(0)) {
+            revOwner.setDeployer(IREVDeployer(address(_basicDeployer)));
+        }
 
         // Only configure the fee project if it doesn't already have a controller.
         // This handles both fresh deploys and restarts where singletons exist but the fee project
