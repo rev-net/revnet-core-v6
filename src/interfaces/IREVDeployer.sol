@@ -22,22 +22,6 @@ import {IREVLoans} from "./IREVLoans.sol";
 
 /// @notice Deploys and manages revnets -- Juicebox projects with pre-configured tokenomics.
 interface IREVDeployer {
-    /// @notice Emitted when tokens are auto-issued for a beneficiary during a stage.
-    /// @param revnetId The ID of the revnet.
-    /// @param stageId The ID of the stage.
-    /// @param beneficiary The address receiving the auto-issued tokens.
-    /// @param count The number of tokens auto-issued.
-    /// @param caller The address that triggered the auto-issuance.
-    event AutoIssue(
-        uint256 indexed revnetId, uint256 indexed stageId, address indexed beneficiary, uint256 count, address caller
-    );
-
-    /// @notice Emitted when held tokens are burned from the deployer contract.
-    /// @param revnetId The ID of the revnet whose tokens were burned.
-    /// @param count The number of tokens burned.
-    /// @param caller The address that triggered the burn.
-    event BurnHeldTokens(uint256 indexed revnetId, uint256 count, address caller);
-
     /// @notice Emitted when a new revnet is deployed.
     /// @param revnetId The ID of the deployed revnet.
     /// @param configuration The revnet's configuration.
@@ -68,12 +52,6 @@ interface IREVDeployer {
         address caller
     );
 
-    /// @notice Emitted when the operator of a revnet is replaced.
-    /// @param revnetId The ID of the revnet.
-    /// @param newOperator The address of the new operator.
-    /// @param caller The address that replaced the operator.
-    event ReplaceOperator(uint256 indexed revnetId, address indexed newOperator, address caller);
-
     /// @notice Emitted when the cash out delay is set for a revnet.
     /// @param revnetId The ID of the revnet.
     /// @param cashOutDelay The cash out delay in seconds.
@@ -89,13 +67,6 @@ interface IREVDeployer {
     event StoreAutoIssuanceAmount(
         uint256 indexed revnetId, uint256 indexed stageId, address indexed beneficiary, uint256 count, address caller
     );
-
-    /// @notice The number of revnet tokens that can be auto-minted for a beneficiary during a stage.
-    /// @param revnetId The ID of the revnet.
-    /// @param stageId The ID of the stage.
-    /// @param beneficiary The beneficiary of the auto-mint.
-    /// @return The number of tokens available to auto-issue.
-    function amountToAutoIssue(uint256 revnetId, uint256 stageId, address beneficiary) external view returns (uint256);
 
     /// @notice The buyback hook used as a data hook to route payments through buyback pools.
     /// @return The buyback hook contract.
@@ -134,12 +105,6 @@ interface IREVDeployer {
     /// @return The hook deployer contract.
     function HOOK_DEPLOYER() external view returns (IJB721TiersHookDeployer);
 
-    /// @notice Check whether an address is a revnet's operator.
-    /// @param revnetId The ID of the revnet to check.
-    /// @param addr The address to check.
-    /// @return A flag indicating whether the address is the revnet's operator.
-    function isOperatorOf(uint256 revnetId, address addr) external view returns (bool);
-
     /// @notice The loan contract used by all revnets.
     /// @return The loans contract address.
     function LOANS() external view returns (IREVLoans);
@@ -171,16 +136,6 @@ interface IREVDeployer {
     /// @notice The registry that deploys and tracks suckers for revnets.
     /// @return The sucker registry contract.
     function SUCKER_REGISTRY() external view returns (IJBSuckerRegistry);
-
-    /// @notice Auto-mint a revnet's tokens from a stage for a beneficiary.
-    /// @param revnetId The ID of the revnet to auto-mint tokens for.
-    /// @param stageId The ID of the stage to auto-mint tokens from.
-    /// @param beneficiary The address to send auto-minted tokens to.
-    function autoIssueFor(uint256 revnetId, uint256 stageId, address beneficiary) external;
-
-    /// @notice Burn any of a revnet's tokens held by this contract.
-    /// @param revnetId The ID of the revnet to burn tokens for.
-    function burnHeldTokensOf(uint256 revnetId) external;
 
     /// @notice Deploy a revnet with a tiered ERC-721 hook and optional croptop posting support.
     /// @dev Every revnet gets a 721 hook — pass an empty config if no tiers are needed initially.
@@ -230,9 +185,4 @@ interface IREVDeployer {
     )
         external
         returns (address[] memory suckers);
-
-    /// @notice Change a revnet's operator. Only the current operator can call this.
-    /// @param revnetId The ID of the revnet.
-    /// @param newOperator The new operator's address.
-    function setOperatorOf(uint256 revnetId, address newOperator) external;
 }

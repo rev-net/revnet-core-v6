@@ -343,8 +343,8 @@ contract TestConversionDocumentation is TestBaseWorkflow {
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
-        // Verify the project's owner is now the REVDeployer (NFT transferred permanently).
-        assertEq(jbProjects().ownerOf(blankId), address(REV_DEPLOYER), "Owner should be REVDeployer after conversion");
+        // Verify the project's owner is now the REVOwner (NFT transferred permanently).
+        assertEq(jbProjects().ownerOf(blankId), address(REV_OWNER), "Owner should be REVOwner after conversion");
 
         // Verify the original user is no longer the owner.
         assertTrue(jbProjects().ownerOf(blankId) != USER, "Original user should no longer own the project");
@@ -367,7 +367,7 @@ contract TestConversionDocumentation is TestBaseWorkflow {
         // Verify the project was created (ID > fee project).
         assertGt(newId, FEE_PROJECT_ID, "New project ID should be greater than fee project ID");
 
-        // Verify the owner is the REVDeployer.
-        assertEq(jbProjects().ownerOf(newId), address(REV_DEPLOYER), "New revnet owner should be REVDeployer");
+        // Verify the owner is the REVOwner.
+        assertEq(jbProjects().ownerOf(newId), address(REV_OWNER), "New revnet owner should be REVOwner");
     }
 }

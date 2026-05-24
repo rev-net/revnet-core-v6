@@ -560,11 +560,11 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
         });
 
         // Stage 0 auto-issuance stored at block.timestamp
-        uint256 stage0Amount = REV_DEPLOYER.amountToAutoIssue(h5RevnetId, block.timestamp, multisig());
+        uint256 stage0Amount = REV_OWNER.amountToAutoIssue(h5RevnetId, block.timestamp, multisig());
         assertEq(stage0Amount, 50_000e18, "Stage 0 auto-issuance stored at block.timestamp");
 
         // Stage 1 auto-issuance stored at block.timestamp + 1 (the stage ID mismatch bug)
-        uint256 stage1Amount = REV_DEPLOYER.amountToAutoIssue(h5RevnetId, block.timestamp + 1, multisig());
+        uint256 stage1Amount = REV_OWNER.amountToAutoIssue(h5RevnetId, block.timestamp + 1, multisig());
         assertEq(stage1Amount, 30_000e18, "Stage 1 auto-issuance stored at block.timestamp + 1");
 
         // The bug: stages are stored at (block.timestamp + i), not at the actual ruleset IDs.
@@ -588,7 +588,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
         // The fragility: stage 1 issuance is ONLY accessible at (block.timestamp + 1).
         // Any other key returns 0.
         uint256 wrongKey = block.timestamp + 100;
-        uint256 amountAtWrongKey = REV_DEPLOYER.amountToAutoIssue(h5RevnetId, wrongKey, multisig());
+        uint256 amountAtWrongKey = REV_OWNER.amountToAutoIssue(h5RevnetId, wrongKey, multisig());
         assertEq(amountAtWrongKey, 0, "auto-issuance unreachable at wrong key");
     }
 

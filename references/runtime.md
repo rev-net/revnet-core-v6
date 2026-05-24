@@ -10,8 +10,8 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 
 | Contract | Role |
 |----------|------|
-| `REVDeployer` | Deploys revnets, permanently owns the project NFT. Manages stages, splits, auto-issuance, buyback hooks, suckers, operators, and configuration state storage. Exposes `OWNER()` view returning the REVOwner address. Calls DEPLOYER-restricted setters on REVOwner during deployment to store `cashOutDelayOf` and `tiered721HookOf`. |
-| `REVOwner` | Runtime hook contract for all revnets. Implements `IJBRulesetDataHook` + `IJBCashOutHook`. Set as the `dataHook` in each revnet's ruleset metadata. Handles pay hooks, cash-out hooks, mint permissions, and sucker verification. Stores `cashOutDelayOf` and `tiered721HookOf` mappings (set by REVDeployer via DEPLOYER-restricted setters `setCashOutDelayOf()` and `setTiered721HookOf()`). |
+| `REVDeployer` | Deploys revnets. Configures stages, splits, auto-issuance amounts, buyback hooks, suckers, operators, and stores `hashedEncodedConfigurationOf`. Exposes `OWNER()` view returning the REVOwner address. Hands the JBProjects NFT to REVOwner mid-deploy and finishes by bundling every per-revnet runtime write into a single `REVOwner.initializeRevnet(revnetId, init)` call (cash-out delay, tiered 721 hook, auto-issuance allocations, extra operator permissions, the initial operator, and any integration grants). |
+| `REVOwner` | Project NFT owner for every revnet and runtime hook for all revnets. Implements `IJBRulesetDataHook` + `IJBCashOutHook` + `IERC721Receiver`. Set as the `dataHook` in each revnet's ruleset metadata. Holds the JBProjects NFT (project owner of record). Manages operator permissions (grants `DEPLOY_SUCKERS` + `MAP_SUCKER_TOKEN` to REVDeployer in `setDeployer` so the deployer can continue driving sucker setup). Exposes `initializeRevnet` (deployer-only single-call setup), `autoIssueFor`, `burnHeldTokensOf`, `setOperatorOf`, `isOperatorOf`. Handles pay hooks, cash-out hooks, mint permissions, and sucker verification. Stores `cashOutDelayOf`, `tiered721HookOf`, `amountToAutoIssue`, and extra-operator-permission state. |
 | `REVLoans` | Issues token-collateralized loans from revnet treasuries. Each loan is an ERC-721 NFT. Burns collateral on borrow, re-mints on repay. Charges tiered fees (REV protocol fee + source fee + prepaid fee). |
 
 ## Key Functions
@@ -38,14 +38,15 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 
 | Function | Permissions | What it does |
 |----------|------------|-------------|
-| `REVDeployer.setOperatorOf(revnetId, newOperator)` | Split operator | Replace the current operator. Revokes old permissions, grants new ones. |
+| `REVOwner.setOperatorOf(revnetId, newOperator)` | Current operator | Replace the current operator. Revokes old permissions, grants new ones — all scoped on REVOwner's account. |
+| `REVOwner.isOperatorOf(revnetId, addr)` | View | Returns whether `addr` holds the revnet's operator permissions on REVOwner's account. |
 
 ### Auto-Issuance
 
 | Function | Permissions | What it does |
 |----------|------------|-------------|
-| `REVDeployer.autoIssueFor(revnetId, stageId, beneficiary)` | Permissionless | Mint pre-configured auto-issuance tokens for a beneficiary once a stage has started. One-time per stage per beneficiary. |
-| `REVDeployer.burnHeldTokensOf(revnetId)` | Permissionless | Burn any reserved tokens held by the deployer (when splits < 100%). |
+| `REVOwner.autoIssueFor(revnetId, stageId, beneficiary)` | Permissionless | Mint pre-configured auto-issuance tokens for a beneficiary once a stage has started. One-time per stage per beneficiary. |
+| `REVOwner.burnHeldTokensOf(revnetId)` | Permissionless | Burn any reserved tokens held by REVOwner (e.g., leftovers when reserved-token splits don't sum to 100%, since the JBController mints the residue to the project owner — REVOwner). |
 
 ### Loans -- Borrowing
 

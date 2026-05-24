@@ -15,6 +15,7 @@ import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
+import {IREVOwner} from "../src/interfaces/IREVOwner.sol";
 
 // forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
@@ -61,6 +62,7 @@ contract REVnet_Integrations is TestBaseWorkflow {
 
     // forge-lint: disable-next-line(mixed-case-variable)
     REVDeployer REV_DEPLOYER;
+    REVOwner REV_OWNER;
     // forge-lint: disable-next-line(mixed-case-variable)
     JB721TiersHook EXAMPLE_HOOK;
 
@@ -231,7 +233,7 @@ contract REVnet_Integrations is TestBaseWorkflow {
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
         MOCK_BUYBACK = new MockBuybackDataHook();
 
-        REVOwner revOwner = new REVOwner(
+        REV_OWNER = new REVOwner(
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
             jbDirectory(),
             FEE_PROJECT_ID,
@@ -251,10 +253,10 @@ contract REVnet_Integrations is TestBaseWorkflow {
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
             IREVLoans(makeAddr("loans")),
             TRUSTED_FORWARDER,
-            address(revOwner)
+            address(REV_OWNER)
         );
 
-        revOwner.setDeployer(REV_DEPLOYER);
+        REV_OWNER.setDeployer(REV_DEPLOYER);
 
         // Deploy the ARB sucker deployer.
         JBArbitrumSuckerDeployer _deployer =
@@ -311,8 +313,8 @@ contract REVnet_Integrations is TestBaseWorkflow {
     function test_preMint() public {
         uint256 perStageMintAmount = 70_000 * decimalMultiplier;
         vm.expectEmit();
-        emit IREVDeployer.AutoIssue(REVNET_ID, firstStageId, multisig(), perStageMintAmount, address(this));
-        REV_DEPLOYER.autoIssueFor(REVNET_ID, firstStageId, multisig());
+        emit IREVOwner.AutoIssue(REVNET_ID, firstStageId, multisig(), perStageMintAmount, address(this));
+        REV_OWNER.autoIssueFor(REVNET_ID, firstStageId, multisig());
 
         assertEq(70_000 * decimalMultiplier, IJBToken(jbTokens().tokenOf(REVNET_ID)).balanceOf(multisig()));
     }
@@ -321,27 +323,27 @@ contract REVnet_Integrations is TestBaseWorkflow {
         uint256 perStageMintAmount = 70_000 * decimalMultiplier;
 
         vm.expectEmit();
-        emit IREVDeployer.AutoIssue(REVNET_ID, firstStageId, multisig(), perStageMintAmount, address(this));
-        REV_DEPLOYER.autoIssueFor(REVNET_ID, firstStageId, multisig());
-        assertEq(REV_DEPLOYER.amountToAutoIssue(REVNET_ID, firstStageId, multisig()), 0);
+        emit IREVOwner.AutoIssue(REVNET_ID, firstStageId, multisig(), perStageMintAmount, address(this));
+        REV_OWNER.autoIssueFor(REVNET_ID, firstStageId, multisig());
+        assertEq(REV_OWNER.amountToAutoIssue(REVNET_ID, firstStageId, multisig()), 0);
 
         assertEq(perStageMintAmount, IJBToken(jbTokens().tokenOf(REVNET_ID)).balanceOf(multisig()));
 
         vm.warp(firstStageId + 720 days);
-        assertEq(perStageMintAmount, REV_DEPLOYER.amountToAutoIssue(REVNET_ID, firstStageId + 1, multisig()));
+        assertEq(perStageMintAmount, REV_OWNER.amountToAutoIssue(REVNET_ID, firstStageId + 1, multisig()));
 
         vm.expectEmit();
-        emit IREVDeployer.AutoIssue(REVNET_ID, firstStageId + 1, multisig(), perStageMintAmount, address(this));
-        REV_DEPLOYER.autoIssueFor(REVNET_ID, firstStageId + 1, multisig());
+        emit IREVOwner.AutoIssue(REVNET_ID, firstStageId + 1, multisig(), perStageMintAmount, address(this));
+        REV_OWNER.autoIssueFor(REVNET_ID, firstStageId + 1, multisig());
 
         assertEq(perStageMintAmount * 2, IJBToken(jbTokens().tokenOf(REVNET_ID)).balanceOf(multisig()));
     }
 
     function test_change_split_operator() public {
         vm.prank(multisig());
-        REV_DEPLOYER.setOperatorOf(REVNET_ID, address(this));
+        REV_OWNER.setOperatorOf(REVNET_ID, address(this));
 
-        bool isNewOperator = REV_DEPLOYER.isOperatorOf(REVNET_ID, address(this));
+        bool isNewOperator = REV_OWNER.isOperatorOf(REVNET_ID, address(this));
 
         assertEq(isNewOperator, true);
     }
@@ -352,62 +354,50 @@ contract REVnet_Integrations is TestBaseWorkflow {
         // Base permissions every operator should have.
         assertTrue(
             jbPermissions()
-                .hasPermission(
-                    operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.SET_SPLIT_GROUPS, false, false
-                ),
+                .hasPermission(operator, address(REV_OWNER), REVNET_ID, JBPermissionIds.SET_SPLIT_GROUPS, false, false),
             "operator missing SET_SPLIT_GROUPS"
         );
         assertTrue(
             jbPermissions()
-                .hasPermission(
-                    operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.SET_BUYBACK_POOL, false, false
-                ),
+                .hasPermission(operator, address(REV_OWNER), REVNET_ID, JBPermissionIds.SET_BUYBACK_POOL, false, false),
             "operator missing SET_BUYBACK_POOL"
         );
         assertTrue(
             jbPermissions()
-                .hasPermission(
-                    operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.SET_BUYBACK_TWAP, false, false
-                ),
+                .hasPermission(operator, address(REV_OWNER), REVNET_ID, JBPermissionIds.SET_BUYBACK_TWAP, false, false),
             "operator missing SET_BUYBACK_TWAP"
         );
         assertTrue(
             jbPermissions()
-                .hasPermission(
-                    operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.SET_PROJECT_URI, false, false
-                ),
+                .hasPermission(operator, address(REV_OWNER), REVNET_ID, JBPermissionIds.SET_PROJECT_URI, false, false),
             "operator missing SET_PROJECT_URI"
         );
         assertFalse(
             jbPermissions()
-                .hasPermission(
-                    operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.ADD_PRICE_FEED, false, false
-                ),
+                .hasPermission(operator, address(REV_OWNER), REVNET_ID, JBPermissionIds.ADD_PRICE_FEED, false, false),
             "operator should not receive ADD_PRICE_FEED by default"
         );
         assertTrue(
             jbPermissions()
-                .hasPermission(operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.SUCKER_SAFETY, false, false),
+                .hasPermission(operator, address(REV_OWNER), REVNET_ID, JBPermissionIds.SUCKER_SAFETY, false, false),
             "operator missing SUCKER_SAFETY"
         );
         assertTrue(
             jbPermissions()
-                .hasPermission(
-                    operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.SET_BUYBACK_HOOK, false, false
-                ),
+                .hasPermission(operator, address(REV_OWNER), REVNET_ID, JBPermissionIds.SET_BUYBACK_HOOK, false, false),
             "operator missing SET_BUYBACK_HOOK"
         );
         assertTrue(
             jbPermissions()
                 .hasPermission(
-                    operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.SET_ROUTER_TERMINAL, false, false
+                    operator, address(REV_OWNER), REVNET_ID, JBPermissionIds.SET_ROUTER_TERMINAL, false, false
                 ),
             "operator missing SET_ROUTER_TERMINAL"
         );
         assertTrue(
             jbPermissions()
                 .hasPermission(
-                    operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.SET_TOKEN_METADATA, false, false
+                    operator, address(REV_OWNER), REVNET_ID, JBPermissionIds.SET_TOKEN_METADATA, false, false
                 ),
             "operator missing SET_TOKEN_METADATA"
         );
@@ -415,27 +405,23 @@ contract REVnet_Integrations is TestBaseWorkflow {
         // 721 hook permissions (always granted since every revnet gets a 721 hook).
         assertTrue(
             jbPermissions()
-                .hasPermission(
-                    operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.ADJUST_721_TIERS, false, false
-                ),
+                .hasPermission(operator, address(REV_OWNER), REVNET_ID, JBPermissionIds.ADJUST_721_TIERS, false, false),
             "operator missing ADJUST_721_TIERS"
         );
         assertTrue(
             jbPermissions()
-                .hasPermission(
-                    operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.SET_721_METADATA, false, false
-                ),
+                .hasPermission(operator, address(REV_OWNER), REVNET_ID, JBPermissionIds.SET_721_METADATA, false, false),
             "operator missing SET_721_METADATA"
         );
         assertTrue(
             jbPermissions()
-                .hasPermission(operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.MINT_721, false, false),
+                .hasPermission(operator, address(REV_OWNER), REVNET_ID, JBPermissionIds.MINT_721, false, false),
             "operator missing MINT_721"
         );
         assertTrue(
             jbPermissions()
                 .hasPermission(
-                    operator, address(REV_DEPLOYER), REVNET_ID, JBPermissionIds.SET_721_DISCOUNT_PERCENT, false, false
+                    operator, address(REV_OWNER), REVNET_ID, JBPermissionIds.SET_721_DISCOUNT_PERCENT, false, false
                 ),
             "operator missing SET_721_DISCOUNT_PERCENT"
         );
@@ -544,7 +530,7 @@ contract REVnet_Integrations is TestBaseWorkflow {
         bool hasPermission = jbPermissions()
             .hasPermission({
             operator: address(REV_DEPLOYER.LOANS()),
-            account: address(REV_DEPLOYER),
+            account: address(REV_OWNER),
             projectId: REVNET_ID,
             permissionId: JBPermissionIds.USE_ALLOWANCE,
             includeRoot: false,
@@ -556,7 +542,7 @@ contract REVnet_Integrations is TestBaseWorkflow {
         bool hasPermissionForFuture = jbPermissions()
             .hasPermission({
             operator: address(REV_DEPLOYER.LOANS()),
-            account: address(REV_DEPLOYER),
+            account: address(REV_OWNER),
             projectId: 999,
             permissionId: JBPermissionIds.USE_ALLOWANCE,
             includeRoot: false,

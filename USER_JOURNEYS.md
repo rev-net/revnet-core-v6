@@ -13,10 +13,10 @@ This repo packages autonomous Revnets: staged Juicebox projects whose runtime be
 
 ## Key Surfaces
 
-- `REVDeployer`: launch-time packaging, stage config, and operator envelope
-- `REVOwner`: runtime pay and cash-out behavior for active Revnets
+- `REVDeployer`: launch-time packaging, stage config, and operator envelope. A factory — it creates and configures Revnets, then hands the project NFT to `REVOwner`. Also exposes `deploySuckersFor` for post-deploy sucker registration.
+- `REVOwner`: holds the JBProjects NFT for every Revnet and is therefore the project's authoritative on-chain owner. Manages operator permissions, exposes `autoIssueFor` / `burnHeldTokensOf` / `setOperatorOf`, and serves as every Revnet's data hook for runtime pay and cash-out behavior.
 - `REVLoans`: borrowing, repayment, transfer, reallocation, and liquidation
-- `autoIssueFor(...)`, `borrowFrom(...)`: high-signal runtime entrypoints
+- `REVOwner.autoIssueFor(...)`, `REVLoans.borrowFrom(...)`: high-signal runtime entrypoints
 
 ## Journey 1: Launch A Revnet With Its Long-Lived Rules Encoded Up Front
 
@@ -85,8 +85,8 @@ This repo packages autonomous Revnets: staged Juicebox projects whose runtime be
 
 **Main Flow**
 
-1. Check `amountToAutoIssue(...)`.
-2. Call `autoIssueFor(...)` once the stage is active.
+1. Check `REVOwner.amountToAutoIssue(...)`.
+2. Call `REVOwner.autoIssueFor(...)` once the stage is active.
 3. The stored allocation is consumed and cannot be claimed twice.
 
 **Failure Modes**

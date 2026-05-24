@@ -285,14 +285,14 @@ contract TestBurnHeldTokens is TestBaseWorkflow {
         _payAndDistribute();
 
         // Verify REVDeployer holds tokens.
-        uint256 deployerBalance = jbController().TOKENS().totalBalanceOf(address(REV_DEPLOYER), REVNET_ID);
-        assertGt(deployerBalance, 0, "REVDeployer should hold tokens after reserved distribution");
+        uint256 deployerBalance = jbController().TOKENS().totalBalanceOf(address(REV_OWNER), REVNET_ID);
+        assertGt(deployerBalance, 0, "REVOwner should hold tokens after reserved distribution");
 
         // Burn held tokens.
-        REV_DEPLOYER.burnHeldTokensOf(REVNET_ID);
+        REV_OWNER.burnHeldTokensOf(REVNET_ID);
 
         // Verify balance is now 0.
-        uint256 deployerBalanceAfter = jbController().TOKENS().totalBalanceOf(address(REV_DEPLOYER), REVNET_ID);
+        uint256 deployerBalanceAfter = jbController().TOKENS().totalBalanceOf(address(REV_OWNER), REVNET_ID);
         assertEq(deployerBalanceAfter, 0, "REVDeployer balance should be 0 after burn");
     }
 
@@ -303,11 +303,11 @@ contract TestBurnHeldTokens is TestBaseWorkflow {
         // Record total supply before burn.
         uint256 totalSupplyBefore = jbController().totalTokenSupplyWithReservedTokensOf(REVNET_ID);
 
-        uint256 deployerBalance = jbController().TOKENS().totalBalanceOf(address(REV_DEPLOYER), REVNET_ID);
-        assertGt(deployerBalance, 0, "REVDeployer should hold tokens");
+        uint256 deployerBalance = jbController().TOKENS().totalBalanceOf(address(REV_OWNER), REVNET_ID);
+        assertGt(deployerBalance, 0, "REVOwner should hold tokens");
 
         // Burn held tokens.
-        REV_DEPLOYER.burnHeldTokensOf(REVNET_ID);
+        REV_OWNER.burnHeldTokensOf(REVNET_ID);
 
         // Record total supply after burn.
         uint256 totalSupplyAfter = jbController().totalTokenSupplyWithReservedTokensOf(REVNET_ID);
@@ -368,16 +368,14 @@ contract TestBurnHeldTokens is TestBaseWorkflow {
         });
 
         // REVDeployer should have no tokens for this revnet.
-        uint256 balance = jbController().TOKENS().totalBalanceOf(address(REV_DEPLOYER), fullSplitRevnetId);
+        uint256 balance = jbController().TOKENS().totalBalanceOf(address(REV_OWNER), fullSplitRevnetId);
         assertEq(balance, 0, "REVDeployer should have 0 balance");
 
         // Should revert with the zero balance holder.
         vm.expectRevert(
-            abi.encodeWithSelector(
-                REVDeployer.REVDeployer_NothingToBurn.selector, fullSplitRevnetId, address(REV_DEPLOYER)
-            )
+            abi.encodeWithSelector(REVOwner.REVOwner_NothingToBurn.selector, fullSplitRevnetId, address(REV_OWNER))
         );
-        REV_DEPLOYER.burnHeldTokensOf(fullSplitRevnetId);
+        REV_OWNER.burnHeldTokensOf(fullSplitRevnetId);
     }
 
     /// @notice Anyone can call burnHeldTokensOf — it has no access control.
@@ -385,15 +383,15 @@ contract TestBurnHeldTokens is TestBaseWorkflow {
         _payAndDistribute();
 
         // Verify REVDeployer holds tokens.
-        uint256 deployerBalance = jbController().TOKENS().totalBalanceOf(address(REV_DEPLOYER), REVNET_ID);
-        assertGt(deployerBalance, 0, "REVDeployer should hold tokens");
+        uint256 deployerBalance = jbController().TOKENS().totalBalanceOf(address(REV_OWNER), REVNET_ID);
+        assertGt(deployerBalance, 0, "REVOwner should hold tokens");
 
         // A random caller (not owner, not multisig) can call burnHeldTokensOf.
         vm.prank(RANDOM_CALLER);
-        REV_DEPLOYER.burnHeldTokensOf(REVNET_ID);
+        REV_OWNER.burnHeldTokensOf(REVNET_ID);
 
         // Verify tokens were burned.
-        uint256 deployerBalanceAfter = jbController().TOKENS().totalBalanceOf(address(REV_DEPLOYER), REVNET_ID);
+        uint256 deployerBalanceAfter = jbController().TOKENS().totalBalanceOf(address(REV_OWNER), REVNET_ID);
         assertEq(deployerBalanceAfter, 0, "Tokens should be burned regardless of caller");
     }
 }
