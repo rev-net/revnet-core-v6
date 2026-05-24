@@ -80,6 +80,15 @@ Revnet loans are designed more like long-dated economic positions than instantly
 
 Anyone can trigger a valid auto-issuance once a stage is live, but the amount was fixed at deployment.
 
+Cash-out and borrow math denominate against the *currently minted* token supply, not against committed-but-unclaimed
+`amountToAutoIssue` balances. Between the moment a stage starts and the moment `autoIssueFor` is called for a given
+beneficiary, those committed tokens are absent from the supply denominator. A holder cashing out (or borrowing
+against the surplus) in that window therefore captures a slightly disproportionate share of treasury value at the
+expense of the unclaimed auto-issuance beneficiary. The economic magnitude scales with
+`pendingAutoIssuance / circulatingSupply`, and is intentional: auto-issuance beneficiaries are expected to claim
+promptly, and the protocol does not pre-credit unminted tokens to the cash-out denominator. Beneficiaries who want
+to avoid this dilution should call `autoIssueFor` at or near stage start.
+
 ### 7.4 Surplus manipulation by pure donation is economically self-defeating
 
 The model assumes that attempts to inflate surplus through donations are not profitable once the surrounding bonding-curve math is considered.
