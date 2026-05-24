@@ -166,11 +166,7 @@ contract NoopPermissionsMock {
         return false;
     }
 
-    function hasPermissions(address, address, uint256, uint256[] calldata, bool, bool)
-        external
-        pure
-        returns (bool)
-    {
+    function hasPermissions(address, address, uint256, uint256[] calldata, bool, bool) external pure returns (bool) {
         return false;
     }
 }

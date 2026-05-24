@@ -124,9 +124,7 @@ contract TestAutoIssuanceFork is ForkTestBase {
 
         // Second claim should revert — amount was reset to 0.
         vm.expectRevert(
-            abi.encodeWithSelector(
-                REVOwner.REVOwner_NothingToAutoIssue.selector, revnetId, stageId, AUTO_BENEFICIARY
-            )
+            abi.encodeWithSelector(REVOwner.REVOwner_NothingToAutoIssue.selector, revnetId, stageId, AUTO_BENEFICIARY)
         );
         REV_OWNER.autoIssueFor(revnetId, stageId, AUTO_BENEFICIARY);
     }

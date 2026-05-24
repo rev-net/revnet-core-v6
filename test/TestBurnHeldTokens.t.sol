@@ -373,9 +373,7 @@ contract TestBurnHeldTokens is TestBaseWorkflow {
 
         // Should revert with the zero balance holder.
         vm.expectRevert(
-            abi.encodeWithSelector(
-                REVOwner.REVOwner_NothingToBurn.selector, fullSplitRevnetId, address(REV_OWNER)
-            )
+            abi.encodeWithSelector(REVOwner.REVOwner_NothingToBurn.selector, fullSplitRevnetId, address(REV_OWNER))
         );
         REV_OWNER.burnHeldTokensOf(fullSplitRevnetId);
     }

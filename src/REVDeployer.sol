@@ -202,9 +202,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         PERMISSIONS.setPermissionsFor({
             account: address(this),
             permissionsData: JBPermissionsData({
-                operator: address(buybackHook),
-                projectId: 0,
-                permissionIds: buybackPermissionIds
+                operator: address(buybackHook), projectId: 0, permissionIds: buybackPermissionIds
             })
         });
     }
@@ -658,9 +656,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
 
             // Give the croptop publisher permission to post new ERC-721 tiers on the revnet's behalf.
             ownerInit.extraGrants = new REVOwnerExtraGrant[](1);
-            ownerInit.extraGrants[0] = REVOwnerExtraGrant({
-                operator: address(PUBLISHER), permissionId: JBPermissionIds.ADJUST_721_TIERS
-            });
+            ownerInit.extraGrants[0] =
+                REVOwnerExtraGrant({operator: address(PUBLISHER), permissionId: JBPermissionIds.ADJUST_721_TIERS});
         }
 
         // Bind every piece of revnet-scoped state on the owner contract in a single call.
@@ -728,9 +725,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
 
         // Compute the cash out delay if the revnet's stages are already in progress. This prevents cash out
         // liquidity/arbitrage issues for existing revnets which are deploying to a new chain.
-        ownerInit.cashOutDelay = _computeCashOutDelayIfNeeded({
-            revnetId: revnetId, firstStageConfig: configuration.stageConfigurations[0]
-        });
+        ownerInit.cashOutDelay =
+            _computeCashOutDelayIfNeeded({revnetId: revnetId, firstStageConfig: configuration.stageConfigurations[0]});
 
         // Deploy the revnet's ERC-20 token.
         CONTROLLER.deployERC20For({
@@ -1005,5 +1001,4 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
 
         emit SetCashOutDelay({revnetId: revnetId, cashOutDelay: cashOutDelay, caller: _msgSender()});
     }
-
 }

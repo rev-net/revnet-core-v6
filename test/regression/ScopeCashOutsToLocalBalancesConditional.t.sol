@@ -134,7 +134,11 @@ contract ScopeCashOutsToLocalBalancesConditionalTest is Test {
 
         // The wildcard permission grants inside `setDeployer` call `setPermissionsFor` on the resolved
         // permissions address. Accept them as no-ops.
-        vm.mockCall(permissionsAddr, abi.encodeWithSelector(bytes4(keccak256("setPermissionsFor(address,(address,uint64,uint8[]))"))), bytes(""));
+        vm.mockCall(
+            permissionsAddr,
+            abi.encodeWithSelector(bytes4(keccak256("setPermissionsFor(address,(address,uint64,uint8[]))"))),
+            bytes("")
+        );
     }
 
     function _buildContext(bool scopeToLocal) internal pure returns (JBBeforeCashOutRecordedContext memory) {

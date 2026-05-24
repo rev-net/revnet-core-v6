@@ -267,9 +267,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
         uint256 wrongStageId = block.timestamp + 999;
 
         vm.expectRevert(
-            abi.encodeWithSelector(
-                REVOwner.REVOwner_NothingToAutoIssue.selector, revnetId, wrongStageId, multisig()
-            )
+            abi.encodeWithSelector(REVOwner.REVOwner_NothingToAutoIssue.selector, revnetId, wrongStageId, multisig())
         );
         REV_OWNER.autoIssueFor(revnetId, wrongStageId, multisig());
     }
@@ -291,9 +289,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
 
         // Second claim reverts.
         vm.expectRevert(
-            abi.encodeWithSelector(
-                REVOwner.REVOwner_NothingToAutoIssue.selector, revnetId, stageIds[0], multisig()
-            )
+            abi.encodeWithSelector(REVOwner.REVOwner_NothingToAutoIssue.selector, revnetId, stageIds[0], multisig())
         );
         REV_OWNER.autoIssueFor(revnetId, stageIds[0], multisig());
     }

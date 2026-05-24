@@ -99,7 +99,9 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
     /// @custom:param revnetId The ID of the revnet to look up.
     /// @custom:param stageId The ID of the ruleset stage to look up.
     /// @custom:param beneficiary The address that will receive the auto-issued tokens.
-    mapping(uint256 revnetId => mapping(uint256 stageId => mapping(address beneficiary => uint256 count))) public override amountToAutoIssue;
+    mapping(uint256 revnetId => mapping(uint256 stageId => mapping(address beneficiary => uint256 count)))
+        public
+        override amountToAutoIssue;
 
     /// @notice The deployer that manages revnet state.
     /// @dev Set once via `setDeployer()` using the precomputed canonical REVDeployer address.
@@ -794,7 +796,11 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
     /// @notice The default + custom operator permissions that should be held by a revnet's operator.
     /// @param revnetId The ID of the revnet to look up.
     /// @return allOperatorPermissions The merged permission ID list.
-    function _operatorPermissionIndexesOf(uint256 revnetId) internal view returns (uint256[] memory allOperatorPermissions) {
+    function _operatorPermissionIndexesOf(uint256 revnetId)
+        internal
+        view
+        returns (uint256[] memory allOperatorPermissions)
+    {
         uint256[] memory customOperatorPermissionIndexes = _extraOperatorPermissions[revnetId];
 
         allOperatorPermissions = new uint256[](9 + customOperatorPermissionIndexes.length);
@@ -942,7 +948,12 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
     /// @param operator The address whose permissions are being set.
     /// @param revnetId The ID of the revnet to scope the permissions for.
     /// @param permissionIds The permission IDs to grant (empty array revokes).
-    function _setPermissionsFor(address account, address operator, uint256 revnetId, uint8[] memory permissionIds)
+    function _setPermissionsFor(
+        address account,
+        address operator,
+        uint256 revnetId,
+        uint8[] memory permissionIds
+    )
         internal
     {
         JBPermissionsData memory permissionData =

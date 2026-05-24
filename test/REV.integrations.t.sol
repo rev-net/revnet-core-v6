@@ -354,37 +354,27 @@ contract REVnet_Integrations is TestBaseWorkflow {
         // Base permissions every operator should have.
         assertTrue(
             jbPermissions()
-                .hasPermission(
-                    operator, address(REV_OWNER), REVNET_ID, JBPermissionIds.SET_SPLIT_GROUPS, false, false
-                ),
+                .hasPermission(operator, address(REV_OWNER), REVNET_ID, JBPermissionIds.SET_SPLIT_GROUPS, false, false),
             "operator missing SET_SPLIT_GROUPS"
         );
         assertTrue(
             jbPermissions()
-                .hasPermission(
-                    operator, address(REV_OWNER), REVNET_ID, JBPermissionIds.SET_BUYBACK_POOL, false, false
-                ),
+                .hasPermission(operator, address(REV_OWNER), REVNET_ID, JBPermissionIds.SET_BUYBACK_POOL, false, false),
             "operator missing SET_BUYBACK_POOL"
         );
         assertTrue(
             jbPermissions()
-                .hasPermission(
-                    operator, address(REV_OWNER), REVNET_ID, JBPermissionIds.SET_BUYBACK_TWAP, false, false
-                ),
+                .hasPermission(operator, address(REV_OWNER), REVNET_ID, JBPermissionIds.SET_BUYBACK_TWAP, false, false),
             "operator missing SET_BUYBACK_TWAP"
         );
         assertTrue(
             jbPermissions()
-                .hasPermission(
-                    operator, address(REV_OWNER), REVNET_ID, JBPermissionIds.SET_PROJECT_URI, false, false
-                ),
+                .hasPermission(operator, address(REV_OWNER), REVNET_ID, JBPermissionIds.SET_PROJECT_URI, false, false),
             "operator missing SET_PROJECT_URI"
         );
         assertFalse(
             jbPermissions()
-                .hasPermission(
-                    operator, address(REV_OWNER), REVNET_ID, JBPermissionIds.ADD_PRICE_FEED, false, false
-                ),
+                .hasPermission(operator, address(REV_OWNER), REVNET_ID, JBPermissionIds.ADD_PRICE_FEED, false, false),
             "operator should not receive ADD_PRICE_FEED by default"
         );
         assertTrue(
@@ -394,9 +384,7 @@ contract REVnet_Integrations is TestBaseWorkflow {
         );
         assertTrue(
             jbPermissions()
-                .hasPermission(
-                    operator, address(REV_OWNER), REVNET_ID, JBPermissionIds.SET_BUYBACK_HOOK, false, false
-                ),
+                .hasPermission(operator, address(REV_OWNER), REVNET_ID, JBPermissionIds.SET_BUYBACK_HOOK, false, false),
             "operator missing SET_BUYBACK_HOOK"
         );
         assertTrue(
@@ -417,16 +405,12 @@ contract REVnet_Integrations is TestBaseWorkflow {
         // 721 hook permissions (always granted since every revnet gets a 721 hook).
         assertTrue(
             jbPermissions()
-                .hasPermission(
-                    operator, address(REV_OWNER), REVNET_ID, JBPermissionIds.ADJUST_721_TIERS, false, false
-                ),
+                .hasPermission(operator, address(REV_OWNER), REVNET_ID, JBPermissionIds.ADJUST_721_TIERS, false, false),
             "operator missing ADJUST_721_TIERS"
         );
         assertTrue(
             jbPermissions()
-                .hasPermission(
-                    operator, address(REV_OWNER), REVNET_ID, JBPermissionIds.SET_721_METADATA, false, false
-                ),
+                .hasPermission(operator, address(REV_OWNER), REVNET_ID, JBPermissionIds.SET_721_METADATA, false, false),
             "operator missing SET_721_METADATA"
         );
         assertTrue(
