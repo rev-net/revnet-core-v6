@@ -216,3 +216,32 @@ Operators planning revnets that will accept very-low-decimal source tokens, or r
 are deliberately small, should not expect the fee revnet to collect the standard 2.5% on every cash-out at those
 sizes. Treat fee-revnet accumulation as a percentage of *median* cash-out volume, not as a strict per-cash-out
 invariant.
+
+### 7.14 Fee paths fail-open when the fee revnet has no terminal for the source token
+
+`REVOwner.beforeCashOutRecordedWith` and `REVLoans._addTo` both gate fee collection on
+`DIRECTORY.primaryTerminalOf({projectId: FEE_REVNET_ID, token: sourceToken})`. When that returns `address(0)` —
+i.e. the fee revnet hasn't been deployed on this chain yet, or it has been deployed but doesn't accept that
+specific token through any of its registered terminals — the fee path is skipped: cash-outs proxy straight
+through the buyback hook with no fee hook spec, and loan borrows zero the 1% REV fee. The protocol still
+processes the cash-out / loan; the fee revnet just doesn't collect on that flow.
+
+The fail-open is intentional. The alternative would be to revert cash-outs and loans on any chain or token
+that the fee revnet hadn't yet wired, which would DoS legitimate flows whenever the fee revnet's terminal
+coverage lagged a new revnet's deployment. Reverting also doesn't recover the fee value — it just blocks the
+user.
+
+In practice this matters for two operational patterns:
+
+- **New-chain rollouts.** When `deploy-all-v6` brings the protocol to a new chain, the fee revnet (project #1
+  on that chain) is deployed first and its terminal registered. Any revnet deployed *before* that step would
+  silently bypass fees until the fee revnet catches up. The standard deploy ordering already prevents this on
+  canonical chains.
+- **New-token onboarding.** If a revnet starts accepting a new accounting context whose token the fee revnet's
+  primary terminal doesn't already support, that revnet's cash-outs and loans against that token bypass the fee
+  until the fee revnet adds the token. This is a chain-by-chain operational concern, not a per-revnet revert.
+
+Operators wiring revnets that accept tokens outside the fee revnet's current terminal set should expect those
+flows to bypass fees until terminal coverage is added. Treat fee-revnet revenue as conditional on fee-revnet
+terminal coverage, not as a per-cash-out invariant. There is no on-chain hold queue for missed fees — value
+that would have been a fee remains with the cashing-out holder or the borrower.
