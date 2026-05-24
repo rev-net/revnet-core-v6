@@ -9,6 +9,7 @@ import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
 import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
 import {IJBPrices} from "@bananapus/core-v6/src/interfaces/IJBPrices.sol";
+import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
 import {IJBRulesetApprovalHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetApprovalHook.sol";
 import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDataHook.sol";
 import {IJBPayoutTerminal} from "@bananapus/core-v6/src/interfaces/IJBPayoutTerminal.sol";
@@ -20,6 +21,7 @@ import {JBBeforeCashOutRecordedContext} from "@bananapus/core-v6/src/structs/JBB
 import {JBBeforePayRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforePayRecordedContext.sol";
 import {JBCashOutHookSpecification} from "@bananapus/core-v6/src/structs/JBCashOutHookSpecification.sol";
 import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
+import {JBPermissionsData} from "@bananapus/core-v6/src/structs/JBPermissionsData.sol";
 import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
 import {JBRulesetMetadata} from "@bananapus/core-v6/src/structs/JBRulesetMetadata.sol";
 import {JBTokenAmount} from "@bananapus/core-v6/src/structs/JBTokenAmount.sol";
@@ -154,12 +156,37 @@ contract PeerSnapshotTerminalMock {
     }
 }
 
+/// @notice No-op permissions registry used by `PeerSnapshotDeployerMock` to satisfy `REVOwner.setDeployer`'s
+/// wildcard permission grants during isolated tests.
+contract NoopPermissionsMock {
+    // forge-lint: disable-next-line(mixed-case-function)
+    function setPermissionsFor(address, JBPermissionsData calldata) external {}
+
+    function hasPermission(address, address, uint256, uint8, bool, bool) external pure returns (bool) {
+        return false;
+    }
+
+    function hasPermissions(address, address, uint256, uint256[] calldata, bool, bool)
+        external
+        pure
+        returns (bool)
+    {
+        return false;
+    }
+}
+
 /// @notice Minimal deployer exposing the canonical multi terminal expected by REVOwner.
 contract PeerSnapshotDeployerMock {
     IJBTerminal public immutable MULTI_TERMINAL;
+    IJBController public immutable CONTROLLER;
+    IJBPermissions public immutable PERMISSIONS;
+    IJBProjects public immutable PROJECTS;
 
     constructor(IJBTerminal multiTerminal) {
         MULTI_TERMINAL = multiTerminal;
+        CONTROLLER = IJBController(address(0));
+        PERMISSIONS = IJBPermissions(address(new NoopPermissionsMock()));
+        PROJECTS = IJBProjects(address(0));
     }
 }
 

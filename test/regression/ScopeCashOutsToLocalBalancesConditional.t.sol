@@ -66,6 +66,11 @@ contract ScopeCashOutsToLocalBalancesConditionalTest is Test {
             address(this)
         );
 
+        // Stub the deployer references read during `setDeployer`. The test contract impersonates the deployer,
+        // so its `CONTROLLER`/`PERMISSIONS`/`PROJECTS` getters need defined return data. Real deployments wire
+        // these to live contracts.
+        _mockDeployerImmutables();
+
         // Bind deployer
         revOwner.setDeployer(IREVDeployer(address(this)));
 
@@ -113,6 +118,23 @@ contract ScopeCashOutsToLocalBalancesConditionalTest is Test {
                 new JBCashOutHookSpecification[](0)
             )
         );
+    }
+
+    /// @notice Mock the three immutable getters REVOwner reads from the deployer during `setDeployer`. The test
+    /// contract impersonates the deployer, so it needs defined return data for these calls. Also stubs the
+    /// downstream `PERMISSIONS.setPermissionsFor` calls REVOwner issues during the wildcard permission grants.
+    function _mockDeployerImmutables() internal {
+        bytes memory permissionsStub = hex"00";
+        address permissionsAddr = address(0xBA5E);
+        vm.etch(permissionsAddr, permissionsStub);
+
+        vm.mockCall(address(this), abi.encodeWithSignature("CONTROLLER()"), abi.encode(address(0)));
+        vm.mockCall(address(this), abi.encodeWithSignature("PERMISSIONS()"), abi.encode(permissionsAddr));
+        vm.mockCall(address(this), abi.encodeWithSignature("PROJECTS()"), abi.encode(address(0)));
+
+        // The wildcard permission grants inside `setDeployer` call `setPermissionsFor` on the resolved
+        // permissions address. Accept them as no-ops.
+        vm.mockCall(permissionsAddr, abi.encodeWithSelector(bytes4(keccak256("setPermissionsFor(address,(address,uint64,uint8[]))"))), bytes(""));
     }
 
     function _buildContext(bool scopeToLocal) internal pure returns (JBBeforeCashOutRecordedContext memory) {

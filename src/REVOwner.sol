@@ -4,7 +4,10 @@ pragma solidity 0.8.28;
 import {IJB721TiersHook} from "@bananapus/721-hook-v6/src/interfaces/IJB721TiersHook.sol";
 import {IJBBuybackHookRegistry} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHookRegistry.sol";
 import {IJBCashOutHook} from "@bananapus/core-v6/src/interfaces/IJBCashOutHook.sol";
+import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
+import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
+import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
 import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDataHook.sol";
 import {IJBTerminal} from "@bananapus/core-v6/src/interfaces/IJBTerminal.sol";
 import {JBCashOuts} from "@bananapus/core-v6/src/libraries/JBCashOuts.sol";
@@ -16,11 +19,15 @@ import {JBBeforeCashOutRecordedContext} from "@bananapus/core-v6/src/structs/JBB
 import {JBBeforePayRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforePayRecordedContext.sol";
 import {JBCashOutHookSpecification} from "@bananapus/core-v6/src/structs/JBCashOutHookSpecification.sol";
 import {JBPayHookSpecification} from "@bananapus/core-v6/src/structs/JBPayHookSpecification.sol";
+import {JBPermissionsData} from "@bananapus/core-v6/src/structs/JBPermissionsData.sol";
 import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
+import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {IJBPeerChainAdjustedAccounts} from "@bananapus/suckers-v6/src/interfaces/IJBPeerChainAdjustedAccounts.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {mulDiv} from "@prb/math/src/Common.sol";
 
@@ -34,7 +41,7 @@ import {IREVLoans} from "./interfaces/IREVLoans.sol";
 /// proceeds to the fee revnet via `afterCashOutRecordedWith`.
 /// @dev Separated from `REVDeployer` to stay within the EIP-170 contract size limit. Also implements
 /// `IJBPeerChainAdjustedAccounts` to expose loan state to peer-chain supply/surplus snapshots.
-contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAccounts {
+contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAccounts, IERC721Receiver {
     // A library that adds default safety checks to ERC20 functionality.
     using SafeERC20 for IERC20;
 
@@ -46,7 +53,53 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     error REVOwner_CashOutDelayNotFinished(uint256 cashOutDelay, uint256 blockTimestamp);
     error REVOwner_InvalidLoanSourceToken(uint256 revnetId, address token);
     error REVOwner_NativeFeeValueMismatch(uint256 expected, uint256 actual);
+    error REVOwner_NothingToAutoIssue(uint256 revnetId, uint256 stageId, address beneficiary);
+    error REVOwner_NothingToBurn(uint256 revnetId, address holder);
+    error REVOwner_StageNotStarted(uint256 stageId);
     error REVOwner_Unauthorized(address caller, address expectedCaller);
+    error REVOwner_UnauthorizedOperator(uint256 revnetId, address caller);
+
+    //*********************************************************************//
+    // ------------------------------ events ----------------------------- //
+    //*********************************************************************//
+
+    /// @notice Emitted when tokens are auto-issued for a beneficiary during a stage.
+    /// @param revnetId The ID of the revnet.
+    /// @param stageId The ID of the stage.
+    /// @param beneficiary The address receiving the auto-issued tokens.
+    /// @param count The number of tokens auto-issued.
+    /// @param caller The address that triggered the auto-issuance.
+    event AutoIssue(
+        uint256 indexed revnetId, uint256 indexed stageId, address indexed beneficiary, uint256 count, address caller
+    );
+
+    /// @notice Emitted when held tokens are burned from this contract.
+    /// @param revnetId The ID of the revnet whose tokens were burned.
+    /// @param count The number of tokens burned.
+    /// @param caller The address that triggered the burn.
+    event BurnHeldTokens(uint256 indexed revnetId, uint256 count, address caller);
+
+    /// @notice Emitted when the operator of a revnet is replaced.
+    /// @param revnetId The ID of the revnet.
+    /// @param newOperator The address of the new operator.
+    /// @param caller The address that replaced the operator.
+    event ReplaceOperator(uint256 indexed revnetId, address indexed newOperator, address caller);
+
+    /// @notice Emitted when an auto-issuance amount is recorded for a beneficiary during a stage.
+    /// @param revnetId The ID of the revnet.
+    /// @param stageId The ID of the stage.
+    /// @param beneficiary The address the tokens will be issued to.
+    /// @param count The number of tokens recorded for auto-issuance.
+    /// @param caller The address that recorded the amount.
+    event SetAutoIssue(
+        uint256 indexed revnetId, uint256 indexed stageId, address indexed beneficiary, uint256 count, address caller
+    );
+
+    /// @notice Emitted when extra operator permissions are appended for a revnet.
+    /// @param revnetId The ID of the revnet.
+    /// @param permissionIds The permission IDs added to the revnet's operator set.
+    /// @param caller The address that added the permissions.
+    event SetExtraOperatorPermissions(uint256 indexed revnetId, uint256[] permissionIds, address caller);
 
     //*********************************************************************//
     // --------------- public immutable stored properties ---------------- //
@@ -80,9 +133,35 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     /// @custom:param revnetId The ID of the revnet to look up.
     mapping(uint256 revnetId => IJB721TiersHook tiered721Hook) public tiered721HookOf;
 
+    /// @notice The amount of project tokens to auto-issue at a given stage to a given beneficiary.
+    /// @custom:param revnetId The ID of the revnet to look up.
+    /// @custom:param stageId The ID of the ruleset stage to look up.
+    /// @custom:param beneficiary The address that will receive the auto-issued tokens.
+    mapping(uint256 revnetId => mapping(uint256 stageId => mapping(address beneficiary => uint256 count))) public amountToAutoIssue;
+
     /// @notice The deployer that manages revnet state.
     /// @dev Set once via `setDeployer()` using the precomputed canonical REVDeployer address.
     IREVDeployer public deployer;
+
+    /// @notice The controller used by all revnets to manage their projects.
+    /// @dev Cached from the deployer at `setDeployer()` time.
+    IJBController public CONTROLLER;
+
+    /// @notice The permissions registry used to grant operator authority over revnets.
+    /// @dev Cached from the deployer at `setDeployer()` time.
+    IJBPermissions public PERMISSIONS;
+
+    /// @notice The Juicebox project NFT contract.
+    /// @dev Cached from the deployer at `setDeployer()` time. Required for `onERC721Received` authentication.
+    IJBProjects public PROJECTS;
+
+    //*********************************************************************//
+    // -------------------- internal stored properties ------------------- //
+    //*********************************************************************//
+
+    /// @notice Additional operator permissions configured per revnet on top of the protocol-default set.
+    /// @custom:param revnetId The ID of the revnet to look up.
+    mapping(uint256 revnetId => uint256[] permissionIds) internal _extraOperatorPermissions;
 
     //*********************************************************************//
     // -------------------- private stored properties -------------------- //
@@ -532,6 +611,36 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         if (address(deployer) != address(0)) revert REVOwner_AlreadyInitialized({deployer: address(deployer)});
         // Store the canonical REVDeployer that is authorized to manage runtime hook state.
         deployer = newDeployer;
+        // Cache references read from the deployer so on-chain ownership operations don't need to re-traverse the
+        // deployer for each call. These are immutable on the deployer side so a single snapshot is sufficient.
+        CONTROLLER = newDeployer.CONTROLLER();
+        PERMISSIONS = newDeployer.PERMISSIONS();
+        PROJECTS = newDeployer.PROJECTS();
+
+        // Grant the wildcard operator permissions used by every revnet, scoped on this contract's account.
+        // The loan contract is the singleton shared by all revnets and uses the surplus allowance of each
+        // revnet's terminal. The buyback hook registry configures pools on every revnet.
+        uint8[] memory loanPermissionIds = new uint8[](1);
+        loanPermissionIds[0] = JBPermissionIds.USE_ALLOWANCE;
+        _setPermissionsFor({
+            account: address(this), operator: address(LOANS), revnetId: 0, permissionIds: loanPermissionIds
+        });
+
+        uint8[] memory buybackPermissionIds = new uint8[](1);
+        buybackPermissionIds[0] = JBPermissionIds.SET_BUYBACK_POOL;
+        _setPermissionsFor({
+            account: address(this), operator: address(BUYBACK_HOOK), revnetId: 0, permissionIds: buybackPermissionIds
+        });
+
+        // The deployer drives sucker setup for every revnet (initial deploy + post-deploy via
+        // `REVDeployer.deploySuckersFor`). Grant it `DEPLOY_SUCKERS` and `MAP_SUCKER_TOKEN` against this contract's
+        // account so the sucker registry sees an authorized caller acting for the project owner (this contract).
+        uint8[] memory deployerPermissionIds = new uint8[](2);
+        deployerPermissionIds[0] = JBPermissionIds.DEPLOY_SUCKERS;
+        deployerPermissionIds[1] = JBPermissionIds.MAP_SUCKER_TOKEN;
+        _setPermissionsFor({
+            account: address(this), operator: address(newDeployer), revnetId: 0, permissionIds: deployerPermissionIds
+        });
     }
 
     /// @notice Store the tiered ERC-721 hook for a revnet.
@@ -545,9 +654,155 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         tiered721HookOf[revnetId] = hook;
     }
 
+    /// @notice Record the amount of project tokens to auto-issue at a given stage to a given beneficiary.
+    /// @dev Only callable by the deployer during the initial revnet configuration.
+    /// @param revnetId The ID of the revnet.
+    /// @param stageId The ID of the stage at which the auto-issuance unlocks.
+    /// @param beneficiary The address that will receive the auto-issued tokens.
+    /// @param count The number of project tokens to issue.
+    function recordAutoIssue(uint256 revnetId, uint256 stageId, address beneficiary, uint256 count) external {
+        if (msg.sender != address(deployer)) {
+            revert REVOwner_Unauthorized({caller: msg.sender, expectedCaller: address(deployer)});
+        }
+        amountToAutoIssue[revnetId][stageId][beneficiary] += count;
+        emit SetAutoIssue({
+            revnetId: revnetId, stageId: stageId, beneficiary: beneficiary, count: count, caller: msg.sender
+        });
+    }
+
+    /// @notice Append additional operator permissions to the revnet's permission set.
+    /// @dev Only callable by the deployer during the initial revnet configuration.
+    /// @param revnetId The ID of the revnet.
+    /// @param permissionIds The permission IDs to add.
+    function addExtraOperatorPermissions(uint256 revnetId, uint256[] calldata permissionIds) external {
+        if (msg.sender != address(deployer)) {
+            revert REVOwner_Unauthorized({caller: msg.sender, expectedCaller: address(deployer)});
+        }
+        for (uint256 i; i < permissionIds.length;) {
+            _extraOperatorPermissions[revnetId].push(permissionIds[i]);
+            unchecked {
+                ++i;
+            }
+        }
+        emit SetExtraOperatorPermissions({revnetId: revnetId, permissionIds: permissionIds, caller: msg.sender});
+    }
+
+    /// @notice Set the initial operator for a revnet and grant them the default operator permissions.
+    /// @dev Only callable by the deployer during initial revnet configuration.
+    /// @param revnetId The ID of the revnet.
+    /// @param operator The initial operator address. Use `address(0)` to relinquish operator powers up front.
+    function bootstrapOperator(uint256 revnetId, address operator) external {
+        if (msg.sender != address(deployer)) {
+            revert REVOwner_Unauthorized({caller: msg.sender, expectedCaller: address(deployer)});
+        }
+        _setOperatorOf({revnetId: revnetId, operator: operator});
+    }
+
+    /// @notice Grant a permission to a non-operator address scoped to a revnet.
+    /// @dev Only callable by the deployer during initial revnet configuration. Used for integrations that need
+    /// to act on the revnet's behalf without holding full operator authority (e.g., the croptop publisher).
+    /// @param revnetId The ID of the revnet to scope the permission for.
+    /// @param operator The address being granted the permission.
+    /// @param permissionId The permission ID to grant.
+    function grantPermissionTo(uint256 revnetId, address operator, uint8 permissionId) external {
+        if (msg.sender != address(deployer)) {
+            revert REVOwner_Unauthorized({caller: msg.sender, expectedCaller: address(deployer)});
+        }
+        uint8[] memory permissionIds = new uint8[](1);
+        permissionIds[0] = permissionId;
+        _setPermissionsFor({
+            account: address(this), operator: operator, revnetId: revnetId, permissionIds: permissionIds
+        });
+    }
+
+    /// @notice Auto-mint a revnet's tokens from a stage for a beneficiary.
+    /// @dev Permissionless: anyone can trigger the mint once the stage has started. The recorded amount is consumed
+    /// (reset to zero) after the mint executes.
+    /// @param revnetId The ID of the revnet to auto-mint tokens for.
+    /// @param stageId The ID of the ruleset stage to auto-mint tokens from.
+    /// @param beneficiary The address to send auto-minted tokens to.
+    function autoIssueFor(uint256 revnetId, uint256 stageId, address beneficiary) external {
+        // Get the ruleset for the stage to check if it has started.
+        (JBRuleset memory ruleset,) = CONTROLLER.getRulesetOf({projectId: revnetId, rulesetId: stageId});
+
+        // Make sure the stage has started.
+        // forge-lint: disable-next-line(block-timestamp)
+        if (ruleset.start > block.timestamp) {
+            revert REVOwner_StageNotStarted({stageId: stageId});
+        }
+
+        uint256 count = amountToAutoIssue[revnetId][stageId][beneficiary];
+        if (count == 0) {
+            revert REVOwner_NothingToAutoIssue({revnetId: revnetId, stageId: stageId, beneficiary: beneficiary});
+        }
+
+        // Reset before the external call to prevent re-entry from re-claiming.
+        amountToAutoIssue[revnetId][stageId][beneficiary] = 0;
+
+        emit AutoIssue({
+            revnetId: revnetId, stageId: stageId, beneficiary: beneficiary, count: count, caller: msg.sender
+        });
+
+        CONTROLLER.mintTokensOf({
+            projectId: revnetId, tokenCount: count, beneficiary: beneficiary, memo: "", useReservedPercent: false
+        });
+    }
+
+    /// @notice Burn any of a revnet's project tokens that have accumulated on this contract.
+    /// @dev Tokens accrue here from reserved-token distributions when splits don't sum to 100% (the JBController
+    /// mints the leftover to the project owner — which is this contract).
+    /// @param revnetId The ID of the revnet to burn tokens for.
+    function burnHeldTokensOf(uint256 revnetId) external {
+        uint256 balance = CONTROLLER.TOKENS().totalBalanceOf({holder: address(this), projectId: revnetId});
+        if (balance == 0) revert REVOwner_NothingToBurn({revnetId: revnetId, holder: address(this)});
+        CONTROLLER.burnTokensOf({holder: address(this), projectId: revnetId, tokenCount: balance, memo: ""});
+        emit BurnHeldTokens({revnetId: revnetId, count: balance, caller: msg.sender});
+    }
+
+    /// @notice Change a revnet's operator.
+    /// @dev Only a revnet's current operator can rotate the operator. Passing `address(0)` relinquishes operator
+    /// powers permanently — the permissions move to the zero address which cannot execute transactions.
+    /// @param revnetId The ID of the revnet to change the operator for.
+    /// @param newOperator The new operator's address. Use `address(0)` to relinquish operator powers.
+    function setOperatorOf(uint256 revnetId, address newOperator) external {
+        _checkIfIsOperatorOf({revnetId: revnetId, operator: msg.sender});
+
+        emit ReplaceOperator({revnetId: revnetId, newOperator: newOperator, caller: msg.sender});
+
+        // Remove operator permissions from the old operator.
+        _setPermissionsFor({
+            account: address(this), operator: msg.sender, revnetId: revnetId, permissionIds: new uint8[](0)
+        });
+
+        // Grant the default operator permissions to the new operator (no-op if `newOperator == address(0)`).
+        _setOperatorOf({revnetId: revnetId, operator: newOperator});
+    }
+
+    /// @notice Required to receive the JBProjects NFT for each revnet that this contract owns.
+    /// @dev Only accepts NFTs from the canonical `JBProjects` contract.
+    function onERC721Received(address, address, uint256, bytes calldata) external view returns (bytes4) {
+        if (msg.sender != address(PROJECTS)) revert();
+        return IERC721Receiver.onERC721Received.selector;
+    }
+
     //*********************************************************************//
     // -------------------------- public views --------------------------- //
     //*********************************************************************//
+
+    /// @notice Check whether an address is a revnet's operator.
+    /// @param revnetId The ID of the revnet to check.
+    /// @param addr The address to check.
+    /// @return flag A flag indicating whether the address holds the revnet's operator permissions.
+    function isOperatorOf(uint256 revnetId, address addr) public view returns (bool) {
+        return PERMISSIONS.hasPermissions({
+            operator: addr,
+            account: address(this),
+            projectId: revnetId,
+            permissionIds: _operatorPermissionIndexesOf(revnetId),
+            includeRoot: false,
+            includeWildcardProjectId: false
+        });
+    }
 
     /// @notice Indicates if this contract adheres to the specified interface.
     /// @dev See `IERC165.supportsInterface`.
@@ -568,6 +823,40 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     /// @return isSucker A flag indicating whether the address is one of the revnet's suckers.
     function _isSuckerOf(uint256 revnetId, address addr) internal view returns (bool) {
         return SUCKER_REGISTRY.isSuckerOf({projectId: revnetId, addr: addr});
+    }
+
+    /// @notice The default + custom operator permissions that should be held by a revnet's operator.
+    /// @param revnetId The ID of the revnet to look up.
+    /// @return allOperatorPermissions The merged permission ID list.
+    function _operatorPermissionIndexesOf(uint256 revnetId) internal view returns (uint256[] memory allOperatorPermissions) {
+        uint256[] memory customOperatorPermissionIndexes = _extraOperatorPermissions[revnetId];
+
+        allOperatorPermissions = new uint256[](9 + customOperatorPermissionIndexes.length);
+        allOperatorPermissions[0] = JBPermissionIds.SET_SPLIT_GROUPS;
+        allOperatorPermissions[1] = JBPermissionIds.SET_BUYBACK_POOL;
+        allOperatorPermissions[2] = JBPermissionIds.SET_BUYBACK_TWAP;
+        allOperatorPermissions[3] = JBPermissionIds.SET_PROJECT_URI;
+        allOperatorPermissions[4] = JBPermissionIds.SUCKER_SAFETY;
+        allOperatorPermissions[5] = JBPermissionIds.SET_BUYBACK_HOOK;
+        allOperatorPermissions[6] = JBPermissionIds.SET_ROUTER_TERMINAL;
+        allOperatorPermissions[7] = JBPermissionIds.SET_TOKEN_METADATA;
+        allOperatorPermissions[8] = JBPermissionIds.SIGN_FOR_ERC20;
+
+        for (uint256 i; i < customOperatorPermissionIndexes.length;) {
+            allOperatorPermissions[9 + i] = customOperatorPermissionIndexes[i];
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    /// @notice Reverts if `operator` is not the revnet's current operator.
+    /// @param revnetId The ID of the revnet to check.
+    /// @param operator The address to check.
+    function _checkIfIsOperatorOf(uint256 revnetId, address operator) internal view {
+        if (!isOperatorOf({revnetId: revnetId, addr: operator})) {
+            revert REVOwner_UnauthorizedOperator({revnetId: revnetId, caller: operator});
+        }
     }
 
     /// @notice Total outstanding local loan debt and collateral for a revnet.
@@ -660,5 +949,40 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         if (token == JBConstants.NATIVE_TOKEN) return amount;
         IERC20(token).safeIncreaseAllowance({spender: to, value: amount});
         return 0;
+    }
+
+    /// @notice Grant the revnet's default operator permission set to `operator`.
+    /// @param revnetId The ID of the revnet to scope the permissions for.
+    /// @param operator The address to grant operator permissions to.
+    function _setOperatorOf(uint256 revnetId, address operator) internal {
+        uint256[] memory permissionIndexes = _operatorPermissionIndexesOf(revnetId);
+        uint8[] memory permissionIds = new uint8[](permissionIndexes.length);
+
+        for (uint256 i; i < permissionIndexes.length;) {
+            // forge-lint: disable-next-line(unsafe-typecast)
+            permissionIds[i] = uint8(permissionIndexes[i]);
+            unchecked {
+                ++i;
+            }
+        }
+
+        _setPermissionsFor({
+            account: address(this), operator: operator, revnetId: revnetId, permissionIds: permissionIds
+        });
+    }
+
+    /// @notice Set the permissions on the JB permissions registry, scoped to this revnet.
+    /// @param account The account whose permission slot is being updated. Always `address(this)`.
+    /// @param operator The address whose permissions are being set.
+    /// @param revnetId The ID of the revnet to scope the permissions for.
+    /// @param permissionIds The permission IDs to grant (empty array revokes).
+    function _setPermissionsFor(address account, address operator, uint256 revnetId, uint8[] memory permissionIds)
+        internal
+    {
+        JBPermissionsData memory permissionData =
+        // forge-lint: disable-next-line(unsafe-typecast)
+        JBPermissionsData({operator: operator, projectId: uint64(revnetId), permissionIds: permissionIds});
+
+        PERMISSIONS.setPermissionsFor({account: account, permissionsData: permissionData});
     }
 }

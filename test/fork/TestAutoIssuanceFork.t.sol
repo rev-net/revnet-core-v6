@@ -95,8 +95,8 @@ contract TestAutoIssuanceFork is ForkTestBase {
         (uint256 revnetId, uint256 stageId) = _deployRevnetWithAutoIssuance({splitPercent: 0, startsInFuture: true});
 
         // Stage starts in the future, so autoIssueFor should revert.
-        vm.expectRevert(abi.encodeWithSelector(REVDeployer.REVDeployer_StageNotStarted.selector, stageId));
-        REV_DEPLOYER.autoIssueFor(revnetId, stageId, AUTO_BENEFICIARY);
+        vm.expectRevert(abi.encodeWithSelector(REVOwner.REVOwner_StageNotStarted.selector, stageId));
+        REV_OWNER.autoIssueFor(revnetId, stageId, AUTO_BENEFICIARY);
     }
 
     /// @notice After the stage starts, autoIssueFor mints the exact configured count to the beneficiary.
@@ -108,7 +108,7 @@ contract TestAutoIssuanceFork is ForkTestBase {
         assertEq(balanceBefore, 0, "beneficiary should have no tokens before auto-issue");
 
         // Auto-issue tokens.
-        REV_DEPLOYER.autoIssueFor(revnetId, stageId, AUTO_BENEFICIARY);
+        REV_OWNER.autoIssueFor(revnetId, stageId, AUTO_BENEFICIARY);
 
         // Verify beneficiary received exactly AUTO_ISSUE_COUNT tokens.
         uint256 balanceAfter = jbTokens().totalBalanceOf(AUTO_BENEFICIARY, revnetId);
@@ -120,15 +120,15 @@ contract TestAutoIssuanceFork is ForkTestBase {
         (uint256 revnetId, uint256 stageId) = _deployRevnetWithAutoIssuance({splitPercent: 0, startsInFuture: false});
 
         // First claim succeeds.
-        REV_DEPLOYER.autoIssueFor(revnetId, stageId, AUTO_BENEFICIARY);
+        REV_OWNER.autoIssueFor(revnetId, stageId, AUTO_BENEFICIARY);
 
         // Second claim should revert — amount was reset to 0.
         vm.expectRevert(
             abi.encodeWithSelector(
-                REVDeployer.REVDeployer_NothingToAutoIssue.selector, revnetId, stageId, AUTO_BENEFICIARY
+                REVOwner.REVOwner_NothingToAutoIssue.selector, revnetId, stageId, AUTO_BENEFICIARY
             )
         );
-        REV_DEPLOYER.autoIssueFor(revnetId, stageId, AUTO_BENEFICIARY);
+        REV_OWNER.autoIssueFor(revnetId, stageId, AUTO_BENEFICIARY);
     }
 
     /// @notice Auto-issued tokens bypass the reserved percent — 100% goes to the beneficiary.
@@ -137,7 +137,7 @@ contract TestAutoIssuanceFork is ForkTestBase {
         (uint256 revnetId, uint256 stageId) = _deployRevnetWithAutoIssuance({splitPercent: 5000, startsInFuture: false});
 
         // Auto-issue tokens.
-        REV_DEPLOYER.autoIssueFor(revnetId, stageId, AUTO_BENEFICIARY);
+        REV_OWNER.autoIssueFor(revnetId, stageId, AUTO_BENEFICIARY);
 
         // The beneficiary should receive the FULL count, not reduced by reserved percent.
         uint256 balance = jbTokens().totalBalanceOf(AUTO_BENEFICIARY, revnetId);

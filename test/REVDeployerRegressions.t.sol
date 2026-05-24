@@ -371,11 +371,11 @@ contract REVDeployerRegressions is TestBaseWorkflow {
         uint256 stage1RulesetId = deployTimestamp + 1;
 
         // Stage 0 auto-issuance should be stored at its actual ruleset ID.
-        uint256 stage0Amount = REV_DEPLOYER.amountToAutoIssue(revnetId, stage0RulesetId, multisig());
+        uint256 stage0Amount = REV_OWNER.amountToAutoIssue(revnetId, stage0RulesetId, multisig());
         assertEq(stage0Amount, 50_000 * decimalMultiplier, "Stage 0 auto-issuance should be stored at stage 0 ID");
 
         // Stage 1 auto-issuance should be stored at its actual ruleset ID.
-        uint256 stage1Amount = REV_DEPLOYER.amountToAutoIssue(revnetId, stage1RulesetId, multisig());
+        uint256 stage1Amount = REV_OWNER.amountToAutoIssue(revnetId, stage1RulesetId, multisig());
         assertEq(stage1Amount, 30_000 * decimalMultiplier, "Stage 1 auto-issuance should be stored at stage 1 ID");
 
         (JBRuleset memory stage0Ruleset,) =

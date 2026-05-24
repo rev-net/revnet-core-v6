@@ -168,7 +168,7 @@ contract RegressionSuckerCallerDeterminismTest is TestBaseWorkflow {
         REVSuckerDeploymentConfig memory config = _suckerConfig(bytes32("CALLER_SALTED"));
 
         vm.prank(OPERATOR_A);
-        REV_DEPLOYER.setOperatorOf(revnetB, OPERATOR_B);
+        REV_OWNER.setOperatorOf(revnetB, OPERATOR_B);
 
         vm.prank(OPERATOR_A);
         address suckerA = REV_DEPLOYER.deploySuckersFor(revnetA, config)[0];

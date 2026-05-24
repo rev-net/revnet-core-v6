@@ -60,10 +60,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     error REVDeployer_AutoIssuanceBeneficiaryZeroAddress(uint256 stageIndex, uint256 autoIssuanceIndex);
     error REVDeployer_CashOutsCantBeTurnedOffCompletely(uint256 cashOutTaxRate, uint256 maxCashOutTaxRate);
     error REVDeployer_MustHaveSplits(uint256 stageIndex, uint256 splitPercent);
-    error REVDeployer_NothingToAutoIssue(uint256 revnetId, uint256 stageId, address beneficiary);
-    error REVDeployer_NothingToBurn(uint256 revnetId, address holder);
     error REVDeployer_RulesetDoesNotAllowDeployingSuckers(uint256 revnetId);
-    error REVDeployer_StageNotStarted(uint256 stageId);
     error REVDeployer_StagesRequired(uint256 stageCount);
     error REVDeployer_StageTimesMustIncrease(uint256 stageIndex, uint256 previousStageStart, uint256 effectiveStart);
     error REVDeployer_Unauthorized(uint256 revnetId, address caller);
@@ -142,30 +139,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     // --------------------- public stored properties -------------------- //
     //*********************************************************************//
 
-    /// @notice The number of revnet tokens which can be "auto-minted" (minted without payments)
-    /// for a specific beneficiary during a stage. Think of this as a per-stage premint.
-    /// @dev These tokens can be minted with `autoIssueFor(…)`.
-    /// @custom:param revnetId The ID of the revnet to check.
-    /// @custom:param stageId The ID of the stage to check.
-    /// @custom:param beneficiary The beneficiary to check.
-    mapping(uint256 revnetId => mapping(uint256 stageId => mapping(address beneficiary => uint256)))
-        public
-        override amountToAutoIssue;
-
     /// @notice The hashed encoded configuration of each revnet.
     /// @dev This is used to ensure that the encoded configuration of a revnet is the same when deploying suckers for
     /// omnichain operations.
     /// @custom:param revnetId The ID of the revnet to look up.
     mapping(uint256 revnetId => bytes32 hashedEncodedConfiguration) public override hashedEncodedConfigurationOf;
-
-    //*********************************************************************//
-    // ------------------- internal stored properties -------------------- //
-    //*********************************************************************//
-
-    /// @notice A list of `JBPermissonIds` indices to grant to the operator of a specific revnet.
-    /// @dev These should be set in the revnet's deployment process.
-    /// @custom:param revnetId The ID of the revnet to look up.
-    mapping(uint256 revnetId => uint256[]) internal _extraOperatorPermissions;
 
     //*********************************************************************//
     // -------------------------- constructor ---------------------------- //
@@ -213,20 +191,27 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         LOANS = loans;
         OWNER = owner;
 
-        // Give the loan contract permission to use the surplus allowance of all revnets.
-        // Uses wildcard revnetId=0 intentionally — the loan contract is a singleton shared by all revnets,
-        // and each revnet's surplus allowance limits already constrain how much can be drawn.
-        _setPermission({operator: address(LOANS), revnetId: 0, permissionId: JBPermissionIds.USE_ALLOWANCE});
-
-        // Give the buyback hook (registry) permission to configure pools on all revnets.
-        _setPermission({operator: address(BUYBACK_HOOK), revnetId: 0, permissionId: JBPermissionIds.SET_BUYBACK_POOL});
+        // Wildcard-grant `SET_BUYBACK_POOL` to the buyback hook on this contract's account so the hook can
+        // initialize and configure pools for every revnet during the setup window where this contract still
+        // holds the JBProjects NFT, before ownership is handed to REVOwner at the end of `_deployRevnetFor`.
+        uint8[] memory buybackPermissionIds = new uint8[](1);
+        buybackPermissionIds[0] = JBPermissionIds.SET_BUYBACK_POOL;
+        PERMISSIONS.setPermissionsFor({
+            account: address(this),
+            permissionsData: JBPermissionsData({
+                operator: address(buybackHook),
+                projectId: 0,
+                permissionIds: buybackPermissionIds
+            })
+        });
     }
 
     //*********************************************************************//
     // ------------------------- external views -------------------------- //
     //*********************************************************************//
 
-    /// @dev Make sure this contract can only receive project NFTs from `JBProjects`.
+    /// @dev Required to receive the JBProjects NFT briefly while initializing an existing project as a revnet.
+    /// The NFT is then forwarded to `OWNER` at the end of `_deployRevnetFor`.
     function onERC721Received(address, address, uint256, bytes calldata) external view returns (bytes4) {
         // Make sure the 721 received is from the `JBProjects` contract.
         if (msg.sender != address(PROJECTS)) revert();
@@ -237,21 +222,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     //*********************************************************************//
     // -------------------------- public views --------------------------- //
     //*********************************************************************//
-
-    /// @notice Check whether an address is a revnet's operator.
-    /// @param revnetId The ID of the revnet to check.
-    /// @param addr The address to check.
-    /// @return flag A flag indicating whether the address is the revnet's operator.
-    function isOperatorOf(uint256 revnetId, address addr) public view override returns (bool) {
-        return PERMISSIONS.hasPermissions({
-            operator: addr,
-            account: address(this),
-            projectId: revnetId,
-            permissionIds: _operatorPermissionIndexesOf(revnetId),
-            includeRoot: false,
-            includeWildcardProjectId: false
-        });
-    }
 
     /// @notice Indicates if this contract adheres to the specified interface.
     /// @dev See `IERC165.supportsInterface`.
@@ -264,11 +234,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     // -------------------------- internal views ------------------------- //
     //*********************************************************************//
 
-    /// @notice If the specified address is not the revnet's current operator, revert.
+    /// @notice If the specified address is not the revnet's current operator on the REVOwner registry, revert.
     /// @param revnetId The ID of the revnet to check.
     /// @param operator The address to check.
     function _checkIfIsOperatorOf(uint256 revnetId, address operator) internal view {
-        if (!isOperatorOf({revnetId: revnetId, addr: operator})) {
+        if (!REVOwner(OWNER).isOperatorOf({revnetId: revnetId, addr: operator})) {
             revert REVDeployer_Unauthorized({revnetId: revnetId, caller: operator});
         }
     }
@@ -374,39 +344,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         }
     }
 
-    /// @notice Returns the permissions that the operator should have for a revnet.
-    /// @param revnetId The ID of the revnet to look up.
-    /// @return allOperatorPermissions The permissions the operator should have for the revnet,
-    /// including both default and custom permissions.
-    function _operatorPermissionIndexesOf(uint256 revnetId)
-        internal
-        view
-        returns (uint256[] memory allOperatorPermissions)
-    {
-        // Keep a reference to the custom operator permissions.
-        uint256[] memory customOperatorPermissionIndexes = _extraOperatorPermissions[revnetId];
-
-        // Make the array that merges the default and custom operator permissions.
-        allOperatorPermissions = new uint256[](9 + customOperatorPermissionIndexes.length);
-        allOperatorPermissions[0] = JBPermissionIds.SET_SPLIT_GROUPS;
-        allOperatorPermissions[1] = JBPermissionIds.SET_BUYBACK_POOL;
-        allOperatorPermissions[2] = JBPermissionIds.SET_BUYBACK_TWAP;
-        allOperatorPermissions[3] = JBPermissionIds.SET_PROJECT_URI;
-        allOperatorPermissions[4] = JBPermissionIds.SUCKER_SAFETY;
-        allOperatorPermissions[5] = JBPermissionIds.SET_BUYBACK_HOOK;
-        allOperatorPermissions[6] = JBPermissionIds.SET_ROUTER_TERMINAL;
-        allOperatorPermissions[7] = JBPermissionIds.SET_TOKEN_METADATA;
-        allOperatorPermissions[8] = JBPermissionIds.SIGN_FOR_ERC20;
-
-        // Copy the custom permissions into the array.
-        for (uint256 i; i < customOperatorPermissionIndexes.length;) {
-            allOperatorPermissions[9 + i] = customOperatorPermissionIndexes[i];
-            unchecked {
-                ++i;
-            }
-        }
-    }
-
     /// @notice Try to initialize a Uniswap V4 buyback pool for a terminal token at its fair issuance price.
     /// @dev Called after the ERC-20 token is deployed so the pool can be initialized in the PoolManager.
     /// Computes `sqrtPriceX96` from `initialIssuance` so the pool starts at the same price as the bonding curve.
@@ -470,57 +407,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     //*********************************************************************//
     // --------------------- external transactions ----------------------- //
     //*********************************************************************//
-
-    /// @notice Auto-mint a revnet's tokens from a stage for a beneficiary.
-    /// @param revnetId The ID of the revnet to auto-mint tokens for.
-    /// @param stageId The ID of the stage to auto-mint tokens from.
-    /// @param beneficiary The address to send auto-minted tokens to.
-    function autoIssueFor(uint256 revnetId, uint256 stageId, address beneficiary) external override {
-        // Get the ruleset for the stage to check if it has started.
-        // Stage IDs are `block.timestamp + i` where `i` is the stage index. These match real JB ruleset IDs
-        // because JBRulesets assigns IDs the same way: `latestId >= block.timestamp ? latestId + 1 : block.timestamp`
-        // (see JBRulesets.sol L172). When all stages are queued in a single deployFor() call, the sequential
-        // IDs `block.timestamp`, `block.timestamp + 1`, ... exactly correspond to the JB-assigned ruleset IDs.
-        // The returned `ruleset.start` contains the derived start time (from `deriveStartFrom` using the stage's
-        // `mustStartAtOrAfter`), NOT the queue timestamp — so the timing guard correctly blocks early claims.
-        (JBRuleset memory ruleset,) = CONTROLLER.getRulesetOf({projectId: revnetId, rulesetId: stageId});
-
-        // Make sure the stage has started.
-        // forge-lint: disable-next-line(block-timestamp)
-        if (ruleset.start > block.timestamp) {
-            revert REVDeployer_StageNotStarted({stageId: stageId});
-        }
-
-        // Get a reference to the number of tokens to auto-issue.
-        uint256 count = amountToAutoIssue[revnetId][stageId][beneficiary];
-
-        // If there's nothing to auto-mint, return.
-        if (count == 0) {
-            revert REVDeployer_NothingToAutoIssue({revnetId: revnetId, stageId: stageId, beneficiary: beneficiary});
-        }
-
-        // Reset the auto-mint amount.
-        amountToAutoIssue[revnetId][stageId][beneficiary] = 0;
-
-        emit AutoIssue({
-            revnetId: revnetId, stageId: stageId, beneficiary: beneficiary, count: count, caller: _msgSender()
-        });
-
-        // Mint the tokens.
-        CONTROLLER.mintTokensOf({
-            projectId: revnetId, tokenCount: count, beneficiary: beneficiary, memo: "", useReservedPercent: false
-        });
-    }
-
-    /// @notice Burn any of a revnet's tokens held by this contract.
-    /// @dev Project tokens can end up here from reserved token distribution when splits don't sum to 100%.
-    /// @param revnetId The ID of the revnet to burn tokens for.
-    function burnHeldTokensOf(uint256 revnetId) external override {
-        uint256 balance = CONTROLLER.TOKENS().totalBalanceOf({holder: address(this), projectId: revnetId});
-        if (balance == 0) revert REVDeployer_NothingToBurn({revnetId: revnetId, holder: address(this)});
-        CONTROLLER.burnTokensOf({holder: address(this), projectId: revnetId, tokenCount: balance, memo: ""});
-        emit BurnHeldTokens({revnetId: revnetId, count: balance, caller: _msgSender()});
-    }
 
     /// @notice Launch a revnet, or initialize an existing Juicebox project as a revnet.
     /// @dev When initializing an existing project (revnetId != 0):
@@ -613,15 +499,15 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         REVOwner(OWNER).setTiered721HookOf({revnetId: revnetId, hook: hook});
 
         // Grant the operator all 721 permissions (no prevent* flags for default config).
-        // These permission IDs are only consumed by `_setOperatorOf` below, after revnet setup has either
-        // completed or reverted atomically.
-        _extraOperatorPermissions[revnetId].push(JBPermissionIds.ADJUST_721_TIERS);
-        _extraOperatorPermissions[revnetId].push(JBPermissionIds.SET_721_METADATA);
-        _extraOperatorPermissions[revnetId].push(JBPermissionIds.MINT_721);
-        _extraOperatorPermissions[revnetId].push(JBPermissionIds.SET_721_DISCOUNT_PERCENT);
+        uint256[] memory extraPermissions = new uint256[](4);
+        extraPermissions[0] = JBPermissionIds.ADJUST_721_TIERS;
+        extraPermissions[1] = JBPermissionIds.SET_721_METADATA;
+        extraPermissions[2] = JBPermissionIds.MINT_721;
+        extraPermissions[3] = JBPermissionIds.SET_721_DISCOUNT_PERCENT;
+        REVOwner(OWNER).addExtraOperatorPermissions({revnetId: revnetId, permissionIds: extraPermissions});
 
         // Give the operator their permissions (base + 721 extras).
-        _setOperatorOf({revnetId: revnetId, operator: configuration.operator});
+        REVOwner(OWNER).bootstrapOperator({revnetId: revnetId, operator: configuration.operator});
 
         return (revnetId, hook);
     }
@@ -657,27 +543,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             encodedConfigurationHash: hashedEncodedConfigurationOf[revnetId],
             suckerDeploymentConfiguration: suckerDeploymentConfiguration
         });
-    }
-
-    /// @notice Change a revnet's operator.
-    /// @dev Only a revnet's current operator can set a new operator.
-    /// @dev Passing `address(0)` as `newOperator` relinquishes operator powers permanently — the permissions
-    /// are granted to the zero address (which cannot execute transactions), effectively burning them.
-    /// @param revnetId The ID of the revnet to change the operator for.
-    /// @param newOperator The new operator's address. Use `address(0)` to relinquish operator powers.
-    function setOperatorOf(uint256 revnetId, address newOperator) external override {
-        // Enforce permissions.
-        _checkIfIsOperatorOf({revnetId: revnetId, operator: _msgSender()});
-
-        emit ReplaceOperator({revnetId: revnetId, newOperator: newOperator, caller: _msgSender()});
-
-        // Remove operator permissions from the old operator.
-        _setPermissionsFor({
-            account: address(this), operator: _msgSender(), revnetId: revnetId, permissionIds: new uint8[](0)
-        });
-
-        // Set the new operator.
-        _setOperatorOf({revnetId: revnetId, operator: newOperator});
     }
 
     //*********************************************************************//
@@ -736,32 +601,35 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         // Store the tiered ERC-721 hook in the owner contract.
         REVOwner(OWNER).setTiered721HookOf({revnetId: revnetId, hook: hook});
 
-        // These permission IDs are only consumed by `_setOperatorOf` below, after revnet setup has either
-        // completed or reverted atomically.
+        // Build the 721 permission additions based on the deployer's `preventOperator*` flags.
+        {
+            uint256 extraCount;
+            if (!tiered721HookConfiguration.preventOperatorAdjustingTiers) ++extraCount;
+            if (!tiered721HookConfiguration.preventOperatorUpdatingMetadata) ++extraCount;
+            if (!tiered721HookConfiguration.preventOperatorMinting) ++extraCount;
+            if (!tiered721HookConfiguration.preventOperatorIncreasingDiscountPercent) ++extraCount;
 
-        // Give the operator permission to add and remove tiers unless prevented.
-        if (!tiered721HookConfiguration.preventOperatorAdjustingTiers) {
-            _extraOperatorPermissions[revnetId].push(JBPermissionIds.ADJUST_721_TIERS);
-        }
-
-        // Give the operator permission to set ERC-721 tier metadata unless prevented.
-        if (!tiered721HookConfiguration.preventOperatorUpdatingMetadata) {
-            _extraOperatorPermissions[revnetId].push(JBPermissionIds.SET_721_METADATA);
-        }
-
-        // Give the operator permission to mint ERC-721s (without a payment)
-        // from tiers with `allowOwnerMint` set to true, unless prevented.
-        if (!tiered721HookConfiguration.preventOperatorMinting) {
-            _extraOperatorPermissions[revnetId].push(JBPermissionIds.MINT_721);
-        }
-
-        // Give the operator permission to increase the discount of a tier unless prevented.
-        if (!tiered721HookConfiguration.preventOperatorIncreasingDiscountPercent) {
-            _extraOperatorPermissions[revnetId].push(JBPermissionIds.SET_721_DISCOUNT_PERCENT);
+            if (extraCount != 0) {
+                uint256[] memory extraPermissions = new uint256[](extraCount);
+                uint256 idx;
+                if (!tiered721HookConfiguration.preventOperatorAdjustingTiers) {
+                    extraPermissions[idx++] = JBPermissionIds.ADJUST_721_TIERS;
+                }
+                if (!tiered721HookConfiguration.preventOperatorUpdatingMetadata) {
+                    extraPermissions[idx++] = JBPermissionIds.SET_721_METADATA;
+                }
+                if (!tiered721HookConfiguration.preventOperatorMinting) {
+                    extraPermissions[idx++] = JBPermissionIds.MINT_721;
+                }
+                if (!tiered721HookConfiguration.preventOperatorIncreasingDiscountPercent) {
+                    extraPermissions[idx++] = JBPermissionIds.SET_721_DISCOUNT_PERCENT;
+                }
+                REVOwner(OWNER).addExtraOperatorPermissions({revnetId: revnetId, permissionIds: extraPermissions});
+            }
         }
 
         // Give the operator their permissions (base + 721 extras).
-        _setOperatorOf({revnetId: revnetId, operator: configuration.operator});
+        REVOwner(OWNER).bootstrapOperator({revnetId: revnetId, operator: configuration.operator});
 
         // If there are posts to allow, configure them.
         if (allowedPosts.length != 0) {
@@ -791,9 +659,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             // Set up the allowed posts in the publisher.
             PUBLISHER.configurePostingCriteriaFor({allowedPosts: formattedAllowedPosts});
 
-            // Give the croptop publisher permission to post new ERC-721 tiers on this contract's behalf.
-            _setPermission({
-                operator: address(PUBLISHER), revnetId: revnetId, permissionId: JBPermissionIds.ADJUST_721_TIERS
+            // Give the croptop publisher permission to post new ERC-721 tiers on the revnet's behalf.
+            REVOwner(OWNER).grantPermissionTo({
+                revnetId: revnetId, operator: address(PUBLISHER), permissionId: JBPermissionIds.ADJUST_721_TIERS
             });
         }
     }
@@ -832,20 +700,17 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         JBTerminalConfig[] memory terminalConfigurations =
             _makeTerminalConfigurations({accountingContextsToAccept: accountingContextsToAccept});
 
-        address owner;
-        if (!shouldDeployNewRevnet) {
-            // Keep a reference to the Juicebox project's owner.
-            owner = PROJECTS.ownerOf(revnetId);
-
-            // Make sure the caller is the owner of the Juicebox project.
-            if (_msgSender() != owner) revert REVDeployer_Unauthorized(revnetId, _msgSender());
-        }
-
         // Store the hash before setup callbacks so reentrant readers cannot observe a zero configuration hash. Any
         // subsequent revert rolls this write back.
         hashedEncodedConfigurationOf[revnetId] = encodedConfigurationHash;
 
         if (!shouldDeployNewRevnet) {
+            // Keep a reference to the Juicebox project's owner.
+            address owner = PROJECTS.ownerOf(revnetId);
+
+            // Make sure the caller is the owner of the Juicebox project.
+            if (_msgSender() != owner) revert REVDeployer_Unauthorized(revnetId, _msgSender());
+
             // Initialize the existing Juicebox project as a revnet by transferring the `JBProjects` NFT to this
             // deployer. This is irreversible.
             IERC721(PROJECTS).safeTransferFrom({from: owner, to: address(this), tokenId: revnetId});
@@ -886,6 +751,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             }
         }
 
+        // Transfer the JBProjects NFT to REVOwner. REVOwner is the project's authoritative owner.
+        IERC721(PROJECTS).safeTransferFrom({from: address(this), to: OWNER, tokenId: revnetId});
+
         // Deploy the suckers (if applicable).
         if (suckerDeploymentConfiguration.salt != bytes32(0)) {
             _deploySuckersFor({
@@ -906,6 +774,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         });
     }
 
+    /// @notice Deploy suckers for a revnet against the sucker registry, scoped on REVOwner's account.
+    /// @param revnetId The ID of the revnet to deploy suckers for.
     /// @param encodedConfigurationHash A hash that represents the revnet's configuration.
     /// @param suckerDeploymentConfiguration The suckers to set up for the revnet.
     function _deploySuckersFor(
@@ -923,8 +793,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             caller: _msgSender()
         });
 
-        // Include the caller so two revnets with identical configuration and user salt cannot collide. Same-address
-        // cross-chain deployment still works when the same operator calls this helper on each chain.
         suckers = SUCKER_REGISTRY.deploySuckersFor({
             projectId: revnetId,
             salt: keccak256(abi.encode(encodedConfigurationHash, suckerDeploymentConfiguration.salt, _msgSender())),
@@ -1069,13 +937,19 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
                     caller: _msgSender()
                 });
 
-                // Store the amount of tokens that can be auto-minted on this chain during this stage.
-                // The stage ID is `block.timestamp + i`. This matches the ruleset ID that JBRulesets assigns
-                // because JBRulesets uses `latestId >= block.timestamp ? latestId + 1 : block.timestamp`
-                // (JBRulesets.sol L172), producing the same sequential IDs when all stages are queued in one tx.
-                // `autoIssueFor` later calls `getRulesetOf(revnetId, stageId)` — the returned `ruleset.start`
-                // is the derived start time (not the queue time), so the timing guard works correctly.
-                amountToAutoIssue[revnetId][block.timestamp + i][autoIssuance.beneficiary] += autoIssuance.count;
+                // Record the amount of tokens that can be auto-minted on this chain during this stage on the
+                // REVOwner contract. The stage ID is `block.timestamp + i`. This matches the ruleset ID that
+                // JBRulesets assigns because JBRulesets uses `latestId >= block.timestamp ? latestId + 1 :
+                // block.timestamp` (JBRulesets.sol L172), producing the same sequential IDs when all stages are
+                // queued in one tx. `REVOwner.autoIssueFor` later calls `getRulesetOf(revnetId, stageId)` — the
+                // returned `ruleset.start` is the derived start time (not the queue time), so the timing guard
+                // works correctly.
+                REVOwner(OWNER).recordAutoIssue({
+                    revnetId: revnetId,
+                    stageId: block.timestamp + i,
+                    beneficiary: autoIssuance.beneficiary,
+                    count: autoIssuance.count
+                });
             }
             unchecked {
                 ++i;
@@ -1105,60 +979,4 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         emit SetCashOutDelay({revnetId: revnetId, cashOutDelay: cashOutDelay, caller: _msgSender()});
     }
 
-    /// @notice Grant a permission to an address (an "operator").
-    /// @param operator The address to grant the permission to.
-    /// @param revnetId The ID of the revnet to scope the permission for.
-    /// @param permissionId The ID of the permission to grant. See `JBPermissionIds`.
-    function _setPermission(address operator, uint256 revnetId, uint8 permissionId) internal {
-        uint8[] memory permissionsIds = new uint8[](1);
-        permissionsIds[0] = permissionId;
-
-        // Give the operator the permission.
-        _setPermissionsFor({
-            account: address(this), operator: operator, revnetId: revnetId, permissionIds: permissionsIds
-        });
-    }
-
-    /// @notice Grant permissions to an address (an "operator").
-    /// @param account The account granting the permissions.
-    /// @param operator The address to grant the permissions to.
-    /// @param revnetId The ID of the revnet to scope the permissions for.
-    /// @param permissionIds An array of permission IDs to grant. See `JBPermissionIds`.
-    function _setPermissionsFor(
-        address account,
-        address operator,
-        uint256 revnetId,
-        uint8[] memory permissionIds
-    )
-        internal
-    {
-        // Set up the permission data.
-        JBPermissionsData memory permissionData =
-        // forge-lint: disable-next-line(unsafe-typecast)
-        JBPermissionsData({operator: operator, projectId: uint64(revnetId), permissionIds: permissionIds});
-
-        // Set the permissions.
-        PERMISSIONS.setPermissionsFor({account: account, permissionsData: permissionData});
-    }
-
-    /// @notice Give a operator their permissions.
-    /// @dev Only a revnet's current operator can set a new operator, by calling `setOperatorOf(…)`.
-    /// @param revnetId The ID of the revnet to grant operator permissions for.
-    /// @param operator The new operator's address.
-    function _setOperatorOf(uint256 revnetId, address operator) internal {
-        // Get the permission indexes for the operator.
-        uint256[] memory permissionIndexes = _operatorPermissionIndexesOf(revnetId);
-        uint8[] memory permissionIds = new uint8[](permissionIndexes.length);
-
-        for (uint256 i; i < permissionIndexes.length;) {
-            permissionIds[i] = uint8(permissionIndexes[i]);
-            unchecked {
-                ++i;
-            }
-        }
-
-        _setPermissionsFor({
-            account: address(this), operator: operator, revnetId: revnetId, permissionIds: permissionIds
-        });
-    }
 }

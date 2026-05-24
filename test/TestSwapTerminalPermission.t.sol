@@ -211,7 +211,7 @@ contract TestSwapTerminalPermission is TestBaseWorkflow {
         bool hasBuybackHook = jbPermissions()
             .hasPermission({
             operator: multisig(),
-            account: address(REV_DEPLOYER),
+            account: address(REV_OWNER),
             projectId: TEST_REVNET_ID,
             permissionId: JBPermissionIds.SET_BUYBACK_HOOK,
             includeRoot: false,
@@ -222,7 +222,7 @@ contract TestSwapTerminalPermission is TestBaseWorkflow {
         bool hasRouterTerminal = jbPermissions()
             .hasPermission({
             operator: multisig(),
-            account: address(REV_DEPLOYER),
+            account: address(REV_OWNER),
             projectId: TEST_REVNET_ID,
             permissionId: JBPermissionIds.SET_ROUTER_TERMINAL,
             includeRoot: false,
@@ -248,7 +248,7 @@ contract TestSwapTerminalPermission is TestBaseWorkflow {
             bool hasPermission = jbPermissions()
                 .hasPermission({
                 operator: multisig(),
-                account: address(REV_DEPLOYER),
+                account: address(REV_OWNER),
                 projectId: TEST_REVNET_ID,
                 permissionId: expectedPermissions[i],
                 includeRoot: false,

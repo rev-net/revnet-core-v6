@@ -489,17 +489,17 @@ contract REVLoansRegressions is TestBaseWorkflow {
         assertEq(ruleset.start, deployTimestamp + 365 days, "stage 2 should start 365 days from deploy");
 
         // Step 3: Verify amountToAutoIssue was stored with the correct stage ID.
-        uint256 storedAutoIssue = REV_DEPLOYER.amountToAutoIssue(fp1RevnetId, stage2RulesetId, multisig());
+        uint256 storedAutoIssue = REV_OWNER.amountToAutoIssue(fp1RevnetId, stage2RulesetId, multisig());
         assertEq(storedAutoIssue, 50_000e18, "auto-issuance amount should be stored at deployTimestamp + 1");
 
         // Step 4: Call autoIssueFor now -- it should revert because stage 2 hasn't started yet.
-        vm.expectRevert(abi.encodeWithSelector(REVDeployer.REVDeployer_StageNotStarted.selector, stage2RulesetId));
-        REV_DEPLOYER.autoIssueFor(fp1RevnetId, stage2RulesetId, multisig());
+        vm.expectRevert(abi.encodeWithSelector(REVOwner.REVOwner_StageNotStarted.selector, stage2RulesetId));
+        REV_OWNER.autoIssueFor(fp1RevnetId, stage2RulesetId, multisig());
 
         // Step 5: Warp to after stage 2 starts and verify auto-issuance works.
         vm.warp(deployTimestamp + 365 days + 1);
 
-        REV_DEPLOYER.autoIssueFor(fp1RevnetId, stage2RulesetId, multisig());
+        REV_OWNER.autoIssueFor(fp1RevnetId, stage2RulesetId, multisig());
 
         // Verify the tokens were minted.
         uint256 balance = jbController().TOKENS().totalBalanceOf({holder: multisig(), projectId: fp1RevnetId});

@@ -24,8 +24,8 @@ contract WeakConfigurationHashTest is TestTerminalEncodingInHash {
         uint256 revnetA = _deployPlainRevnet(configA);
         bytes32 hashA = REV_DEPLOYER.hashedEncodedConfigurationOf(revnetA);
 
-        assertTrue(REV_DEPLOYER.isOperatorOf(revnetA, operatorA), "operator A should control revnet A");
-        assertFalse(REV_DEPLOYER.isOperatorOf(revnetA, operatorB), "operator B should not control revnet A");
+        assertTrue(REV_OWNER.isOperatorOf(revnetA, operatorA), "operator A should control revnet A");
+        assertFalse(REV_OWNER.isOperatorOf(revnetA, operatorB), "operator B should not control revnet A");
 
         vm.revertToState(snapshot);
 
@@ -35,8 +35,8 @@ contract WeakConfigurationHashTest is TestTerminalEncodingInHash {
         bytes32 hashB = REV_DEPLOYER.hashedEncodedConfigurationOf(revnetB);
 
         assertEq(hashA, hashB, "operator differences should not affect the configuration hash");
-        assertTrue(REV_DEPLOYER.isOperatorOf(revnetB, operatorB), "operator B should control revnet B");
-        assertFalse(REV_DEPLOYER.isOperatorOf(revnetB, operatorA), "operator A should not control revnet B");
+        assertTrue(REV_OWNER.isOperatorOf(revnetB, operatorB), "operator B should control revnet B");
+        assertFalse(REV_OWNER.isOperatorOf(revnetB, operatorA), "operator A should not control revnet B");
     }
 
     function test_configurationHashExcludesReservedSplitRouting() public {

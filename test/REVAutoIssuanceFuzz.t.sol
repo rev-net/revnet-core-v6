@@ -52,6 +52,8 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
     // forge-lint: disable-next-line(mixed-case-variable)
     REVDeployer REV_DEPLOYER;
     // forge-lint: disable-next-line(mixed-case-variable)
+    REVOwner REV_OWNER;
+    // forge-lint: disable-next-line(mixed-case-variable)
     JB721TiersHook EXAMPLE_HOOK;
     // forge-lint: disable-next-line(mixed-case-variable)
     IJB721TiersHookDeployer HOOK_DEPLOYER;
@@ -95,7 +97,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
         PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
         MOCK_BUYBACK = new MockBuybackDataHook();
 
-        REVOwner revOwner = new REVOwner(
+        REV_OWNER = new REVOwner(
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
             jbDirectory(),
             FEE_PROJECT_ID,
@@ -115,10 +117,10 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
             IJBBuybackHookRegistry(address(MOCK_BUYBACK)),
             IREVLoans(makeAddr("loans")),
             TRUSTED_FORWARDER,
-            address(revOwner)
+            address(REV_OWNER)
         );
 
-        revOwner.setDeployer(REV_DEPLOYER);
+        REV_OWNER.setDeployer(REV_DEPLOYER);
 
         vm.prank(multisig());
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);
@@ -207,7 +209,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
 
         // Verify storage keys.
         for (uint256 i; i < 3; i++) {
-            uint256 storedAmount = REV_DEPLOYER.amountToAutoIssue(revnetId, stageIds[i], multisig());
+            uint256 storedAmount = REV_OWNER.amountToAutoIssue(revnetId, stageIds[i], multisig());
             uint256 expectedAmount = (10_000 + i * 1000) * decimalMultiplier;
             assertEq(storedAmount, expectedAmount, string.concat("Stage ", vm.toString(i), " storage mismatch"));
         }
@@ -224,7 +226,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
         (uint256 revnetId, uint256[] memory stageIds) = _deployMultiStageRevnet(3);
 
         // Stage 0 starts at deploy time — immediately claimable.
-        REV_DEPLOYER.autoIssueFor(revnetId, stageIds[0], multisig());
+        REV_OWNER.autoIssueFor(revnetId, stageIds[0], multisig());
 
         uint256 stage0Amount = (10_000) * decimalMultiplier;
         assertEq(
@@ -233,7 +235,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
 
         // Stage 1 starts at deployTs + 180 days.
         vm.warp(deployTs + 180 days);
-        REV_DEPLOYER.autoIssueFor(revnetId, stageIds[1], multisig());
+        REV_OWNER.autoIssueFor(revnetId, stageIds[1], multisig());
 
         uint256 stage1Amount = (11_000) * decimalMultiplier;
         assertEq(
@@ -244,7 +246,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
 
         // Stage 2 starts at deployTs + 360 days.
         vm.warp(deployTs + 360 days);
-        REV_DEPLOYER.autoIssueFor(revnetId, stageIds[2], multisig());
+        REV_OWNER.autoIssueFor(revnetId, stageIds[2], multisig());
 
         uint256 stage2Amount = (12_000) * decimalMultiplier;
         assertEq(
@@ -266,10 +268,10 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                REVDeployer.REVDeployer_NothingToAutoIssue.selector, revnetId, wrongStageId, multisig()
+                REVOwner.REVOwner_NothingToAutoIssue.selector, revnetId, wrongStageId, multisig()
             )
         );
-        REV_DEPLOYER.autoIssueFor(revnetId, wrongStageId, multisig());
+        REV_OWNER.autoIssueFor(revnetId, wrongStageId, multisig());
     }
 
     // ───────────────── Double claim prevented
@@ -280,20 +282,20 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
         (uint256 revnetId, uint256[] memory stageIds) = _deployMultiStageRevnet(1);
 
         // First claim succeeds.
-        REV_DEPLOYER.autoIssueFor(revnetId, stageIds[0], multisig());
+        REV_OWNER.autoIssueFor(revnetId, stageIds[0], multisig());
 
         // Storage should be zeroed.
         assertEq(
-            REV_DEPLOYER.amountToAutoIssue(revnetId, stageIds[0], multisig()), 0, "Storage should be zeroed after claim"
+            REV_OWNER.amountToAutoIssue(revnetId, stageIds[0], multisig()), 0, "Storage should be zeroed after claim"
         );
 
         // Second claim reverts.
         vm.expectRevert(
             abi.encodeWithSelector(
-                REVDeployer.REVDeployer_NothingToAutoIssue.selector, revnetId, stageIds[0], multisig()
+                REVOwner.REVOwner_NothingToAutoIssue.selector, revnetId, stageIds[0], multisig()
             )
         );
-        REV_DEPLOYER.autoIssueFor(revnetId, stageIds[0], multisig());
+        REV_OWNER.autoIssueFor(revnetId, stageIds[0], multisig());
     }
 
     // ───────────────── Stage not started
@@ -305,8 +307,8 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
 
         // Stage 1 starts at block.timestamp + 180 days.
         // Try to claim it now (before it starts).
-        vm.expectRevert(abi.encodeWithSelector(REVDeployer.REVDeployer_StageNotStarted.selector, stageIds[1]));
-        REV_DEPLOYER.autoIssueFor(revnetId, stageIds[1], multisig());
+        vm.expectRevert(abi.encodeWithSelector(REVOwner.REVOwner_StageNotStarted.selector, stageIds[1]));
+        REV_OWNER.autoIssueFor(revnetId, stageIds[1], multisig());
     }
 
     // ───────────────── Stage ID vs Ruleset ID comparison
@@ -329,7 +331,7 @@ contract REVAutoIssuanceFuzz_Local is TestBaseWorkflow {
         // If the ruleset hasn't started yet, getRulesetOf will use the queued ruleset.
         // The actual ID may differ from block.timestamp + 1.
         uint256 stage1StoredKey = stageIds[1]; // block.timestamp + 1
-        uint256 storedAmount = REV_DEPLOYER.amountToAutoIssue(revnetId, stage1StoredKey, multisig());
+        uint256 storedAmount = REV_OWNER.amountToAutoIssue(revnetId, stage1StoredKey, multisig());
         assertGt(storedAmount, 0, "Auto-issuance stored at block.timestamp + 1");
 
         // Check if the stored key actually corresponds to a valid ruleset.

@@ -8,13 +8,20 @@ Use this file when you need revnet-specific risks, state reads, constants, or ex
 
 | Event | When It Fires |
 |-------|---------------|
-| `AutoIssue(revnetId, stageId, beneficiary, count, caller)` | When tokens are auto-issued for a beneficiary during a stage via `autoIssueFor`. |
-| `BurnHeldTokens(revnetId, count, caller)` | When held tokens are burned from the deployer contract via `burnHeldTokensOf`. |
 | `DeployRevnet(revnetId, configuration, terminalConfigurations, suckerDeploymentConfiguration, rulesetConfigurations, encodedConfigurationHash, caller)` | When a new revnet is deployed via `deployFor`. |
 | `DeploySuckers(revnetId, encodedConfigurationHash, suckerDeploymentConfiguration, caller)` | When suckers are deployed for a revnet via `deploySuckersFor`. |
-| `ReplaceOperator(revnetId, newOperator, caller)` | When the operator of a revnet is replaced via `setOperatorOf`. |
 | `SetCashOutDelay(revnetId, cashOutDelay, caller)` | When the cash out delay is set for a revnet during deployment to a new chain. |
-| `StoreAutoIssuanceAmount(revnetId, stageId, beneficiary, count, caller)` | When an auto-issuance amount is stored for a beneficiary during deployment. |
+| `StoreAutoIssuanceAmount(revnetId, stageId, beneficiary, count, caller)` | When an auto-issuance amount is recorded for a beneficiary during deployment (the deployer mirrors this onto REVOwner via `recordAutoIssue`). |
+
+### REVOwner
+
+| Event | When It Fires |
+|-------|---------------|
+| `AutoIssue(revnetId, stageId, beneficiary, count, caller)` | When tokens are auto-issued for a beneficiary during a stage via `autoIssueFor`. |
+| `BurnHeldTokens(revnetId, count, caller)` | When held project tokens are burned from this contract via `burnHeldTokensOf`. |
+| `ReplaceOperator(revnetId, newOperator, caller)` | When the operator of a revnet is replaced via `setOperatorOf`. |
+| `SetAutoIssue(revnetId, stageId, beneficiary, count, caller)` | When the deployer records an auto-issuance amount via `recordAutoIssue` during deployment. |
+| `SetExtraOperatorPermissions(revnetId, permissionIds, caller)` | When the deployer appends extra operator permissions for a revnet via `addExtraOperatorPermissions`. |
 
 ### REVLoans
 
@@ -33,16 +40,26 @@ Use this file when you need revnet-specific risks, state reads, constants, or ex
 | Error | When It Fires |
 |-------|---------------|
 | `REVDeployer_AutoIssuanceBeneficiaryZeroAddress()` | When an auto-issuance config has a zero-address beneficiary. |
-| `REVDeployer_CashOutDelayNotFinished(cashOutDelay, blockTimestamp)` | When a cash out is attempted before the 30-day delay has elapsed. |
 | `REVDeployer_CashOutsCantBeTurnedOffCompletely(cashOutTaxRate, maxCashOutTaxRate)` | When `cashOutTaxRate` equals `MAX_CASH_OUT_TAX_RATE` (10,000). Must be strictly less. |
 | `REVDeployer_MustHaveSplits()` | When a stage with `splitPercent > 0` has no splits configured. |
-| `REVDeployer_NothingToAutoIssue()` | When `autoIssueFor` is called but no tokens are available for auto-issuance. |
-| `REVDeployer_NothingToBurn()` | When `burnHeldTokensOf` is called but the deployer holds no tokens. |
 | `REVDeployer_RulesetDoesNotAllowDeployingSuckers()` | When `deploySuckersFor` is called but the current ruleset's `extraMetadata` bit 2 is not set. |
-| `REVDeployer_StageNotStarted(stageId)` | When `autoIssueFor` is called for a stage that hasn't started yet. |
 | `REVDeployer_StagesRequired()` | When `deployFor` is called with zero stage configurations. |
 | `REVDeployer_StageTimesMustIncrease()` | When stage `startsAtOrAfter` values are not strictly increasing. |
-| `REVDeployer_Unauthorized(revnetId, caller)` | When a non-operator calls a operator-only function. |
+| `REVDeployer_Unauthorized(revnetId, caller)` | When a non-operator calls an operator-only function on REVDeployer (e.g., `deploySuckersFor`). |
+
+### REVOwner
+
+| Error | When It Fires |
+|-------|---------------|
+| `REVOwner_AlreadyInitialized(deployer)` | When `setDeployer` is called after the deployer binding has already been set. |
+| `REVOwner_CashOutDelayNotFinished(cashOutDelay, blockTimestamp)` | When a cash out is attempted before the 30-day delay has elapsed. |
+| `REVOwner_InvalidLoanSourceToken(revnetId, token)` | When a peer-snapshot loan-state call references a token the revnet does not source loans from. |
+| `REVOwner_NativeFeeValueMismatch(expected, actual)` | When `afterCashOutRecordedWith` receives a native-token fee whose `msg.value` does not match the expected `forwardedAmount.value`. |
+| `REVOwner_NothingToAutoIssue(revnetId, stageId, beneficiary)` | When `autoIssueFor` is called but no tokens are recorded for the (revnet, stage, beneficiary) triple. |
+| `REVOwner_NothingToBurn(revnetId, holder)` | When `burnHeldTokensOf` is called but REVOwner holds no project tokens for the revnet. |
+| `REVOwner_StageNotStarted(stageId)` | When `autoIssueFor` is called for a stage that hasn't started yet. |
+| `REVOwner_Unauthorized(caller, expectedCaller)` | When a deployer-only setter (`setDeployer`, `setCashOutDelayOf`, `setTiered721HookOf`, `recordAutoIssue`, `addExtraOperatorPermissions`, `bootstrapOperator`, `grantPermissionTo`) is called by a non-deployer. |
+| `REVOwner_UnauthorizedOperator(revnetId, caller)` | When `setOperatorOf` is called by an address that is not the revnet's current operator. |
 
 ### REVLoans
 
@@ -96,17 +113,20 @@ Use this file when you need revnet-specific risks, state reads, constants, or ex
 
 | Mapping | Visibility | Type | Purpose |
 |---------|-----------|------|---------|
-| `amountToAutoIssue` | `public` | `revnetId => stageId => beneficiary => uint256` | Premint tokens per stage per beneficiary |
 | `hashedEncodedConfigurationOf` | `public` | `revnetId => bytes32` | Config hash for cross-chain sucker validation |
-| `_extraOperatorPermissions` | `internal` | `revnetId => uint256[]` | Custom permissions for operator (no auto-getter) |
 
 ### REVOwner
 
-| Mapping | Visibility | Type | Purpose |
+| Storage | Visibility | Type | Purpose |
 |---------|-----------|------|---------|
-| `DEPLOYER` | `public` | `address` | REVDeployer address (storage variable, set once by the REVOwner initializer using the precomputed canonical deployer address) |
+| `deployer` | `public` | `IREVDeployer` | REVDeployer address (set once by the REVOwner initializer using the precomputed canonical deployer address) |
+| `CONTROLLER` | `public` | `IJBController` | Cached from `deployer.CONTROLLER()` at `setDeployer` time. Used by `autoIssueFor` / `burnHeldTokensOf`. |
+| `PERMISSIONS` | `public` | `IJBPermissions` | Cached from `deployer.PERMISSIONS()` at `setDeployer` time. Backs operator permission grants. |
+| `PROJECTS` | `public` | `IJBProjects` | Cached from `deployer.PROJECTS()` at `setDeployer` time. Used by `onERC721Received` to verify the NFT origin. |
 | `cashOutDelayOf` | `public` | `revnetId => uint256` | Timestamp when cash outs unlock (0 = no delay). Set by REVDeployer via `setCashOutDelayOf()`. |
 | `tiered721HookOf` | `public` | `revnetId => address` | Deployed 721 hook address (if any). Set by REVDeployer via `setTiered721HookOf()`. |
+| `amountToAutoIssue` | `public` | `revnetId => stageId => beneficiary => uint256` | Pre-mint allocation per stage per beneficiary. Populated during deploy via `recordAutoIssue`. |
+| `_extraOperatorPermissions` | `internal` | `revnetId => uint256[]` | Custom operator permissions appended on top of the protocol-default set (no auto-getter). |
 
 ### REVLoans
 
@@ -122,7 +142,7 @@ Use this file when you need revnet-specific risks, state reads, constants, or ex
 
 ## Gotchas
 
-1. **Revnets are permanently ownerless.** `REVDeployer` holds the project NFT forever. There is no function to release it. Stage parameters cannot be changed after deployment.
+1. **Revnets are permanently ownerless.** `REVOwner` holds the project NFT for every Revnet and exposes no function to release it. Stage parameters cannot be changed after deployment.
 2. **Collateral is burned, not held.** Unlike traditional lending, collateral tokens are destroyed at borrow time and re-minted on repay. If a loan liquidates after 10 years, the collateral is permanently lost.
 3. **100% LTV by design.** Borrowable amount equals the pro-rata cash-out value. No safety margin unless the stage has `cashOutTaxRate > 0`. A tax of 20% creates ~20% effective collateral buffer.
 4. **Loan ID encoding.** `loanId = revnetId * 1_000_000_000_000 + loanNumber`. Each revnet supports ~1 trillion loans. Use `revnetIdOfLoanWith(loanId)` to decode.
