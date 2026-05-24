@@ -15,6 +15,7 @@ import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
 import {REVEmpty721Config} from "./helpers/REVEmpty721Config.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
+import {IREVOwner} from "../src/interfaces/IREVOwner.sol";
 
 // forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
@@ -312,7 +313,7 @@ contract REVnet_Integrations is TestBaseWorkflow {
     function test_preMint() public {
         uint256 perStageMintAmount = 70_000 * decimalMultiplier;
         vm.expectEmit();
-        emit REVOwner.AutoIssue(REVNET_ID, firstStageId, multisig(), perStageMintAmount, address(this));
+        emit IREVOwner.AutoIssue(REVNET_ID, firstStageId, multisig(), perStageMintAmount, address(this));
         REV_OWNER.autoIssueFor(REVNET_ID, firstStageId, multisig());
 
         assertEq(70_000 * decimalMultiplier, IJBToken(jbTokens().tokenOf(REVNET_ID)).balanceOf(multisig()));
@@ -322,7 +323,7 @@ contract REVnet_Integrations is TestBaseWorkflow {
         uint256 perStageMintAmount = 70_000 * decimalMultiplier;
 
         vm.expectEmit();
-        emit REVOwner.AutoIssue(REVNET_ID, firstStageId, multisig(), perStageMintAmount, address(this));
+        emit IREVOwner.AutoIssue(REVNET_ID, firstStageId, multisig(), perStageMintAmount, address(this));
         REV_OWNER.autoIssueFor(REVNET_ID, firstStageId, multisig());
         assertEq(REV_OWNER.amountToAutoIssue(REVNET_ID, firstStageId, multisig()), 0);
 
@@ -332,7 +333,7 @@ contract REVnet_Integrations is TestBaseWorkflow {
         assertEq(perStageMintAmount, REV_OWNER.amountToAutoIssue(REVNET_ID, firstStageId + 1, multisig()));
 
         vm.expectEmit();
-        emit REVOwner.AutoIssue(REVNET_ID, firstStageId + 1, multisig(), perStageMintAmount, address(this));
+        emit IREVOwner.AutoIssue(REVNET_ID, firstStageId + 1, multisig(), perStageMintAmount, address(this));
         REV_OWNER.autoIssueFor(REVNET_ID, firstStageId + 1, multisig());
 
         assertEq(perStageMintAmount * 2, IJBToken(jbTokens().tokenOf(REVNET_ID)).balanceOf(multisig()));

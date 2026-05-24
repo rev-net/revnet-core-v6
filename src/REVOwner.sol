@@ -33,6 +33,10 @@ import {mulDiv} from "@prb/math/src/Common.sol";
 
 import {IREVDeployer} from "./interfaces/IREVDeployer.sol";
 import {IREVLoans} from "./interfaces/IREVLoans.sol";
+import {IREVOwner} from "./interfaces/IREVOwner.sol";
+import {REVOwnerAutoIssuance} from "./structs/REVOwnerAutoIssuance.sol";
+import {REVOwnerExtraGrant} from "./structs/REVOwnerExtraGrant.sol";
+import {REVOwnerRevnetInit} from "./structs/REVOwnerRevnetInit.sol";
 
 /// @notice The runtime hook for all revnets — set as every revnet's `dataHook` in ruleset metadata. At pay time, it
 /// coordinates the 721 hook (NFT tier minting) with the buyback hook (secondary market swap routing) and scales weight
@@ -41,7 +45,7 @@ import {IREVLoans} from "./interfaces/IREVLoans.sol";
 /// proceeds to the fee revnet via `afterCashOutRecordedWith`.
 /// @dev Separated from `REVDeployer` to stay within the EIP-170 contract size limit. Also implements
 /// `IJBPeerChainAdjustedAccounts` to expose loan state to peer-chain supply/surplus snapshots.
-contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAccounts, IERC721Receiver {
+contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAccounts, IERC721Receiver {
     // A library that adds default safety checks to ERC20 functionality.
     using SafeERC20 for IERC20;
 
@@ -60,65 +64,23 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     error REVOwner_UnauthorizedOperator(uint256 revnetId, address caller);
 
     //*********************************************************************//
-    // ------------------------------ events ----------------------------- //
-    //*********************************************************************//
-
-    /// @notice Emitted when tokens are auto-issued for a beneficiary during a stage.
-    /// @param revnetId The ID of the revnet.
-    /// @param stageId The ID of the stage.
-    /// @param beneficiary The address receiving the auto-issued tokens.
-    /// @param count The number of tokens auto-issued.
-    /// @param caller The address that triggered the auto-issuance.
-    event AutoIssue(
-        uint256 indexed revnetId, uint256 indexed stageId, address indexed beneficiary, uint256 count, address caller
-    );
-
-    /// @notice Emitted when held tokens are burned from this contract.
-    /// @param revnetId The ID of the revnet whose tokens were burned.
-    /// @param count The number of tokens burned.
-    /// @param caller The address that triggered the burn.
-    event BurnHeldTokens(uint256 indexed revnetId, uint256 count, address caller);
-
-    /// @notice Emitted when the operator of a revnet is replaced.
-    /// @param revnetId The ID of the revnet.
-    /// @param newOperator The address of the new operator.
-    /// @param caller The address that replaced the operator.
-    event ReplaceOperator(uint256 indexed revnetId, address indexed newOperator, address caller);
-
-    /// @notice Emitted when an auto-issuance amount is recorded for a beneficiary during a stage.
-    /// @param revnetId The ID of the revnet.
-    /// @param stageId The ID of the stage.
-    /// @param beneficiary The address the tokens will be issued to.
-    /// @param count The number of tokens recorded for auto-issuance.
-    /// @param caller The address that recorded the amount.
-    event SetAutoIssue(
-        uint256 indexed revnetId, uint256 indexed stageId, address indexed beneficiary, uint256 count, address caller
-    );
-
-    /// @notice Emitted when extra operator permissions are appended for a revnet.
-    /// @param revnetId The ID of the revnet.
-    /// @param permissionIds The permission IDs added to the revnet's operator set.
-    /// @param caller The address that added the permissions.
-    event SetExtraOperatorPermissions(uint256 indexed revnetId, uint256[] permissionIds, address caller);
-
-    //*********************************************************************//
     // --------------- public immutable stored properties ---------------- //
     //*********************************************************************//
 
     /// @notice The buyback hook used as a data hook to route payments through buyback pools.
-    IJBBuybackHookRegistry public immutable BUYBACK_HOOK;
+    IJBBuybackHookRegistry public immutable override BUYBACK_HOOK;
 
     /// @notice The directory of terminals and controllers for Juicebox projects.
-    IJBDirectory public immutable DIRECTORY;
+    IJBDirectory public immutable override DIRECTORY;
 
     /// @notice The Juicebox project ID of the revnet that receives cash out fees.
-    uint256 public immutable FEE_REVNET_ID;
+    uint256 public immutable override FEE_REVNET_ID;
 
     /// @notice The loan contract used by all revnets.
-    IREVLoans public immutable LOANS;
+    IREVLoans public immutable override LOANS;
 
     /// @notice Deploys and tracks suckers for revnets.
-    IJBSuckerRegistry public immutable SUCKER_REGISTRY;
+    IJBSuckerRegistry public immutable override SUCKER_REGISTRY;
 
     //*********************************************************************//
     // --------------------- public stored properties -------------------- //
@@ -127,33 +89,33 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     /// @notice The timestamp of when cashouts will become available to a specific revnet's participants.
     /// @dev Only applies to existing revnets deploying onto a new network.
     /// @custom:param revnetId The ID of the revnet to check the cash out delay for.
-    mapping(uint256 revnetId => uint256 cashOutDelay) public cashOutDelayOf;
+    mapping(uint256 revnetId => uint256 cashOutDelay) public override cashOutDelayOf;
 
     /// @notice Each revnet's tiered ERC-721 hook.
     /// @custom:param revnetId The ID of the revnet to look up.
-    mapping(uint256 revnetId => IJB721TiersHook tiered721Hook) public tiered721HookOf;
+    mapping(uint256 revnetId => IJB721TiersHook tiered721Hook) public override tiered721HookOf;
 
     /// @notice The amount of project tokens to auto-issue at a given stage to a given beneficiary.
     /// @custom:param revnetId The ID of the revnet to look up.
     /// @custom:param stageId The ID of the ruleset stage to look up.
     /// @custom:param beneficiary The address that will receive the auto-issued tokens.
-    mapping(uint256 revnetId => mapping(uint256 stageId => mapping(address beneficiary => uint256 count))) public amountToAutoIssue;
+    mapping(uint256 revnetId => mapping(uint256 stageId => mapping(address beneficiary => uint256 count))) public override amountToAutoIssue;
 
     /// @notice The deployer that manages revnet state.
     /// @dev Set once via `setDeployer()` using the precomputed canonical REVDeployer address.
-    IREVDeployer public deployer;
+    IREVDeployer public override deployer;
 
     /// @notice The controller used by all revnets to manage their projects.
     /// @dev Cached from the deployer at `setDeployer()` time.
-    IJBController public CONTROLLER;
+    IJBController public override CONTROLLER;
 
     /// @notice The permissions registry used to grant operator authority over revnets.
     /// @dev Cached from the deployer at `setDeployer()` time.
-    IJBPermissions public PERMISSIONS;
+    IJBPermissions public override PERMISSIONS;
 
     /// @notice The Juicebox project NFT contract.
     /// @dev Cached from the deployer at `setDeployer()` time. Required for `onERC721Received` authentication.
-    IJBProjects public PROJECTS;
+    IJBProjects public override PROJECTS;
 
     //*********************************************************************//
     // -------------------- internal stored properties ------------------- //
@@ -588,15 +550,59 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         }
     }
 
-    /// @notice Store the cash out delay for a revnet.
-    /// @dev Only callable by the deployer.
-    /// @param revnetId The ID of the revnet.
-    /// @param cashOutDelay The timestamp after which cash outs are allowed.
-    function setCashOutDelayOf(uint256 revnetId, uint256 cashOutDelay) external {
+    /// @notice Bind every piece of revnet-scoped state managed by this contract in a single deployer call. Stores
+    /// the cash-out delay, the tiered ERC-721 hook, auto-issuance allocations, extra operator permissions, the
+    /// initial operator, and any integration-specific permission grants.
+    /// @dev Only callable by the canonical deployer during a revnet's initial configuration. Extra operator
+    /// permissions are appended before the operator is bootstrapped so the operator receives the merged set in a
+    /// single permissions write.
+    /// @param revnetId The ID of the revnet being initialized.
+    /// @param init The full initialization payload.
+    function initializeRevnet(uint256 revnetId, REVOwnerRevnetInit calldata init) external override {
         if (msg.sender != address(deployer)) {
             revert REVOwner_Unauthorized({caller: msg.sender, expectedCaller: address(deployer)});
         }
-        cashOutDelayOf[revnetId] = cashOutDelay;
+
+        if (init.cashOutDelay != 0) {
+            cashOutDelayOf[revnetId] = init.cashOutDelay;
+        }
+
+        if (address(init.tiered721Hook) != address(0)) {
+            tiered721HookOf[revnetId] = init.tiered721Hook;
+        }
+
+        for (uint256 i; i < init.autoIssuances.length;) {
+            REVOwnerAutoIssuance calldata autoIssuance = init.autoIssuances[i];
+            amountToAutoIssue[revnetId][autoIssuance.stageId][autoIssuance.beneficiary] += autoIssuance.count;
+            unchecked {
+                ++i;
+            }
+        }
+
+        for (uint256 i; i < init.extraOperatorPermissionIds.length;) {
+            _extraOperatorPermissions[revnetId].push(init.extraOperatorPermissionIds[i]);
+            unchecked {
+                ++i;
+            }
+        }
+
+        // Grant the operator the merged default + extra permission set in a single permissions write.
+        _setOperatorOf({revnetId: revnetId, operator: init.operator});
+
+        // Apply per-revnet permission grants for integrations (e.g., the Croptop publisher).
+        for (uint256 i; i < init.extraGrants.length;) {
+            REVOwnerExtraGrant calldata grant = init.extraGrants[i];
+            uint8[] memory permissionIds = new uint8[](1);
+            permissionIds[0] = grant.permissionId;
+            _setPermissionsFor({
+                account: address(this), operator: grant.operator, revnetId: revnetId, permissionIds: permissionIds
+            });
+            unchecked {
+                ++i;
+            }
+        }
+
+        emit InitializeRevnet({revnetId: revnetId, caller: msg.sender});
     }
 
     /// @notice Bind the canonical deployer address exactly once.
@@ -604,7 +610,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     /// Only that deploy-time binder may call this, which avoids an ambient public initializer where any first caller
     /// could seize the deployer role before the deterministic REVDeployer is actually deployed.
     /// @param newDeployer The canonical REVDeployer instance that will manage revnet runtime state.
-    function setDeployer(IREVDeployer newDeployer) external {
+    function setDeployer(IREVDeployer newDeployer) external override {
         // Only the account that deployed this REVOwner may complete the one-time deployer binding.
         if (msg.sender != _DEPLOYER) revert REVOwner_Unauthorized({caller: msg.sender, expectedCaller: _DEPLOYER});
         // Prevent the deployer binding from being overwritten after initialization.
@@ -643,85 +649,13 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
         });
     }
 
-    /// @notice Store the tiered ERC-721 hook for a revnet.
-    /// @dev Only callable by the deployer.
-    /// @param revnetId The ID of the revnet.
-    /// @param hook The tiered ERC-721 hook.
-    function setTiered721HookOf(uint256 revnetId, IJB721TiersHook hook) external {
-        if (msg.sender != address(deployer)) {
-            revert REVOwner_Unauthorized({caller: msg.sender, expectedCaller: address(deployer)});
-        }
-        tiered721HookOf[revnetId] = hook;
-    }
-
-    /// @notice Record the amount of project tokens to auto-issue at a given stage to a given beneficiary.
-    /// @dev Only callable by the deployer during the initial revnet configuration.
-    /// @param revnetId The ID of the revnet.
-    /// @param stageId The ID of the stage at which the auto-issuance unlocks.
-    /// @param beneficiary The address that will receive the auto-issued tokens.
-    /// @param count The number of project tokens to issue.
-    function recordAutoIssue(uint256 revnetId, uint256 stageId, address beneficiary, uint256 count) external {
-        if (msg.sender != address(deployer)) {
-            revert REVOwner_Unauthorized({caller: msg.sender, expectedCaller: address(deployer)});
-        }
-        amountToAutoIssue[revnetId][stageId][beneficiary] += count;
-        emit SetAutoIssue({
-            revnetId: revnetId, stageId: stageId, beneficiary: beneficiary, count: count, caller: msg.sender
-        });
-    }
-
-    /// @notice Append additional operator permissions to the revnet's permission set.
-    /// @dev Only callable by the deployer during the initial revnet configuration.
-    /// @param revnetId The ID of the revnet.
-    /// @param permissionIds The permission IDs to add.
-    function addExtraOperatorPermissions(uint256 revnetId, uint256[] calldata permissionIds) external {
-        if (msg.sender != address(deployer)) {
-            revert REVOwner_Unauthorized({caller: msg.sender, expectedCaller: address(deployer)});
-        }
-        for (uint256 i; i < permissionIds.length;) {
-            _extraOperatorPermissions[revnetId].push(permissionIds[i]);
-            unchecked {
-                ++i;
-            }
-        }
-        emit SetExtraOperatorPermissions({revnetId: revnetId, permissionIds: permissionIds, caller: msg.sender});
-    }
-
-    /// @notice Set the initial operator for a revnet and grant them the default operator permissions.
-    /// @dev Only callable by the deployer during initial revnet configuration.
-    /// @param revnetId The ID of the revnet.
-    /// @param operator The initial operator address. Use `address(0)` to relinquish operator powers up front.
-    function bootstrapOperator(uint256 revnetId, address operator) external {
-        if (msg.sender != address(deployer)) {
-            revert REVOwner_Unauthorized({caller: msg.sender, expectedCaller: address(deployer)});
-        }
-        _setOperatorOf({revnetId: revnetId, operator: operator});
-    }
-
-    /// @notice Grant a permission to a non-operator address scoped to a revnet.
-    /// @dev Only callable by the deployer during initial revnet configuration. Used for integrations that need
-    /// to act on the revnet's behalf without holding full operator authority (e.g., the croptop publisher).
-    /// @param revnetId The ID of the revnet to scope the permission for.
-    /// @param operator The address being granted the permission.
-    /// @param permissionId The permission ID to grant.
-    function grantPermissionTo(uint256 revnetId, address operator, uint8 permissionId) external {
-        if (msg.sender != address(deployer)) {
-            revert REVOwner_Unauthorized({caller: msg.sender, expectedCaller: address(deployer)});
-        }
-        uint8[] memory permissionIds = new uint8[](1);
-        permissionIds[0] = permissionId;
-        _setPermissionsFor({
-            account: address(this), operator: operator, revnetId: revnetId, permissionIds: permissionIds
-        });
-    }
-
     /// @notice Auto-mint a revnet's tokens from a stage for a beneficiary.
     /// @dev Permissionless: anyone can trigger the mint once the stage has started. The recorded amount is consumed
     /// (reset to zero) after the mint executes.
     /// @param revnetId The ID of the revnet to auto-mint tokens for.
     /// @param stageId The ID of the ruleset stage to auto-mint tokens from.
     /// @param beneficiary The address to send auto-minted tokens to.
-    function autoIssueFor(uint256 revnetId, uint256 stageId, address beneficiary) external {
+    function autoIssueFor(uint256 revnetId, uint256 stageId, address beneficiary) external override {
         // Get the ruleset for the stage to check if it has started.
         (JBRuleset memory ruleset,) = CONTROLLER.getRulesetOf({projectId: revnetId, rulesetId: stageId});
 
@@ -752,7 +686,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     /// @dev Tokens accrue here from reserved-token distributions when splits don't sum to 100% (the JBController
     /// mints the leftover to the project owner — which is this contract).
     /// @param revnetId The ID of the revnet to burn tokens for.
-    function burnHeldTokensOf(uint256 revnetId) external {
+    function burnHeldTokensOf(uint256 revnetId) external override {
         uint256 balance = CONTROLLER.TOKENS().totalBalanceOf({holder: address(this), projectId: revnetId});
         if (balance == 0) revert REVOwner_NothingToBurn({revnetId: revnetId, holder: address(this)});
         CONTROLLER.burnTokensOf({holder: address(this), projectId: revnetId, tokenCount: balance, memo: ""});
@@ -764,7 +698,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     /// powers permanently — the permissions move to the zero address which cannot execute transactions.
     /// @param revnetId The ID of the revnet to change the operator for.
     /// @param newOperator The new operator's address. Use `address(0)` to relinquish operator powers.
-    function setOperatorOf(uint256 revnetId, address newOperator) external {
+    function setOperatorOf(uint256 revnetId, address newOperator) external override {
         _checkIfIsOperatorOf({revnetId: revnetId, operator: msg.sender});
 
         emit ReplaceOperator({revnetId: revnetId, newOperator: newOperator, caller: msg.sender});
@@ -793,7 +727,7 @@ contract REVOwner is IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAcc
     /// @param revnetId The ID of the revnet to check.
     /// @param addr The address to check.
     /// @return flag A flag indicating whether the address holds the revnet's operator permissions.
-    function isOperatorOf(uint256 revnetId, address addr) public view returns (bool) {
+    function isOperatorOf(uint256 revnetId, address addr) public view override returns (bool) {
         return PERMISSIONS.hasPermissions({
             operator: addr,
             account: address(this),

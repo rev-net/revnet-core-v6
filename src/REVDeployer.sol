@@ -40,6 +40,9 @@ import {REVAutoIssuance} from "./structs/REVAutoIssuance.sol";
 import {REVConfig} from "./structs/REVConfig.sol";
 import {REVCroptopAllowedPost} from "./structs/REVCroptopAllowedPost.sol";
 import {REVDeploy721TiersHookConfig} from "./structs/REVDeploy721TiersHookConfig.sol";
+import {REVOwnerAutoIssuance} from "./structs/REVOwnerAutoIssuance.sol";
+import {REVOwnerExtraGrant} from "./structs/REVOwnerExtraGrant.sol";
+import {REVOwnerRevnetInit} from "./structs/REVOwnerRevnetInit.sol";
 import {REVStageConfig} from "./structs/REVStageConfig.sol";
 import {REVSuckerDeploymentConfig} from "./structs/REVSuckerDeploymentConfig.sol";
 
@@ -474,7 +477,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         if (shouldDeployNewRevnet) revnetId = PROJECTS.createFor(address(this));
 
         // Deploy the revnet (project, rulesets, ERC-20, suckers, etc.).
-        bytes32 encodedConfigurationHash = _deployRevnetFor({
+        (bytes32 encodedConfigurationHash, REVOwnerRevnetInit memory ownerInit) = _deployRevnetFor({
             revnetId: revnetId,
             shouldDeployNewRevnet: shouldDeployNewRevnet,
             configuration: configuration,
@@ -495,19 +498,18 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             });
         }
 
-        // Store the tiered ERC-721 hook in the owner contract.
-        REVOwner(OWNER).setTiered721HookOf({revnetId: revnetId, hook: hook});
-
         // Grant the operator all 721 permissions (no prevent* flags for default config).
-        uint256[] memory extraPermissions = new uint256[](4);
-        extraPermissions[0] = JBPermissionIds.ADJUST_721_TIERS;
-        extraPermissions[1] = JBPermissionIds.SET_721_METADATA;
-        extraPermissions[2] = JBPermissionIds.MINT_721;
-        extraPermissions[3] = JBPermissionIds.SET_721_DISCOUNT_PERCENT;
-        REVOwner(OWNER).addExtraOperatorPermissions({revnetId: revnetId, permissionIds: extraPermissions});
+        ownerInit.extraOperatorPermissionIds = new uint256[](4);
+        ownerInit.extraOperatorPermissionIds[0] = JBPermissionIds.ADJUST_721_TIERS;
+        ownerInit.extraOperatorPermissionIds[1] = JBPermissionIds.SET_721_METADATA;
+        ownerInit.extraOperatorPermissionIds[2] = JBPermissionIds.MINT_721;
+        ownerInit.extraOperatorPermissionIds[3] = JBPermissionIds.SET_721_DISCOUNT_PERCENT;
 
-        // Give the operator their permissions (base + 721 extras).
-        REVOwner(OWNER).bootstrapOperator({revnetId: revnetId, operator: configuration.operator});
+        ownerInit.tiered721Hook = hook;
+        ownerInit.operator = configuration.operator;
+
+        // Bind every piece of revnet-scoped state on the owner contract in a single call.
+        REVOwner(OWNER).initializeRevnet({revnetId: revnetId, init: ownerInit});
 
         return (revnetId, hook);
     }
@@ -564,7 +566,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         returns (IJB721TiersHook hook)
     {
         // Deploy the revnet (project, rulesets, ERC-20, suckers, etc.).
-        bytes32 encodedConfigurationHash = _deployRevnetFor({
+        (bytes32 encodedConfigurationHash, REVOwnerRevnetInit memory ownerInit) = _deployRevnetFor({
             revnetId: revnetId,
             shouldDeployNewRevnet: shouldDeployNewRevnet,
             configuration: configuration,
@@ -598,9 +600,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             salt: keccak256(abi.encode(tiered721HookConfiguration.salt, encodedConfigurationHash, _msgSender()))
         });
 
-        // Store the tiered ERC-721 hook in the owner contract.
-        REVOwner(OWNER).setTiered721HookOf({revnetId: revnetId, hook: hook});
-
         // Build the 721 permission additions based on the deployer's `preventOperator*` flags.
         {
             uint256 extraCount;
@@ -609,27 +608,25 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             if (!tiered721HookConfiguration.preventOperatorMinting) ++extraCount;
             if (!tiered721HookConfiguration.preventOperatorIncreasingDiscountPercent) ++extraCount;
 
-            if (extraCount != 0) {
-                uint256[] memory extraPermissions = new uint256[](extraCount);
-                uint256 idx;
-                if (!tiered721HookConfiguration.preventOperatorAdjustingTiers) {
-                    extraPermissions[idx++] = JBPermissionIds.ADJUST_721_TIERS;
-                }
-                if (!tiered721HookConfiguration.preventOperatorUpdatingMetadata) {
-                    extraPermissions[idx++] = JBPermissionIds.SET_721_METADATA;
-                }
-                if (!tiered721HookConfiguration.preventOperatorMinting) {
-                    extraPermissions[idx++] = JBPermissionIds.MINT_721;
-                }
-                if (!tiered721HookConfiguration.preventOperatorIncreasingDiscountPercent) {
-                    extraPermissions[idx++] = JBPermissionIds.SET_721_DISCOUNT_PERCENT;
-                }
-                REVOwner(OWNER).addExtraOperatorPermissions({revnetId: revnetId, permissionIds: extraPermissions});
+            uint256[] memory extraPermissions = new uint256[](extraCount);
+            uint256 idx;
+            if (!tiered721HookConfiguration.preventOperatorAdjustingTiers) {
+                extraPermissions[idx++] = JBPermissionIds.ADJUST_721_TIERS;
             }
+            if (!tiered721HookConfiguration.preventOperatorUpdatingMetadata) {
+                extraPermissions[idx++] = JBPermissionIds.SET_721_METADATA;
+            }
+            if (!tiered721HookConfiguration.preventOperatorMinting) {
+                extraPermissions[idx++] = JBPermissionIds.MINT_721;
+            }
+            if (!tiered721HookConfiguration.preventOperatorIncreasingDiscountPercent) {
+                extraPermissions[idx++] = JBPermissionIds.SET_721_DISCOUNT_PERCENT;
+            }
+            ownerInit.extraOperatorPermissionIds = extraPermissions;
         }
 
-        // Give the operator their permissions (base + 721 extras).
-        REVOwner(OWNER).bootstrapOperator({revnetId: revnetId, operator: configuration.operator});
+        ownerInit.tiered721Hook = hook;
+        ownerInit.operator = configuration.operator;
 
         // If there are posts to allow, configure them.
         if (allowedPosts.length != 0) {
@@ -660,10 +657,14 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             PUBLISHER.configurePostingCriteriaFor({allowedPosts: formattedAllowedPosts});
 
             // Give the croptop publisher permission to post new ERC-721 tiers on the revnet's behalf.
-            REVOwner(OWNER).grantPermissionTo({
-                revnetId: revnetId, operator: address(PUBLISHER), permissionId: JBPermissionIds.ADJUST_721_TIERS
+            ownerInit.extraGrants = new REVOwnerExtraGrant[](1);
+            ownerInit.extraGrants[0] = REVOwnerExtraGrant({
+                operator: address(PUBLISHER), permissionId: JBPermissionIds.ADJUST_721_TIERS
             });
         }
+
+        // Bind every piece of revnet-scoped state on the owner contract in a single call.
+        REVOwner(OWNER).initializeRevnet({revnetId: revnetId, init: ownerInit});
     }
 
     /// @notice Deploy a revnet, or initialize an existing Juicebox project as a revnet.
@@ -688,11 +689,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         REVSuckerDeploymentConfig calldata suckerDeploymentConfiguration
     )
         internal
-        returns (bytes32 encodedConfigurationHash)
+        returns (bytes32 encodedConfigurationHash, REVOwnerRevnetInit memory ownerInit)
     {
         // Normalize and encode the configurations.
         JBRulesetConfig[] memory rulesetConfigurations;
-        (rulesetConfigurations, encodedConfigurationHash) = _makeRulesetConfigurations({
+        (rulesetConfigurations, encodedConfigurationHash, ownerInit.autoIssuances) = _makeRulesetConfigurations({
             revnetId: revnetId, configuration: configuration, accountingContextsToAccept: accountingContextsToAccept
         });
 
@@ -725,10 +726,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             memo: ""
         });
 
-        // Store the cash out delay of the revnet if its stages are already in progress.
-        // This prevents cash out liquidity/arbitrage issues for existing revnets which
-        // are deploying to a new chain.
-        _setCashOutDelayIfNeeded({revnetId: revnetId, firstStageConfig: configuration.stageConfigurations[0]});
+        // Compute the cash out delay if the revnet's stages are already in progress. This prevents cash out
+        // liquidity/arbitrage issues for existing revnets which are deploying to a new chain.
+        ownerInit.cashOutDelay = _computeCashOutDelayIfNeeded({
+            revnetId: revnetId, firstStageConfig: configuration.stageConfigurations[0]
+        });
 
         // Deploy the revnet's ERC-20 token.
         CONTROLLER.deployERC20For({
@@ -822,7 +824,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         JBAccountingContext[] calldata accountingContextsToAccept
     )
         internal
-        returns (JBRulesetConfig[] memory rulesetConfigurations, bytes32 encodedConfigurationHash)
+        returns (
+            JBRulesetConfig[] memory rulesetConfigurations,
+            bytes32 encodedConfigurationHash,
+            REVOwnerAutoIssuance[] memory autoIssuances
+        )
     {
         // If there are no stages, revert.
         if (configuration.stageConfigurations.length == 0) {
@@ -844,6 +850,25 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         // Initialize fund access limit groups for the loan contract.
         JBFundAccessLimitGroup[] memory fundAccessLimitGroups =
             _makeLoanFundAccessLimits({accountingContextsToAccept: accountingContextsToAccept});
+
+        // Pre-count auto-issuances that will land on this chain so the owner-init array can be sized exactly.
+        uint256 autoIssuanceCount;
+        for (uint256 i; i < configuration.stageConfigurations.length;) {
+            REVAutoIssuance[] calldata stageAutoIssuances = configuration.stageConfigurations[i].autoIssuances;
+            for (uint256 j; j < stageAutoIssuances.length;) {
+                if (stageAutoIssuances[j].count != 0 && stageAutoIssuances[j].chainId == block.chainid) {
+                    ++autoIssuanceCount;
+                }
+                unchecked {
+                    ++j;
+                }
+            }
+            unchecked {
+                ++i;
+            }
+        }
+        autoIssuances = new REVOwnerAutoIssuance[](autoIssuanceCount);
+        uint256 autoIssuanceIdx;
 
         // Track the previous stage's effective start time for ordering validation.
         // When stage 0 uses `startsAtOrAfter == 0`, the effective value is `block.timestamp`.
@@ -937,18 +962,15 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
                     caller: _msgSender()
                 });
 
-                // Record the amount of tokens that can be auto-minted on this chain during this stage on the
-                // REVOwner contract. The stage ID is `block.timestamp + i`. This matches the ruleset ID that
-                // JBRulesets assigns because JBRulesets uses `latestId >= block.timestamp ? latestId + 1 :
-                // block.timestamp` (JBRulesets.sol L172), producing the same sequential IDs when all stages are
-                // queued in one tx. `REVOwner.autoIssueFor` later calls `getRulesetOf(revnetId, stageId)` — the
-                // returned `ruleset.start` is the derived start time (not the queue time), so the timing guard
-                // works correctly.
-                REVOwner(OWNER).recordAutoIssue({
-                    revnetId: revnetId,
-                    stageId: block.timestamp + i,
-                    beneficiary: autoIssuance.beneficiary,
-                    count: autoIssuance.count
+                // Record the amount of tokens that can be auto-minted on this chain during this stage. The stage
+                // ID is `block.timestamp + i`. This matches the ruleset ID that JBRulesets assigns because
+                // JBRulesets uses `latestId >= block.timestamp ? latestId + 1 : block.timestamp`
+                // (JBRulesets.sol L172), producing the same sequential IDs when all stages are queued in one tx.
+                // `REVOwner.autoIssueFor` later calls `getRulesetOf(revnetId, stageId)` — the returned
+                // `ruleset.start` is the derived start time (not the queue time), so the timing guard works
+                // correctly.
+                autoIssuances[autoIssuanceIdx++] = REVOwnerAutoIssuance({
+                    stageId: block.timestamp + i, beneficiary: autoIssuance.beneficiary, count: autoIssuance.count
                 });
             }
             unchecked {
@@ -960,21 +982,26 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         encodedConfigurationHash = keccak256(encodedConfiguration);
     }
 
-    /// @notice Set the cash out delay if the revnet's stages are already in progress.
-    /// @dev This prevents cash out liquidity/arbitrage issues for existing revnets deploying to a new chain.
-    /// @param revnetId The ID of the revnet to set the cash out delay for.
+    /// @notice Compute the cash out delay for the revnet's first stage if its stages are already in progress.
+    /// @dev Returns 0 when no delay is needed. Emits `SetCashOutDelay` so deployer-side telemetry stays unchanged
+    /// even though the actual storage write happens later inside `REVOwner.initializeRevnet`.
+    /// @param revnetId The ID of the revnet to compute the cash out delay for.
     /// @param firstStageConfig The revnet's first stage.
-    function _setCashOutDelayIfNeeded(uint256 revnetId, REVStageConfig calldata firstStageConfig) internal {
+    /// @return cashOutDelay The timestamp after which cash outs are allowed, or 0 if no delay applies.
+    function _computeCashOutDelayIfNeeded(
+        uint256 revnetId,
+        REVStageConfig calldata firstStageConfig
+    )
+        internal
+        returns (uint256 cashOutDelay)
+    {
         // If this is the first revnet being deployed (with a `startsAtOrAfter` of 0),
         // or if the first stage hasn't started yet, we don't need to set a cash out delay.
         // forge-lint: disable-next-line(block-timestamp)
-        if (firstStageConfig.startsAtOrAfter == 0 || firstStageConfig.startsAtOrAfter >= block.timestamp) return;
+        if (firstStageConfig.startsAtOrAfter == 0 || firstStageConfig.startsAtOrAfter >= block.timestamp) return 0;
 
         // Calculate the timestamp at which the cash out delay ends.
-        uint256 cashOutDelay = block.timestamp + CASH_OUT_DELAY;
-
-        // Store the cash out delay in the owner contract.
-        REVOwner(OWNER).setCashOutDelayOf({revnetId: revnetId, cashOutDelay: cashOutDelay});
+        cashOutDelay = block.timestamp + CASH_OUT_DELAY;
 
         emit SetCashOutDelay({revnetId: revnetId, cashOutDelay: cashOutDelay, caller: _msgSender()});
     }
