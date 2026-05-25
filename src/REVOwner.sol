@@ -41,8 +41,8 @@ import {REVOwnerRevnetInit} from "./structs/REVOwnerRevnetInit.sol";
 /// @notice The runtime hook for all revnets — set as every revnet's `dataHook` in ruleset metadata. At pay time, it
 /// coordinates the 721 hook (NFT tier minting) with the buyback hook (secondary market swap routing) and scales weight
 /// for split deductions. At cash-out time, it aggregates cross-chain total supply and surplus (including outstanding
-/// loan debt and collateral), grants suckers 0% tax, splits a 2.5% fee from non-sucker cash outs, and routes fee
-/// proceeds to the fee revnet via `afterCashOutRecordedWith`.
+/// loan debt and collateral), grants suckers 0% tax, splits a 2.5% fee from non-sucker cash outs with a non-zero
+/// cash-out tax, and routes fee proceeds to the fee revnet via `afterCashOutRecordedWith`.
 /// @dev Separated from `REVDeployer` to stay within the EIP-170 contract size limit. Also implements
 /// `IJBPeerChainAdjustedAccounts` to expose loan state to peer-chain supply/surplus snapshots.
 contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAccounts, IERC721Receiver {
@@ -167,12 +167,12 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
 
     /// @notice Called before a cash out is recorded. Suckers get 0% tax (bridged tokens redeem at face value). For
     /// regular holders, aggregates cross-chain total supply and surplus (including outstanding loan debt/collateral),
-    /// splits a 2.5% fee from the cashed-out token count, computes bonding curve reclaims for both the holder's portion
-    /// and the fee portion, then delegates to the buyback hook for potential swap routing.
-    /// @dev Part of `IJBRulesetDataHook`. REVOwner is intentionally not registered as a feeless address — the
-    /// protocol
-    /// fee (2.5%) applies on top of the rev fee. The fee hook spec amount sent to `afterCashOutRecordedWith` will have
-    /// the protocol fee deducted by the terminal before reaching this contract.
+    /// splits a 2.5% fee from the cashed-out token count when cash-out tax is non-zero, computes bonding curve
+    /// reclaims for both the holder's portion and the fee portion, then delegates to the buyback hook for potential
+    /// swap routing.
+    /// @dev Part of `IJBRulesetDataHook`. In the non-zero-tax fee path, REVOwner is intentionally not registered as a
+    /// feeless address — the protocol fee (2.5%) applies on top of the rev fee. The fee hook spec amount sent to
+    /// `afterCashOutRecordedWith` will have the protocol fee deducted by the terminal before reaching this contract.
     /// @param context Standard Juicebox cash out context. See `JBBeforeCashOutRecordedContext`.
     /// @return cashOutTaxRate The cash out tax rate, which influences the amount of terminal tokens reclaimed.
     /// @return cashOutCount The number of revnet tokens to cash out.
@@ -232,9 +232,9 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
             });
         }
 
-        // If there's no cash out tax (100% cash out tax rate), if there's no fee terminal, or if the beneficiary is
-        // feeless (e.g. the router terminal routing value between projects), proxy to the buyback hook with our
-        // totalSupply and effectiveSurplusValue.
+        // If there's no cash out tax, if there's no fee terminal, or if the beneficiary is feeless (e.g. the router
+        // terminal routing value between projects), proxy to the buyback hook with our totalSupply and
+        // effectiveSurplusValue. Zero-tax ordinary cash-outs do not add the revnet fee hook.
         if (context.cashOutTaxRate == 0 || address(feeTerminal) == address(0) || context.beneficiaryIsFeeless) {
             // Build a modified context with cross-chain-adjusted values so the buyback hook sees the global state
             // for its swap-vs-passthrough routing decision.

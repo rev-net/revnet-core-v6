@@ -24,6 +24,7 @@ import "@croptop/core-v6/script/helpers/CroptopDeploymentLib.sol";
 import "@bananapus/router-terminal-v6/script/helpers/RouterTerminalDeploymentLib.sol";
 
 import {JBPermissioned} from "@bananapus/core-v6/src/abstract/JBPermissioned.sol";
+import {JBTokens} from "@bananapus/core-v6/src/JBTokens.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
@@ -84,6 +85,30 @@ contract ReentrantSourceTokenMock is MockERC20 {
         // Reenter: transfer the loan NFT out from under REVLoans's cached `loanOwner` before the function continues.
         IERC721(address(I_REV_LOANS)).transferFrom(I_LOAN_OWNER, I_ATTACKER, I_LOAN_ID);
         return super.transferFrom(from, to, amount);
+    }
+}
+
+/// @notice Mock token that only taxes transfers from REVLoans into the terminal during repayment.
+contract TerminalFeeOnTransferSourceTokenMock is MockERC20 {
+    address private immutable I_TAXED_FROM;
+    address private immutable I_TAXED_TO;
+    uint256 private immutable I_FEE_BPS;
+
+    constructor(address taxedFrom, address taxedTo, uint256 feeBps) MockERC20("Terminal Fee", "TFEE") {
+        I_TAXED_FROM = taxedFrom;
+        I_TAXED_TO = taxedTo;
+        I_FEE_BPS = feeBps;
+    }
+
+    function _update(address from, address to, uint256 value) internal override {
+        if (from == I_TAXED_FROM && to == I_TAXED_TO && I_FEE_BPS != 0) {
+            uint256 feeAmount = value * I_FEE_BPS / 10_000;
+            super._update({from: from, to: to, value: value - feeAmount});
+            if (feeAmount != 0) super._update({from: from, to: address(0), value: feeAmount});
+            return;
+        }
+
+        super._update({from: from, to: to, value: value});
     }
 }
 
@@ -686,6 +711,115 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         // Ensure we actually received the token from the borrow
         // Subtract the fee for REV and for the source revnet.
         assertEq(TOKEN.balanceOf(address(USER)), loanable - fees);
+    }
+
+    function test_borrow_from_fee_revnet_burns_collateral_before_fee_mints() public {
+        uint256 fundingAmount = 100 ether;
+        jbMultiTerminal().pay{value: fundingAmount}({
+            projectId: FEE_PROJECT_ID,
+            token: JBConstants.NATIVE_TOKEN,
+            amount: fundingAmount,
+            beneficiary: multisig(),
+            minReturnedTokens: 0,
+            memo: "",
+            metadata: ""
+        });
+
+        uint256 collateralCount = 1;
+        uint256 loanable;
+        while (loanable == 0 && collateralCount < 1e30) {
+            collateralCount *= 10;
+            loanable = LOANS_CONTRACT.borrowableAmountFrom({
+                revnetId: FEE_PROJECT_ID,
+                collateralCount: collateralCount,
+                decimals: 18,
+                currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            });
+        }
+        assertGt(loanable, 0);
+        assertEq(jbTokens().totalBalanceOf(USER, FEE_PROJECT_ID), 0);
+        uint256 maxPrepaidFeePercent = LOANS_CONTRACT.MAX_PREPAID_FEE_PERCENT();
+
+        mockExpect(
+            address(jbPermissions()),
+            abi.encodeCall(
+                IJBPermissions.hasPermission,
+                (address(LOANS_CONTRACT), USER, FEE_PROJECT_ID, JBPermissionIds.BURN_TOKENS, true, true)
+            ),
+            abi.encode(true)
+        );
+
+        vm.prank(USER);
+        vm.expectRevert(abi.encodeWithSelector(JBTokens.JBTokens_InsufficientTokensToBurn.selector, collateralCount, 0));
+        LOANS_CONTRACT.borrowFrom({
+            revnetId: FEE_PROJECT_ID,
+            token: JBConstants.NATIVE_TOKEN,
+            minBorrowAmount: 0,
+            collateralCount: collateralCount,
+            beneficiary: payable(USER),
+            prepaidFeePercent: maxPrepaidFeePercent,
+            holder: USER
+        });
+
+        assertEq(jbTokens().totalBalanceOf(USER, FEE_PROJECT_ID), 0);
+    }
+
+    function test_repay_reverts_when_source_token_taxes_terminal_credit() public {
+        uint256 payableAmount = 1e18;
+        deal(address(TOKEN), USER, payableAmount);
+
+        vm.prank(USER);
+        TOKEN.approve(address(jbMultiTerminal()), payableAmount);
+
+        vm.prank(USER);
+        uint256 tokens = jbMultiTerminal().pay(REVNET_ID, address(TOKEN), payableAmount, USER, 0, "", "");
+
+        uint256 loanable = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 6, uint32(uint160(address(TOKEN))));
+        assertGt(loanable, 0);
+
+        mockExpect(
+            address(jbPermissions()),
+            abi.encodeCall(
+                IJBPermissions.hasPermission,
+                (address(LOANS_CONTRACT), USER, REVNET_ID, JBPermissionIds.BURN_TOKENS, true, true)
+            ),
+            abi.encode(true)
+        );
+
+        uint256 maxPrepaidFeePercent = LOANS_CONTRACT.MAX_PREPAID_FEE_PERCENT();
+
+        vm.prank(USER);
+        (uint256 loanId,) = LOANS_CONTRACT.borrowFrom({
+            revnetId: REVNET_ID,
+            token: address(TOKEN),
+            minBorrowAmount: loanable,
+            collateralCount: tokens,
+            beneficiary: payable(USER),
+            prepaidFeePercent: maxPrepaidFeePercent,
+            holder: USER
+        });
+
+        REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
+        uint256 feeBps = 1000;
+        uint256 creditedAmount = loan.amount - (loan.amount * feeBps / 10_000);
+
+        TerminalFeeOnTransferSourceTokenMock taxedToken =
+            new TerminalFeeOnTransferSourceTokenMock(address(LOANS_CONTRACT), address(jbMultiTerminal()), feeBps);
+        vm.etch(address(TOKEN), address(taxedToken).code);
+
+        deal(address(TOKEN), USER, loan.amount);
+
+        JBSingleAllowance memory allowance;
+        vm.startPrank(USER);
+        TOKEN.approve(address(LOANS_CONTRACT), loan.amount);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                REVLoans.REVLoans_FeeOnTransferSourceUnsupported.selector, address(TOKEN), loan.amount, creditedAmount
+            )
+        );
+        LOANS_CONTRACT.repayLoan(loanId, loan.amount, loan.collateral, payable(USER), allowance);
+        vm.stopPrank();
     }
 
     function test_Cashout(

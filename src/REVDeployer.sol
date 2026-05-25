@@ -24,6 +24,7 @@ import {JBRulesetConfig} from "@bananapus/core-v6/src/structs/JBRulesetConfig.so
 import {JBRulesetMetadata} from "@bananapus/core-v6/src/structs/JBRulesetMetadata.sol";
 import {JBSplitGroup} from "@bananapus/core-v6/src/structs/JBSplitGroup.sol";
 import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.sol";
+import {JBOwnable} from "@bananapus/ownable-v6/src/JBOwnable.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
 import {CTPublisher} from "@croptop/core-v6/src/CTPublisher.sol";
@@ -345,6 +346,27 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         }
     }
 
+    /// @notice Calculate a Uniswap V4 sqrt price, returning zero if the ratio is out of range.
+    /// @param numerator The numerator of the raw token price ratio.
+    /// @param denominator The denominator of the raw token price ratio.
+    /// @return sqrtPriceX96 The encoded sqrt price, or zero when it cannot be represented.
+    function _sqrtPriceX96From(uint256 numerator, uint256 denominator) internal pure returns (uint160 sqrtPriceX96) {
+        // Q192 is the fixed-point scale Uniswap uses before taking the square root.
+        uint256 q192 = 1 << 192;
+
+        // `mulDiv` reverts if `numerator * Q192 / denominator` exceeds uint256.
+        uint256 maxRatio = type(uint256).max / q192;
+
+        // Cap the numerator at a conservative bound that keeps the scaled ratio representable.
+        uint256 maxNumerator = denominator > type(uint256).max / maxRatio ? type(uint256).max : maxRatio * denominator;
+
+        // A zero denominator is invalid, and an out-of-range numerator means this pool price should be skipped.
+        if (denominator == 0 || numerator > maxNumerator) return 0;
+
+        // The bounded ratio fits in uint256, and its square root always fits in uint160.
+        sqrtPriceX96 = uint160(sqrt(mulDiv({x: numerator, y: q192, denominator: denominator})));
+    }
+
     /// @notice Try to initialize a Uniswap V4 buyback pool for a terminal token at its fair issuance price.
     /// @dev Called after the ERC-20 token is deployed so the pool can be initialized in the PoolManager.
     /// Computes `sqrtPriceX96` from `initialIssuance` so the pool starts at the same price as the bonding curve.
@@ -406,13 +428,15 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
                 sqrtPriceX96 = uint160(1 << 96);
             } else if (normalizedTerminalToken < projectToken) {
                 // token0 = terminal, token1 = project → price = adjustedIssuance / terminalTokenUnit
-                sqrtPriceX96 =
-                    uint160(sqrt(mulDiv({x: adjustedInitialIssuance, y: 1 << 192, denominator: terminalTokenUnit})));
+                sqrtPriceX96 = _sqrtPriceX96From({numerator: adjustedInitialIssuance, denominator: terminalTokenUnit});
             } else {
                 // token0 = project, token1 = terminal → price = terminalTokenUnit / adjustedIssuance
-                sqrtPriceX96 =
-                    uint160(sqrt(mulDiv({x: terminalTokenUnit, y: 1 << 192, denominator: adjustedInitialIssuance})));
+                sqrtPriceX96 = _sqrtPriceX96From({numerator: terminalTokenUnit, denominator: adjustedInitialIssuance});
             }
+
+            // Some extreme cross-currency prices are outside Uniswap's usable sqrt-price range. In those cases,
+            // leave the pool uninitialized instead of reverting the whole revnet deployment.
+            if (sqrtPriceX96 == 0) return;
         }
 
         try BUYBACK_HOOK.initializePoolFor({
@@ -528,6 +552,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             });
         }
 
+        // Scope the hook's permissions to REVOwner, where the operator permissions are granted.
+        JBOwnable(address(hook)).transferOwnership(OWNER);
+
         // Grant the operator all 721 permissions (no prevent* flags for default config).
         ownerInit.extraOperatorPermissionIds = new uint256[](4);
         ownerInit.extraOperatorPermissionIds[0] = JBPermissionIds.ADJUST_721_TIERS;
@@ -629,6 +656,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             }),
             salt: keccak256(abi.encode(tiered721HookConfiguration.salt, encodedConfigurationHash, _msgSender()))
         });
+
+        // Scope the hook's permissions to REVOwner, where the operator permissions are granted.
+        JBOwnable(address(hook)).transferOwnership(OWNER);
 
         // Build the 721 permission additions based on the deployer's `preventOperator*` flags.
         {
