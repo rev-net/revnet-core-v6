@@ -24,6 +24,7 @@ import {JBRulesetConfig} from "@bananapus/core-v6/src/structs/JBRulesetConfig.so
 import {JBRulesetMetadata} from "@bananapus/core-v6/src/structs/JBRulesetMetadata.sol";
 import {JBSplitGroup} from "@bananapus/core-v6/src/structs/JBSplitGroup.sol";
 import {JBTerminalConfig} from "@bananapus/core-v6/src/structs/JBTerminalConfig.sol";
+import {JBOwnable} from "@bananapus/ownable-v6/src/JBOwnable.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
 import {CTPublisher} from "@croptop/core-v6/src/CTPublisher.sol";
@@ -528,6 +529,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             });
         }
 
+        // Scope the hook's permissions to REVOwner, where the operator permissions are granted.
+        JBOwnable(address(hook)).transferOwnership(OWNER);
+
         // Grant the operator all 721 permissions (no prevent* flags for default config).
         ownerInit.extraOperatorPermissionIds = new uint256[](4);
         ownerInit.extraOperatorPermissionIds[0] = JBPermissionIds.ADJUST_721_TIERS;
@@ -629,6 +633,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             }),
             salt: keccak256(abi.encode(tiered721HookConfiguration.salt, encodedConfigurationHash, _msgSender()))
         });
+
+        // Scope the hook's permissions to REVOwner, where the operator permissions are granted.
+        JBOwnable(address(hook)).transferOwnership(OWNER);
 
         // Build the 721 permission additions based on the deployer's `preventOperator*` flags.
         {

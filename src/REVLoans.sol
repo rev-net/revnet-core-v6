@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import {JBPermissioned} from "@bananapus/core-v6/src/abstract/JBPermissioned.sol";
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
+import {IJBMultiTerminal} from "@bananapus/core-v6/src/interfaces/IJBMultiTerminal.sol";
 import {IJBPayoutTerminal} from "@bananapus/core-v6/src/interfaces/IJBPayoutTerminal.sol";
 import {IJBPermissioned} from "@bananapus/core-v6/src/interfaces/IJBPermissioned.sol";
 import {IJBPrices} from "@bananapus/core-v6/src/interfaces/IJBPrices.sol";
@@ -58,6 +59,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
 
     error REVLoans_CashOutDelayNotFinished(uint256 cashOutDelay, uint256 blockTimestamp);
     error REVLoans_CollateralExceedsLoan(uint256 collateralToReturn, uint256 loanCollateral);
+    error REVLoans_FeeOnTransferSourceUnsupported(address token, uint256 expectedAmount, uint256 creditedAmount);
     error REVLoans_InvalidAccountingContext(uint256 revnetId, address token);
     error REVLoans_InvalidPrepaidFeePercent(uint256 prepaidFeePercent, uint256 min, uint256 max);
     error REVLoans_LoanExpired(uint256 timeSinceLoanCreated, uint256 loanLiquidationDuration);
@@ -1205,6 +1207,12 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
 
         // INTERACTIONS: Execute external calls with pre-computed deltas.
 
+        // Burn newly added collateral before pulling source funds so fee-project token mints from the borrow cannot
+        // be used as same-transaction collateral.
+        if (addedCollateralCount > 0) {
+            _addCollateralTo({revnetId: revnetId, amount: addedCollateralCount, holder: holder});
+        }
+
         // Add to the loan if needed...
         if (addedBorrowAmount > 0) {
             _addTo({
@@ -1219,11 +1227,8 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             _removeFrom({loan: loan, revnetId: revnetId, repaidBorrowAmount: repaidBorrowAmount});
         }
 
-        // Add collateral if needed...
-        if (addedCollateralCount > 0) {
-            _addCollateralTo({revnetId: revnetId, amount: addedCollateralCount, holder: holder});
-            // ... or return collateral if needed.
-        } else if (returnedCollateralCount > 0) {
+        // Return collateral if needed.
+        if (returnedCollateralCount > 0) {
             _returnCollateralFrom({
                 revnetId: revnetId, collateralCount: returnedCollateralCount, beneficiary: beneficiary
             });
@@ -1486,8 +1491,10 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     function _removeFrom(REVLoan memory loan, uint256 revnetId, uint256 repaidBorrowAmount) internal {
         address sourceToken = loan.sourceToken;
 
-        // Decrement the total amount of a token being loaned out by the revnet.
-        totalBorrowedFrom[revnetId][sourceToken] -= repaidBorrowAmount;
+        IJBMultiTerminal terminal = IJBMultiTerminal(address(TERMINAL));
+
+        // Snapshot the credited terminal balance so fee-on-transfer source tokens cannot under-repay the revnet.
+        uint256 balanceBefore = terminal.STORE().balanceOf(address(TERMINAL), revnetId, sourceToken);
 
         // Increase the allowance for the beneficiary.
         uint256 payValue = _beforeTransferTo({to: address(TERMINAL), token: sourceToken, amount: repaidBorrowAmount});
@@ -1501,6 +1508,17 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             memo: "",
             metadata: bytes(abi.encodePacked(REV_ID))
         });
+
+        uint256 creditedAmount = terminal.STORE().balanceOf(address(TERMINAL), revnetId, sourceToken) - balanceBefore;
+
+        if (creditedAmount != repaidBorrowAmount) {
+            revert REVLoans_FeeOnTransferSourceUnsupported({
+                token: sourceToken, expectedAmount: repaidBorrowAmount, creditedAmount: creditedAmount
+            });
+        }
+
+        // Decrement the total amount of a token being loaned out by the revnet.
+        totalBorrowedFrom[revnetId][sourceToken] -= repaidBorrowAmount;
 
         _afterTransferTo({to: address(TERMINAL), token: sourceToken});
     }
