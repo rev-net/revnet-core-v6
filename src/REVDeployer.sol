@@ -668,9 +668,6 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             salt: keccak256(abi.encode(tiered721HookConfiguration.salt, encodedConfigurationHash, _msgSender()))
         });
 
-        // Scope the hook's permissions to REVOwner, where the operator permissions are granted.
-        JBOwnable(address(hook)).transferOwnership(OWNER);
-
         // Build the 721 permission additions based on the deployer's `preventOperator*` flags.
         {
             uint256 extraCount;
@@ -724,7 +721,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
                 }
             }
 
-            // Set up the allowed posts in the publisher.
+            // Set up the allowed posts while this deployer is still the hook owner.
+            // `CTPublisher.configurePostingCriteriaFor` checks the hook owner's ADJUST_721_TIERS permission, and the
+            // deployer passes that check directly only before ownership is scoped to REVOwner below.
             PUBLISHER.configurePostingCriteriaFor({allowedPosts: formattedAllowedPosts});
 
             // Give the croptop publisher permission to post new ERC-721 tiers on the revnet's behalf.
@@ -732,6 +731,9 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             ownerInit.extraGrants[0] =
                 REVOwnerExtraGrant({operator: address(PUBLISHER), permissionId: JBPermissionIds.ADJUST_721_TIERS});
         }
+
+        // Scope the hook's permissions to REVOwner, where the operator permissions are granted.
+        JBOwnable(address(hook)).transferOwnership(OWNER);
 
         // Bind every piece of revnet-scoped state on the owner contract in a single call.
         REVOwner(OWNER).initializeRevnet({revnetId: revnetId, init: ownerInit});

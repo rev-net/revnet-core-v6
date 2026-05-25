@@ -25,10 +25,13 @@ import "@croptop/core-v6/script/helpers/CroptopDeploymentLib.sol";
 import "@bananapus/router-terminal-v6/script/helpers/RouterTerminalDeploymentLib.sol";
 
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
+import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
+import {JBOwnable} from "@bananapus/ownable-v6/src/JBOwnable.sol";
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
 import {REVDescription} from "../src/structs/REVDescription.sol";
+import {REVCroptopAllowedPost} from "../src/structs/REVCroptopAllowedPost.sol";
 import {IREVLoans} from "./../src/interfaces/IREVLoans.sol";
 import {JBSuckerDeployerConfig} from "@bananapus/suckers-v6/src/structs/JBSuckerDeployerConfig.sol";
 import {JBSuckerRegistry} from "@bananapus/suckers-v6/src/JBSuckerRegistry.sol";
@@ -184,6 +187,51 @@ contract REVDeployerRegressions is TestBaseWorkflow {
 
         assertGt(revnetId, FEE_PROJECT_ID, "revnet should be deployed");
         assertEq(creationFeeReceiver.balance, balanceBefore + creationFee, "creation fee should be paid");
+    }
+
+    function test_deployFor_withAllowedPostsConfiguresPublisherBeforeOwnershipTransfer() public {
+        REVCroptopAllowedPost[] memory allowedPosts = new REVCroptopAllowedPost[](1);
+        allowedPosts[0] = REVCroptopAllowedPost({
+            category: 7,
+            minimumPrice: 1 ether,
+            minimumTotalSupply: 10,
+            maximumTotalSupply: 100,
+            maximumSplitPercent: 5000,
+            allowedAddresses: new address[](0)
+        });
+
+        vm.prank(multisig());
+        (uint256 revnetId, IJB721TiersHook hook) = REV_DEPLOYER.deployFor({
+            revnetId: 0,
+            configuration: _singleStageRevnetConfig(bytes32("POSTS")),
+            accountingContextsToAccept: _nativeAccountingContexts(),
+            suckerDeploymentConfiguration: _emptySuckerDeploymentConfig(bytes32("POSTS")),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: allowedPosts
+        });
+
+        (
+            uint256 minimumPrice,
+            uint256 minimumTotalSupply,
+            uint256 maximumTotalSupply,
+            uint256 maximumSplitPercent,
+            address[] memory allowedAddresses
+        ) = PUBLISHER.allowanceFor(address(hook), allowedPosts[0].category);
+
+        assertGt(revnetId, FEE_PROJECT_ID, "revnet should be deployed");
+        assertEq(minimumPrice, allowedPosts[0].minimumPrice, "minimum price should be configured");
+        assertEq(minimumTotalSupply, allowedPosts[0].minimumTotalSupply, "minimum supply should be configured");
+        assertEq(maximumTotalSupply, allowedPosts[0].maximumTotalSupply, "maximum supply should be configured");
+        assertEq(maximumSplitPercent, allowedPosts[0].maximumSplitPercent, "maximum split should be configured");
+        assertEq(allowedAddresses.length, 0, "allowlist should be empty");
+        assertEq(JBOwnable(address(hook)).owner(), address(REV_OWNER), "hook ownership should move to REVOwner");
+        assertTrue(
+            jbPermissions()
+                .hasPermission(
+                    address(PUBLISHER), address(REV_OWNER), revnetId, JBPermissionIds.ADJUST_721_TIERS, false, false
+                ),
+            "publisher should be able to post tiers after deployment"
+        );
     }
 
     function test_deployFor_existingProjectRejectsUnusedProjectCreationFee() public {
