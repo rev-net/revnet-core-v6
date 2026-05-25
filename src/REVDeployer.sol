@@ -346,6 +346,27 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         }
     }
 
+    /// @notice Calculate a Uniswap V4 sqrt price, returning zero if the ratio is out of range.
+    /// @param numerator The numerator of the raw token price ratio.
+    /// @param denominator The denominator of the raw token price ratio.
+    /// @return sqrtPriceX96 The encoded sqrt price, or zero when it cannot be represented.
+    function _sqrtPriceX96From(uint256 numerator, uint256 denominator) internal pure returns (uint160 sqrtPriceX96) {
+        // Q192 is the fixed-point scale Uniswap uses before taking the square root.
+        uint256 q192 = 1 << 192;
+
+        // `mulDiv` reverts if `numerator * Q192 / denominator` exceeds uint256.
+        uint256 maxRatio = type(uint256).max / q192;
+
+        // Cap the numerator at a conservative bound that keeps the scaled ratio representable.
+        uint256 maxNumerator = denominator > type(uint256).max / maxRatio ? type(uint256).max : maxRatio * denominator;
+
+        // A zero denominator is invalid, and an out-of-range numerator means this pool price should be skipped.
+        if (denominator == 0 || numerator > maxNumerator) return 0;
+
+        // The bounded ratio fits in uint256, and its square root always fits in uint160.
+        sqrtPriceX96 = uint160(sqrt(mulDiv({x: numerator, y: q192, denominator: denominator})));
+    }
+
     /// @notice Try to initialize a Uniswap V4 buyback pool for a terminal token at its fair issuance price.
     /// @dev Called after the ERC-20 token is deployed so the pool can be initialized in the PoolManager.
     /// Computes `sqrtPriceX96` from `initialIssuance` so the pool starts at the same price as the bonding curve.
@@ -407,13 +428,15 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
                 sqrtPriceX96 = uint160(1 << 96);
             } else if (normalizedTerminalToken < projectToken) {
                 // token0 = terminal, token1 = project → price = adjustedIssuance / terminalTokenUnit
-                sqrtPriceX96 =
-                    uint160(sqrt(mulDiv({x: adjustedInitialIssuance, y: 1 << 192, denominator: terminalTokenUnit})));
+                sqrtPriceX96 = _sqrtPriceX96From({numerator: adjustedInitialIssuance, denominator: terminalTokenUnit});
             } else {
                 // token0 = project, token1 = terminal → price = terminalTokenUnit / adjustedIssuance
-                sqrtPriceX96 =
-                    uint160(sqrt(mulDiv({x: terminalTokenUnit, y: 1 << 192, denominator: adjustedInitialIssuance})));
+                sqrtPriceX96 = _sqrtPriceX96From({numerator: terminalTokenUnit, denominator: adjustedInitialIssuance});
             }
+
+            // Some extreme cross-currency prices are outside Uniswap's usable sqrt-price range. In those cases,
+            // leave the pool uninitialized instead of reverting the whole revnet deployment.
+            if (sqrtPriceX96 == 0) return;
         }
 
         try BUYBACK_HOOK.initializePoolFor({
