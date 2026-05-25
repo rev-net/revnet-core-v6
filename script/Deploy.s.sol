@@ -6,7 +6,6 @@ import {
     BuybackDeployment,
     BuybackDeploymentLib
 } from "@bananapus/buyback-hook-v6/script/helpers/BuybackDeploymentLib.sol";
-import {CoreDeployment, CoreDeploymentLib} from "@bananapus/core-v6/script/helpers/CoreDeploymentLib.sol";
 import {SuckerDeployment, SuckerDeploymentLib} from "@bananapus/suckers-v6/script/helpers/SuckerDeploymentLib.sol";
 import {
     RouterTerminalDeployment,
@@ -44,6 +43,7 @@ import {JB721InitTiersConfig} from "@bananapus/721-hook-v6/src/structs/JB721Init
 import {JB721TierConfig} from "@bananapus/721-hook-v6/src/structs/JB721TierConfig.sol";
 import {REVBaseline721HookConfig} from "../src/structs/REVBaseline721HookConfig.sol";
 import {REV721TiersHookFlags} from "../src/structs/REV721TiersHookFlags.sol";
+import {CoreDeployment, CoreDeploymentLib} from "./helpers/CoreDeploymentLib.sol";
 
 struct FeeProjectConfig {
     REVConfig configuration;
@@ -426,7 +426,7 @@ contract DeployScript is Script, Sphinx {
                 }
             }
             if (!_foundExisting) {
-                feeProjectId = core.projects.createFor(safeAddress());
+                feeProjectId = core.projects.createFor{value: core.projects.creationFee()}(safeAddress());
             }
         }
 

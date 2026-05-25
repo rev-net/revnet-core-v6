@@ -64,6 +64,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     error REVDeployer_AutoIssuanceBeneficiaryZeroAddress(uint256 stageIndex, uint256 autoIssuanceIndex);
     error REVDeployer_CashOutsCantBeTurnedOffCompletely(uint256 cashOutTaxRate, uint256 maxCashOutTaxRate);
     error REVDeployer_MustHaveSplits(uint256 stageIndex, uint256 splitPercent);
+    error REVDeployer_ProjectCreationFeeNotNeeded(uint256 revnetId, uint256 value);
     error REVDeployer_RulesetDoesNotAllowDeployingSuckers(uint256 revnetId);
     error REVDeployer_StagesRequired(uint256 stageCount);
     error REVDeployer_StageTimesMustIncrease(uint256 stageIndex, uint256 previousStageStart, uint256 effectiveStart);
@@ -492,6 +493,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         REVCroptopAllowedPost[] calldata allowedPosts
     )
         external
+        payable
         override
         returns (uint256, IJB721TiersHook hook)
     {
@@ -499,7 +501,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         bool shouldDeployNewRevnet = revnetId == 0;
 
         // If the caller is deploying a new revnet, reserve its project ID before deriving hook/sucker config.
-        if (shouldDeployNewRevnet) revnetId = PROJECTS.createFor(address(this));
+        if (shouldDeployNewRevnet) {
+            revnetId = PROJECTS.createFor{value: msg.value}(address(this));
+        } else if (msg.value != 0) {
+            revert REVDeployer_ProjectCreationFeeNotNeeded({revnetId: revnetId, value: msg.value});
+        }
 
         // Deploy the revnet with the specified tiered ERC-721 hook and croptop posting criteria.
         hook = _deploy721RevnetFor({
@@ -524,11 +530,16 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         REVSuckerDeploymentConfig calldata suckerDeploymentConfiguration
     )
         external
+        payable
         override
         returns (uint256, IJB721TiersHook hook)
     {
         bool shouldDeployNewRevnet = revnetId == 0;
-        if (shouldDeployNewRevnet) revnetId = PROJECTS.createFor(address(this));
+        if (shouldDeployNewRevnet) {
+            revnetId = PROJECTS.createFor{value: msg.value}(address(this));
+        } else if (msg.value != 0) {
+            revert REVDeployer_ProjectCreationFeeNotNeeded({revnetId: revnetId, value: msg.value});
+        }
 
         // Deploy the revnet (project, rulesets, ERC-20, suckers, etc.).
         (bytes32 encodedConfigurationHash, REVOwnerRevnetInit memory ownerInit) = _deployRevnetFor({
