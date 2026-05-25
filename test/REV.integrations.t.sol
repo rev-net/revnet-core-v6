@@ -44,6 +44,7 @@ import {JB721TiersHook} from "@bananapus/721-hook-v6/src/JB721TiersHook.sol";
 import {JB721TiersHookStore} from "@bananapus/721-hook-v6/src/JB721TiersHookStore.sol";
 import {JB721CheckpointsDeployer} from "@bananapus/721-hook-v6/src/JB721CheckpointsDeployer.sol";
 import {IJB721CheckpointsDeployer} from "@bananapus/721-hook-v6/src/interfaces/IJB721CheckpointsDeployer.sol";
+import {JB721TierConfig} from "@bananapus/721-hook-v6/src/structs/JB721TierConfig.sol";
 import {JBAddressRegistry} from "@bananapus/address-registry-v6/src/JBAddressRegistry.sol";
 import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/IJBAddressRegistry.sol";
 
@@ -425,6 +426,19 @@ contract REVnet_Integrations is TestBaseWorkflow {
                 ),
             "operator missing SET_721_DISCOUNT_PERCENT"
         );
+    }
+
+    function test_operator_can_manage_deployed_721_hook() public {
+        address operator = makeAddr("721 hook operator");
+        JB721TiersHook hook = JB721TiersHook(address(REV_OWNER.tiered721HookOf(REVNET_ID)));
+
+        assertEq(hook.owner(), address(REV_OWNER));
+
+        vm.prank(multisig());
+        REV_OWNER.setOperatorOf(REVNET_ID, operator);
+
+        vm.prank(operator);
+        hook.adjustTiers(new JB721TierConfig[](0), new uint256[](0));
     }
 
     function test_sucker_deploy() public {

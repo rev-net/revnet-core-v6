@@ -91,7 +91,7 @@ Use this file when you need revnet-specific risks, state reads, constants, or ex
 | Constant | Value | Purpose |
 |----------|-------|---------|
 | `CASH_OUT_DELAY` | 2,592,000 (30 days) | Prevents cross-chain liquidity arbitrage on new chain deployments |
-| `FEE` | 25 (of MAX_FEE=1000) | 2.5% cash-out fee paid to fee revnet |
+| `FEE` | 25 (of MAX_FEE=1000) | 2.5% cash-out fee paid to fee revnet for non-zero-tax ordinary cash-outs |
 | `DEFAULT_BUYBACK_POOL_FEE` | 10,000 | 1% Uniswap fee tier for default buyback pools |
 | `DEFAULT_BUYBACK_TWAP_WINDOW` | 2 days | TWAP observation window for buyback price |
 | `DEFAULT_BUYBACK_TICK_SPACING` | 200 | Tick spacing for default buyback V4 pools |
@@ -147,7 +147,7 @@ Use this file when you need revnet-specific risks, state reads, constants, or ex
 4. **Loan ID encoding.** `loanId = revnetId * 1_000_000_000_000 + loanNumber`. Each revnet supports ~1 trillion loans. Use `revnetIdOfLoanWith(loanId)` to decode.
 5. **uint112 truncation risk.** `REVLoan.amount` and `REVLoan.collateral` are `uint112`. Values above ~5.19e33 truncate silently.
 6. **Auto-issuance stage IDs.** Computed as `block.timestamp + i` during deployment. These match the Juicebox ruleset IDs because `JBRulesets` assigns IDs the same way (`latestId >= block.timestamp ? latestId + 1 : block.timestamp`), producing identical sequential IDs when all stages are queued in a single `deployFor()` call.
-7. **Cash-out fee stacking.** Cash outs incur both the Juicebox terminal fee (2.5%) and the revnet cash-out fee (2.5% to fee revnet). These compound. The 2.5% fee is deducted from the TOKEN AMOUNT being cashed out, not from the reclaim value. 2.5% of the tokens are redirected to the fee revnet, which then redeems them at the bonding curve independently. The net reclaim to the caller is based on 97.5% of the tokens, not 97.5% of the computed ETH value. This is by design.
+7. **Cash-out fee stacking.** Non-zero-tax ordinary cash-outs incur both the Juicebox terminal fee (2.5%) and the revnet cash-out fee (2.5% to fee revnet). These compound. The 2.5% revnet fee is deducted from the TOKEN AMOUNT being cashed out, not from the reclaim value. 2.5% of the tokens are redirected to the fee revnet, which then redeems them at the bonding curve independently. The net reclaim to the caller is based on 97.5% of the tokens, not 97.5% of the computed ETH value. Zero-tax ordinary cash-outs route through the buyback hook without adding the revnet fee hook, matching current code behavior. This is by design.
 8. **30-day cash-out delay.** Applied when deploying an existing revnet to a new chain where the first stage has already started. Prevents cross-chain liquidity arbitrage. Enforced in both `beforeCashOutRecordedWith` (direct cash outs) and `REVLoans.borrowFrom` / `borrowableAmountFrom` (loans). The delay is stored on REVOwner (`cashOutDelayOf(revnetId)`) and populated by REVDeployer during deployment via the bundled `initializeRevnet()` call. REVLoans imports IREVOwner (not IREVDeployer) to read it.
 9. **`cashOutTaxRate` cannot be MAX.** Must be strictly less than `MAX_CASH_OUT_TAX_RATE` (10,000). Revnets cannot fully disable cash outs.
 10. **Split operator is singular.** Only ONE address can be operator at a time. The operator can replace itself via `setOperatorOf` but cannot delegate or multi-sig.
