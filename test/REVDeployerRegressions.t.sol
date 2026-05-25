@@ -140,6 +140,80 @@ contract REVDeployerRegressions is TestBaseWorkflow {
         jbProjects().approve(address(REV_DEPLOYER), FEE_PROJECT_ID);
     }
 
+    function test_deployFor_with721ConfigForwardsProjectCreationFee() public {
+        uint256 creationFee = 0.01 ether;
+        address payable creationFeeReceiver = payable(makeAddr("creationFeeReceiver"));
+
+        vm.prank(multisig());
+        jbProjects().setCreationFee(creationFee, creationFeeReceiver);
+        vm.deal(multisig(), creationFee);
+
+        uint256 balanceBefore = creationFeeReceiver.balance;
+
+        vm.prank(multisig());
+        (uint256 revnetId,) = REV_DEPLOYER.deployFor{value: creationFee}({
+            revnetId: 0,
+            configuration: _singleStageRevnetConfig(bytes32("PAID_721")),
+            accountingContextsToAccept: _nativeAccountingContexts(),
+            suckerDeploymentConfiguration: _emptySuckerDeploymentConfig(bytes32(0)),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
+        });
+
+        assertGt(revnetId, FEE_PROJECT_ID, "revnet should be deployed");
+        assertEq(creationFeeReceiver.balance, balanceBefore + creationFee, "creation fee should be paid");
+    }
+
+    function test_deployFor_default721ConfigForwardsProjectCreationFee() public {
+        uint256 creationFee = 0.01 ether;
+        address payable creationFeeReceiver = payable(makeAddr("creationFeeReceiver"));
+
+        vm.prank(multisig());
+        jbProjects().setCreationFee(creationFee, creationFeeReceiver);
+        vm.deal(multisig(), creationFee);
+
+        uint256 balanceBefore = creationFeeReceiver.balance;
+
+        vm.prank(multisig());
+        (uint256 revnetId,) = REV_DEPLOYER.deployFor{value: creationFee}({
+            revnetId: 0,
+            configuration: _singleStageRevnetConfig(bytes32("PAID_DEFAULT")),
+            accountingContextsToAccept: _nativeAccountingContexts(),
+            suckerDeploymentConfiguration: _emptySuckerDeploymentConfig(bytes32(0))
+        });
+
+        assertGt(revnetId, FEE_PROJECT_ID, "revnet should be deployed");
+        assertEq(creationFeeReceiver.balance, balanceBefore + creationFee, "creation fee should be paid");
+    }
+
+    function test_deployFor_existingProjectRejectsUnusedProjectCreationFee() public {
+        uint256 creationFee = 0.01 ether;
+        address payable creationFeeReceiver = payable(makeAddr("creationFeeReceiver"));
+
+        vm.prank(multisig());
+        jbProjects().setCreationFee(creationFee, creationFeeReceiver);
+        vm.deal(multisig(), creationFee * 2);
+
+        vm.prank(multisig());
+        uint256 existingProjectId = jbProjects().createFor{value: creationFee}(multisig());
+
+        vm.prank(multisig());
+        jbProjects().approve(address(REV_DEPLOYER), existingProjectId);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                REVDeployer.REVDeployer_ProjectCreationFeeNotNeeded.selector, existingProjectId, creationFee
+            )
+        );
+        vm.prank(multisig());
+        REV_DEPLOYER.deployFor{value: creationFee}({
+            revnetId: existingProjectId,
+            configuration: _singleStageRevnetConfig(bytes32("EXISTING")),
+            accountingContextsToAccept: _nativeAccountingContexts(),
+            suckerDeploymentConfiguration: _emptySuckerDeploymentConfig(bytes32(0))
+        });
+    }
+
     //*********************************************************************//
     // --- REVDeployer.beforePayRecordedWith Array OOB Regression ------- //
     //*********************************************************************//
@@ -390,5 +464,48 @@ contract REVDeployerRegressions is TestBaseWorkflow {
             stageConfigurations[1].startsAtOrAfter,
             "Stage 1 ruleset start should not precede the configured stage time"
         );
+    }
+
+    function _nativeAccountingContexts() internal pure returns (JBAccountingContext[] memory contexts) {
+        contexts = new JBAccountingContext[](1);
+        contexts[0] = JBAccountingContext({
+            token: JBConstants.NATIVE_TOKEN, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+        });
+    }
+
+    function _singleStageRevnetConfig(bytes32 salt) internal view returns (REVConfig memory configuration) {
+        JBSplit[] memory splits = new JBSplit[](1);
+        splits[0].beneficiary = payable(multisig());
+        splits[0].percent = 10_000;
+
+        REVStageConfig[] memory stageConfigurations = new REVStageConfig[](1);
+        stageConfigurations[0] = REVStageConfig({
+            startsAtOrAfter: uint48(block.timestamp),
+            autoIssuances: new REVAutoIssuance[](0),
+            splitPercent: 0,
+            splits: splits,
+            initialIssuance: uint112(1000e18),
+            issuanceCutFrequency: 0,
+            issuanceCutPercent: 0,
+            cashOutTaxRate: 5000,
+            extraMetadata: 0
+        });
+
+        configuration = REVConfig({
+            description: REVDescription("Paid", "PAID", "ipfs://paid", salt),
+            baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
+            operator: multisig(),
+            scopeCashOutsToLocalBalances: false,
+            stageConfigurations: stageConfigurations
+        });
+    }
+
+    function _emptySuckerDeploymentConfig(bytes32 salt)
+        internal
+        pure
+        returns (REVSuckerDeploymentConfig memory suckerDeploymentConfiguration)
+    {
+        suckerDeploymentConfiguration =
+            REVSuckerDeploymentConfig({deployerConfigurations: new JBSuckerDeployerConfig[](0), salt: salt});
     }
 }

@@ -364,11 +364,10 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
         // Step 7: Verify borrowableAmountFrom fails closed instead of ignoring TOKEN-denominated debt.
         vm.expectRevert(
             abi.encodeWithSelector(
-                JBPrices.JBPrices_ZeroPrice.selector,
-                0,
+                JBPrices.JBPrices_PriceFeedNotFound.selector,
+                REVNET_ID,
                 uint256(uint32(uint160(address(TOKEN)))),
-                uint256(uint32(uint160(JBConstants.NATIVE_TOKEN))),
-                priceFeed
+                uint256(uint32(uint160(JBConstants.NATIVE_TOKEN)))
             )
         );
         LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, freshTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));

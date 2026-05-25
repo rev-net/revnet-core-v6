@@ -156,6 +156,7 @@ interface IREVDeployer {
         REVCroptopAllowedPost[] memory allowedPosts
     )
         external
+        payable
         returns (uint256, IJB721TiersHook hook);
 
     /// @notice Deploy a revnet with a default empty tiered ERC-721 hook.
@@ -173,6 +174,7 @@ interface IREVDeployer {
         REVSuckerDeploymentConfig memory suckerDeploymentConfiguration
     )
         external
+        payable
         returns (uint256, IJB721TiersHook hook);
 
     /// @notice Deploy new suckers for an existing revnet.
