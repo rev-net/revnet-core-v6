@@ -1207,13 +1207,10 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
 
         // INTERACTIONS: Execute external calls with pre-computed deltas.
 
-        // Collateral can only be added or returned, not both. Burn newly added collateral before pulling source funds
-        // so fee-project token mints from the borrow cannot be used as same-transaction collateral.
-        uint256 collateralCountToReturn;
+        // Burn newly added collateral before pulling source funds so fee-project token mints from the borrow cannot
+        // be used as same-transaction collateral.
         if (addedCollateralCount > 0) {
             _addCollateralTo({revnetId: revnetId, amount: addedCollateralCount, holder: holder});
-        } else if (returnedCollateralCount > 0) {
-            collateralCountToReturn = returnedCollateralCount;
         }
 
         // Add to the loan if needed...
@@ -1230,10 +1227,10 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             _removeFrom({loan: loan, revnetId: revnetId, repaidBorrowAmount: repaidBorrowAmount});
         }
 
-        // Return collateral only after repayment funds have been credited back to the revnet.
-        if (collateralCountToReturn > 0) {
+        // Return collateral if needed.
+        if (returnedCollateralCount > 0) {
             _returnCollateralFrom({
-                revnetId: revnetId, collateralCount: collateralCountToReturn, beneficiary: beneficiary
+                revnetId: revnetId, collateralCount: returnedCollateralCount, beneficiary: beneficiary
             });
         }
 
