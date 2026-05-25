@@ -45,8 +45,8 @@ import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
 
 /// @notice Validates that liquidateExpiredLoansFrom rejects loan number ranges that would overflow into another
 /// revnet's namespace.
-/// @dev _generateLoanId computes: (revnetId * _ONE_TRILLION) + loanNumber. If startingLoanId + count > _ONE_TRILLION,
-/// the generated loanId would collide with a different revnet's loans.
+/// @dev _generateLoanId computes: (revnetId * _ONE_TRILLION) + loanNumber. If an iterated loan number exceeds
+/// _ONE_TRILLION, the generated loanId would collide with a different revnet's loans.
 contract TestCrossRevnetLiquidation is TestBaseWorkflow {
     // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
@@ -237,15 +237,15 @@ contract TestCrossRevnetLiquidation is TestBaseWorkflow {
         });
     }
 
-    /// @notice liquidateExpiredLoansFrom should revert when startingLoanId would overflow into another revnet's
-    /// namespace.
+    /// @notice liquidateExpiredLoansFrom should revert when an iterated loan number would overflow into another
+    /// revnet's namespace.
     function test_liquidateExpiredLoans_revertsOnCrossRevnetOverflow() public {
         vm.expectRevert(
             abi.encodeWithSelector(
                 REVLoans.REVLoans_LoanIdOverflow.selector, REVNET_ID, _ONE_TRILLION + 1, _ONE_TRILLION
             )
         );
-        LOANS_CONTRACT.liquidateExpiredLoansFrom(REVNET_ID, _ONE_TRILLION, 1);
+        LOANS_CONTRACT.liquidateExpiredLoansFrom(REVNET_ID, _ONE_TRILLION, 2);
     }
 
     /// @notice liquidateExpiredLoansFrom should work for valid ranges within the revnet's namespace.
@@ -258,5 +258,10 @@ contract TestCrossRevnetLiquidation is TestBaseWorkflow {
     function test_liquidateExpiredLoans_boundaryExactlyAtLimit() public {
         // Exactly at the boundary (not over) should not revert.
         LOANS_CONTRACT.liquidateExpiredLoansFrom(REVNET_ID, _ONE_TRILLION - 1, 1);
+    }
+
+    /// @notice The final loan number in a revnet's namespace should be reachable.
+    function test_liquidateExpiredLoans_finalLoanNumberIsReachable() public {
+        LOANS_CONTRACT.liquidateExpiredLoansFrom(REVNET_ID, _ONE_TRILLION, 1);
     }
 }

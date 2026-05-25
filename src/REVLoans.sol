@@ -682,11 +682,20 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         override
         nonReentrantLoanAction
     {
-        // Prevent cross-revnet accounting corruption: loan numbers must stay within the revnet's ID namespace.
-        uint256 endLoanNumber = startingLoanId + count;
-        if (endLoanNumber > _ONE_TRILLION) {
+        // No loans are checked when count is zero.
+        if (count == 0) return;
+
+        // Prevent cross-revnet accounting corruption: every iterated loan number must stay within the revnet's ID
+        // namespace.
+        if (startingLoanId > _ONE_TRILLION) {
             revert REVLoans_LoanIdOverflow({
-                revnetId: revnetId, loanNumber: endLoanNumber, maxLoanNumber: _ONE_TRILLION
+                revnetId: revnetId, loanNumber: startingLoanId, maxLoanNumber: _ONE_TRILLION
+            });
+        }
+        uint256 maxCount = _ONE_TRILLION - startingLoanId + 1;
+        if (count > maxCount) {
+            revert REVLoans_LoanIdOverflow({
+                revnetId: revnetId, loanNumber: _ONE_TRILLION + 1, maxLoanNumber: _ONE_TRILLION
             });
         }
 
