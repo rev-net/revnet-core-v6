@@ -169,9 +169,8 @@ contract RegressionCrossChainBuybackRouteMismatchTest is TestBaseWorkflow {
         (uint256 returnedTaxRate,, uint256 returnedSupply, uint256 returnedSurplus,) =
             ownerHook.beforeCashOutRecordedWith(context);
 
-        // After the fix, REVOwner forwards the cross-chain-adjusted context to the buyback hook.
-        // The buyback hook now sees the full omnichain surplus (1000 ether) and correctly routes
-        // to direct reclaim (passthrough) instead of swap.
+        // REVOwner forwards the cross-chain-adjusted context to the buyback hook, so the buyback hook sees the full
+        // omnichain surplus (1000 ether) and routes to direct reclaim (passthrough) instead of swap.
         assertEq(returnedSupply, context.totalSupply, "owner returns cross-chain total supply");
         assertEq(returnedSurplus, context.surplus.value + 900 ether, "owner returns cross-chain effective surplus");
         // With omnichain context, the direct reclaim (100 ether) exceeds the threshold (50 ether),

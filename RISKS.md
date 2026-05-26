@@ -128,7 +128,11 @@ Reserved-token split recipients are intentionally excluded from this hash. They 
 
 ### 7.7 Cross-chain surplus staleness
 
-`REVLoans._borrowableAmountFrom` and ordinary unscoped holder cash-outs in `REVOwner.beforeCashOutRecordedWith` add `remoteSurplusOf()` and `remoteTotalSupplyOf()` to local values. These remote values update only when `toRemote()` is called on the peer chain -- no heartbeat or staleness check. Stale data can inflate per-token borrowable amounts when remote supply has grown since the last bridge message. Primary safeguard: borrowable is capped at `localSurplus` (REVLoans line 386-387), preventing extraction beyond what the local terminal holds.
+`REVLoans._borrowableAmountFrom` and ordinary unscoped holder cash-outs in `REVOwner.beforeCashOutRecordedWith` add
+`remoteSurplusOf()` and `remoteTotalSupplyOf()` to local values. These remote values update only when `toRemote()` is
+called on the peer chain -- no heartbeat or staleness check. Stale data can inflate per-token borrowable amounts when
+remote supply has grown since the last bridge message. Primary safeguard: borrowable is capped at `localSurplus`,
+preventing extraction beyond what the local terminal holds.
 
 This does not apply to the registered-sucker cash-out branch. Sucker cash-outs are the cross-chain token movement path
 and deliberately use local supply/surplus so the bridge can move value out of a chain in proportion to that chain's
@@ -148,15 +152,26 @@ nest another loan-changing action that would price against partially updated `to
 
 ### 7.9 Omnichain cash-outs settle at local liquidity, not theoretical global share
 
-When omnichain effective surplus exceeds the local terminal balance for an ordinary holder cash-out, `REVOwner.beforeCashOutRecordedWith` proportionally scales the bonding-curve reclaim and the protocol fee so their sum equals local liquidity, then lowers the `effectiveSurplusValue` it reports to `JBTerminalStore` by the same ratio so the store's recomputed reclaim leaves exact room for the fee spec. The user still burns the full requested `cashOutCount` and receives `localSurplus - feeAmount` — strictly less than the global-surplus formula would suggest.
+When omnichain effective surplus exceeds the local terminal balance for an ordinary holder cash-out,
+`REVOwner.beforeCashOutRecordedWith` proportionally scales the bonding-curve reclaim and the protocol fee so their sum
+equals local liquidity, then lowers the `effectiveSurplusValue` it reports to `JBTerminalStore` by the same ratio so
+the store's recomputed reclaim leaves exact room for the fee spec. The user still burns the full requested
+`cashOutCount` and receives `localSurplus - feeAmount` -- strictly less than the global-surplus formula would suggest.
 
-This is intentional: the alternative (revert with `InadequateTerminalStoreBalance`) was the bug fixed in PR #149 + this change. The protocol fee is **never** zeroed by the scaling; the regression PR #149 specifically protected against was the prior `feeAmount = max(localSurplus - reclaim, 0)` formulation which dropped to zero whenever the unscaled reclaim consumed all local surplus.
+This is intentional: reverting with `InadequateTerminalStoreBalance` would make cross-chain cash-outs unusable when the
+global formula exceeds local liquidity. The protocol fee is **never** zeroed by the scaling; the current implementation
+avoids the older `feeAmount = max(localSurplus - reclaim, 0)` formulation, which dropped to zero whenever the unscaled
+reclaim consumed all local surplus.
 
 Holders with `minReclaimAmount` set on their `cashOutTokensOf` call are protected from getting less than they expect. Holders without minimums should be aware that local liquidity caps their reclaim; the surplus on other chains is reachable by cashing out there (or by waiting for bridge messages to rebalance local surplus).
 
 ### 7.10 Remote loan corrections depend on fresh adjusted peer snapshots
 
-`_borrowableAmountFrom` adds back local `totalBorrowed` and `totalCollateral` to reconstitute pre-loan economic state for the bonding curve. Revnet peer-chain snapshots export the same correction through `REVOwner.peerChainAdjustedAccountsOf(...)`: `JBSuckerLib.buildSnapshotMessage(...)` reads the active data hook via `IJBPeerChainAdjustedAccounts` and folds the returned loan collateral/debt into `sourceTotalSupply`, `sourceSurplus`, and `sourceBalance`.
+`_borrowableAmountFrom` adds back local `totalBorrowed` and `totalCollateral` to reconstitute pre-loan economic state
+for the bonding curve. Revnet peer-chain snapshots export the same correction through
+`REVOwner.peerChainAdjustedAccountsOf(...)`: `JBSuckerLib.buildSnapshotMessage(...)` reads the active data hook via
+`IJBPeerChainAdjustedAccounts` and folds the returned loan collateral/debt into `sourceTotalSupply`, `sourceSurplus`,
+and `sourceBalance`.
 
 This means canonical Revnet suckers do not intentionally omit remote loan state. The remaining risk is freshness and availability: peer snapshots are asynchronous, best-effort, and soft-fail if the remote data hook does not expose the optional interface or the sucker cannot deliver the latest root.
 

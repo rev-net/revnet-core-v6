@@ -9,9 +9,8 @@ import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 /// @notice Fork test validating `sqrtPriceX96` computation for buyback pool initialization
 /// with non-18-decimal terminal tokens.
 ///
-/// Before the fix, `_tryInitializeBuybackPoolFor` hardcoded `1e18` as the terminal token unit,
-/// producing an incorrect pool price for tokens like USDC (6 decimals). The fix uses
-/// `10 ** terminalTokenDecimals` instead.
+/// `_tryInitializeBuybackPoolFor` must use `10 ** terminalTokenDecimals`, not a hardcoded `1e18`, as the terminal
+/// token unit.
 ///
 /// Run with: forge test --match-contract BuybackPoolDecimalsForkTest -vvv
 contract BuybackPoolDecimalsForkTest is Test {
@@ -51,8 +50,8 @@ contract BuybackPoolDecimalsForkTest is Test {
 
     /// @notice 6-decimal token (USDC): sqrtPriceX96 should differ from the 18-decimal case.
     ///
-    /// Before the fix, both cases produced the same sqrtPriceX96 because `1e18` was hardcoded.
-    /// After the fix, the 6-decimal price is sqrt(10^12) ≈ 10^6 times larger than the 18-decimal price.
+    /// With a 6-decimal terminal token, the price is sqrt(10^12) ≈ 10^6 times larger than the
+    /// 18-decimal-token baseline.
     function test_sqrtPriceX96_6DecimalToken() external pure {
         uint112 issuance = uint112(1000e18); // 1000 project tokens per terminal token
 

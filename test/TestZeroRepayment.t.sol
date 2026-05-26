@@ -46,7 +46,7 @@ import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
-/// @notice Tests for PR #16: zero repayment prevention.
+/// @notice Tests zero-repayment prevention.
 contract TestZeroRepayment is TestBaseWorkflow {
     // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";

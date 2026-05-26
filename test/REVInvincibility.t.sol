@@ -376,7 +376,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
     }
 
     /// @notice Array OOB when only buyback hook present (no tiered721Hook).
-    /// @dev hookSpecifications[1] is written but array size is 1.
+    /// @dev The unsafe pattern writes `hookSpecifications[1]` while the array size is 1.
     function test_fixVerify_arrayOOB_noBuybackWithBuyback() public pure {
         bool usesTiered721Hook = false;
         bool usesBuybackHook = true;
@@ -384,8 +384,8 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
         uint256 arraySize = (usesTiered721Hook ? 1 : 0) + (usesBuybackHook ? 1 : 0);
         assertEq(arraySize, 1, "array size is 1");
 
-        // The bug: code writes to hookSpecifications[1] (OOB for size-1 array)
-        // The fix: should write to index 0 when no tiered721Hook
+        // The unsafe pattern writes to hookSpecifications[1], which is OOB for a size-1 array.
+        // The safe index is 0 when no tiered721Hook is used.
         // forge-lint: disable-next-line(mixed-case-variable)
         bool wouldOOB = (!usesTiered721Hook && usesBuybackHook);
         assertTrue(wouldOOB, "this config triggers the OOB write at index [1]");
@@ -399,8 +399,8 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
             JBPayHookSpecification({hook: IJBPayHook(address(0xbeef)), noop: false, amount: 1 ether, metadata: ""});
     }
 
-    /// @notice Reentrancy — _adjust calls terminal.pay() BEFORE writing loan state.
-    /// @dev Lines 910 (external call) vs 922-923 (state writes). CEI violation.
+    /// @notice Reentrancy risk when `_adjust` performs external calls before writing loan state.
+    /// @dev CEI-sensitive: fee-payment callbacks must not be able to enter another loan-changing action.
     function test_fixVerify_reentrancyDoubleBorrow() public {
         // Create a legitimate loan to confirm the system works
         uint256 payAmount = 10e18;
@@ -412,24 +412,12 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertTrue(borrowable > 0, "Should have borrowable amount");
 
-        // The vulnerability: In _adjust (line 862-924):
-        //   Line 922: loan.amount = uint112(newBorrowAmount);         — STATE WRITE
-        //   Line 923: loan.collateral = uint112(newCollateralCount);  — STATE WRITE
+        // A malicious terminal receiving a fee payment must not be able to call borrowFrom() again while
+        // loan.amount and loan.collateral still hold pre-adjust values.
         //
-        // A malicious terminal receiving the fee payment at line 910 can call
-        // borrowFrom() again. During that reentrant call, loan.amount and loan.collateral
-        // still have their OLD values (0 for a new loan), so _borrowAmountFrom computes
-        // using stale totalBorrowed/totalCollateral.
-        //
-        // Without a reentrancy guard, the attacker could extract more value than the
-        // collateral supports. The fix should add a reentrancy guard or move state writes
-        // before external calls.
-
-        // Verify the state write ordering is the vulnerability
-        // (We can't actually execute the attack through real contracts because
-        // the fee terminal is the legitimate JBMultiTerminal, but the pattern
-        // is confirmed by code inspection)
-        assertTrue(true, "CEI pattern verified at lines 910 vs 922-923");
+        // We cannot execute that attack through these real contracts because the fee terminal is the legitimate
+        // JBMultiTerminal, but this test anchors the state pattern being reviewed.
+        assertTrue(true, "CEI-sensitive loan adjustment path documented");
     }
 
     /// @notice hasMintPermissionFor returns false for random addresses.
@@ -445,8 +433,8 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
         assertFalse(hasPerm, "random address should not have mint permission");
     }
 
-    /// @notice Zero-supply cash out no longer drains surplus (fixed in v6).
-    /// @dev JBCashOuts.cashOutFrom now returns 0 when cashOutCount == 0.
+    /// @notice Zero-supply cash-out returns zero reclaim.
+    /// @dev JBCashOuts.cashOutFrom returns 0 when cashOutCount == 0.
     function test_fixVerify_zeroSupplyCashOutDrain() public pure {
         uint256 surplus = 100e18;
         uint256 cashOutCount = 0;
@@ -455,7 +443,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
 
         uint256 reclaimable = JBCashOuts.cashOutFrom(surplus, cashOutCount, totalSupply, cashOutTaxRate);
 
-        // Fixed in v6: cashing out 0 tokens always returns 0
+        // Cashing out 0 tokens always returns 0.
         assertEq(reclaimable, 0, "zero cash out returns nothing");
 
         // Normal case: with supply, cashing out 0 still returns 0
@@ -469,14 +457,9 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
     function test_fixVerify_brokenFeeTerminalBricksCashOuts() public {
         BrokenFeeTerminal brokenTerminal = new BrokenFeeTerminal();
 
-        // The vulnerability pattern:
-        // In REVDeployer.afterCashOutRecordedWith (line 567-624):
-        //   Line 590: try feeTerminal.pay(...) {} catch {
-        //   Line 615: IJBTerminal(msg.sender).addToBalanceOf{value: payValue}(...)
-        //
-        // If feeTerminal.pay() reverts AND addToBalanceOf() reverts:
+        // If feeTerminal.pay() reverts and addToBalanceOf() also reverts:
         //   - The entire afterCashOutRecordedWith call reverts
-        //   - This makes ALL cash-outs for the revnet impossible
+        //   - This makes all cash-outs for the revnet impossible
         //
         // In the current code, addToBalanceOf is NOT in a try/catch,
         // so a broken fee terminal permanently bricks cash-outs.

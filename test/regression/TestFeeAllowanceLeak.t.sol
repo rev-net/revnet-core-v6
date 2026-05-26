@@ -151,9 +151,9 @@ contract TestFeeAllowanceLeak is REVLoansFeeRecovery {
         return stickyFeeTerminal;
     }
 
-    /// @notice Verifies that stale allowance is cleared — the original exploit no longer works.
+    /// @notice Verifies that stale allowance is cleared.
     /// @dev Previously, a sticky fee terminal could accumulate reusable allowance across borrows.
-    ///      After the fix (_afterTransferTo clears allowance on success), the allowance is zero.
+    ///      `_afterTransferTo` clears allowance on success, so the allowance is zero.
     function test_feeTerminalCannotHarvestStaleAllowanceAfterFix() public {
         StickyAllowanceFeeTerminal terminal = _stickyFeeTerminal();
 
@@ -177,7 +177,7 @@ contract TestFeeAllowanceLeak is REVLoansFeeRecovery {
         vm.prank(USER);
         LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, firstTokenCount, payable(USER), 25, USER);
 
-        // Allowance is now cleared after successful fee payment.
+        // Allowance is cleared after successful fee payment.
         uint256 allowanceAfterBorrow = TOKEN.allowance(address(LOANS_CONTRACT), address(stickyFeeTerminal));
         assertEq(allowanceAfterBorrow, 0, "no stale allowance after successful borrow");
 

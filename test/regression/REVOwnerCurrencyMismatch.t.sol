@@ -114,7 +114,7 @@ contract REVOwnerCurrencyMismatchTest is TestBaseWorkflow {
     /// @dev NATIVE_TOKEN = 0x000000000000000000000000000000000000EEEe
     ///      uint160(NATIVE_TOKEN) = 61166
     ///      The correct currency for ETH is 1 (baseCurrency).
-    ///      Before the fix, 61166 was passed. After the fix, 1 is passed.
+    ///      The hook must pass 1, not 61166.
     function test_remoteSurplusOf_receives_currency_not_token_address() public {
         // Set up remote values so the registry returns something.
         suckerRegistry.setRemoteValues(500 ether, 900 ether);
@@ -143,8 +143,8 @@ contract REVOwnerCurrencyMismatchTest is TestBaseWorkflow {
         });
 
         // Use vm.expectCall to verify the exact parameters passed to remoteSurplusOf.
-        // After fix: currency should be 1 (ethCurrency), NOT 61166 (uint160(NATIVE_TOKEN)).
-        // This assertion will fail if the buggy code passes uint256(uint160(NATIVE_TOKEN)) = 61166.
+        // Currency should be 1 (ethCurrency), not 61166 (uint160(NATIVE_TOKEN)).
+        // This assertion fails if code passes uint256(uint160(NATIVE_TOKEN)) = 61166.
         vm.expectCall(
             address(suckerRegistry), abi.encodeCall(suckerRegistry.remoteSurplusOf, (1, 18, uint256(ethCurrency)))
         );

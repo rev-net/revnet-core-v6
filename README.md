@@ -31,6 +31,7 @@ Use this repo when the product is a treasury-backed network with encoded stage t
 | `REVDeployer` | Launches and configures Revnets, stages, operators, and optional auxiliary features. |
 | `REVOwner` | Runtime data-hook and cash-out-hook surface used by active Revnets. |
 | `REVLoans` | Loan surface that lets users borrow against Revnet tokens with burned collateral and NFT loan positions. |
+
 ## Mental Model
 
 Read the package in two halves:
@@ -59,6 +60,7 @@ Most mistakes come from assuming a deploy-time parameter can be changed later or
 - deployment-time configuration and operator envelope live in `REVDeployer`
 - runtime pay and cash-out behavior live in `REVOwner`
 - loan positions and loan-specific state live in `REVLoans`
+
 ## High-Signal Tests
 
 1. `test/REVLifecycle.t.sol`

@@ -7,10 +7,10 @@ import {REVAutoIssuance} from "./REVAutoIssuance.sol";
 
 /// @notice A stage in a revnet's lifecycle. Each stage defines the token issuance rate, how quickly it decays, what
 /// percentage goes to splits, and the cash-out tax rate. Stages are processed in order — each one activates at or
-/// after
-/// its `startsAtOrAfter` timestamp.
+/// after its `startsAtOrAfter` timestamp.
 /// @custom:member startsAtOrAfter The earliest timestamp this stage can begin. Must be strictly increasing across
-/// stages. @custom:member autoIssuances Tokens to mint without payment during this stage (per-chain, per-beneficiary).
+/// stages.
+/// @custom:member autoIssuances Tokens to mint without payment during this stage (per-chain, per-beneficiary).
 /// @custom:member splitPercent The percentage of newly issued tokens routed to splits, out of 10,000.
 /// @custom:member splits The split recipients for this stage's production allocation.
 /// @custom:member initialIssuance Tokens per unit of base currency at stage start (18-decimal fixed point).

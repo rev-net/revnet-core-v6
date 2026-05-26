@@ -510,7 +510,7 @@ contract TestLoanAdversarialFork is ForkTestBase {
         emit log_named_uint("Tokens used in B", tokensUsedB);
 
         // With a non-linear bonding curve (cashOutTaxRate = 50%), splitting should produce a DIFFERENT result.
-        // Specifically, the bonding curve formula penalizes larger cashouts relative to total supply,
+        // Specifically, the bonding curve formula penalizes larger cash-outs relative to total supply,
         // so splitting into smaller chunks should yield MORE total ETH.
         if (totalEthReceivedB > ethReceivedA) {
             uint256 advantage = totalEthReceivedB - ethReceivedA;

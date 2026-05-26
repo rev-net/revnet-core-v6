@@ -45,7 +45,7 @@ import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
-/// @notice Tests for PR #13: cross-source reallocation prevention.
+/// @notice Tests cross-source reallocation prevention.
 contract TestCrossSourceReallocation is TestBaseWorkflow {
     // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
