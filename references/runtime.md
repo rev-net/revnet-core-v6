@@ -66,7 +66,7 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 | `REVLoans.determineSourceFeeAmount(loan, amount)` | Calculate the time-proportional source fee for a loan repayment. Zero during prepaid window, linear accrual after. |
 | `REVLoans.loanOf(loanId)` | Returns the full `REVLoan` struct for a loan. |
 | `REVLoans.loanSourceTokensOf(revnetId)` | Returns all token sources used for loans by a revnet. Loans always source funds from the canonical `MULTI_TERMINAL`. |
-| `REVLoans.revnetIdOfLoanWith(loanId)` | Decode the revnet ID from a loan ID (`loanId / 1_000_000_000_000`). |
+| `REVLoans.revnetIdOfLoanWith(loanId)` | Decode the revnet ID from a loan ID (`loanId / 1_000_000_000_000_000_000`). |
 ## Integration Points
 
 | Dependency | Import | Used For |

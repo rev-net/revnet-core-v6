@@ -69,7 +69,7 @@ Use this file when you need revnet-specific risks, state reads, constants, or ex
 | `REVLoans_InvalidPrepaidFeePercent(prepaidFeePercent, min, max)` | When `prepaidFeePercent` is outside the allowed range (2.5%--50%). |
 | `REVLoans_InvalidTerminal(terminal, revnetId)` | When the specified terminal is not registered for the revnet. |
 | `REVLoans_LoanExpired(timeSinceLoanCreated, loanLiquidationDuration)` | When trying to repay or reallocate an expired loan. |
-| `REVLoans_LoanIdOverflow()` | When the loan ID counter exceeds the per-revnet trillion-ID namespace. |
+| `REVLoans_LoanIdOverflow()` | When the loan ID counter exceeds the per-revnet 1e18-ID namespace. |
 | `REVLoans_NewBorrowAmountGreaterThanLoanAmount(newBorrowAmount, loanAmount)` | When a reallocation would produce a reduced loan with a larger borrow amount than the original. |
 | `REVLoans_NoMsgValueAllowed()` | When `msg.value > 0` on a non-native-token repayment. |
 | `REVLoans_NotEnoughCollateral()` | When the caller does not have enough tokens for the requested collateral. |
@@ -104,7 +104,8 @@ Use this file when you need revnet-specific risks, state reads, constants, or ex
 | `MIN_PREPAID_FEE_PERCENT` | 25 (2.5%) | Minimum upfront fee borrowers must pay |
 | `MAX_PREPAID_FEE_PERCENT` | 500 (50%) | Maximum upfront fee |
 | `REV_PREPAID_FEE_PERCENT` | 10 (1%) | Protocol-level fee to $REV revnet |
-| `_ONE_TRILLION` | 1,000,000,000,000 | Loan ID generator base: `revnetId * 1T + loanNumber` |
+| `_LOAN_ID_NAMESPACE_SIZE` | 1,000,000,000,000,000,000 | Loan ID generator base: `revnetId * namespaceSize + loanNumber` |
+| `_MAX_LOAN_NUMBER` | 999,999,999,999,999,999 | Largest loan number that stays in the current revnet's ID namespace |
 
 ## Storage
 
@@ -144,7 +145,7 @@ Use this file when you need revnet-specific risks, state reads, constants, or ex
 1. **Revnets are permanently ownerless.** `REVOwner` holds the project NFT for every Revnet and exposes no function to release it. Stage parameters cannot be changed after deployment.
 2. **Collateral is burned, not held.** Unlike traditional lending, collateral tokens are destroyed at borrow time and re-minted on repay. If a loan liquidates after 10 years, the collateral is permanently lost.
 3. **100% LTV by design.** Borrowable amount equals the pro-rata cash-out value. No safety margin unless the stage has `cashOutTaxRate > 0`. A tax of 20% creates ~20% effective collateral buffer.
-4. **Loan ID encoding.** `loanId = revnetId * 1_000_000_000_000 + loanNumber`. Each revnet supports ~1 trillion loans. Use `revnetIdOfLoanWith(loanId)` to decode.
+4. **Loan ID encoding.** `loanId = revnetId * 1_000_000_000_000_000_000 + loanNumber`. Each revnet supports loan numbers up to `999_999_999_999_999_999`; `1_000_000_000_000_000_000` is the next revnet's namespace. Use `revnetIdOfLoanWith(loanId)` to decode.
 5. **uint112 truncation risk.** `REVLoan.amount` and `REVLoan.collateral` are `uint112`. Values above ~5.19e33 truncate silently.
 6. **Auto-issuance stage IDs.** Computed as `block.timestamp + i` during deployment. These match the Juicebox ruleset IDs because `JBRulesets` assigns IDs the same way (`latestId >= block.timestamp ? latestId + 1 : block.timestamp`), producing identical sequential IDs when all stages are queued in a single `deployFor()` call.
 7. **Cash-out fee stacking.** Non-zero-tax ordinary cash-outs incur both the Juicebox terminal fee (2.5%) and the revnet cash-out fee (2.5% to fee revnet). These compound. The 2.5% revnet fee is deducted from the TOKEN AMOUNT being cashed out, not from the reclaim value. 2.5% of the tokens are redirected to the fee revnet, which then redeems them at the bonding curve independently. The net reclaim to the caller is based on 97.5% of the tokens, not 97.5% of the computed ETH value. Zero-tax ordinary cash-outs route through the buyback hook without adding the revnet fee hook, matching current code behavior. This is by design.

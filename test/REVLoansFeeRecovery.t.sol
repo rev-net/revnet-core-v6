@@ -566,8 +566,8 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
         uint256 normalReceived = USER.balance - balBefore;
 
         // Get the actual borrow amount from the loan to compute expected REV fee.
-        // Loan ID = revnetId * 1e12 + loanNumber (first loan = 1).
-        REVLoan memory loan = LOANS_CONTRACT.loanOf(REVNET_ID * 1_000_000_000_000 + 1);
+        // Loan ID = revnetId * namespace size + loanNumber (first loan = 1).
+        REVLoan memory loan = LOANS_CONTRACT.loanOf(REVNET_ID * 1_000_000_000_000_000_000 + 1);
         uint256 expectedRevFee =
             JBFees.feeAmountFrom({amountBeforeFee: loan.amount, feePercent: LOANS_CONTRACT.REV_PREPAID_FEE_PERCENT()});
 

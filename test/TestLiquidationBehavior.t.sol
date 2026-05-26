@@ -369,8 +369,8 @@ contract TestLiquidationBehavior is TestBaseWorkflow {
         // Warp past the liquidation duration
         vm.warp(loan.createdAt + LOANS_CONTRACT.LOAN_LIQUIDATION_DURATION() + 1);
 
-        // Get the loan number (loanId = revnetId * 1_000_000_000_000 + loanNumber)
-        uint256 loanNumber = loanId - (REVNET_ID * 1_000_000_000_000);
+        // Get the loan number (loanId = revnetId * 1_000_000_000_000_000_000 + loanNumber)
+        uint256 loanNumber = loanId - (REVNET_ID * 1_000_000_000_000_000_000);
 
         // Liquidate the loan
         LOANS_CONTRACT.liquidateExpiredLoansFrom(REVNET_ID, loanNumber, 1);
@@ -406,7 +406,7 @@ contract TestLiquidationBehavior is TestBaseWorkflow {
         uint256 totalBorrowedBefore = LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, JBConstants.NATIVE_TOKEN);
 
         // liquidateExpiredLoansFrom takes the revnet-local loan number, while loanOf/ownerOf use the full NFT ID.
-        uint256 loanNumber = loanId - (REVNET_ID * 1_000_000_000_000);
+        uint256 loanNumber = loanId - (REVNET_ID * 1_000_000_000_000_000_000);
 
         // One second before expiry, liquidation must skip the loan and leave both storage and accounting untouched.
         vm.warp(loan.createdAt + liquidationDuration - 1);

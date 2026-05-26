@@ -88,11 +88,12 @@ contract StorageLayoutStable is TestBaseWorkflow {
     /// slot-based tooling, before bumping.
     function test_slot_totalLoansBorrowedFor_is12() public {
         uint256 revnetId = 1;
+        uint256 probe = 1_000_000_000_000_000_000 - 1;
         bytes32 slot = keccak256(abi.encode(revnetId, uint256(12)));
-        vm.store(address(LOANS), slot, bytes32(uint256(1_000_000_000_000)));
+        vm.store(address(LOANS), slot, bytes32(probe));
         assertEq(
             LOANS.totalLoansBorrowedFor(revnetId),
-            1_000_000_000_000,
+            probe,
             "totalLoansBorrowedFor expected at slot 12 (matches LoanIdOverflowGuard.t.sol)"
         );
     }

@@ -456,7 +456,7 @@ contract TestLowRegressions is TestBaseWorkflow {
         // Warp past LOAN_LIQUIDATION_DURATION (3650 days).
         vm.warp(block.timestamp + 3650 days + 1);
 
-        // Get the loan number from the ID (loanId = revnetId * 1_000_000_000_000 + loanNumber).
+        // Get the loan number from the ID (loanId = revnetId * 1_000_000_000_000_000_000 + loanNumber).
         // For the first loan, loanNumber is 1.
         LOANS_CONTRACT.liquidateExpiredLoansFrom(revnetId, 1, 1);
 

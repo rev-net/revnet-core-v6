@@ -49,10 +49,10 @@ import {MockEmptyTerminal} from "../mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
 
 /// @notice Regression tests for the loan ID overflow guard in REVLoans.
-/// @dev The totalLoansBorrowedFor counter must never exceed _ONE_TRILLION (1e12).
-/// When it reaches that limit, borrowFrom, _reallocateCollateralFromLoan, and
+/// @dev The totalLoansBorrowedFor counter must stay below the per-revnet loan ID namespace size.
+/// When it reaches the final valid loan number, borrowFrom, _reallocateCollateralFromLoan, and
 /// the partial-repay branch of repayLoan must all revert with REVLoans_LoanIdOverflow().
-/// These tests use vm.store to set the counter to the limit, then verify the revert.
+/// These tests use vm.store to set the counter to the final valid value, then verify the revert.
 contract LoanIdOverflowGuard is TestBaseWorkflow {
     // ---------------------------------------------------------------
     // Constants
@@ -62,8 +62,11 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
     // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
 
-    /// @dev The overflow boundary -- must match _ONE_TRILLION in REVLoans.sol.
-    uint256 private constant _ONE_TRILLION = 1_000_000_000_000;
+    /// @dev The overflow boundary -- must match `_LOAN_ID_NAMESPACE_SIZE` in REVLoans.sol.
+    uint256 private constant _LOAN_ID_NAMESPACE_SIZE = 1_000_000_000_000_000_000;
+
+    /// @dev The final valid loan number within one revnet's loan ID namespace.
+    uint256 private constant _MAX_LOAN_NUMBER = _LOAN_ID_NAMESPACE_SIZE - 1;
 
     /// @dev Storage slot of the totalLoansBorrowedFor mapping in REVLoans (slot 12).
     /// Determined via `forge inspect REVLoans storage-layout`. Bumped from 11 → 12 when `referralProjectId` was
@@ -382,7 +385,7 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
     // ---------------------------------------------------------------
 
     /// @notice Verifies that borrowFrom reverts with REVLoans_LoanIdOverflow when
-    /// the totalLoansBorrowedFor counter has reached _ONE_TRILLION.
+    /// the totalLoansBorrowedFor counter has reached the final valid loan number.
     function test_borrowFrom_revertsAtOverflowBoundary() public {
         // Pay ETH into the revnet so the user has tokens for collateral.
         vm.prank(USER);
@@ -400,14 +403,14 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
 
         // No permission mock needed: the overflow guard fires before any permission/burn check.
 
-        // Use vm.store to set totalLoansBorrowedFor[REVNET_ID] to _ONE_TRILLION.
-        vm.store(address(LOANS_CONTRACT), _totalLoansBorrowedSlot(REVNET_ID), bytes32(_ONE_TRILLION));
+        // Use vm.store to set totalLoansBorrowedFor[REVNET_ID] to the final valid loan number.
+        vm.store(address(LOANS_CONTRACT), _totalLoansBorrowedSlot(REVNET_ID), bytes32(_MAX_LOAN_NUMBER));
 
         // Confirm the counter is now at the overflow boundary.
         assertEq(
             LOANS_CONTRACT.totalLoansBorrowedFor(REVNET_ID),
-            _ONE_TRILLION,
-            "counter should be at _ONE_TRILLION after vm.store"
+            _MAX_LOAN_NUMBER,
+            "counter should be at _MAX_LOAN_NUMBER after vm.store"
         );
 
         // Build the loan source token.
@@ -416,7 +419,7 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
         // Expect the overflow revert.
         vm.expectRevert(
             abi.encodeWithSelector(
-                REVLoans.REVLoans_LoanIdOverflow.selector, REVNET_ID, _ONE_TRILLION + 1, _ONE_TRILLION
+                REVLoans.REVLoans_LoanIdOverflow.selector, REVNET_ID, _LOAN_ID_NAMESPACE_SIZE, _MAX_LOAN_NUMBER
             )
         );
 
@@ -430,7 +433,7 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
     // ---------------------------------------------------------------
 
     /// @notice Verifies that reallocateCollateralFromLoan reverts with REVLoans_LoanIdOverflow
-    /// when the totalLoansBorrowedFor counter has reached _ONE_TRILLION.
+    /// when the totalLoansBorrowedFor counter has reached the final valid loan number.
     /// @dev A second user injects surplus after the loan is created so that removing a small
     /// amount of collateral still leaves borrowable value >= the original loan amount (otherwise
     /// the ReallocatingMoreCollateralThanBorrowedAmountAllows check fires first).
@@ -453,14 +456,14 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
         // No permission mock needed: the overflow guard in _reallocateCollateralFromLoan fires
         // before any permission/burn check is reached.
 
-        // Use vm.store to set totalLoansBorrowedFor[REVNET_ID] to _ONE_TRILLION.
-        vm.store(address(LOANS_CONTRACT), _totalLoansBorrowedSlot(REVNET_ID), bytes32(_ONE_TRILLION));
+        // Use vm.store to set totalLoansBorrowedFor[REVNET_ID] to the final valid loan number.
+        vm.store(address(LOANS_CONTRACT), _totalLoansBorrowedSlot(REVNET_ID), bytes32(_MAX_LOAN_NUMBER));
 
         // Confirm the counter is at the overflow boundary.
         assertEq(
             LOANS_CONTRACT.totalLoansBorrowedFor(REVNET_ID),
-            _ONE_TRILLION,
-            "counter should be at _ONE_TRILLION after vm.store"
+            _MAX_LOAN_NUMBER,
+            "counter should be at _MAX_LOAN_NUMBER after vm.store"
         );
 
         // Build the loan source token matching the existing loan's source.
@@ -472,7 +475,7 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
         // Expect the overflow revert from _reallocateCollateralFromLoan.
         vm.expectRevert(
             abi.encodeWithSelector(
-                REVLoans.REVLoans_LoanIdOverflow.selector, REVNET_ID, _ONE_TRILLION + 1, _ONE_TRILLION
+                REVLoans.REVLoans_LoanIdOverflow.selector, REVNET_ID, _LOAN_ID_NAMESPACE_SIZE, _MAX_LOAN_NUMBER
             )
         );
 
@@ -494,7 +497,7 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
     // ---------------------------------------------------------------
 
     /// @notice Verifies that a partial repayLoan reverts with REVLoans_LoanIdOverflow
-    /// when the totalLoansBorrowedFor counter has reached _ONE_TRILLION.
+    /// when the totalLoansBorrowedFor counter has reached the final valid loan number.
     /// @dev A partial repayment creates a replacement loan with a new ID, which requires
     /// incrementing the counter. If the counter is at the limit, this must revert.
     function test_partialRepay_revertsAtOverflowBoundary() public {
@@ -512,14 +515,14 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
         // Sanity check: half amount must be non-zero for a meaningful partial repay.
         assertGt(halfAmount, 0, "half amount should be > 0");
 
-        // Use vm.store to set totalLoansBorrowedFor[REVNET_ID] to _ONE_TRILLION.
-        vm.store(address(LOANS_CONTRACT), _totalLoansBorrowedSlot(REVNET_ID), bytes32(_ONE_TRILLION));
+        // Use vm.store to set totalLoansBorrowedFor[REVNET_ID] to the final valid loan number.
+        vm.store(address(LOANS_CONTRACT), _totalLoansBorrowedSlot(REVNET_ID), bytes32(_MAX_LOAN_NUMBER));
 
         // Confirm the counter is at the overflow boundary.
         assertEq(
             LOANS_CONTRACT.totalLoansBorrowedFor(REVNET_ID),
-            _ONE_TRILLION,
-            "counter should be at _ONE_TRILLION after vm.store"
+            _MAX_LOAN_NUMBER,
+            "counter should be at _MAX_LOAN_NUMBER after vm.store"
         );
 
         // Build an empty allowance (no permit2 needed for native token repayment).
@@ -528,12 +531,12 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
         // Expect the overflow revert from the partial-repay branch.
         vm.expectRevert(
             abi.encodeWithSelector(
-                REVLoans.REVLoans_LoanIdOverflow.selector, REVNET_ID, _ONE_TRILLION + 1, _ONE_TRILLION
+                REVLoans.REVLoans_LoanIdOverflow.selector, REVNET_ID, _LOAN_ID_NAMESPACE_SIZE, _MAX_LOAN_NUMBER
             )
         );
 
         // Attempt a partial repayment -- should revert because creating the replacement loan
-        // would exceed the _ONE_TRILLION loan ID namespace.
+        // would exceed the current revnet's loan ID namespace.
         vm.prank(USER);
         LOANS_CONTRACT.repayLoan{value: halfAmount}(loanId, halfAmount, 0, payable(USER), allowance);
     }

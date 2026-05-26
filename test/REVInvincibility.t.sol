@@ -1266,7 +1266,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
         if (HANDLER.callCount_payAndBorrow() == 0) return;
 
         for (uint256 i = 1; i <= HANDLER.callCount_payAndBorrow(); i++) {
-            uint256 loanId = (REVNET_ID * 1_000_000_000_000) + i;
+            uint256 loanId = (REVNET_ID * 1_000_000_000_000_000_000) + i;
 
             try IERC721(address(LOANS_CONTRACT)).ownerOf(loanId) {}
             catch {
