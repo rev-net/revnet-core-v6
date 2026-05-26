@@ -52,9 +52,9 @@ interface IREVDeployer {
         address caller
     );
 
-    /// @notice Emitted when the cash out delay is set for a revnet.
+    /// @notice Emitted when the cash-out delay is set for a revnet.
     /// @param revnetId The ID of the revnet.
-    /// @param cashOutDelay The cash out delay in seconds.
+    /// @param cashOutDelay The cash-out delay in seconds.
     /// @param caller The address that set the delay.
     event SetCashOutDelay(uint256 indexed revnetId, uint256 cashOutDelay, address caller);
 
@@ -73,7 +73,7 @@ interface IREVDeployer {
     function BUYBACK_HOOK() external view returns (IJBBuybackHookRegistry);
 
     /// @notice The number of seconds until a revnet's participants can cash out after deploying to a new network.
-    /// @return The cash out delay in seconds.
+    /// @return The cash-out delay in seconds.
     function CASH_OUT_DELAY() external view returns (uint256);
 
     /// @notice The controller used to create and manage Juicebox projects for revnets.
@@ -92,7 +92,7 @@ interface IREVDeployer {
     /// @return The directory contract.
     function DIRECTORY() external view returns (IJBDirectory);
 
-    /// @notice The Juicebox project ID of the revnet that receives cash out fees.
+    /// @notice The Juicebox project ID of the revnet that receives cash-out fees.
     /// @return The fee revnet ID.
     function FEE_REVNET_ID() external view returns (uint256);
 
@@ -105,7 +105,7 @@ interface IREVDeployer {
     /// @return The hook deployer contract.
     function HOOK_DEPLOYER() external view returns (IJB721TiersHookDeployer);
 
-    /// @notice The loan contract used by all revnets.
+    /// @notice The loan contract used by every revnet.
     /// @return The loans contract address.
     function LOANS() external view returns (IREVLoans);
 
@@ -113,7 +113,7 @@ interface IREVDeployer {
     /// @return The multi terminal contract.
     function MULTI_TERMINAL() external view returns (IJBTerminal);
 
-    /// @notice The runtime data hook contract that handles pay and cash out callbacks for revnets.
+    /// @notice The runtime data hook contract that handles pay and cash-out callbacks for revnets.
     /// @return The owner contract address.
     function OWNER() external view returns (address);
 
@@ -125,7 +125,7 @@ interface IREVDeployer {
     /// @return The projects contract.
     function PROJECTS() external view returns (IJBProjects);
 
-    /// @notice The croptop publisher revnets can use to publish ERC-721 posts to their tiered ERC-721 hooks.
+    /// @notice The Croptop publisher revnets can use to publish ERC-721 posts to their tiered ERC-721 hooks.
     /// @return The publisher contract.
     function PUBLISHER() external view returns (CTPublisher);
 
@@ -137,14 +137,14 @@ interface IREVDeployer {
     /// @return The sucker registry contract.
     function SUCKER_REGISTRY() external view returns (IJBSuckerRegistry);
 
-    /// @notice Deploy a revnet with a tiered ERC-721 hook and optional croptop posting support.
+    /// @notice Deploy a revnet with a tiered ERC-721 hook and optional Croptop posting support.
     /// @dev Every revnet gets a 721 hook — pass an empty config if no tiers are needed initially.
     /// @param revnetId The ID of the Juicebox project to initialize. Send 0 to deploy a new revnet.
     /// @param configuration Core revnet configuration.
     /// @param accountingContextsToAccept The accounting contexts the canonical multi terminal should accept.
     /// @param suckerDeploymentConfiguration The suckers to set up for cross-chain token transfers.
     /// @param tiered721HookConfiguration How to configure the tiered ERC-721 hook for the revnet.
-    /// @param allowedPosts Restrictions on which croptop posts to allow on the revnet's ERC-721 tiers.
+    /// @param allowedPosts Restrictions on which Croptop posts to allow on the revnet's ERC-721 tiers.
     /// @return The ID of the newly created or initialized revnet.
     /// @return hook The tiered ERC-721 hook deployed for the revnet.
     function deployFor(

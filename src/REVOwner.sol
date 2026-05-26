@@ -38,10 +38,10 @@ import {REVOwnerAutoIssuance} from "./structs/REVOwnerAutoIssuance.sol";
 import {REVOwnerExtraGrant} from "./structs/REVOwnerExtraGrant.sol";
 import {REVOwnerRevnetInit} from "./structs/REVOwnerRevnetInit.sol";
 
-/// @notice The runtime hook for all revnets — set as every revnet's `dataHook` in ruleset metadata. At pay time, it
+/// @notice The runtime hook for every revnet — set as each revnet's `dataHook` in ruleset metadata. At pay time, it
 /// coordinates the 721 hook (NFT tier minting) with the buyback hook (secondary market swap routing) and scales weight
 /// for split deductions. At cash-out time, it aggregates cross-chain total supply and surplus (including outstanding
-/// loan debt and collateral), grants suckers 0% tax, splits a 2.5% fee from non-sucker cash outs with a non-zero
+/// loan debt and collateral), grants suckers 0% tax, splits a 2.5% fee from non-sucker cash-outs with a non-zero
 /// cash-out tax, and routes fee proceeds to the fee revnet via `afterCashOutRecordedWith`.
 /// @dev Separated from `REVDeployer` to stay within the EIP-170 contract size limit. Also implements
 /// `IJBPeerChainAdjustedAccounts` to expose loan state to peer-chain supply/surplus snapshots.
@@ -73,10 +73,10 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
     /// @notice The directory of terminals and controllers for Juicebox projects.
     IJBDirectory public immutable override DIRECTORY;
 
-    /// @notice The Juicebox project ID of the revnet that receives cash out fees.
+    /// @notice The Juicebox project ID of the revnet that receives cash-out fees.
     uint256 public immutable override FEE_REVNET_ID;
 
-    /// @notice The loan contract used by all revnets.
+    /// @notice The loan contract used by every revnet.
     IREVLoans public immutable override LOANS;
 
     /// @notice Deploys and tracks suckers for revnets.
@@ -86,9 +86,9 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
     // --------------------- public stored properties -------------------- //
     //*********************************************************************//
 
-    /// @notice The timestamp of when cashouts will become available to a specific revnet's participants.
+    /// @notice The timestamp when cash-outs become available to a specific revnet's participants.
     /// @dev Only applies to existing revnets deploying onto a new network.
-    /// @custom:param revnetId The ID of the revnet to check the cash out delay for.
+    /// @custom:param revnetId The ID of the revnet to check the cash-out delay for.
     mapping(uint256 revnetId => uint256 cashOutDelay) public override cashOutDelayOf;
 
     /// @notice Each revnet's tiered ERC-721 hook.
@@ -107,7 +107,7 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
     /// @dev Set once via `setDeployer()` using the precomputed canonical REVDeployer address.
     IREVDeployer public override deployer;
 
-    /// @notice The controller used by all revnets to manage their projects.
+    /// @notice The controller used by every revnet to manage its project.
     /// @dev Cached from the deployer at `setDeployer()` time.
     IJBController public override CONTROLLER;
 
@@ -165,7 +165,7 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
     // ------------------------- external views -------------------------- //
     //*********************************************************************//
 
-    /// @notice Called before a cash out is recorded. Suckers get 0% tax (bridged tokens redeem at face value). For
+    /// @notice Called before a cash-out is recorded. Suckers get 0% tax (bridged tokens redeem at face value). For
     /// regular holders, aggregates cross-chain total supply and surplus (including outstanding loan debt/collateral),
     /// splits a 2.5% fee from the cashed-out token count when cash-out tax is non-zero, computes bonding curve
     /// reclaims for both the holder's portion and the fee portion, then delegates to the buyback hook for potential
@@ -173,12 +173,12 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
     /// @dev Part of `IJBRulesetDataHook`. In the non-zero-tax fee path, REVOwner is intentionally not registered as a
     /// feeless address — the protocol fee (2.5%) applies on top of the rev fee. The fee hook spec amount sent to
     /// `afterCashOutRecordedWith` will have the protocol fee deducted by the terminal before reaching this contract.
-    /// @param context Standard Juicebox cash out context. See `JBBeforeCashOutRecordedContext`.
-    /// @return cashOutTaxRate The cash out tax rate, which influences the amount of terminal tokens reclaimed.
+    /// @param context Standard Juicebox cash-out context. See `JBBeforeCashOutRecordedContext`.
+    /// @return cashOutTaxRate The cash-out tax rate, which influences the amount of terminal tokens reclaimed.
     /// @return cashOutCount The number of revnet tokens to cash out.
     /// @return totalSupply The total token supply across all chains (for both proportional reclaim and tax).
     /// @return effectiveSurplusValue The global surplus across all chains for proportional reclaim.
-    /// @return hookSpecifications The amount of funds and data to send to cash out hooks (this contract).
+    /// @return hookSpecifications The amount of funds and data to send to cash-out hooks (this contract).
     function beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext calldata context)
         external
         view
@@ -201,7 +201,7 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
         totalSupply = context.totalSupply + totalCollateral;
         effectiveSurplusValue = context.surplus.value + totalBorrowed;
 
-        // If the cash out is from a sucker, return the full cash out amount without taxes or fees.
+        // If the cash-out is from a sucker, return the full cash-out amount without taxes or fees.
         // Sucker cash-outs are the bridge accounting path: the value moving out of this chain must stay proportional
         // to this chain's local backing. Do not add remote supply/surplus here, even for unscoped revnets.
         // This relies on the sucker registry to only contain trusted sucker contracts deployed via
@@ -210,16 +210,16 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
             return (0, context.cashOutCount, totalSupply, effectiveSurplusValue, hookSpecifications);
         }
 
-        // Keep a reference to the cash out delay of the revnet.
+        // Keep a reference to the cash-out delay of the revnet.
         uint256 cashOutDelay = cashOutDelayOf[context.projectId];
 
-        // Enforce the cash out delay.
+        // Enforce the cash-out delay.
         // forge-lint: disable-next-line(block-timestamp)
         if (cashOutDelay > block.timestamp) {
             revert REVOwner_CashOutDelayNotFinished({cashOutDelay: cashOutDelay, blockTimestamp: block.timestamp});
         }
 
-        // Get the terminal that will receive the cash out fee.
+        // Get the terminal that will receive the cash-out fee.
         IJBTerminal feeTerminal = DIRECTORY.primaryTerminalOf({projectId: FEE_REVNET_ID, token: context.surplus.token});
 
         // If the ruleset aggregates cross-chain state, add remote supply and surplus.
@@ -232,8 +232,8 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
             });
         }
 
-        // If there's no cash out tax, if there's no fee terminal, or if the beneficiary is feeless (e.g. the router
-        // terminal routing value between projects), proxy to the buyback hook with our totalSupply and
+        // If there is no cash-out tax, no fee terminal, or a feeless beneficiary (e.g. the router terminal routing
+        // value between projects), proxy to the buyback hook with our totalSupply and
         // effectiveSurplusValue. Zero-tax ordinary cash-outs do not add the revnet fee hook.
         if (context.cashOutTaxRate == 0 || address(feeTerminal) == address(0) || context.beneficiaryIsFeeless) {
             // Build a modified context with cross-chain-adjusted values so the buyback hook sees the global state
@@ -249,8 +249,8 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
         // The fee is applied to TOKEN COUNT (2.5% of tokens), not to value. The fee revnet receives the bonding-curve
         // reclaim of its 2.5% token share regardless of whether the remaining 97.5% routes through a buyback pool at
         // a better price. This is by design.
-        // Micro cash outs (< 40 wei at 2.5% fee) round feeCashOutCount to zero, bypassing the fee.
-        // Economically insignificant: the gas cost of the transaction far exceeds the bypassed fee. No fix needed.
+        // Micro cash-outs (< 40 wei at 2.5% fee) round feeCashOutCount to zero. This accepted floor is economically
+        // negligible because gas dominates the avoided fee.
         uint256 feeCashOutCount = JBFees.standardFeeAmountFrom(context.cashOutCount);
         uint256 nonFeeCashOutCount = context.cashOutCount - feeCashOutCount;
 
@@ -311,7 +311,7 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
         buybackHookContext.totalSupply = totalSupply;
         buybackHookContext.surplus.value = buybackSurplus;
 
-        // Let the buyback hook adjust the cash out parameters and optionally return a hook specification.
+        // Let the buyback hook adjust the cash-out parameters and optionally return a hook specification.
         JBCashOutHookSpecification[] memory buybackHookSpecifications;
         (cashOutTaxRate, cashOutCount,,, buybackHookSpecifications) =
             BUYBACK_HOOK.beforeCashOutRecordedWith(buybackHookContext);
@@ -325,11 +325,11 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
         // totalSupply, cashOutTaxRate)` and add the fee spec on top. When local liquidity is the binding cap, that
         // sum can exceed local surplus and revert. `cashOutFrom` is linear in `surplus`, so scale the surplus we
         // report so the store-side reclaim is at most `localSurplus - feeAmount`, preserving room for the fee.
-        // The fee is NOT scaled here — it was already scaled by the PR #149 block above. Only the store-facing
-        // surplus is touched; the buyback hook already received the full pre-cap value for its routing decision.
+        // The fee was already scaled, if needed, by the local-liquidity block above. Only the store-facing surplus is
+        // touched; the buyback hook already received the full pre-cap value for its routing decision.
         //
         // Worked example (local=10, global=100, 500 of 1000 tokens at 50% tax):
-        //   above this block (PR #149):
+        //   local-liquidity scaling above:
         //     unscaledReclaim = cashOutFrom(100, 487.5, 1000, 5000)            ≈ 36 ETH        (global)
         //     feeAmount       = cashOutFrom(64, 12.5, 512.5, 5000)             ≈ 0.78 ETH      (global)
         //     grossOutflow ≈ 36.78 > 10  →  scale both proportionally to local liquidity:
@@ -343,10 +343,9 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
         //     storeReclaim = 36 × (27.18 / 100) ≈ 9.786 ETH
         //     balanceDiff  = 9.786 + 0.214 = 10 ETH = localSurplus              ✓ no revert
         //
-        // Underflow safety on `localSurplus − feeAmount`: after PR #149 the relation
-        // `feeAmount ≤ localSurplus` holds in both branches — in the scaling branch because
-        // `feeAmount ≤ grossOutflow` and the multiplier is `localSurplus / grossOutflow ≤ 1`;
-        // in the else branch because `feeAmount ≤ grossOutflow ≤ localSurplus` already.
+        // Underflow safety: `feeAmount <= localSurplus` holds in both branches.
+        // In the scaling branch, `feeAmount <= grossOutflow` and the multiplier is
+        // `localSurplus / grossOutflow <= 1`. In the else branch, `feeAmount <= grossOutflow <= localSurplus`.
         uint256 reclaimCap = context.surplus.value - feeAmount;
         if (unscaledReclaim > reclaimCap) {
             effectiveSurplusValue = mulDiv({x: effectiveSurplusValue, y: reclaimCap, denominator: unscaledReclaim});
@@ -486,11 +485,11 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
     // --------------------- external transactions ----------------------- //
     //*********************************************************************//
 
-    /// @notice Process the fee from a cash out.
+    /// @notice Process the fee from a cash-out.
     /// @param context Cash out context passed in by the terminal.
     function afterCashOutRecordedWith(JBAfterCashOutRecordedContext calldata context) external payable override {
         // No caller validation needed — this hook only pays fees to the fee project using funds forwarded by the
-        // caller. A non-terminal caller would just be donating their own funds as fees. There's nothing to exploit.
+        // caller. A non-terminal caller would donate their own funds as fees. There's nothing to exploit.
 
         if (context.forwardedAmount.token == JBConstants.NATIVE_TOKEN) {
             // Native fee processing must be value-balanced by the current call. Otherwise a non-terminal caller could
@@ -568,14 +567,14 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
         }
 
         // Store the cash-out delay if the deployer computed one (existing revnet landing on a new chain). A zero
-        // delay means cash outs are unlocked immediately, so skip the storage write to save gas in the common case.
+        // delay means cash-outs are unlocked immediately, so skip the storage write to save gas in the common case.
         if (init.cashOutDelay != 0) {
             cashOutDelayOf[revnetId] = init.cashOutDelay;
         }
 
-        // Bind the tiered ERC-721 hook the deployer just created for this revnet so `beforePayRecordedWith` can
-        // route NFT-tier mints through it. The deployer always deploys a hook (empty or pre-tiered), so the zero
-        // guard is defensive.
+        // Bind the tiered ERC-721 hook the deployer created for this revnet so `beforePayRecordedWith` can route
+        // NFT-tier mints through it. The deployer always deploys a hook (empty or pre-tiered), so the zero guard is
+        // defensive.
         if (address(init.tiered721Hook) != address(0)) {
             tiered721HookOf[revnetId] = init.tiered721Hook;
         }
@@ -647,7 +646,7 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
         PROJECTS = newDeployer.PROJECTS();
 
         // Grant the wildcard operator permissions used by every revnet, scoped on this contract's account.
-        // The loan contract is the singleton shared by all revnets and uses the surplus allowance of each
+        // The loan contract is the singleton shared by every revnet and uses the surplus allowance of each
         // revnet's terminal. The buyback hook registry configures pools on every revnet.
         uint8[] memory loanPermissionIds = new uint8[](1);
         loanPermissionIds[0] = JBPermissionIds.USE_ALLOWANCE;
@@ -774,8 +773,9 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
 
     /// @notice Indicates if this contract adheres to the specified interface.
     /// @dev See `IERC165.supportsInterface`.
-    /// @return A flag indicating if the provided interface ID is supported.
-    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
+    /// @param interfaceId The interface ID to check.
+    /// @return flag A flag indicating whether the interface is supported.
+    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool flag) {
         return interfaceId == type(IERC165).interfaceId || interfaceId == type(IJBRulesetDataHook).interfaceId
             || interfaceId == type(IJBCashOutHook).interfaceId
             || interfaceId == type(IJBPeerChainAdjustedAccounts).interfaceId;

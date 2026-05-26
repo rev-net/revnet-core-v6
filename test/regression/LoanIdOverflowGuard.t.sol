@@ -446,8 +446,7 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
         // Add surplus to the revnet WITHOUT minting tokens (addToBalanceOf, not pay).
         // This increases the per-token borrowable value so that after removing a small
         // amount of collateral, the borrowable amount still exceeds the original loan
-        // amount (avoiding the ReallocatingMoreCollateralThanBorrowedAmountAllows check
-        // at line 1181 and reaching the overflow guard at line 1186).
+        // amount, so the reallocation reaches the loan-ID overflow guard.
         vm.prank(USER2);
         jbMultiTerminal().addToBalanceOf{value: 50e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 50e18, false, "", "");
 

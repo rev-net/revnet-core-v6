@@ -44,10 +44,10 @@ import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
-/// @notice Regression tests for the empty buyback hook specifications fix.
+/// @notice Regression tests for empty buyback hook specifications.
 /// When JBBuybackHook determines minting is cheaper than swapping, it returns an empty
-/// hookSpecifications array. Before the fix, REVDeployer.beforePayRecordedWith would
-/// Panic(0x32) (array out-of-bounds) when accessing buybackHookSpecifications[0].
+/// hookSpecifications array. REVDeployer.beforePayRecordedWith must not read
+/// buybackHookSpecifications[0] unless that array contains a spec.
 contract TestEmptyBuybackSpecs is TestBaseWorkflow {
     // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
@@ -207,8 +207,7 @@ contract TestEmptyBuybackSpecs is TestBaseWorkflow {
         });
     }
 
-    /// @notice REGRESSION: Payment to revnet must succeed when buyback hook returns empty specs (mint path).
-    /// Before the fix, this would Panic(0x32) due to accessing buybackHookSpecifications[0] on an empty array.
+    /// @notice Payment to revnet must succeed when buyback hook returns empty specs (mint path).
     function test_payRevnet_emptyBuybackSpecs_succeeds() public {
         uint256 revnetId = _deployFeeAndRevnet();
 

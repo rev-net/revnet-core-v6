@@ -62,9 +62,9 @@ contract TestLoansAndDeployerFixes is REVLoansFeeRecovery {
     // Stale ERC20 Approval Cleanup
     // ========================================================================
     // After _tryPayFee (in _addTo) or _removeFrom, the ERC20 allowance from
-    // the LOANS_CONTRACT to the terminal must be zero. The _afterTransferTo
-    // call now force-approves to 0 after successful transfers, and the catch
-    // block in _tryPayFee uses safeDecreaseAllowance on failure.
+    // the LOANS_CONTRACT to the terminal must be zero. _afterTransferTo clears
+    // the allowance after successful transfers, and _tryPayFee's catch block
+    // uses safeDecreaseAllowance on failure.
     // ========================================================================
 
     /// @notice After an ERC20 borrow, the allowance from LOANS_CONTRACT to the terminal is 0.
@@ -227,7 +227,7 @@ contract TestLoansAndDeployerFixes is REVLoansFeeRecovery {
             allowance: JBSingleAllowance({sigDeadline: 0, amount: 0, expiration: 0, nonce: 0, signature: ""})
         });
 
-        // Confirm the totalBorrowedFrom for native source is now 0.
+        // Confirm the totalBorrowedFrom for native source is 0.
         assertEq(
             LOANS_CONTRACT.totalBorrowedFrom(REVNET_ID, JBConstants.NATIVE_TOKEN),
             0,

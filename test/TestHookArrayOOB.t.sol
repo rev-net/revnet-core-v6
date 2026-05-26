@@ -45,11 +45,8 @@ import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
-/// @notice Tests for PR #22: fix/c2-hook-array-oob
-/// Verifies that the fix for the hook array out-of-bounds bug works correctly.
-/// The bug: `hookSpecifications[1] = buybackHookSpecifications[0]` would revert with OOB
-/// when there is no tiered 721 hook (array size is 1, not 2).
-/// The fix: `hookSpecifications[usesTiered721Hook ? 1 : 0] = buybackHookSpecifications[0]`.
+/// @notice Tests hook array indexing when only the buyback hook is active.
+/// @dev The buyback hook spec must use index 0 when there is no tiered 721 hook.
 contract TestHookArrayOOB is TestBaseWorkflow {
     // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";

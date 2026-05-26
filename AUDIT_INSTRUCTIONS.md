@@ -1,6 +1,6 @@
 # Audit Instructions
 
-Revnet is a staged, owner-minimized product layer on top of Juicebox core. Audit it as an economic system, not just a deployer plus a loan contract.
+Revnet is a staged, owner-minimized product layer on top of Juicebox core. Audit it as an economic system, not only a deployer plus a loan contract.
 
 ## Audit Objective
 

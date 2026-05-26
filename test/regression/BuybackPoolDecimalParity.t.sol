@@ -7,12 +7,12 @@ import "forge-std/Test.sol";
 import {mulDiv, sqrt} from "@prb/math/src/Common.sol";
 
 /// @notice Standalone harness that replicates the `sqrtPriceX96` calculation from
-///         `REVDeployer._tryInitializeBuybackPoolFor`. This tests the formula in isolation
-///         without needing the full REVDeployer constructor wiring.
-/// @dev Bug AN: the old code used `1e18` instead of `10 ** terminalTokenDecimals`, causing
-///      wrong pool initialization prices for non-18-decimal tokens (e.g., USDC with 6 decimals).
+/// `REVDeployer._tryInitializeBuybackPoolFor`. This tests the formula in isolation without needing the full
+/// REVDeployer constructor wiring.
+/// @dev The comparison formula hardcodes `1e18` instead of `10 ** terminalTokenDecimals`, which demonstrates the
+/// expected difference for non-18-decimal tokens.
 contract SqrtPriceHarness {
-    /// @notice Compute the sqrtPriceX96 exactly as REVDeployer does (post-fix).
+    /// @notice Compute the sqrtPriceX96 exactly as REVDeployer does.
     /// @param terminalToken The terminal token address (normalized: native → address(0)).
     /// @param projectToken The project token address (always 18 decimals).
     /// @param terminalTokenDecimals The decimal precision of the terminal token.
@@ -40,7 +40,7 @@ contract SqrtPriceHarness {
         }
     }
 
-    /// @notice Compute using the OLD buggy formula (1e18 hardcoded) for comparison.
+    /// @notice Compute using the 1e18-hardcoded comparison formula.
     function computeSqrtPriceX96_BUGGY(
         address terminalToken,
         address projectToken,
@@ -51,7 +51,7 @@ contract SqrtPriceHarness {
         pure
         returns (uint160 sqrtPriceX96)
     {
-        uint256 terminalTokenUnit = 1e18; // BUG: hardcoded instead of 10 ** terminalTokenDecimals
+        uint256 terminalTokenUnit = 1e18; // Hardcoded comparison path.
 
         if (initialIssuance == 0 || projectToken == address(0) || projectToken == terminalToken) {
             sqrtPriceX96 = uint160(1 << 96);
@@ -63,11 +63,10 @@ contract SqrtPriceHarness {
     }
 }
 
-/// @notice Regression test for bug AN — `_tryInitializeBuybackPoolFor` must use
-///         `10 ** terminalTokenDecimals` instead of hardcoded `1e18`.
-/// @dev The old code used `1e18` as the terminal token unit regardless of actual token decimals,
-///      causing wrong sqrtPriceX96 for 6-dec (USDC) and 8-dec (WBTC) tokens. The pool would be
-///      initialized at an incorrect price, leading to immediate arbitrage losses.
+/// @notice Regression tests proving `_tryInitializeBuybackPoolFor` uses `10 ** terminalTokenDecimals` instead of
+/// hardcoded `1e18`.
+/// @dev Non-18-decimal tokens such as USDC and WBTC must produce a different sqrtPriceX96 than the 1e18-hardcoded
+/// comparison formula.
 contract BuybackPoolDecimalParityTest is Test {
     SqrtPriceHarness harness;
 
@@ -82,7 +81,7 @@ contract BuybackPoolDecimalParityTest is Test {
         harness = new SqrtPriceHarness();
     }
 
-    /// @notice 6-decimal token (USDC): fixed and buggy formulas must differ.
+    /// @notice 6-decimal token (USDC): decimal-aware and 1e18-hardcoded formulas must differ.
     function test_6dec_fixedDiffersFromBuggy() public view {
         uint160 fixed_ = harness.computeSqrtPriceX96(TERMINAL_TOKEN, PROJECT_TOKEN, 6, ISSUANCE);
         uint160 buggy = harness.computeSqrtPriceX96_BUGGY(TERMINAL_TOKEN, PROJECT_TOKEN, 6, ISSUANCE);
@@ -91,7 +90,7 @@ contract BuybackPoolDecimalParityTest is Test {
         assertTrue(fixed_ > 0, "6-dec: sqrtPriceX96 must be non-zero");
     }
 
-    /// @notice 8-decimal token (WBTC): fixed and buggy formulas must differ.
+    /// @notice 8-decimal token (WBTC): decimal-aware and 1e18-hardcoded formulas must differ.
     function test_8dec_fixedDiffersFromBuggy() public view {
         uint160 fixed_ = harness.computeSqrtPriceX96(TERMINAL_TOKEN, PROJECT_TOKEN, 8, ISSUANCE);
         uint160 buggy = harness.computeSqrtPriceX96_BUGGY(TERMINAL_TOKEN, PROJECT_TOKEN, 8, ISSUANCE);
@@ -100,7 +99,7 @@ contract BuybackPoolDecimalParityTest is Test {
         assertTrue(fixed_ > 0, "8-dec: sqrtPriceX96 must be non-zero");
     }
 
-    /// @notice 18-decimal token: fixed and buggy formulas must match (both use 1e18).
+    /// @notice 18-decimal token: decimal-aware and 1e18-hardcoded formulas must match.
     function test_18dec_fixedMatchesBuggy() public view {
         uint160 fixed_ = harness.computeSqrtPriceX96(TERMINAL_TOKEN, PROJECT_TOKEN, 18, ISSUANCE);
         uint160 buggy = harness.computeSqrtPriceX96_BUGGY(TERMINAL_TOKEN, PROJECT_TOKEN, 18, ISSUANCE);

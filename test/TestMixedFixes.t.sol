@@ -44,7 +44,7 @@ import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
-/// @notice Tests for PR #32: liquidation boundary, reallocate msg.value, and decimal normalization fixes.
+/// @notice Tests liquidation boundary, reallocate msg.value, and decimal normalization regressions.
 contract TestMixedFixes is TestBaseWorkflow {
     // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";

@@ -45,10 +45,8 @@ import {IREVDeployer} from "../../src/interfaces/IREVDeployer.sol";
 import {MockEmptyTerminal} from "../mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
 
-/// @notice liquidateExpiredLoansFrom halts on deleted loan gaps.
-/// @dev Before the fix, the function used `break` when encountering a deleted loan (createdAt == 0),
-/// which stopped the entire iteration. Expired loans after the gap were never liquidated.
-/// After the fix, `continue` is used instead, so the loop skips gaps and keeps processing.
+/// @notice liquidateExpiredLoansFrom skips deleted loan gaps.
+/// @dev Deleted loans have `createdAt == 0`; the loop must continue so expired loans after the gap are still checked.
 contract TestLiquidateGapHandling is TestBaseWorkflow {
     // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
@@ -271,8 +269,7 @@ contract TestLiquidateGapHandling is TestBaseWorkflow {
     ///   4. Call liquidateExpiredLoansFrom(revnetId, 1, 3) to try liquidating all 3
     ///   5. Verify that loan 3 (after the gap) IS liquidated
     ///
-    /// Before the fix (break): Loan 1 liquidated, loan 2 gap causes break, loan 3 skipped.
-    /// After the fix (continue): Loan 1 liquidated, loan 2 gap skipped, loan 3 liquidated.
+    /// Loan 1 is liquidated, loan 2 is skipped as a gap, and loan 3 is still liquidated.
     function test_liquidationContinuesPastDeletedLoanGaps() public {
         // Step 1: Create 3 loans
         (uint256 loanId1,) = _setupLoan(USER1, 5e18);
@@ -300,7 +297,7 @@ contract TestLiquidateGapHandling is TestBaseWorkflow {
             allowance
         );
 
-        // Verify loan 2 is now deleted (createdAt == 0)
+        // Verify loan 2 is deleted (createdAt == 0).
         REVLoan memory deletedLoan2 = LOANS_CONTRACT.loanOf(loanId2);
         assertEq(deletedLoan2.createdAt, 0, "Loan 2 should be deleted after full repayment");
 
@@ -323,14 +320,13 @@ contract TestLiquidateGapHandling is TestBaseWorkflow {
         // Loan numbers are 1, 2, 3 (not the full loanIds which include revnetId prefix)
         LOANS_CONTRACT.liquidateExpiredLoansFrom(REVNET_ID, 1, 3);
 
-        // Step 5: Verify BOTH loan 1 and loan 3 were liquidated (not just loan 1)
+        // Step 5: Verify both loan 1 and loan 3 were liquidated.
 
         // Loan 1 should be liquidated (NFT burned, data deleted)
         REVLoan memory liquidatedLoan1 = LOANS_CONTRACT.loanOf(loanId1);
         assertEq(liquidatedLoan1.createdAt, 0, "Loan 1 should be liquidated (data deleted)");
 
-        // Loan 3 should ALSO be liquidated -- this is the critical assertion.
-        // Before the fix, this would fail because the `break` at loan 2's gap stopped iteration.
+        // Loan 3 should also be liquidated despite the gap at loan 2.
         REVLoan memory liquidatedLoan3 = LOANS_CONTRACT.loanOf(loanId3);
         assertEq(liquidatedLoan3.createdAt, 0, "Loan 3 should be liquidated despite gap at loan 2");
 

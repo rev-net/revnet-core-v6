@@ -306,8 +306,7 @@ contract TestUint112Overflow is TestBaseWorkflow {
     /// @notice Verify the overflow check exists: values > uint112.max are rejected.
     /// @dev We verify this by checking the error selector exists on the contract.
     function test_overflowRevert_errorExists() public pure {
-        // The fix adds REVLoans_OverflowAlert error. Verify the error exists
-        // by encoding it. If this compiles, the error exists.
+        // Verify the error exists by encoding it. If this compiles, the error exists.
         bytes4 selector = REVLoans.REVLoans_OverflowAlert.selector;
         assertTrue(selector != bytes4(0), "OverflowAlert error should exist");
     }

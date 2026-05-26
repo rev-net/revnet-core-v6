@@ -47,8 +47,7 @@ import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
 
 /// @title TestCashOutBuybackFeeLeak
 /// @notice Proves the buyback hook callback receives only the non-fee cashOutCount (not the full count).
-/// Before the fix, the buyback hook reminted and sold `context.cashOutCount` tokens — more than REVDeployer
-/// intended. The fee portion was monetized through the pool sale AND the fee was also extracted from treasury.
+/// @dev The fee portion must not be monetized through the pool sale and also extracted from treasury.
 contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
     bytes32 private constant REV_DEPLOYER_SALT = "REVDeployer";
     bytes32 private constant ERC20_SALT = "REV_TOKEN";
@@ -136,7 +135,6 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
     }
 
     /// @notice The invariant: buyback hook should only process the non-fee token count.
-    /// This test FAILS before the fix (proving the bug) and PASSES after.
     function test_buybackHookReceivesOnlyNonFeeCount() external {
         // Fund the user and pay into the revnet.
         vm.deal(user, 10 ether);

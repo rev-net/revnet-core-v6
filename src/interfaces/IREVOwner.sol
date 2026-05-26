@@ -54,7 +54,7 @@ interface IREVOwner {
     /// @return The directory instance.
     function DIRECTORY() external view returns (IJBDirectory);
 
-    /// @notice The Juicebox project ID of the revnet that receives cash out fees.
+    /// @notice The Juicebox project ID of the revnet that receives cash-out fees.
     /// @return The fee revnet's Juicebox project ID.
     function FEE_REVNET_ID() external view returns (uint256);
 
@@ -81,9 +81,9 @@ interface IREVOwner {
     /// @return The number of tokens available to auto-issue.
     function amountToAutoIssue(uint256 revnetId, uint256 stageId, address beneficiary) external view returns (uint256);
 
-    /// @notice The timestamp at which cash outs become available for a specific revnet's participants.
+    /// @notice The timestamp at which cash-outs become available for a specific revnet's participants.
     /// @param revnetId The ID of the revnet.
-    /// @return The cash out delay timestamp (0 if no delay applies).
+    /// @return The cash-out delay timestamp (0 if no delay applies).
     function cashOutDelayOf(uint256 revnetId) external view returns (uint256);
 
     /// @notice The canonical deployer that manages runtime hook state.
