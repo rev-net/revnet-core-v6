@@ -162,7 +162,7 @@ contract REVInvincibilityHandler is JBTest {
         uint256 daysToWarp = bound(seed >> 16, 1, 90);
         vm.warp(block.timestamp + daysToWarp * 1 days);
 
-        uint256 id = (REVNET_ID * 1_000_000_000_000) + callCount_payAndBorrow;
+        uint256 id = (REVNET_ID * 1_000_000_000_000_000_000) + callCount_payAndBorrow;
 
         try IERC721(address(LOANS)).ownerOf(id) {}
         catch {
@@ -224,7 +224,7 @@ contract REVInvincibilityHandler is JBTest {
         uint256 payAmount = bound(seed >> 8, 1 ether, 10 ether);
         uint256 prepaidFee = bound(seed >> 16, 25, 500);
 
-        uint256 id = (REVNET_ID * 1_000_000_000_000) + callCount_payAndBorrow;
+        uint256 id = (REVNET_ID * 1_000_000_000_000_000_000) + callCount_payAndBorrow;
 
         try IERC721(address(LOANS)).ownerOf(id) {}
         catch {
@@ -277,7 +277,7 @@ contract REVInvincibilityHandler is JBTest {
         if (callCount_payAndBorrow == 0) return;
 
         uint256 count = bound(seed, 1, 5);
-        uint256 startingLoanId = (REVNET_ID * 1_000_000_000_000) + 1;
+        uint256 startingLoanId = (REVNET_ID * 1_000_000_000_000_000_000) + 1;
 
         try LOANS.liquidateExpiredLoansFrom(REVNET_ID, startingLoanId, count) {} catch {}
 

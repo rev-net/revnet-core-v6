@@ -45,8 +45,8 @@ import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
 
 /// @notice Validates that liquidateExpiredLoansFrom rejects loan number ranges that would overflow into another
 /// revnet's namespace.
-/// @dev _generateLoanId computes: (revnetId * _ONE_TRILLION) + loanNumber. If an iterated loan number exceeds
-/// _ONE_TRILLION, the generated loanId would collide with a different revnet's loans.
+/// @dev _generateLoanId computes: (revnetId * namespace size) + loanNumber. If an iterated loan number reaches the
+/// namespace size, the generated loanId moves into the next revnet's namespace.
 contract TestCrossRevnetLiquidation is TestBaseWorkflow {
     // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";
@@ -81,8 +81,11 @@ contract TestCrossRevnetLiquidation is TestBaseWorkflow {
 
     address private constant TRUSTED_FORWARDER = 0xB2b5841DBeF766d4b521221732F9B618fCf34A87;
 
-    /// @dev _ONE_TRILLION mirrors the private constant in REVLoans.sol.
-    uint256 private constant _ONE_TRILLION = 1_000_000_000_000;
+    /// @dev Mirrors `_LOAN_ID_NAMESPACE_SIZE` in REVLoans.sol.
+    uint256 private constant _LOAN_ID_NAMESPACE_SIZE = 1_000_000_000_000_000_000;
+
+    /// @dev The final valid loan number within one revnet's loan ID namespace.
+    uint256 private constant _MAX_LOAN_NUMBER = _LOAN_ID_NAMESPACE_SIZE - 1;
 
     function setUp() public override {
         super.setUp();
@@ -242,10 +245,10 @@ contract TestCrossRevnetLiquidation is TestBaseWorkflow {
     function test_liquidateExpiredLoans_revertsOnCrossRevnetOverflow() public {
         vm.expectRevert(
             abi.encodeWithSelector(
-                REVLoans.REVLoans_LoanIdOverflow.selector, REVNET_ID, _ONE_TRILLION + 1, _ONE_TRILLION
+                REVLoans.REVLoans_LoanIdOverflow.selector, REVNET_ID, _LOAN_ID_NAMESPACE_SIZE, _MAX_LOAN_NUMBER
             )
         );
-        LOANS_CONTRACT.liquidateExpiredLoansFrom(REVNET_ID, _ONE_TRILLION, 2);
+        LOANS_CONTRACT.liquidateExpiredLoansFrom(REVNET_ID, _MAX_LOAN_NUMBER, 2);
     }
 
     /// @notice liquidateExpiredLoansFrom should work for valid ranges within the revnet's namespace.
@@ -254,14 +257,19 @@ contract TestCrossRevnetLiquidation is TestBaseWorkflow {
         LOANS_CONTRACT.liquidateExpiredLoansFrom(REVNET_ID, 1, 5);
     }
 
-    /// @notice The boundary case where startingLoanId + count == _ONE_TRILLION should succeed.
+    /// @notice The boundary case where the iterated range ends at the final valid loan number should succeed.
     function test_liquidateExpiredLoans_boundaryExactlyAtLimit() public {
         // Exactly at the boundary (not over) should not revert.
-        LOANS_CONTRACT.liquidateExpiredLoansFrom(REVNET_ID, _ONE_TRILLION - 1, 1);
+        LOANS_CONTRACT.liquidateExpiredLoansFrom(REVNET_ID, _MAX_LOAN_NUMBER - 1, 2);
     }
 
-    /// @notice The final loan number in a revnet's namespace should be reachable.
-    function test_liquidateExpiredLoans_finalLoanNumberIsReachable() public {
-        LOANS_CONTRACT.liquidateExpiredLoansFrom(REVNET_ID, _ONE_TRILLION, 1);
+    /// @notice The loan number that encodes to the next revnet's namespace should be rejected.
+    function test_liquidateExpiredLoans_rejectsNextNamespaceBoundary() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                REVLoans.REVLoans_LoanIdOverflow.selector, REVNET_ID, _LOAN_ID_NAMESPACE_SIZE, _MAX_LOAN_NUMBER
+            )
+        );
+        LOANS_CONTRACT.liquidateExpiredLoansFrom(REVNET_ID, _LOAN_ID_NAMESPACE_SIZE, 1);
     }
 }

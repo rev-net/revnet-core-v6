@@ -104,9 +104,11 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     // ------------------------ private constants ------------------------ //
     //*********************************************************************//
 
-    /// @notice Just a kind reminder to our readers.
-    /// @dev Used in loan token ID generation.
-    uint256 private constant _ONE_TRILLION = 1_000_000_000_000;
+    /// @dev Loan IDs are encoded as `revnetId * _LOAN_ID_NAMESPACE_SIZE + loanNumber`.
+    uint256 private constant _LOAN_ID_NAMESPACE_SIZE = 1_000_000_000_000_000_000;
+
+    /// @dev This is the largest loan number that stays in the current revnet's ID namespace.
+    uint256 private constant _MAX_LOAN_NUMBER = _LOAN_ID_NAMESPACE_SIZE - 1;
 
     //*********************************************************************//
     // --------------- public immutable stored properties ---------------- //
@@ -308,7 +310,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @param loanId The loan ID to look up.
     /// @return The ID of the revnet.
     function revnetIdOfLoanWith(uint256 loanId) public pure override returns (uint256) {
-        return loanId / _ONE_TRILLION;
+        return loanId / _LOAN_ID_NAMESPACE_SIZE;
     }
 
     /// @notice Returns the URI where the ERC-721 standard JSON of a loan is hosted.
@@ -518,7 +520,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @param loanNumber The loan number within the revnet.
     /// @return The token ID of the 721.
     function _generateLoanId(uint256 revnetId, uint256 loanNumber) internal pure returns (uint256) {
-        return (revnetId * _ONE_TRILLION) + loanNumber;
+        return (revnetId * _LOAN_ID_NAMESPACE_SIZE) + loanNumber;
     }
 
     /// @notice The calldata. Preferred to use over `msg.data`.
@@ -689,15 +691,15 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
 
         // Prevent cross-revnet accounting corruption: every iterated loan number must stay within the revnet's ID
         // namespace.
-        if (startingLoanId > _ONE_TRILLION) {
+        if (startingLoanId > _MAX_LOAN_NUMBER) {
             revert REVLoans_LoanIdOverflow({
-                revnetId: revnetId, loanNumber: startingLoanId, maxLoanNumber: _ONE_TRILLION
+                revnetId: revnetId, loanNumber: startingLoanId, maxLoanNumber: _MAX_LOAN_NUMBER
             });
         }
-        uint256 maxCount = _ONE_TRILLION - startingLoanId + 1;
+        uint256 maxCount = _MAX_LOAN_NUMBER - startingLoanId + 1;
         if (count > maxCount) {
             revert REVLoans_LoanIdOverflow({
-                revnetId: revnetId, loanNumber: _ONE_TRILLION + 1, maxLoanNumber: _ONE_TRILLION
+                revnetId: revnetId, loanNumber: _LOAN_ID_NAMESPACE_SIZE, maxLoanNumber: _MAX_LOAN_NUMBER
             });
         }
 
@@ -1388,8 +1390,10 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @return loanId The allocated loan ID.
     function _nextLoanIdFor(uint256 revnetId) internal returns (uint256 loanId) {
         uint256 loanNumber = totalLoansBorrowedFor[revnetId] + 1;
-        if (loanNumber > _ONE_TRILLION) {
-            revert REVLoans_LoanIdOverflow({revnetId: revnetId, loanNumber: loanNumber, maxLoanNumber: _ONE_TRILLION});
+        if (loanNumber > _MAX_LOAN_NUMBER) {
+            revert REVLoans_LoanIdOverflow({
+                revnetId: revnetId, loanNumber: loanNumber, maxLoanNumber: _MAX_LOAN_NUMBER
+            });
         }
         totalLoansBorrowedFor[revnetId] = loanNumber;
         return _generateLoanId({revnetId: revnetId, loanNumber: loanNumber});

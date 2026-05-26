@@ -489,8 +489,9 @@ contract TestCEIPattern is TestBaseWorkflow {
         address source = JBConstants.NATIVE_TOKEN;
 
         // Pre-compute the loanId so the attacker can read it during reentrancy.
-        // loanId = revnetId * 1_000_000_000_000 + (totalLoansBorrowedFor + 1)
-        uint256 expectedLoanId = REVNET_ID * 1_000_000_000_000 + (LOANS_CONTRACT.totalLoansBorrowedFor(REVNET_ID) + 1);
+        // loanId = revnetId * 1_000_000_000_000_000_000 + (totalLoansBorrowedFor + 1)
+        uint256 expectedLoanId =
+            REVNET_ID * 1_000_000_000_000_000_000 + (LOANS_CONTRACT.totalLoansBorrowedFor(REVNET_ID) + 1);
         attacker.setTarget(expectedLoanId);
 
         // Borrow with attacker as beneficiary — attacker's receive() will fire when ETH arrives.
@@ -532,7 +533,8 @@ contract TestCEIPattern is TestBaseWorkflow {
 
         address source = JBConstants.NATIVE_TOKEN;
 
-        uint256 expectedLoanId = REVNET_ID * 1_000_000_000_000 + (LOANS_CONTRACT.totalLoansBorrowedFor(REVNET_ID) + 1);
+        uint256 expectedLoanId =
+            REVNET_ID * 1_000_000_000_000_000_000 + (LOANS_CONTRACT.totalLoansBorrowedFor(REVNET_ID) + 1);
         attacker.setTarget(expectedLoanId);
         attacker.setReentrantBorrow({_revnetId: REVNET_ID, _source: source, _collateral: tokens});
 
@@ -662,7 +664,8 @@ contract TestCEIPattern is TestBaseWorkflow {
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(borrowable, 0, "should have borrowable amount");
 
-        uint256 expectedLoanId = REVNET_ID * 1_000_000_000_000 + (LOANS_CONTRACT.totalLoansBorrowedFor(REVNET_ID) + 1);
+        uint256 expectedLoanId =
+            REVNET_ID * 1_000_000_000_000_000_000 + (LOANS_CONTRACT.totalLoansBorrowedFor(REVNET_ID) + 1);
         attacker.setTarget(expectedLoanId);
         attacker.setReentrantRepay();
 
@@ -702,7 +705,8 @@ contract TestCEIPattern is TestBaseWorkflow {
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(borrowable, 0, "should have borrowable amount");
 
-        uint256 expectedLoanId = REVNET_ID * 1_000_000_000_000 + (LOANS_CONTRACT.totalLoansBorrowedFor(REVNET_ID) + 1);
+        uint256 expectedLoanId =
+            REVNET_ID * 1_000_000_000_000_000_000 + (LOANS_CONTRACT.totalLoansBorrowedFor(REVNET_ID) + 1);
         attacker.setTarget(expectedLoanId);
         // Reallocate part of the collateral from the just-created loan to a new loan from the same source.
         attacker.setReentrantReallocate({

@@ -141,7 +141,7 @@ contract REVLoansCallHandler is JBTest {
         vm.warp(block.timestamp + daysToWarp);
 
         // get the loan ID
-        uint256 id = (REVNET_ID * 1_000_000_000_000) + RUNS;
+        uint256 id = (REVNET_ID * 1_000_000_000_000_000_000) + RUNS;
         REVLoan memory latestLoan = LOANS.loanOf(id);
 
         // skip if we don't find the loan
@@ -213,7 +213,7 @@ contract REVLoansCallHandler is JBTest {
         uint256 loanCount = bound(uint256(count), 1, 10);
         if (RUNS == 0) return;
 
-        uint256 startingLoanId = (REVNET_ID * 1_000_000_000_000) + 1;
+        uint256 startingLoanId = (REVNET_ID * 1_000_000_000_000_000_000) + 1;
         try LOANS.liquidateExpiredLoansFrom(REVNET_ID, startingLoanId, loanCount) {} catch {}
     }
 
@@ -239,7 +239,7 @@ contract REVLoansCallHandler is JBTest {
         amountToPay = bound(amountToPay, 10 ether, 1000e18);
 
         // get the loan ID
-        uint256 id = (REVNET_ID * 1_000_000_000_000) + RUNS;
+        uint256 id = (REVNET_ID * 1_000_000_000_000_000_000) + RUNS;
 
         try IERC721(address(LOANS)).ownerOf(id) {}
         catch {
@@ -672,7 +672,7 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow {
         if (PAY_HANDLER.RUNS() == 0) return;
 
         for (uint256 i = 1; i <= PAY_HANDLER.RUNS(); i++) {
-            uint256 loanId = (REVNET_ID * 1_000_000_000_000) + i;
+            uint256 loanId = (REVNET_ID * 1_000_000_000_000_000_000) + i;
 
             // Skip if loan was liquidated/burned
             try IERC721(address(LOANS_CONTRACT)).ownerOf(loanId) {}
@@ -697,7 +697,7 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow {
         if (PAY_HANDLER.RUNS() == 0) return;
 
         for (uint256 i = 1; i <= PAY_HANDLER.RUNS(); i++) {
-            uint256 loanId = (REVNET_ID * 1_000_000_000_000) + i;
+            uint256 loanId = (REVNET_ID * 1_000_000_000_000_000_000) + i;
 
             // Skip if loan was liquidated/burned
             try IERC721(address(LOANS_CONTRACT)).ownerOf(loanId) {}
