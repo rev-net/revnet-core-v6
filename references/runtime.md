@@ -11,7 +11,7 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 | Contract | Role |
 |----------|------|
 | `REVDeployer` | Deploys revnets. Configures stages, splits, auto-issuance amounts, buyback hooks, suckers, operators, and stores `hashedEncodedConfigurationOf`. Exposes `OWNER()` view returning the REVOwner address. Hands the JBProjects NFT to REVOwner mid-deploy and finishes by bundling every per-revnet runtime write into a single `REVOwner.initializeRevnet(revnetId, init)` call (cash-out delay, tiered 721 hook, auto-issuance allocations, extra operator permissions, the initial operator, and any integration grants). |
-| `REVOwner` | Project NFT owner for every revnet and runtime hook for all revnets. Implements `IJBRulesetDataHook` + `IJBCashOutHook` + `IERC721Receiver`. Set as the `dataHook` in each revnet's ruleset metadata. Holds the JBProjects NFT (project owner of record). Manages operator permissions (grants `DEPLOY_SUCKERS` + `MAP_SUCKER_TOKEN` to REVDeployer in `setDeployer` so the deployer can continue driving sucker setup). Exposes `initializeRevnet` (deployer-only single-call setup), `autoIssueFor`, `burnHeldTokensOf`, `setOperatorOf`, `isOperatorOf`. Handles pay hooks, cash-out hooks, mint permissions, and sucker verification. Stores `cashOutDelayOf`, `tiered721HookOf`, `amountToAutoIssue`, and extra-operator-permission state. |
+| `REVOwner` | Project NFT owner and runtime hook for every revnet. Implements `IJBRulesetDataHook` + `IJBCashOutHook` + `IERC721Receiver`. Set as the `dataHook` in each revnet's ruleset metadata. Holds the JBProjects NFT (project owner of record). Manages operator permissions (grants `DEPLOY_SUCKERS` + `MAP_SUCKER_TOKEN` to REVDeployer in `setDeployer` so the deployer can continue driving sucker setup). Exposes `initializeRevnet` (deployer-only single-call setup), `autoIssueFor`, `burnHeldTokensOf`, `setOperatorOf`, `isOperatorOf`. Handles pay hooks, cash-out hooks, mint permissions, and sucker verification. Stores `cashOutDelayOf`, `tiered721HookOf`, `amountToAutoIssue`, and extra-operator-permission state. |
 | `REVLoans` | Issues token-collateralized loans from revnet treasuries. Each loan is an ERC-721 NFT. Burns collateral on borrow, re-mints on repay. Charges tiered fees (REV protocol fee + source fee + prepaid fee). |
 
 ## Key Functions
@@ -66,7 +66,7 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 | `REVLoans.determineSourceFeeAmount(loan, amount)` | Calculate the time-proportional source fee for a loan repayment. Zero during prepaid window, linear accrual after. |
 | `REVLoans.loanOf(loanId)` | Returns the full `REVLoan` struct for a loan. |
 | `REVLoans.loanSourceTokensOf(revnetId)` | Returns all token sources used for loans by a revnet. Loans always source funds from the canonical `MULTI_TERMINAL`. |
-| `REVLoans.revnetIdOfLoanWith(loanId)` | Decode the revnet ID from a loan ID (`loanId / 1_000_000_000_000`). |
+| `REVLoans.revnetIdOfLoanWith(loanId)` | Decode the revnet ID from a loan ID (`loanId / 1_000_000_000_000_000_000`). |
 ## Integration Points
 
 | Dependency | Import | Used For |

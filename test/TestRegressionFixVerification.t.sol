@@ -57,7 +57,7 @@ import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
 /// @notice A mock buyback hook that records the context passed to `beforeCashOutRecordedWith`
-/// so that tests can verify the cross-chain-adjusted values (fix).
+/// so that tests can verify the cross-chain-adjusted values.
 contract MockBuybackContextRecorder is IJBRulesetDataHook, IJBPayHook {
     function beforePayRecordedWith(JBBeforePayRecordedContext calldata context)
         external
@@ -317,7 +317,7 @@ contract TestRegressionFixVerification is TestBaseWorkflow {
     // ────────── _borrowableAmountFrom decimal correctness ────────── //
     //*********************************************************************//
 
-    /// @notice fix: `borrowableAmountFrom` with 6-decimal token produces
+    /// @notice `borrowableAmountFrom` with a 6-decimal token produces
     /// a correctly scaled (non-inflated) result.
     function test_C1_borrowableAmount_6decimals_notInflated() public {
         // Pay into the revnet to create surplus and get tokens.
@@ -357,7 +357,7 @@ contract TestRegressionFixVerification is TestBaseWorkflow {
         assertLt(borrowable6, borrowable18, "6-decimal result should be smaller in magnitude than 18-decimal");
     }
 
-    /// @notice fix: `borrowableAmountFrom` with 18-decimal token still works correctly.
+    /// @notice `borrowableAmountFrom` with an 18-decimal token still works correctly.
     function test_C1_borrowableAmount_18decimals_stillCorrect() public {
         // Pay into the revnet.
         uint256 payAmount = 5e18;
@@ -387,7 +387,7 @@ contract TestRegressionFixVerification is TestBaseWorkflow {
     // ──── Buyback hook receives cross-chain-adjusted context ──── //
     //*********************************************************************//
 
-    /// @notice fix: The buyback hook receives cross-chain-adjusted `totalSupply` and
+    /// @notice The buyback hook receives cross-chain-adjusted `totalSupply` and
     /// `surplus.value` in the context passed by `REVOwner.beforeCashOutRecordedWith`.
     function test_H3_buybackHook_receivesCrossChainAdjustedContext() public {
         // Pay into the revnet to get tokens and create surplus.

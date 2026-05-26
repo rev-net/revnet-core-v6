@@ -69,7 +69,7 @@ Use this file when you need revnet-specific risks, state reads, constants, or ex
 | `REVLoans_InvalidPrepaidFeePercent(prepaidFeePercent, min, max)` | When `prepaidFeePercent` is outside the allowed range (2.5%--50%). |
 | `REVLoans_InvalidTerminal(terminal, revnetId)` | When the specified terminal is not registered for the revnet. |
 | `REVLoans_LoanExpired(timeSinceLoanCreated, loanLiquidationDuration)` | When trying to repay or reallocate an expired loan. |
-| `REVLoans_LoanIdOverflow()` | When the loan ID counter exceeds the per-revnet trillion-ID namespace. |
+| `REVLoans_LoanIdOverflow()` | When the loan ID counter exceeds the per-revnet 1e18-ID namespace. |
 | `REVLoans_NewBorrowAmountGreaterThanLoanAmount(newBorrowAmount, loanAmount)` | When a reallocation would produce a reduced loan with a larger borrow amount than the original. |
 | `REVLoans_NoMsgValueAllowed()` | When `msg.value > 0` on a non-native-token repayment. |
 | `REVLoans_NotEnoughCollateral()` | When the caller does not have enough tokens for the requested collateral. |
@@ -104,7 +104,8 @@ Use this file when you need revnet-specific risks, state reads, constants, or ex
 | `MIN_PREPAID_FEE_PERCENT` | 25 (2.5%) | Minimum upfront fee borrowers must pay |
 | `MAX_PREPAID_FEE_PERCENT` | 500 (50%) | Maximum upfront fee |
 | `REV_PREPAID_FEE_PERCENT` | 10 (1%) | Protocol-level fee to $REV revnet |
-| `_ONE_TRILLION` | 1,000,000,000,000 | Loan ID generator base: `revnetId * 1T + loanNumber` |
+| `_LOAN_ID_NAMESPACE_SIZE` | 1,000,000,000,000,000,000 | Loan ID generator base: `revnetId * namespaceSize + loanNumber` |
+| `_MAX_LOAN_NUMBER` | 999,999,999,999,999,999 | Largest loan number that stays in the current revnet's ID namespace |
 
 ## Storage
 
@@ -144,19 +145,19 @@ Use this file when you need revnet-specific risks, state reads, constants, or ex
 1. **Revnets are permanently ownerless.** `REVOwner` holds the project NFT for every Revnet and exposes no function to release it. Stage parameters cannot be changed after deployment.
 2. **Collateral is burned, not held.** Unlike traditional lending, collateral tokens are destroyed at borrow time and re-minted on repay. If a loan liquidates after 10 years, the collateral is permanently lost.
 3. **100% LTV by design.** Borrowable amount equals the pro-rata cash-out value. No safety margin unless the stage has `cashOutTaxRate > 0`. A tax of 20% creates ~20% effective collateral buffer.
-4. **Loan ID encoding.** `loanId = revnetId * 1_000_000_000_000 + loanNumber`. Each revnet supports ~1 trillion loans. Use `revnetIdOfLoanWith(loanId)` to decode.
+4. **Loan ID encoding.** `loanId = revnetId * 1_000_000_000_000_000_000 + loanNumber`. Each revnet supports loan numbers up to `999_999_999_999_999_999`; `1_000_000_000_000_000_000` is the next revnet's namespace. Use `revnetIdOfLoanWith(loanId)` to decode.
 5. **uint112 truncation risk.** `REVLoan.amount` and `REVLoan.collateral` are `uint112`. Values above ~5.19e33 truncate silently.
 6. **Auto-issuance stage IDs.** Computed as `block.timestamp + i` during deployment. These match the Juicebox ruleset IDs because `JBRulesets` assigns IDs the same way (`latestId >= block.timestamp ? latestId + 1 : block.timestamp`), producing identical sequential IDs when all stages are queued in a single `deployFor()` call.
 7. **Cash-out fee stacking.** Non-zero-tax ordinary cash-outs incur both the Juicebox terminal fee (2.5%) and the revnet cash-out fee (2.5% to fee revnet). These compound. The 2.5% revnet fee is deducted from the TOKEN AMOUNT being cashed out, not from the reclaim value. 2.5% of the tokens are redirected to the fee revnet, which then redeems them at the bonding curve independently. The net reclaim to the caller is based on 97.5% of the tokens, not 97.5% of the computed ETH value. Zero-tax ordinary cash-outs route through the buyback hook without adding the revnet fee hook, matching current code behavior. This is by design.
 8. **30-day cash-out delay.** Applied when deploying an existing revnet to a new chain where the first stage has already started. Prevents cross-chain liquidity arbitrage. Enforced in both `beforeCashOutRecordedWith` (direct cash outs) and `REVLoans.borrowFrom` / `borrowableAmountFrom` (loans). The delay is stored on REVOwner (`cashOutDelayOf(revnetId)`) and populated by REVDeployer during deployment via the bundled `initializeRevnet()` call. REVLoans imports IREVOwner (not IREVDeployer) to read it.
 9. **`cashOutTaxRate` cannot be MAX.** Must be strictly less than `MAX_CASH_OUT_TAX_RATE` (10,000). Revnets cannot fully disable cash outs.
 10. **Split operator is singular.** Only ONE address can be operator at a time. The operator can replace itself via `setOperatorOf` but cannot delegate or multi-sig.
-11. **NATIVE_TOKEN on non-ETH chains.** `JBConstants.NATIVE_TOKEN` on Celo means CELO, on Polygon means MATIC -- not ETH. Use ERC-20 WETH instead. The config matching hash does NOT catch terminal configuration differences.
+11. **NATIVE_TOKEN on non-ETH chains.** `JBConstants.NATIVE_TOKEN` on Celo means CELO, on Polygon means MATIC -- not ETH. Use ERC-20 WETH instead. The config matching hash does not catch terminal or accounting-context differences.
 12. **Loan source array is unbounded.** `_loanSourceTokensOf[revnetId]` grows without limit, bounded in practice by the token accounting contexts accepted by the canonical `MULTI_TERMINAL`.
 13. **Flash-loan surplus exposure.** `borrowableAmountFrom` reads live surplus. A flash loan can temporarily inflate the treasury to borrow more than the sustained value supports.
 14. **Fee revnet must have terminals.** Cash-out fees and loan protocol fees are paid to `FEE_REVNET_ID`. If that project has no terminal for the token, the fee silently fails (try-catch).
 15. **Buyback hook is immutable per deployer.** `BUYBACK_HOOK` is set at construction time on both REVDeployer and REVOwner. All revnets deployed by the same deployer share the same buyback hook.
-16. **Cross-chain config matching.** `hashedEncodedConfigurationOf` covers economic parameters (baseCurrency, stages, auto-issuances) but NOT terminal configurations, accounting contexts, or sucker token mappings. Two deployments with identical hashes can have different terminal setups.
+16. **Cross-chain config matching.** `hashedEncodedConfigurationOf` covers deploy-time revnet identity and economics: base currency, scope flag, name, ticker, salt, stage timing, issuance, cash-out taxes, extra metadata, and auto-issuances. It does not cover terminal configurations, accounting contexts, sucker token mappings, or mutable split recipients. Two deployments with identical hashes can still differ in those external surfaces.
 17. **Loan fee model has three layers.** See Constants table for exact values: REV protocol fee, terminal fee, and prepaid source fee (borrower-chosen, buys interest-free window). After the prepaid window, source fee accrues linearly over the remaining loan duration.
 18. **Permit2 fallback.** `REVLoans` uses permit2 for ERC-20 transfers as a fallback when standard allowance is insufficient. Wrapped in try-catch.
 19. **39.16% cash-out tax crossover.** Below ~39% cash-out tax, cashing out is more capital-efficient than borrowing. Above ~39%, loans become more efficient because they preserve upside while providing liquidity. Based on CryptoEconLab academic research. Design implication: revnets intended for active token trading should consider this threshold when setting `cashOutTaxRate`.
@@ -214,7 +215,7 @@ Quick-reference for common read operations. All functions are `view`/`pure` and 
 
 | What | Call | Returns |
 |------|------|---------|
-| Remaining auto-issuance for beneficiary | `REVDeployer.amountToAutoIssue(revnetId, stageId, beneficiary)` | `uint256` (0 if already claimed) |
+| Remaining auto-issuance for beneficiary | `REVOwner.amountToAutoIssue(revnetId, stageId, beneficiary)` | `uint256` (0 if already claimed) |
 
 ### Loans
 
@@ -315,7 +316,7 @@ loans.borrowFrom({
     beneficiary: payable(msg.sender),      // Receive new loan proceeds
     prepaidFeePercent: 25                  // 2.5% prepaid fee on new loan
 });
-// Result: original loan now has 500 fewer collateral tokens (reallocatedLoanId),
+// Result: original loan has 500 fewer collateral tokens (reallocatedLoanId),
 // new loan has 700 tokens of collateral (newLoanId).
 
 // --- Repay a loan ---

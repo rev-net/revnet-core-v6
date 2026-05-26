@@ -46,7 +46,7 @@ import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 
-/// @notice Tests for PR #105: zero-amount loan guard and mint-before-adjust ordering.
+/// @notice Tests the zero-amount loan guard and mint-before-adjust ordering.
 contract TestZeroAmountLoanGuard is TestBaseWorkflow {
     // forge-lint: disable-next-line(mixed-case-variable)
     bytes32 REV_DEPLOYER_SALT = "REVDeployer";

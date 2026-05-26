@@ -266,9 +266,8 @@ contract REVDeployerRegressions is TestBaseWorkflow {
     // --- REVDeployer.beforePayRecordedWith Array OOB Regression ------- //
     //*********************************************************************//
 
-    /// @notice Tests that the array OOB pattern manifests when only buybackHook is present.
-    /// @dev REVDeployer line 258: hookSpecifications[1] = buybackHookSpecifications[0]
-    ///      always writes to index [1], even when the array has size 1 (no tiered721Hook).
+    /// @notice Documents the array OOB pattern when only the buyback hook is present.
+    /// @dev The unsafe pattern writes the buyback hook spec to index 1 even when the array has size 1.
     function test_arrayOOB_onlyBuybackHook() public pure {
         // Simulate: usesTiered721Hook=false, usesBuybackHook=true
         bool usesTiered721Hook = false;

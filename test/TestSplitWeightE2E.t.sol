@@ -341,9 +341,8 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
     /// @notice Mint path: pay 1 ETH for tier with 30% split.
     /// Verifies tokens minted == 700 (not 1000), confirming the weight scaling is correct.
     ///
-    /// The core question this settles: does the terminal mint tokens based on the FULL payment amount?
-    /// YES — JBTerminalStore.recordPaymentFrom line 410: tokenCount = mulDiv(amount.value, weight, weightRatio)
-    /// where amount.value is the full 1 ETH, NOT the reduced 0.7 ETH.
+    /// The terminal mints tokens from the full payment amount, so the hook must scale weight before the store
+    /// computes `tokenCount = mulDiv(amount.value, weight, weightRatio)`.
     ///
     /// So the weight MUST be scaled down. Without scaling:
     ///   tokenCount = mulDiv(1e18, 1000e18, 1e18) = 1000e18 → 1000 tokens for 0.7 ETH of actual value = WRONG
@@ -510,7 +509,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
         // It returns context.weight with a hook spec.
         //
         // For the real buyback in swap mode:
-        //   - Returns weight=0 (line 279 of JBBuybackHook.sol)
+        //   - Returns weight=0
         //   - Returns hookSpec with amountToSwapWith
         //   - Terminal mints 0 tokens (weight=0)
         //   - Buyback hook's afterPay handles the swap and mints tokens directly via controller

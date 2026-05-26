@@ -692,7 +692,7 @@ contract InvariantREVLoansTests is StdInvariant, TestBaseWorkflow {
 
     /// @notice INV-RL-4: Active loans always have non-zero collateral.
     /// @dev Borrowable amounts can decrease as the revnet evolves (new payments change the
-    ///      cashout curve), so we only check that collateral > 0 for active loans.
+    ///      cash-out curve), so we only check that collateral > 0 for active loans.
     function invariant_D_ActiveLoansHaveCollateral() public view {
         if (PAY_HANDLER.RUNS() == 0) return;
 

@@ -525,8 +525,7 @@ contract TestLowRegressions is TestBaseWorkflow {
     }
 
     /// @notice Repaying with excess ETH correctly refunds the difference.
-    /// This tests the sourceToken caching fix — before the fix, `loan.sourceToken` was read
-    /// after `_repayLoan` deleted the storage, yielding `address(0)` and reverting.
+    /// @dev `loan.sourceToken` must be cached before `_repayLoan` deletes the storage slot.
     function test_repayLoan_refundsExcessWithCorrectToken() public {
         uint256 revnetId = _deploySingleStageRevnet();
 

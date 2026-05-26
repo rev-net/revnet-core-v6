@@ -980,7 +980,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
 
         uint256 balanceBefore = _balanceOf(token, USER);
 
-        // Perform a cashout.
+        // Perform a cash-out.
         vm.prank(USER);
         jbMultiTerminal().cashOutTokensOf(USER, revnetProjectId, tokensToCashout, token, 0, payable(USER), bytes(""), 0);
 
@@ -1559,7 +1559,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         uint256 tokens =
             jbMultiTerminal().pay{value: 1e18}(revnetProjectId, JBConstants.NATIVE_TOKEN, 1e18, USER, 0, "", "");
 
-        // Makes it so the borrow is closer to the cashoutTaxRate.
+        // Makes it so the borrow is closer to the cashOutTaxRate.
         // Without this the borrow would be (near) feeless.
         jbMultiTerminal().pay{value: 99e18}(revnetProjectId, JBConstants.NATIVE_TOKEN, 1e18, USER, 0, "", "");
 
@@ -2045,10 +2045,10 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         );
     }
 
-    /// @notice Regression test for the audit fix that re-checks loan-NFT ownership after `_acceptFundsFor` in
-    /// `REVLoans.repayLoan`. A non-standard source token (ERC-777, ERC-1363, or a malicious mock) can reenter during
-    /// the inbound transfer and move the loan NFT to another account; without the re-check, `_repayLoan` would burn
-    /// the new owner's NFT while returning collateral to the stale cached owner.
+    /// @notice Regression test that re-checks loan-NFT ownership after `_acceptFundsFor` in `REVLoans.repayLoan`.
+    /// @dev A non-standard source token (ERC-777, ERC-1363, or a malicious mock) can reenter during the inbound
+    /// transfer and move the loan NFT to another account; without the re-check, `_repayLoan` would burn the new
+    /// owner's NFT while returning collateral to the stale cached owner.
     function test_repay_revertsWhenLoanOwnerChangesDuringFundsAcceptance() external {
         uint256 payableAmount = 1e12;
 

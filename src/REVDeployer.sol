@@ -47,13 +47,12 @@ import {REVOwnerRevnetInit} from "./structs/REVOwnerRevnetInit.sol";
 import {REVStageConfig} from "./structs/REVStageConfig.sol";
 import {REVSuckerDeploymentConfig} from "./structs/REVSuckerDeploymentConfig.sol";
 
-/// @notice Deploys and configures Revnets — autonomous Juicebox projects with pre-programmed tokenomics that cannot
-/// be
-/// changed after launch. Each revnet progresses through stages that define issuance rate, decay schedule, cash-out tax,
-/// split allocations, and auto-issuances. The deployer translates these stage configurations into Juicebox rulesets,
-/// sets up a buyback hook for secondary market routing, deploys a tiered 721 hook, optionally configures Croptop
-/// posting, and can deploy cross-chain suckers. Once deployed, the project NFT is held by this contract — no single
-/// address can modify the revnet's rules.
+/// @notice Deploys and configures Revnets: autonomous Juicebox projects with immutable staged tokenomics.
+/// @dev Each revnet progresses through stages that define issuance rate, decay schedule, cash-out tax, split
+/// allocations, and auto-issuances. The deployer translates these stage configurations into Juicebox rulesets, sets up
+/// a buyback hook for secondary market routing, deploys a tiered 721 hook, optionally configures Croptop posting, and
+/// can deploy cross-chain suckers. Once deployed, the project NFT is held by this contract — no single address can
+/// modify the revnet's rules.
 /// @dev Revnets are unowned Juicebox projects which operate autonomously after deployment. Runtime data hook logic
 /// (pay/cash-out callbacks) is handled by the separate `REVOwner` contract to stay within EIP-170 size limits.
 contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
@@ -106,21 +105,21 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @notice The directory of terminals and controllers for Juicebox projects (and revnets).
     IJBDirectory public immutable override DIRECTORY;
 
-    /// @notice The Juicebox project ID of the revnet that receives cash out fees.
+    /// @notice The Juicebox project ID of the revnet that receives cash-out fees.
     uint256 public immutable override FEE_REVNET_ID;
 
     /// @notice Deploys tiered ERC-721 hooks for revnets.
     IJB721TiersHookDeployer public immutable override HOOK_DEPLOYER;
 
-    /// @notice The loan contract used by all revnets.
+    /// @notice The loan contract used by every revnet.
     /// @dev Revnets can offer loans to their participants, collateralized by their tokens.
-    /// Participants can borrow up to the current cash out value of their tokens.
+    /// Participants can borrow up to the current cash-out value of their tokens.
     IREVLoans public immutable override LOANS;
 
     /// @notice The canonical terminal that holds revnet treasury balances.
     IJBTerminal public immutable override MULTI_TERMINAL;
 
-    /// @notice The runtime data hook contract that handles pay and cash out callbacks for revnets.
+    /// @notice The runtime data hook contract that handles pay and cash-out callbacks for revnets.
     /// @dev Set as `dataHook` in each revnet's ruleset metadata. Implements `IJBRulesetDataHook` and `IJBCashOutHook`.
     address public immutable override OWNER;
 
@@ -162,11 +161,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @param suckerRegistry The registry to use for deploying and tracking each revnet's suckers.
     /// @param feeRevnetId The Juicebox project ID of the revnet that will receive fees.
     /// @param hookDeployer The deployer to use for revnet's tiered ERC-721 hooks.
-    /// @param publisher The croptop publisher revnets can use to publish ERC-721 posts to their tiered ERC-721 hooks.
+    /// @param publisher The Croptop publisher revnets can use to publish ERC-721 posts to their tiered ERC-721 hooks.
     /// @param buybackHook The buyback hook used as a data hook to route payments through buyback pools.
-    /// @param loans The loan contract used by all revnets.
+    /// @param loans The loan contract used by every revnet.
     /// @param trustedForwarder The trusted forwarder for the ERC2771Context.
-    /// @param owner The runtime data hook contract (REVOwner) that handles pay and cash out callbacks.
+    /// @param owner The runtime data hook contract (REVOwner) that handles pay and cash-out callbacks.
     constructor(
         IJBController controller,
         IJBTerminal multiTerminal,
@@ -301,11 +300,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         metadata.cashOutTaxRate = stageConfiguration.cashOutTaxRate;
         metadata.baseCurrency = baseCurrency;
         metadata.scopeCashOutsToLocalBalances = scopeCashOutsToLocalBalances;
-        metadata.allowOwnerMinting = true; // Allow this contract to auto-mint tokens as the revnet's owner.
-        metadata.useDataHookForPay = true; // Call this contract's `beforePayRecordedWith(…)` callback on payments.
-        metadata.useDataHookForCashOut = true; // Call this contract's `beforeCashOutRecordedWith(…)` callback on cash
-        // outs.
-        metadata.dataHook = OWNER; // The REVOwner contract is the data hook.
+        // Allow `REVOwner` to auto-mint configured allocations and handle pay/cash-out callbacks.
+        metadata.allowOwnerMinting = true;
+        metadata.useDataHookForPay = true;
+        metadata.useDataHookForCashOut = true;
+        metadata.dataHook = OWNER;
         metadata.metadata = stageConfiguration.extraMetadata;
 
         // Package the reserved token splits.
@@ -449,7 +448,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             sqrtPriceX96: sqrtPriceX96
         }) {}
             catch {
-            // Two failure modes both end up here and both must NOT block the revnet deploy:
+            // Two failure modes both end up here and both must not block the revnet deploy:
             //  1. The V4 pool is already initialized at the expected price (idempotent re-deploy). The buyback
             //     hook's strict price check inside `initializePoolFor` would still call `_setPoolFor`, so the
             //     try-branch already covered this. We reach this catch only when the check rejected the existing
@@ -470,7 +469,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @dev When initializing an existing project (revnetId != 0):
     /// - The project must not yet have a controller or rulesets. `JBController.launchRulesetsFor` enforces this —
     ///   it reverts if rulesets have already been launched, and `JBDirectory.setControllerOf` only allows setting the
-    ///   first controller. This means conversion only works for blank projects (just an ID with no on-chain state).
+    ///   first controller. This means conversion only works for blank projects: an ID with no on-chain state.
     /// - This is useful in deploy scripts where the project ID is needed before configuration (e.g. for cross-chain
     ///   sucker peer mappings): create the project first, then initialize it as a revnet here.
     /// - Initialization is a one-way operation: the project's ownership NFT is permanently transferred to this
@@ -480,7 +479,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @param accountingContextsToAccept The accounting contexts the canonical multi terminal should accept.
     /// @param suckerDeploymentConfiguration The suckers to set up for cross-chain token transfers.
     /// @param tiered721HookConfiguration How to configure the tiered ERC-721 hook for the revnet.
-    /// @param allowedPosts Restrictions on which croptop posts to allow on the revnet's ERC-721 tiers.
+    /// @param allowedPosts Restrictions on which Croptop posts to allow on the revnet's ERC-721 tiers.
     /// @return revnetId The ID of the newly created revnet.
     /// @return hook The address of the tiered ERC-721 hook deployed for the revnet.
     // The deployment flow makes external setup calls, but any observed state is revnet-scoped and reverts atomically.
@@ -507,7 +506,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             revert REVDeployer_ProjectCreationFeeNotNeeded({revnetId: revnetId, value: msg.value});
         }
 
-        // Deploy the revnet with the specified tiered ERC-721 hook and croptop posting criteria.
+        // Deploy the revnet with the specified tiered ERC-721 hook and Croptop posting criteria.
         hook = _deploy721RevnetFor({
             revnetId: revnetId,
             shouldDeployNewRevnet: shouldDeployNewRevnet,
@@ -619,7 +618,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     // --------------------- internal transactions ----------------------- //
     //*********************************************************************//
 
-    /// @notice Deploy a revnet which sells tiered ERC-721s and (optionally) allows croptop posts to its ERC-721 tiers.
+    /// @notice Deploy a revnet which sells tiered ERC-721s and optionally allows Croptop posts to its ERC-721 tiers.
     // The helper performs external hook/post setup after core revnet setup; any failure reverts the whole deployment.
     function _deploy721RevnetFor(
         uint256 revnetId,
@@ -726,7 +725,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             // deployer passes that check directly only before ownership is scoped to REVOwner below.
             PUBLISHER.configurePostingCriteriaFor({allowedPosts: formattedAllowedPosts});
 
-            // Give the croptop publisher permission to post new ERC-721 tiers on the revnet's behalf.
+            // Give the Croptop publisher permission to post new ERC-721 tiers on the revnet's behalf.
             ownerInit.extraGrants = new REVOwnerExtraGrant[](1);
             ownerInit.extraGrants[0] =
                 REVOwnerExtraGrant({operator: address(PUBLISHER), permissionId: JBPermissionIds.ADJUST_721_TIERS});
@@ -798,7 +797,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             memo: ""
         });
 
-        // Compute the cash out delay if the revnet's stages are already in progress. This prevents cash out
+        // Compute the cash-out delay if the revnet's stages are already in progress. This prevents cash-out
         // liquidity/arbitrage issues for existing revnets which are deploying to a new chain.
         ownerInit.cashOutDelay =
             _computeCashOutDelayIfNeeded({revnetId: revnetId, firstStageConfig: configuration.stageConfigurations[0]});
@@ -951,11 +950,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
 
         // Iterate through each stage to set up its ruleset.
         for (uint256 i; i < configuration.stageConfigurations.length;) {
-            // Set the stage being iterated on.
+            // Read the stage being converted into a ruleset.
             REVStageConfig calldata stageConfiguration = configuration.stageConfigurations[i];
 
             // Make sure the revnet has at least one split if it has a split percent.
-            // Otherwise, the split would go to this contract since its the revnet's owner.
+            // Otherwise, the reserved-token residue would stay with this contract as the revnet's owner.
             if (stageConfiguration.splitPercent > 0 && stageConfiguration.splits.length == 0) {
                 revert REVDeployer_MustHaveSplits({stageIndex: i, splitPercent: stageConfiguration.splitPercent});
             }
@@ -975,7 +974,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             // Store for the next iteration's ordering check.
             previousStageStart = effectiveStart;
 
-            // Make sure the revnet doesn't prevent cashouts all together.
+            // Make sure the revnet does not disable cash-outs completely.
             if (stageConfiguration.cashOutTaxRate >= JBConstants.MAX_CASH_OUT_TAX_RATE) {
                 revert REVDeployer_CashOutsCantBeTurnedOffCompletely({
                     cashOutTaxRate: stageConfiguration.cashOutTaxRate,
@@ -1055,12 +1054,12 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         encodedConfigurationHash = keccak256(encodedConfiguration);
     }
 
-    /// @notice Compute the cash out delay for the revnet's first stage if its stages are already in progress.
+    /// @notice Compute the cash-out delay for the revnet's first stage if its stages are already in progress.
     /// @dev Returns 0 when no delay is needed. Emits `SetCashOutDelay` so deployer-side telemetry stays unchanged
     /// even though the actual storage write happens later inside `REVOwner.initializeRevnet`.
-    /// @param revnetId The ID of the revnet to compute the cash out delay for.
+    /// @param revnetId The ID of the revnet to compute the cash-out delay for.
     /// @param firstStageConfig The revnet's first stage.
-    /// @return cashOutDelay The timestamp after which cash outs are allowed, or 0 if no delay applies.
+    /// @return cashOutDelay The timestamp after which cash-outs are allowed, or 0 if no delay applies.
     function _computeCashOutDelayIfNeeded(
         uint256 revnetId,
         REVStageConfig calldata firstStageConfig
@@ -1069,11 +1068,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         returns (uint256 cashOutDelay)
     {
         // If this is the first revnet being deployed (with a `startsAtOrAfter` of 0),
-        // or if the first stage hasn't started yet, we don't need to set a cash out delay.
+        // or if the first stage hasn't started yet, we don't need to set a cash-out delay.
         // forge-lint: disable-next-line(block-timestamp)
         if (firstStageConfig.startsAtOrAfter == 0 || firstStageConfig.startsAtOrAfter >= block.timestamp) return 0;
 
-        // Calculate the timestamp at which the cash out delay ends.
+        // Calculate the timestamp at which the cash-out delay ends.
         cashOutDelay = block.timestamp + CASH_OUT_DELAY;
 
         emit SetCashOutDelay({revnetId: revnetId, cashOutDelay: cashOutDelay, caller: _msgSender()});

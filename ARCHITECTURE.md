@@ -71,7 +71,7 @@ When global effective surplus exceeds local terminal liquidity, `beforeCashOutRe
 - The highest-risk interactions sit where stage economics, treasury state, and loan borrowability meet.
 - Ownerlessness removes convenient recovery from misconfiguration.
 - Burned-collateral semantics materially affect supply-sensitive pricing.
-- `REVOwner` is a live runtime policy surface, not just a launch helper.
+- `REVOwner` is a live runtime policy surface, not only a launch helper.
 - Rev cash-out fees stack on top of protocol-fee behavior rather than replacing it.
 
 ## Safe Change Guide
@@ -87,12 +87,12 @@ When global effective surplus exceeds local terminal liquidity, `beforeCashOutRe
 `REVDeployer` produces an `encodedConfigurationHash` for each revnet that determines sucker deployment salts. This hash commits the revnet's identity across chains. It includes:
 
 - `baseCurrency`, `description.name`, `description.ticker`, `description.salt`
-- Terminal addresses (order-sensitive)
-- Stage parameters (timing, issuance, splits, tax rates, auto-issuances)
+- `scopeCashOutsToLocalBalances`
+- Stage parameters (timing, issuance limits, cash-out tax rates, extra metadata, and auto-issuances)
 
-Terminal addresses are included because they are deployed deterministically at the same address across chains. Accounting contexts (token addresses) are excluded because tokens like USDC legitimately differ per chain.
+Terminal addresses are constructor-pinned on `REVDeployer` and are not repeated in the per-revnet hash. Accounting contexts (token addresses) are also excluded because tokens like USDC legitimately differ per chain.
 
-This means a revnet can only expand to a new chain if it uses the exact same terminal contract it used on the host chain. Different terminal addresses produce a different hash, preventing accidental cross-chain mismatches in sucker deployments.
+This means cross-chain matching is driven by immutable revnet economics and the deployer installation, not by caller-selected terminals. A deployment with a different canonical terminal stack must use a different deployer, which changes the trust boundary even if the per-revnet hash matches.
 
 ## Canonical Checks
 
@@ -101,8 +101,8 @@ This means a revnet can only expand to a new chain if it uses the exact same ter
 - stage transitions and borrowability drift:
   `test/TestStageTransitionBorrowable.t.sol`
 - omnichain or phantom-surplus edge cases:
-  `test/regression/RegressionPhantomSurplusTerminal.t.sol`
-- terminal encoding in configuration hash:
+  `test/regression/PhantomSurplusTerminal.t.sol`
+- terminal exclusion from configuration hash:
   `test/TestTerminalEncodingInHash.t.sol`
 
 ## Source Map
@@ -112,4 +112,4 @@ This means a revnet can only expand to a new chain if it uses the exact same ter
 - `src/REVLoans.sol`
 - `test/TestLoansCashOutDelay.t.sol`
 - `test/TestStageTransitionBorrowable.t.sol`
-- `test/regression/RegressionPhantomSurplusTerminal.t.sol`
+- `test/regression/PhantomSurplusTerminal.t.sol`

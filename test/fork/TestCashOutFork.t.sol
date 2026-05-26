@@ -59,7 +59,7 @@ contract TestCashOutFork is ForkTestBase {
         uint256 ethReceived = PAYER.balance - payerEthBefore;
         assertGt(ethReceived, 0, "payer should receive ETH");
 
-        // Fee project terminal balance increased (2.5% fee on the cashout portion processed by REVDeployer hook).
+        // Fee project terminal balance increased (2.5% fee on the cash-out portion processed by REVDeployer hook).
         uint256 feeTerminalAfter = _terminalBalance(FEE_PROJECT_ID, JBConstants.NATIVE_TOKEN);
         assertGt(feeTerminalAfter, feeTerminalBefore, "fee project should receive fee");
 
@@ -196,7 +196,7 @@ contract TestCashOutFork is ForkTestBase {
                 referralProjectId: 0
             });
 
-            assertGt(PAYER.balance, payerEthBefore, "payer should receive ETH after tier split cashout");
+            assertGt(PAYER.balance, payerEthBefore, "payer should receive ETH after tier split cash-out");
         }
     }
 

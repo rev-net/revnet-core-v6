@@ -626,7 +626,7 @@ contract REVLoansRegressions is TestBaseWorkflow {
     function test_setReferralProjectId_nonOwnerReverts() public {
         address attacker = makeAddr("attacker");
         vm.prank(attacker);
-        // OZ Ownable v5 reverts with `OwnableUnauthorizedAccount(address)`; we only assert that it reverts to
+        // OpenZeppelin Ownable reverts with `OwnableUnauthorizedAccount(address)`; we only assert that it reverts to
         // stay tolerant to future OZ upgrades.
         vm.expectRevert();
         LOANS_CONTRACT.setReferralProjectId(42, 10);

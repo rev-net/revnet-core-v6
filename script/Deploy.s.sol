@@ -54,17 +54,17 @@ struct FeeProjectConfig {
 }
 
 contract DeployScript is Script, Sphinx {
-    /// @notice tracks the deployment of the buyback hook.
+    /// @notice Tracks the deployment of the buyback hook.
     BuybackDeployment buybackHook;
-    /// @notice tracks the deployment of the core contracts for the chain we are deploying to.
+    /// @notice Tracks the deployment of the core contracts for the chain we are deploying to.
     CoreDeployment core;
-    /// @notice tracks the deployment of the croptop contracts for the chain we are deploying to.
+    /// @notice Tracks the deployment of the Croptop contracts for the chain we are deploying to.
     CroptopDeployment croptop;
-    /// @notice tracks the deployment of the 721 hook contracts for the chain we are deploying to.
+    /// @notice Tracks the deployment of the 721 hook contracts for the chain we are deploying to.
     Hook721Deployment hook;
-    /// @notice tracks the deployment of the sucker contracts for the chain we are deploying to.
+    /// @notice Tracks the deployment of the sucker contracts for the chain we are deploying to.
     SuckerDeployment suckers;
-    /// @notice tracks the deployment of the router terminal registry package.
+    /// @notice Tracks the deployment of the router terminal registry package.
     RouterTerminalDeployment routerTerminal;
     uint32 private constant _PREMINT_CHAIN_ID = 1;
     string private constant _NAME = "Revnet";
@@ -102,7 +102,7 @@ contract DeployScript is Script, Sphinx {
         // Get the loans owner address.
         loansOwner = safeAddress();
 
-        // Get the deployment addresses for the nana CORE for this chain.
+        // Get the core deployment addresses for this chain.
         // We want to do this outside of the `sphinx` modifier.
         core = CoreDeploymentLib.getDeployment(
             vm.envOr({
@@ -116,13 +116,13 @@ contract DeployScript is Script, Sphinx {
                 defaultValue: string("node_modules/@bananapus/suckers-v6/deployments/")
             })
         );
-        // Get the deployment addresses for the 721 hook contracts for this chain.
+        // Get the Croptop deployment addresses for this chain.
         croptop = CroptopDeploymentLib.getDeployment(
             vm.envOr({
                 name: "CROPTOP_CORE_DEPLOYMENT_PATH", defaultValue: string("node_modules/@croptop/core-v6/deployments/")
             })
         );
-        // Get the deployment addresses for the 721 hook contracts for this chain.
+        // Get the buyback hook deployment addresses for this chain.
         hook = Hook721DeploymentLib.getDeployment(
             vm.envOr({
                 name: "NANA_721_DEPLOYMENT_PATH",
@@ -223,7 +223,7 @@ contract DeployScript is Script, Sphinx {
             autoIssuances: new REVAutoIssuance[](0),
             splitPercent: 3800, // 38%
             splits: splits,
-            initialIssuance: 0, // no more issaunce.
+            initialIssuance: 0, // no more issuance.
             issuanceCutFrequency: 0,
             issuanceCutPercent: 0,
             cashOutTaxRate: 1000, // 0.1
@@ -316,24 +316,11 @@ contract DeployScript is Script, Sphinx {
     }
 
     function deploy() public sphinx {
-        // Check if singletons are already deployed before creating a new fee project.
-        // This prevents creating orphan projects on script restarts.
+        // Check whether the deterministic singletons already exist before creating a new fee project.
+        // This prevents orphan projects on script restarts.
         uint256 feeProjectId;
 
-        // Predict the REVLoans address for an arbitrary fee project ID to check if it exists.
-        // We can't predict without a fee project ID, so we first check the REVDeployer which also stores it.
-        // Try a two-step approach: compute addresses assuming singletons exist, then check.
-
-        // First, check if REVLoans is already deployed by trying with project ID = 0 (placeholder).
-        // We need to iterate: if either singleton exists, extract the fee project ID from it.
-        // Since both encode feeProjectId, we check if any code exists at the predicted address
-        // for sequential project IDs starting from 1.
-
-        // A simpler approach: predict the REVDeployer address for each possible fee project ID
-        // until we find one that's deployed, or give up and create a new one.
-        // In practice, the fee project is always one of the first few projects created.
-
-        // Check the next project ID that would be created — if singletons were deployed with a previous ID,
+        // Check the next project ID that would be created. If singletons were deployed with a previous ID,
         // that ID must be less than the current count.
         uint256 _nextProjectId = core.projects.count() + 1;
 

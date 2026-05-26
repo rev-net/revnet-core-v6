@@ -276,12 +276,13 @@ contract CashOutFeeLocalCapScalingTest is TestBaseWorkflow {
         assertLe(feeAmount, 10 ether, "fee must respect local surplus cap");
     }
 
-    /// @notice Post-PR-#149: scaling preserves a nonzero fee, but the data hook still returns the unscaled
+    /// @notice Scaling preserves a nonzero fee, and returned reclaim data must still fit local liquidity.
+    /// @dev Returning the unscaled
     /// `effectiveCashOutCount` and `effectiveSurplusValue`. `JBTerminalStore._cashOutWithDataHook` recomputes
     /// `reclaim = cashOutFrom(effSurplus, effCount, ...)` (which exceeds local surplus, then caps at local),
     /// and `recordCashOutFor` adds the fee spec on top — `balanceDiff = local + fee > local` reverts with
-    /// `InadequateTerminalStoreBalance`. The fix scales the returned `effCount` down so the recomputed reclaim
-    /// fits inside local surplus, leaving room for the fee spec.
+    /// `InadequateTerminalStoreBalance` unless the returned `effCount` is scaled down so the recomputed reclaim fits
+    /// inside local surplus, leaving room for the fee spec.
     function test_omnichainCashOutBalanceDiffFitsWithinLocalSurplus() public {
         // Local=10, remote=90 → effective surplus=100. Cashing 500 of 1000 at 50% tax yields a global reclaim
         // far exceeding 10 ETH. The store caps reclaim at local=10, then adds the fee spec on top.
@@ -334,7 +335,7 @@ contract CashOutFeeLocalCapScalingTest is TestBaseWorkflow {
             "data hook output + hook specs must fit within local surplus to avoid store revert"
         );
 
-        // The fee spec must remain nonzero — this is the property PR #149 was originally protecting.
+        // The fee spec must remain nonzero when local liquidity caps the reclaim.
         uint256 feeAmount;
         for (uint256 i; i < specs.length; ++i) {
             if (address(specs[i].hook) == address(ownerHook) && !specs[i].noop) {
@@ -437,7 +438,7 @@ contract CashOutFeeLocalCapScalingTest is TestBaseWorkflow {
         assertEq(feeAmount, expectedFee, "fee in no-remote-surplus case must match legacy computation");
     }
 
-    /// @notice The buyback hook now scores its route against the locally-capped direct reclaim
+    /// @notice The buyback hook scores its route against the locally-capped direct reclaim
     /// instead of the pre-cap omnichain reclaim. A cross-chain cash-out that has more omnichain
     /// surplus than local liquidity correctly selects the pool route when the swap pays more than
     /// the local-capped direct path, instead of being misrouted by the higher pre-cap number.
@@ -454,7 +455,7 @@ contract CashOutFeeLocalCapScalingTest is TestBaseWorkflow {
 
         // Local=10, remote=90. The pre-cap omnichain direct reclaim for the non-fee tranche is above 20 ETH,
         // but the terminal-facing reclaim is later scaled below 10 ETH to preserve local liquidity for the fee.
-        // The fix scales the surplus passed to the buyback hook so it scores the swap floor against the
+        // The hook receives scaled surplus so it scores the swap floor against the
         // locally-capped reclaim, not the pre-cap omnichain one.
         suckerRegistry.setRemoteValues({supply: 0, surplus: 90 ether});
 
