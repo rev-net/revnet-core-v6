@@ -346,7 +346,7 @@ contract REVnet_Integrations is TestBaseWorkflow {
 
         bool isNewOperator = REV_OWNER.isOperatorOf(REVNET_ID, address(this));
 
-        assertEq(isNewOperator, true);
+        assertTrue(isNewOperator);
     }
 
     function test_operator_has_default_permissions() public view {
@@ -462,14 +462,14 @@ contract REVnet_Integrations is TestBaseWorkflow {
         vm.prank(multisig());
 
         // As a safety measure the newly created sucker will check that it has not missed a crosschain call.
-        // which wil call the balanceOf to check its own balance.
+        // which will call balanceOf to check its own balance.
         vm.mockCall(address(token), abi.encodeWithSelector(IERC20.balanceOf.selector), abi.encode(0));
 
         address[] memory suckers = REV_DEPLOYER.deploySuckersFor(REVNET_ID, revConfig);
 
         // Ensure it's registered
         bool isSucker = SUCKER_REGISTRY.isSuckerOf(REVNET_ID, suckers[0]);
-        assertEq(isSucker, true);
+        assertTrue(isSucker);
     }
 
     /// @notice An operator passing a non-zero `peer` field in their sucker deployment config must NOT be able to
