@@ -86,7 +86,7 @@ contract BuybackPoolDecimalParityTest is Test {
         uint160 fixed_ = harness.computeSqrtPriceX96(TERMINAL_TOKEN, PROJECT_TOKEN, 6, ISSUANCE);
         uint160 buggy = harness.computeSqrtPriceX96_BUGGY(TERMINAL_TOKEN, PROJECT_TOKEN, 6, ISSUANCE);
 
-        assertTrue(fixed_ != buggy, "6-dec: fixed formula must differ from buggy 1e18 formula");
+        assertNotEq(fixed_, buggy, "6-dec: fixed formula must differ from buggy 1e18 formula");
         assertTrue(fixed_ > 0, "6-dec: sqrtPriceX96 must be non-zero");
     }
 
@@ -95,7 +95,7 @@ contract BuybackPoolDecimalParityTest is Test {
         uint160 fixed_ = harness.computeSqrtPriceX96(TERMINAL_TOKEN, PROJECT_TOKEN, 8, ISSUANCE);
         uint160 buggy = harness.computeSqrtPriceX96_BUGGY(TERMINAL_TOKEN, PROJECT_TOKEN, 8, ISSUANCE);
 
-        assertTrue(fixed_ != buggy, "8-dec: fixed formula must differ from buggy 1e18 formula");
+        assertNotEq(fixed_, buggy, "8-dec: fixed formula must differ from buggy 1e18 formula");
         assertTrue(fixed_ > 0, "8-dec: sqrtPriceX96 must be non-zero");
     }
 

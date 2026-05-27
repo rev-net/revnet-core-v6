@@ -635,8 +635,8 @@ contract TestLowRegressions is TestBaseWorkflow {
         assertLt(reallocatedLoan.collateral, loanBefore.collateral, "Reallocated loan should have less collateral");
 
         // New loan should exist.
-        assertTrue(newLoanId != loanId, "New loan should have different ID");
-        assertTrue(newLoanId != reallocatedLoanId, "New loan should differ from reallocated loan");
+        assertNotEq(newLoanId, loanId, "New loan should have different ID");
+        assertNotEq(newLoanId, reallocatedLoanId, "New loan should differ from reallocated loan");
     }
 
     /// @notice Borrowing with a collateral count so small that the bonding curve rounds the borrow amount to zero

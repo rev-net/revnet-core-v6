@@ -347,7 +347,7 @@ contract TestConversionDocumentation is TestBaseWorkflow {
         assertEq(jbProjects().ownerOf(blankId), address(REV_OWNER), "Owner should be REVOwner after conversion");
 
         // Verify the original user is no longer the owner.
-        assertTrue(jbProjects().ownerOf(blankId) != USER, "Original user should no longer own the project");
+        assertNotEq(jbProjects().ownerOf(blankId), USER, "Original user should no longer own the project");
     }
 
     /// @notice Deploy with revnetId=0 creates a new project.

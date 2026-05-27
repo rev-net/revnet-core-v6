@@ -340,8 +340,8 @@ contract ReallocatePermissionTest is TestBaseWorkflow {
         );
 
         // Verify both loans were created.
-        assertTrue(reallocatedLoanId != 0, "Reallocated loan should exist");
-        assertTrue(newLoanId != 0, "New loan should exist");
+        assertNotEq(reallocatedLoanId, 0, "Reallocated loan should exist");
+        assertNotEq(newLoanId, 0, "New loan should exist");
     }
 
     /// @notice REALLOCATE_LOAN alone is NOT enough when fresh holder collateral is added.
@@ -420,8 +420,8 @@ contract ReallocatePermissionTest is TestBaseWorkflow {
             loanId, collateralToTransfer, source, 0, extraTokens, payable(HOLDER), 25
         );
 
-        assertTrue(reallocatedLoanId != 0, "Reallocated loan should exist");
-        assertTrue(newLoanId != 0, "New loan should exist");
+        assertNotEq(reallocatedLoanId, 0, "Reallocated loan should exist");
+        assertNotEq(newLoanId, 0, "New loan should exist");
     }
 
     /// @notice Regression: borrowFrom still requires OPEN_LOAN permission.
@@ -464,6 +464,6 @@ contract ReallocatePermissionTest is TestBaseWorkflow {
 
         vm.prank(OPERATOR);
         (uint256 loanId,) = LOANS_CONTRACT.borrowFrom(REVNET_ID, source, 0, tokenCount, payable(HOLDER), 25, HOLDER);
-        assertTrue(loanId != 0, "Loan should be created successfully");
+        assertNotEq(loanId, 0, "Loan should be created successfully");
     }
 }
