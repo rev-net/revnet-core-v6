@@ -1309,9 +1309,8 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         JBAccountingContext memory context = TERMINAL.accountingContextForTokenOf({projectId: revnetId, token: token});
         if (context.token != token) revert REVLoans_InvalidAccountingContext({revnetId: revnetId, token: token});
 
-        // Make sure the prepaid fee percent is between `MIN_PREPAID_FEE_PERCENT` and `MAX_PREPAID_FEE_PERCENT`. Meaning
-        // an 16 year loan can be paid upfront with a
-        // payment of 50% of the borrowed assets, the cheapest possible rate.
+        // Make sure the prepaid fee percent is between `MIN_PREPAID_FEE_PERCENT` and `MAX_PREPAID_FEE_PERCENT`.
+        // The maximum prepaid fee covers the full 10-year liquidation duration with a 50% payment.
         if (prepaidFeePercent < MIN_PREPAID_FEE_PERCENT || prepaidFeePercent > MAX_PREPAID_FEE_PERCENT) {
             revert REVLoans_InvalidPrepaidFeePercent({
                 prepaidFeePercent: prepaidFeePercent, min: MIN_PREPAID_FEE_PERCENT, max: MAX_PREPAID_FEE_PERCENT
