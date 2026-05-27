@@ -460,7 +460,7 @@ contract REVnet_Integrations is TestBaseWorkflow {
         vm.prank(multisig());
 
         // As a safety measure the newly created sucker will check that it has not missed a crosschain call.
-        // which will call the balanceOf to check its own balance.
+        // which will call balanceOf to check its own balance.
         vm.mockCall(address(token), abi.encodeWithSelector(IERC20.balanceOf.selector), abi.encode(0));
 
         address[] memory suckers = REV_DEPLOYER.deploySuckersFor(REVNET_ID, revConfig);

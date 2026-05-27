@@ -361,8 +361,8 @@ contract TestMixedFixes is TestBaseWorkflow {
             loanId, collateralToTransfer, source, 0, extraTokens, payable(USER), 25
         );
 
-        assertTrue(reallocatedLoanId != 0, "Reallocated loan should exist");
-        assertTrue(newLoanId != 0, "New loan should exist");
+        assertNotEq(reallocatedLoanId, 0, "Reallocated loan should exist");
+        assertNotEq(newLoanId, 0, "New loan should exist");
     }
 
     // ==================== Mixed-Decimal Normalization Tests ====================
@@ -448,7 +448,7 @@ contract TestMixedFixes is TestBaseWorkflow {
             LOANS_CONTRACT.borrowFrom(MIXED_REVNET_ID, ethSource, 0, tokenCount, payable(USER), 25, USER);
 
         // Verify loan created and TOKEN source has zero borrowed.
-        assertTrue(loanId != 0, "ETH loan should be created");
+        assertNotEq(loanId, 0, "ETH loan should be created");
         assertTrue(loan.amount > 0, "Loan amount should be nonzero");
         assertEq(
             LOANS_CONTRACT.totalBorrowedFrom(MIXED_REVNET_ID, address(TOKEN)),
@@ -497,7 +497,7 @@ contract TestMixedFixes is TestBaseWorkflow {
         (uint256 loanId, REVLoan memory loan) =
             LOANS_CONTRACT.borrowFrom(MIXED_REVNET_ID, tokenSource, 0, smallCollateral, payable(USER), 25, USER);
 
-        assertTrue(loanId != 0, "TOKEN loan should be created");
+        assertNotEq(loanId, 0, "TOKEN loan should be created");
         assertTrue(loan.amount > 0, "Loan amount should be nonzero");
 
         // Verify totalBorrowedFrom tracks the raw 6-decimal amount.
@@ -552,7 +552,7 @@ contract TestMixedFixes is TestBaseWorkflow {
         vm.prank(USER);
         (uint256 tokenLoanId,) =
             LOANS_CONTRACT.borrowFrom(MIXED_REVNET_ID, tokenSource, 0, smallCollateral, payable(USER), 25, USER);
-        assertTrue(tokenLoanId != 0, "TOKEN loan should be created");
+        assertNotEq(tokenLoanId, 0, "TOKEN loan should be created");
 
         // STEP 3: Pay ETH to create ETH surplus.
         vm.prank(USER);
@@ -573,7 +573,7 @@ contract TestMixedFixes is TestBaseWorkflow {
         vm.prank(USER);
         (uint256 ethLoanId,) =
             LOANS_CONTRACT.borrowFrom(MIXED_REVNET_ID, ethSource, 0, ethCollateral, payable(USER), 25, USER);
-        assertTrue(ethLoanId != 0, "ETH loan should be created");
+        assertNotEq(ethLoanId, 0, "ETH loan should be created");
 
         // Both sources should have tracked borrows.
         uint256 ethBorrowed = LOANS_CONTRACT.totalBorrowedFrom(MIXED_REVNET_ID, JBConstants.NATIVE_TOKEN);

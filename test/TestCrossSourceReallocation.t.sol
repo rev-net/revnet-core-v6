@@ -305,8 +305,8 @@ contract TestCrossSourceReallocation is TestBaseWorkflow {
         );
 
         // Verify both loans exist
-        assertTrue(reallocatedLoanId != 0, "Reallocated loan should exist");
-        assertTrue(newLoanId != 0, "New loan should exist");
+        assertNotEq(reallocatedLoanId, 0, "Reallocated loan should exist");
+        assertNotEq(newLoanId, 0, "New loan should exist");
 
         // Verify new loan has correct source
         REVLoan memory newLoan = LOANS_CONTRACT.loanOf(newLoanId);
