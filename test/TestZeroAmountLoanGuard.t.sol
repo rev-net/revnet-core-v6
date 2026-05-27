@@ -333,7 +333,7 @@ contract TestZeroAmountLoanGuard is TestBaseWorkflow {
         );
 
         // Partial repay should create a new loan (different ID)
-        assertTrue(paidOffLoanId != loanId, "Partial repay should create new loan ID");
+        assertNotEq(paidOffLoanId, loanId, "Partial repay should create new loan ID");
 
         // New loan should be owned by the caller
         assertEq(
