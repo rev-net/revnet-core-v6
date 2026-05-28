@@ -2,7 +2,6 @@
 
 `@rev-net/core-v6` deploys and operates Revnets: Juicebox project shapes with staged economics, optional tiered NFTs, cross-chain support, buyback integration, and token-collateralized loans.
 
-Protocol docs: <https://docs.juicebox.money>
 
 ## Documentation
 
