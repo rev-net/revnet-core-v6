@@ -165,12 +165,31 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
     // ------------------------- external views -------------------------- //
     //*********************************************************************//
 
-    /// @notice Called before a cash-out is recorded. Suckers get 0% tax (bridged tokens redeem at face value). For
-    /// regular holders, aggregates cross-chain total supply and surplus (including outstanding loan debt/collateral),
-    /// splits a 2.5% fee from the cashed-out token count when cash-out tax is non-zero, computes bonding curve
-    /// reclaims for both the holder's portion and the fee portion, then delegates to the buyback hook for potential
-    /// swap routing.
-    /// @dev Part of `IJBRulesetDataHook`. In the non-zero-tax fee path, REVOwner is intentionally not registered as a
+    /// @notice Hook called by the JBTerminalStore during cash-out to enforce revnet-specific tax/fee/aggregation logic.
+    /// @dev This function is the policy boundary between three distinct cash-out semantics:
+    ///
+    /// 1. **Sucker cash-outs (registered bridge contracts):** returns tax=0 and uses LOCAL supply/surplus only.
+    ///    Lines 209-211. Bridges cash out tokens at the originating chain's local backing rate to move value
+    ///    across chains. This is the bridge accounting primitive — keep value moving out of this chain
+    ///    proportional to this chain's local backing, regardless of cross-chain aggregation. This deliberate
+    ///    asymmetry vs. ordinary cash-outs is what enables the cross-chain rebalancing arbitrage path described
+    ///    in ARBITRAGE.md (Path 1). See also INVARIANTS.md Section D2 at the monorepo root.
+    ///
+    /// 2. **Ordinary cash-outs during the cash-out delay window:** revert. Lines around 217-220. The delay
+    ///    blocks direct exits (cash-out/borrow) on new chains so they can prime via bridges before users
+    ///    start drawing value. Note the delay does NOT apply to sucker cash-outs (item 1) — priming requires
+    ///    bridges to remain open.
+    ///
+    /// 3. **Ordinary cash-outs after delay:** aggregate cross-chain state when `scopeCashOutsToLocalBalances`
+    ///    is false, then route through the buyback hook to potentially settle via AMM (Path 2 floor arb in
+    ///    ARBITRAGE.md) or pass through to bonding curve. The buyback hook auto-applies floor arbitrage for
+    ///    users who would otherwise underpay themselves.
+    ///
+    /// The interaction of these three semantics — together with the buyback hook's pay-side ceiling arbitrage
+    /// (Path 3, in nana-buyback-hook-v6) — is what makes a multi-chain revnet self-equilibrating. See
+    /// ARBITRAGE.md for the full taxonomy.
+    ///
+    /// Part of `IJBRulesetDataHook`. In the non-zero-tax fee path, REVOwner is intentionally not registered as a
     /// feeless address — the protocol fee (2.5%) applies on top of the rev fee. The fee hook spec amount sent to
     /// `afterCashOutRecordedWith` will have the protocol fee deducted by the terminal before reaching this contract.
     /// @param context Standard Juicebox cash-out context. See `JBBeforeCashOutRecordedContext`.
@@ -202,8 +221,11 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
         effectiveSurplusValue = context.surplus.value + totalBorrowed;
 
         // If the cash-out is from a sucker, return the full cash-out amount without taxes or fees.
-        // Sucker cash-outs are the bridge accounting path: the value moving out of this chain must stay proportional
-        // to this chain's local backing. Do not add remote supply/surplus here, even for unscoped revnets.
+        // Sucker cash-outs are the bridge accounting path: the value moving out of this chain must stay
+        // proportional to this chain's local backing. Do not add remote supply/surplus here, even for
+        // unscoped revnets. This is deliberate — the asymmetry vs. ordinary cash-outs (which aggregate
+        // cross-chain) is what enables the cross-chain rebalancing arbitrage that primes new chains and
+        // equalizes per-chain backing divergence. See ARBITRAGE.md (Path 1).
         // This relies on the sucker registry to only contain trusted sucker contracts deployed via
         // the registry's own deploySuckersFor flow — external addresses cannot register as suckers.
         if (_isSuckerOf({revnetId: context.projectId, addr: context.holder})) {
@@ -213,7 +235,10 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
         // Keep a reference to the cash-out delay of the revnet.
         uint256 cashOutDelay = cashOutDelayOf[context.projectId];
 
-        // Enforce the cash-out delay.
+        // Enforce the cash-out delay on ordinary cash-outs.
+        // Note: the sucker branch above returns BEFORE this check by design — bridges remain open during
+        // the delay so a new chain can prime its local backing via inbound bridges before any holder can
+        // directly exit. See ARBITRAGE.md (Path 1) and INVARIANTS.md Section D2 for the rationale.
         // forge-lint: disable-next-line(block-timestamp)
         if (cashOutDelay > block.timestamp) {
             revert REVOwner_CashOutDelayNotFinished({cashOutDelay: cashOutDelay, blockTimestamp: block.timestamp});
@@ -458,9 +483,14 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
             || _isSuckerOf({revnetId: revnetId, addr: addr});
     }
 
-    /// @notice Additional revnet accounts that peer-chain snapshots should include.
-    /// @dev Outstanding loan debt is counted as both surplus and balance:
-    /// it is value owed back to this chain's revnet and should travel to peer snapshots with the collateral supply.
+    /// @notice Adjusts local accounts for outstanding loans when reporting peer-chain state.
+    /// @dev Used by remote chains' aggregate cash-out math to correctly account for value temporarily
+    /// held outside this chain's terminal (in active REVLoans). Critical for the conservation invariant
+    /// described in INVARIANTS.md Section D2.5 — without this adjustment, outstanding-loan ETH would
+    /// silently inflate apparent surplus on the peer-chain side.
+    ///
+    /// Outstanding loan debt is counted as both surplus and balance: it is value owed back to this
+    /// chain's revnet and should travel to peer snapshots with the collateral supply.
     /// @param revnetId The ID of the revnet to snapshot.
     /// @param decimals The decimals to use for the returned surplus.
     /// @param currency The currency to denominate the returned surplus in.
