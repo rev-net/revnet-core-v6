@@ -1,7 +1,5 @@
 # Invariants — `@rev-net/core-v6`
 
-Last updated: 2026-05-28.
-
 Scope: invariants for the three contracts that make up `revnet-core-v6` — `REVOwner` (project-NFT holder + runtime data hook), `REVDeployer` (revnet factory), and `REVLoans` (collateralized borrowing against revnet tokens). Sits on top of `nana-core-v6`. The monorepo-wide invariants (e.g. nana-core's terminal/controller mechanics, suckers' bridge accounting, registry-default cohort safety) are not duplicated here — see `/Users/jango/Documents/jb/v6/evm/INVARIANTS.md`.
 
 This document is the **policy boundary** for revnets specifically: what holders, borrowers, and operators are guaranteed and what they aren't. The cross-chain arbitrage model that ties the LOCAL-rate sucker branch and AGGREGATED-rate normal branch together is documented separately in [`ARBITRAGE.md`](./ARBITRAGE.md) and cross-referenced below.

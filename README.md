@@ -2,15 +2,20 @@
 
 `@rev-net/core-v6` deploys and operates Revnets: Juicebox project shapes with staged economics, optional tiered NFTs, cross-chain support, buyback integration, and token-collateralized loans.
 
-Docs: <https://docs.juicebox.money>
-Architecture: [ARCHITECTURE.md](./ARCHITECTURE.md)  
-User journeys: [USER_JOURNEYS.md](./USER_JOURNEYS.md)  
-Skills: [SKILLS.md](./SKILLS.md)  
-Risks: [RISKS.md](./RISKS.md)  
-Invariants: [INVARIANTS.md](./INVARIANTS.md)  
-Administration: [ADMINISTRATION.md](./ADMINISTRATION.md)  
-Arbitrage paths: [ARBITRAGE.md](./ARBITRAGE.md)  
-Audit instructions: [AUDIT_INSTRUCTIONS.md](./AUDIT_INSTRUCTIONS.md)
+Protocol docs: <https://docs.juicebox.money>
+
+## Documentation
+
+- [INVARIANTS.md](./INVARIANTS.md) — Per-contract guarantees + operation inventory
+- [ARBITRAGE.md](./ARBITRAGE.md) — The three intentional protocol-beneficial arbitrage paths
+- [ARCHITECTURE.md](./ARCHITECTURE.md) — Module layout
+- [ADMINISTRATION.md](./ADMINISTRATION.md) — Admin surface (REVOwner + REVLoans ownable)
+- [RISKS.md](./RISKS.md) — Threat model
+- [USER_JOURNEYS.md](./USER_JOURNEYS.md) — Example flows
+- [AUDIT_INSTRUCTIONS.md](./AUDIT_INSTRUCTIONS.md) — Auditor scope and orientation
+- [SKILLS.md](./SKILLS.md) — Agent-oriented navigation map
+- [STYLE_GUIDE.md](./STYLE_GUIDE.md) — Solidity conventions across the V6 ecosystem
+- [CHANGELOG.md](./CHANGELOG.md) — Version history
 
 ## Overview
 

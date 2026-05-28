@@ -1,7 +1,5 @@
 # Arbitrage Paths in Revnets
 
-Last updated: 2026-05-28.
-
 Scope: the three intentional arbitrage incentives that, together, keep a revnet's economic surfaces aligned across (a) chains, (b) AMM secondary markets, and (c) the terminal pay/cashout flows. This document is the canonical reference for builders integrating with revnets, arbitrageurs hunting opportunities, holders reasoning about their economics, and maintainers reading the code.
 
 Audience note: this is a **feature spec**, not a vulnerability disclosure. Each path is wired in deliberately; removing any one would create a different problem. The arbitrageur pays effort + capital and gets paid out of the divergence they close. The protocol uses that work to self-equilibrate and grow.
@@ -45,7 +43,7 @@ A revnet's per-chain backing-per-token diverges when:
 The arbitrageur runs the following cycle:
 
 1. **Mint cheap** on a low-backing chain. Call `terminal.pay` where the bonding-curve reclaim per token is currently low.
-2. **Bridge tokens** via `JBSucker.prepare`. The sucker branch cashes out at the **LOCAL** chain's supply/surplus with `taxRate=0` — see `src/REVOwner.sol:209-211`:
+2. **Bridge tokens** via `JBSucker.prepare`. The sucker branch cashes out at the **LOCAL** chain's supply/surplus with `taxRate=0` — see `src/REVOwner.sol:231-233`:
 
    ```solidity
    if (_isSuckerOf({revnetId: context.projectId, addr: context.holder})) {
@@ -78,7 +76,7 @@ The asymmetry between the LOCAL-rate bridge cashout and the AGGREGATED-rate norm
 
 ## Why the cash-out delay deliberately doesn't apply to bridges
 
-`cashOutDelayOf[revnetId]` blocks `cashOutTokensOf` and `REVLoans.borrowFrom` during a priming window for newly-added chains. It deliberately **does not** block `sucker.prepare`: the sucker branch in `REVOwner.beforeCashOutRecordedWith` returns at `REVOwner.sol:209-211` *before* the cash-out-delay check. If the delay applied to bridges too, new chains couldn't be primed. The delay blocks direct exits during priming; the bridge stays open so supply can flow in.
+`cashOutDelayOf[revnetId]` blocks `cashOutTokensOf` and `REVLoans.borrowFrom` during a priming window for newly-added chains. It deliberately **does not** block `sucker.prepare`: the sucker branch in `REVOwner.beforeCashOutRecordedWith` returns at `REVOwner.sol:231-233` *before* the cash-out-delay check. If the delay applied to bridges too, new chains couldn't be primed. The delay blocks direct exits during priming; the bridge stays open so supply can flow in.
 
 ## Cost paid by
 
@@ -211,7 +209,7 @@ Removing any of these would create a worse problem:
 # Reading list
 
 - `/Users/jango/Documents/jb/v6/evm/INVARIANTS.md` Section D2 — full conservation model and the deliberate-asymmetry rationale.
-- `src/REVOwner.sol:209-211` — sucker branch in `beforeCashOutRecordedWith`, returns `taxRate=0` at LOCAL rate.
+- `src/REVOwner.sol:231-233` — sucker branch in `beforeCashOutRecordedWith`, returns `taxRate=0` at LOCAL rate.
 - `src/REVLoans.sol:419-435` — aggregated-vs-local supply selection and the local-surplus cap on borrow.
 - `deploy-all-v6/test/fork/CrossChainArbCharacterizationFork.t.sol` — quantitative P&L characterization.
 - `deploy-all-v6/test/invariants/CrossChainArbInvariant.t.sol` — stateful invariant suite.
