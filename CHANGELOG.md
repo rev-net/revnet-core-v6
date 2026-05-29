@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.0.81 — Bump buyback-hook-v6 and router-terminal-v6 to latest
+
+- `@bananapus/buyback-hook-v6`: `^0.0.58 → ^0.0.64`. Spans the cash-out `skip` encoding (`(uint256, bool)`, 0.0.62), the
+  metadata purpose rename `"quote"`/`"cashOutMinReclaimed"` → `"pay"`/`"cashOut"` (0.0.63), and the gas-only
+  constructor-immutable-ID refactor (0.0.64). **No revnet src change required:** `REVOwner` forwards
+  `context.metadata` unchanged to `BUYBACK_HOOK.beforeCashOutRecordedWith` and never builds or decodes buyback-targeted
+  metadata itself, so the rename/encoding changes are transparent to it.
+- `@bananapus/router-terminal-v6`: `^0.0.55 → ^0.0.58` (the router's own metadata purposes were renamed to `"pay"`/
+  `"cashOut"` and it now depends on buyback 0.0.64). `REVDeployer` only references the router-terminal *registry*
+  address; no constructor or interface usage changed for revnet.
+- Cleared a pre-existing `Warning (2018)` by marking the file-reading script helper
+  `CoreDeploymentLib._tryGetDeploymentAddress` `view` (matches its `_getDeploymentAddress` sibling).
+- No `src/` behavioral change. 379 non-fork tests pass (1 skipped); build is warning-free.
+
 ## 0.0.64 — Owner-settable referral target on `REVLoans`
 
 - New `referralProjectId()` view returning the packed `(chainId << 48) | projectId` reference credited as the referrer on every `useAllowanceOf` call this contract makes.

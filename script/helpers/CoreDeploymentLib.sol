@@ -161,6 +161,7 @@ library CoreDeploymentLib {
         string memory contractName
     )
         internal
+        view
         returns (address)
     {
         string memory filePath = string.concat(path, projectName, "/", networkName, "/", contractName, ".json");
