@@ -851,7 +851,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
     }
 
     /// @notice Exercises the cash-out-vs-loan parity path for one concrete scenario.
-    /// @dev Shared by the fuzz test and the fixed audit-selected tax-rate boundary tests.
+    /// @dev Shared by the fuzz test and the fixed selected tax-rate boundary tests.
     /// @param useNative Whether to use native tokens or the ERC-20 accounting context.
     /// @param autoIssuance The auto-issued supply included in the revnet configuration.
     /// @param totalSupplyExcludingAutoMint The token supply minted directly to `USER`.
@@ -1016,7 +1016,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         _testCashOutTaxRateThreshold(4001);
     }
 
-    /// @notice Runs the shared cash-out/loan parity assertions with a fixed audit-selected cash-out tax rate.
+    /// @notice Runs the shared cash-out/loan parity assertions with a fixed selected cash-out tax rate.
     /// @param cashOutTaxRate The tax rate to pin, out of `JBConstants.MAX_CASH_OUT_TAX_RATE`.
     function _testCashOutTaxRateThreshold(uint16 cashOutTaxRate) internal {
         // Use fixed, ordinary-sized values so the threshold assertions exercise economics, not min/max arithmetic.
