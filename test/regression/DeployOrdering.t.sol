@@ -11,7 +11,7 @@ import {IREVDeployer} from "../../src/interfaces/IREVDeployer.sol";
 import {IREVLoans} from "../../src/interfaces/IREVLoans.sol";
 import {REVOwner} from "../../src/REVOwner.sol";
 
-contract CodexNemesisDeployOrderingTest is Test {
+contract DeployOrderingTest is Test {
     function testSetDeployerRevertsWhenPredictedDeployerHasNoCode() public {
         address predictedDeployer = makeAddr("predicted undeployed REVDeployer");
         assertEq(predictedDeployer.code.length, 0);
