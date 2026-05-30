@@ -94,6 +94,8 @@ Terminal addresses are constructor-pinned on `REVDeployer` and are not repeated 
 
 This means cross-chain matching is driven by immutable revnet economics and the deployer installation, not by caller-selected terminals. A deployment with a different canonical terminal stack must use a different deployer, which changes the trust boundary even if the per-revnet hash matches.
 
+This is exactly why a revnet denominates in a *standard* currency, never a token. `baseCurrency` is a `JBCurrencyIds` value (`ETH = 1`, `USD = 2`) — chain-independent, so it is safe to commit to the cross-chain hash. The concrete asset a terminal accepts lives in a per-chain `JBAccountingContext` whose `currency` is token-keyed (`uint32(uint160(token))`) and is deliberately excluded from the hash, because the same logical asset has a different address on each chain (USDC) or may not exist (a chain whose native token is not ETH). Each chain bridges its local token to the revnet's standard `baseCurrency` through a locally-registered `JBPrices` feed, which `JBTerminalStore` reads on pay/cash-out whenever the accepted token's currency differs from `baseCurrency`. A USD revnet therefore prices each chain's local USDC into USD via that chain's USDC/USD feed, while the revnet config stays byte-identical everywhere. Consequence: `baseCurrency` must stay a standard `JBCurrencyIds` unit — making a revnet's denomination chain-specific (e.g. a token-keyed `baseCurrency`) would break cross-chain identity. See `nana-core-v6/ARCHITECTURE.md` (Currency model) for the terminal-side mechanics.
+
 ## Canonical Checks
 
 - cash-out-delay interaction with loans:
