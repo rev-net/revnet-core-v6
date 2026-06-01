@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.0.84 — Borrowable-amount preview matches what a borrow can execute
+
+- `REVLoans.borrowableAmountFrom` previously reconstructed the revnet's economic liquidity as
+  `localSurplus = totalSurplus + totalBorrowed` and capped its quote at that value. Because an actual borrow draws funds
+  from the **live** treasury balance through the terminal's use-allowance path — which is strictly less than the
+  reconstructed value once earlier borrows have already drawn it down — the preview could quote more than the terminal
+  could currently deliver, so a borrow sized to the quote would revert even though the economic limit allowed it.
+- The preview now **additionally** caps its result at the live treasury surplus (the amount the terminal can disburse
+  right now). The existing economic cap is preserved; the smaller of the two bounds applies. Opening a borrow applies
+  the same live cap, so a borrow sized to the freshly-quoted amount executes without reverting.
+- Repaying and reallocating are unaffected: those paths value collateral that **already** backs a loan and draw no
+  fresh funds from the terminal, so they continue to use the un-capped economic value (their fund movement is
+  unchanged).
+- No storage-layout change. No change to fees, accounting, or which funds move during a borrow — only the quoted and
+  opened amount is held to what the live treasury can deliver.
+
 ## 0.0.81 — Bump buyback-hook-v6 and router-terminal-v6 to latest
 
 - `@bananapus/buyback-hook-v6`: `^0.0.58 → ^0.0.64`. Spans the cash-out `skip` encoding (`(uint256, bool)`, 0.0.62), the

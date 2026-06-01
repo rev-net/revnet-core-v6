@@ -271,13 +271,16 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // forge-lint: disable-next-line(block-timestamp)
         if (_cashOutDelayOf({revnetId: revnetId, currentRuleset: currentRuleset}) > block.timestamp) return 0;
 
+        // Cap the quote at the live treasury surplus so the preview matches what a borrow can actually execute right
+        // now — opening a borrow draws from the terminal's live balance.
         return _borrowableAmountFrom({
             revnetId: revnetId,
             collateralCount: collateralCount,
             decimals: decimals,
             currency: currency,
             multiTerminal: TERMINAL,
-            currentStage: currentRuleset
+            currentStage: currentRuleset,
+            capToLiveTreasurySurplus: true
         });
     }
 
@@ -369,6 +372,12 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @param currency The currency to denominate the resulting amount in.
     /// @param multiTerminal The canonical multi terminal to borrow from.
     /// @param currentStage The pre-fetched current ruleset.
+    /// @param capToLiveTreasurySurplus Whether to additionally cap the result at the live treasury surplus — the
+    /// amount the terminal can actually disburse right now. Set `true` when the result quotes or sizes funds that are
+    /// about to be drawn from the terminal (the borrowable-amount preview and opening a new borrow), so the figure
+    /// never exceeds what a borrow can execute in the current state. Set `false` when the result only values existing
+    /// collateral without drawing fresh funds (repaying or reallocating a loan), where the live balance is irrelevant
+    /// because the loan's funds already left the terminal.
     /// @return borrowableAmount The amount that can be borrowed from the revnet.
     function _borrowableAmountFrom(
         uint256 revnetId,
@@ -376,7 +385,8 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         uint256 decimals,
         uint256 currency,
         IJBTerminal multiTerminal,
-        JBRuleset memory currentStage
+        JBRuleset memory currentStage,
+        bool capToLiveTreasurySurplus
     )
         internal
         view
@@ -431,8 +441,20 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             totalSupply: effectiveSupply,
             cashOutTaxRate: currentStage.cashOutTaxRate()
         });
-        // Cap at local surplus — can't borrow more than what this chain's terminals actually hold.
-        return reclaimable > localSurplus ? localSurplus : reclaimable;
+
+        // Cap at the local surplus — the economic limit, which includes both the live treasury surplus and the
+        // amounts already borrowed against this revnet.
+        uint256 borrowableAmount = reclaimable > localSurplus ? localSurplus : reclaimable;
+
+        // When the result is about to be drawn from the terminal, also cap it at the live treasury surplus — the
+        // amount the terminal can actually disburse right now. Prior borrows have already drawn their amounts from the
+        // live balance (those amounts live in `totalBorrowed`, part of `localSurplus`, but are no longer in the
+        // terminal), so the economic cap above can exceed what the terminal currently holds. Without this the preview
+        // could quote more than a borrow can execute, making the borrow revert even though the economic limit would
+        // allow it. The smaller of the two bounds applies.
+        if (capToLiveTreasurySurplus && borrowableAmount > totalSurplus) return totalSurplus;
+
+        return borrowableAmount;
     }
 
     /// @notice The amount of the loan that should be borrowed for the given collateral amount.
@@ -440,12 +462,16 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @param revnetId The ID of the revnet to borrow from.
     /// @param collateralCount The amount of collateral to secure the loan with.
     /// @param currentRuleset The pre-fetched current ruleset.
+    /// @param capToLiveTreasurySurplus Whether to cap the result at the live treasury surplus. Pass `true` when
+    /// opening a new borrow (funds are drawn from the terminal), `false` when only valuing existing collateral while
+    /// repaying or reallocating a loan (no fresh draw). See `_borrowableAmountFrom`.
     /// @return borrowAmount The amount that should be borrowed.
     function _borrowAmountFrom(
         REVLoan storage loan,
         uint256 revnetId,
         uint256 collateralCount,
-        JBRuleset memory currentRuleset
+        JBRuleset memory currentRuleset,
+        bool capToLiveTreasurySurplus
     )
         internal
         view
@@ -464,7 +490,8 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             decimals: context.decimals,
             currency: context.currency,
             multiTerminal: TERMINAL,
-            currentStage: currentRuleset
+            currentStage: currentRuleset,
+            capToLiveTreasurySurplus: capToLiveTreasurySurplus
         });
     }
 
@@ -886,12 +913,15 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Scope to limit newBorrowAmount's stack lifetime.
         uint256 repayBorrowAmount;
         {
-            // Get the new borrow amount.
+            // Get the new borrow amount. This only re-values the remaining collateral to determine how much debt
+            // stays outstanding — no fresh funds are drawn from the terminal — so it is not capped at the live
+            // treasury surplus.
             uint256 newBorrowAmount = _borrowAmountFrom({
                 loan: loan,
                 revnetId: revnetId,
                 collateralCount: loan.collateral - collateralCountToReturn,
-                currentRuleset: currentRuleset
+                currentRuleset: currentRuleset,
+                capToLiveTreasurySurplus: false
             });
 
             // If the remaining collateral yields zero borrow amount, treat as full repay.
@@ -1340,9 +1370,14 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         loan.prepaidDuration =
             uint32(mulDiv({x: prepaidFeePercent, y: LOAN_LIQUIDATION_DURATION, denominator: MAX_PREPAID_FEE_PERCENT}));
 
-        // Get the amount of the loan, using the cached ruleset.
+        // Get the amount of the loan, using the cached ruleset. Opening a borrow draws these funds from the terminal,
+        // so cap the amount at the live treasury surplus to keep it executable in the current state.
         uint256 borrowAmount = _borrowAmountFrom({
-            loan: loan, revnetId: revnetId, collateralCount: collateralCount, currentRuleset: currentRuleset
+            loan: loan,
+            revnetId: revnetId,
+            collateralCount: collateralCount,
+            currentRuleset: currentRuleset,
+            capToLiveTreasurySurplus: true
         });
 
         // Revert if the bonding curve returns zero to prevent creating zero-amount loans.
@@ -1433,9 +1468,15 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Cache the current ruleset for borrow amount calculation.
         JBRuleset memory currentRuleset = _currentRulesetOf(revnetId);
 
-        // Keep a reference to the new borrow amount.
+        // Keep a reference to the new borrow amount. This is a solvency check on the reduced collateral against the
+        // existing debt — the loan's amount is unchanged and no fresh funds are drawn — so it is not capped at the
+        // live treasury surplus.
         uint256 borrowAmount = _borrowAmountFrom({
-            loan: loan, revnetId: revnetId, collateralCount: newCollateralCount, currentRuleset: currentRuleset
+            loan: loan,
+            revnetId: revnetId,
+            collateralCount: newCollateralCount,
+            currentRuleset: currentRuleset,
+            capToLiveTreasurySurplus: false
         });
 
         // Make sure the borrow amount is not less than the original loan's amount.

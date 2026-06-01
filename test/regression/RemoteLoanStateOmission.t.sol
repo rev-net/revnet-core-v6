@@ -264,7 +264,8 @@ contract BorrowableHarness is REVLoans {
             decimals: decimals,
             currency: currency,
             multiTerminal: terminals[0],
-            currentStage: currentStage
+            currentStage: currentStage,
+            capToLiveTreasurySurplus: false
         });
     }
 }
