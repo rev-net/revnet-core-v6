@@ -253,7 +253,11 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @param collateralCount The amount of collateral to secure the loan with.
     /// @param decimals The decimals to use for the resulting fixed point value.
     /// @param currency The currency to denominate the resulting amount in.
-    /// @return borrowableAmount The amount that can be borrowed from the revnet.
+    /// @return borrowableNow The amount a borrow can execute right now — the smaller of the economic ceiling and the
+    /// terminal's live balance. Opening a borrow draws from the terminal's live balance, so this never exceeds what the
+    /// terminal can disburse in the current state.
+    /// @return borrowableCapacity The economic ceiling for the collateral, including amounts already borrowed against
+    /// this revnet. This is the value used when valuing existing collateral while repaying or reallocating a loan.
     function borrowableAmountFrom(
         uint256 revnetId,
         uint256 collateralCount,
@@ -262,16 +266,18 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     )
         external
         view
-        returns (uint256)
+        returns (uint256 borrowableNow, uint256 borrowableCapacity)
     {
         // Cache the current ruleset once — used by both _cashOutDelayOf and _borrowableAmountFrom.
         JBRuleset memory currentRuleset = _currentRulesetOf(revnetId);
 
         // If the cash out delay hasn't passed yet, no amount is borrowable.
         // forge-lint: disable-next-line(block-timestamp)
-        if (_cashOutDelayOf({revnetId: revnetId, currentRuleset: currentRuleset}) > block.timestamp) return 0;
+        if (_cashOutDelayOf({revnetId: revnetId, currentRuleset: currentRuleset}) > block.timestamp) return (0, 0);
 
-        return _borrowableAmountFrom({
+        // Get the economic ceiling and the terminal's live balance.
+        uint256 liveTreasurySurplus;
+        (borrowableCapacity, liveTreasurySurplus) = _borrowableAmountFrom({
             revnetId: revnetId,
             collateralCount: collateralCount,
             decimals: decimals,
@@ -279,6 +285,10 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             multiTerminal: TERMINAL,
             currentStage: currentRuleset
         });
+
+        // What a borrow can execute right now is capped at the terminal's live balance — opening a borrow draws from
+        // it.
+        borrowableNow = borrowableCapacity > liveTreasurySurplus ? liveTreasurySurplus : borrowableCapacity;
     }
 
     /// @notice Get a loan's full details -- amount, collateral, creation time, prepaid fee, and source.
@@ -369,7 +379,13 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @param currency The currency to denominate the resulting amount in.
     /// @param multiTerminal The canonical multi terminal to borrow from.
     /// @param currentStage The pre-fetched current ruleset.
-    /// @return borrowableAmount The amount that can be borrowed from the revnet.
+    /// @return borrowableCapacity The economic ceiling for the collateral — the smaller of the bonding-curve cash-out
+    /// value and the local surplus (which includes both the live treasury surplus and the amounts already borrowed
+    /// against this revnet). Callers that only value existing collateral without drawing fresh funds (repaying or
+    /// reallocating a loan) use this directly.
+    /// @return liveTreasurySurplus The amount the terminal can actually disburse right now. Callers that draw fresh
+    /// funds (the borrowable-amount preview and opening a new borrow) cap the borrow at this so the figure never
+    /// exceeds what a borrow can execute in the current state.
     function _borrowableAmountFrom(
         uint256 revnetId,
         uint256 collateralCount,
@@ -380,10 +396,11 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     )
         internal
         view
-        returns (uint256)
+        returns (uint256 borrowableCapacity, uint256 liveTreasurySurplus)
     {
-        // Get the surplus of the revnet's canonical multi terminal in terms of the requested currency.
-        uint256 totalSurplus = JBSurplus.currentSurplusOf({
+        // Get the surplus of the revnet's canonical multi terminal in terms of the requested currency. This is the
+        // amount the terminal can actually disburse right now, surfaced to callers as `liveTreasurySurplus`.
+        liveTreasurySurplus = JBSurplus.currentSurplusOf({
             projectId: revnetId,
             terminals: _singleTerminalArray(multiTerminal),
             tokens: new address[](0),
@@ -409,7 +426,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         uint256 localSupply = totalSupply + totalCollateral;
 
         // The local surplus includes both the treasury surplus and the outstanding borrowed amounts.
-        uint256 localSurplus = totalSurplus + totalBorrowed;
+        uint256 localSurplus = liveTreasurySurplus + totalBorrowed;
 
         // Proportional — uses the CURRENT stage's cashOutTaxRate.
         // NOTE: When a revnet transitions between stages with different cashOutTaxRate values, the borrowable amount
@@ -431,8 +448,14 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             totalSupply: effectiveSupply,
             cashOutTaxRate: currentStage.cashOutTaxRate()
         });
-        // Cap at local surplus — can't borrow more than what this chain's terminals actually hold.
-        return reclaimable > localSurplus ? localSurplus : reclaimable;
+
+        // Cap at the local surplus — the economic ceiling, which includes both the live treasury surplus and the
+        // amounts already borrowed against this revnet. Callers that draw fresh funds (the borrowable-amount preview
+        // and opening a new borrow) further cap this at `liveTreasurySurplus` at the call site, since prior borrows
+        // have already drawn their amounts out of the terminal (those amounts live in `totalBorrowed`, part of
+        // `localSurplus`, but are no longer in the terminal). Callers that only value existing collateral (repaying or
+        // reallocating a loan) use this ceiling directly, since no fresh funds are drawn.
+        borrowableCapacity = reclaimable > localSurplus ? localSurplus : reclaimable;
     }
 
     /// @notice The amount of the loan that should be borrowed for the given collateral amount.
@@ -440,7 +463,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @param revnetId The ID of the revnet to borrow from.
     /// @param collateralCount The amount of collateral to secure the loan with.
     /// @param currentRuleset The pre-fetched current ruleset.
-    /// @return borrowAmount The amount that should be borrowed.
+    /// @return borrowableCapacity The economic ceiling for the collateral. See `_borrowableAmountFrom`.
+    /// @return liveTreasurySurplus The amount the terminal can actually disburse right now. See
+    /// `_borrowableAmountFrom`.
     function _borrowAmountFrom(
         REVLoan storage loan,
         uint256 revnetId,
@@ -449,10 +474,10 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     )
         internal
         view
-        returns (uint256)
+        returns (uint256 borrowableCapacity, uint256 liveTreasurySurplus)
     {
         // If there's no collateral, there's no loan.
-        if (collateralCount == 0) return 0;
+        if (collateralCount == 0) return (0, 0);
 
         // Keep a reference to the token's accounting context from the canonical treasury terminal.
         JBAccountingContext memory context =
@@ -886,8 +911,10 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Scope to limit newBorrowAmount's stack lifetime.
         uint256 repayBorrowAmount;
         {
-            // Get the new borrow amount.
-            uint256 newBorrowAmount = _borrowAmountFrom({
+            // Get the new borrow amount. This only re-values the remaining collateral to determine how much debt
+            // stays outstanding — no fresh funds are drawn from the terminal — so it uses the economic ceiling and
+            // ignores the live treasury surplus.
+            (uint256 newBorrowAmount,) = _borrowAmountFrom({
                 loan: loan,
                 revnetId: revnetId,
                 collateralCount: loan.collateral - collateralCountToReturn,
@@ -1340,10 +1367,12 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         loan.prepaidDuration =
             uint32(mulDiv({x: prepaidFeePercent, y: LOAN_LIQUIDATION_DURATION, denominator: MAX_PREPAID_FEE_PERCENT}));
 
-        // Get the amount of the loan, using the cached ruleset.
-        uint256 borrowAmount = _borrowAmountFrom({
+        // Get the amount of the loan, using the cached ruleset. Opening a borrow draws these funds from the terminal,
+        // so cap the amount at the live treasury surplus to keep it executable in the current state.
+        (uint256 borrowableCapacity, uint256 liveTreasurySurplus) = _borrowAmountFrom({
             loan: loan, revnetId: revnetId, collateralCount: collateralCount, currentRuleset: currentRuleset
         });
+        uint256 borrowAmount = borrowableCapacity > liveTreasurySurplus ? liveTreasurySurplus : borrowableCapacity;
 
         // Revert if the bonding curve returns zero to prevent creating zero-amount loans.
         if (borrowAmount == 0) {
@@ -1433,8 +1462,10 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Cache the current ruleset for borrow amount calculation.
         JBRuleset memory currentRuleset = _currentRulesetOf(revnetId);
 
-        // Keep a reference to the new borrow amount.
-        uint256 borrowAmount = _borrowAmountFrom({
+        // Keep a reference to the new borrow amount. This is a solvency check on the reduced collateral against the
+        // existing debt — the loan's amount is unchanged and no fresh funds are drawn — so it uses the economic
+        // ceiling and ignores the live treasury surplus.
+        (uint256 borrowAmount,) = _borrowAmountFrom({
             loan: loan, revnetId: revnetId, collateralCount: newCollateralCount, currentRuleset: currentRuleset
         });
 

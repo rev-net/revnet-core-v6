@@ -52,7 +52,7 @@ The arbitrageur runs the following cycle:
    ```
 
 3. **Claim on the high-backing chain.** The merkle proof flow mints the bridged tokens on the destination.
-4. **Borrow or cash out** via `REVLoans.borrowFrom` (or `terminal.cashOutTokensOf`). This path uses the **AGGREGATED** supply/surplus when `scopeCashOutsToLocalBalances=false`, capped at local surplus — see `src/REVLoans.sol:419-435`:
+4. **Borrow or cash out** via `REVLoans.borrowFrom` (or `terminal.cashOutTokensOf`). This path uses the **AGGREGATED** supply/surplus when `scopeCashOutsToLocalBalances=false`, capped at local surplus — see `_borrowableAmountFrom` in `src/REVLoans.sol`:
 
    ```solidity
    uint256 effectiveSurplus = localSurplus;
@@ -62,9 +62,15 @@ The arbitrageur runs the following cycle:
        effectiveSupply += SUCKER_REGISTRY.remoteTotalSupplyOf(revnetId);
    }
    uint256 reclaimable = JBCashOuts.cashOutFrom({...});
-   // Cap at local surplus — can't borrow more than what this chain's terminals actually hold.
-   return reclaimable > localSurplus ? localSurplus : reclaimable;
+   // Cap at local surplus — can't borrow more than this chain's economic surplus (treasury + already-borrowed).
+   // This is the economic ceiling (`borrowableCapacity`); the live treasury surplus is returned alongside it.
+   borrowableCapacity = reclaimable > localSurplus ? localSurplus : reclaimable;
    ```
+
+   `_borrowableAmountFrom` returns `(borrowableCapacity, liveTreasurySurplus)`. Callers that draw fresh funds (the
+   `borrowableAmountFrom` preview and opening a loan) take the smaller of the two — `borrowableNow` — so the figure
+   stays executable in the current state. Callers that only value collateral already backing a loan (repaying and
+   reallocating) use `borrowableCapacity` directly.
 
 The asymmetry between the LOCAL-rate bridge cashout and the AGGREGATED-rate normal cashout is the arbitrageur's margin.
 

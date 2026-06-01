@@ -108,7 +108,7 @@ contract REVLoansCallHandler is JBTest {
         vm.deal(USER, payAmount);
 
         uint256 receivedTokens = TERMINAL.pay{value: payAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, 0, USER, 0, "", "");
-        uint256 borrowable =
+        (uint256 borrowable,) =
             LOANS.borrowableAmountFrom(REVNET_ID, receivedTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // User must give the loans contract permission, similar to an "approve" call, we're just spoofing to save time.
@@ -159,7 +159,7 @@ contract REVLoansCallHandler is JBTest {
         uint256 collateralReturned = mulDiv(latestLoan.collateral, percentToPayDown, 10_000);
 
         uint256 newCollateral = latestLoan.collateral - collateralReturned;
-        uint256 borrowableFromNewCollateral =
+        (uint256 borrowableFromNewCollateral,) =
             LOANS.borrowableAmountFrom(REVNET_ID, newCollateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // Needed for edge case seeds like 17721, 11407, 334
@@ -260,7 +260,7 @@ contract REVLoansCallHandler is JBTest {
         uint256 collateralToTransfer = mulDiv(latestLoan.collateral, collateralPercentToTransfer, 10_000);
 
         // get the new amount to borrow
-        uint256 newAmountInFull = LOANS.borrowableAmountFrom(
+        (uint256 newAmountInFull,) = LOANS.borrowableAmountFrom(
             REVNET_ID, collateralToTransfer + collateralToAdd, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
 

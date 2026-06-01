@@ -274,7 +274,7 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
             jbMultiTerminal().pay{value: ethAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, ethAmount, user, 0, "", "");
 
         // Check borrowable amount for the given source.
-        borrowAmount = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokenCount, 18, uint32(uint160(source)));
+        (borrowAmount,) = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokenCount, 18, uint32(uint160(source)));
         if (borrowAmount == 0) return (0, tokenCount, 0);
 
         // Mock permission for burn.
@@ -324,7 +324,7 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
             jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, user2, 0, "", "");
 
         address tokenSource = address(TOKEN);
-        uint256 tokenBorrowable =
+        (uint256 tokenBorrowable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, user2Tokens, 6, uint32(uint160(address(TOKEN))));
 
         if (tokenBorrowable > 0) {
@@ -415,7 +415,7 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
         vm.prank(user2);
         uint256 user2Tokens =
             jbMultiTerminal().pay{value: 5e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 5e18, user2, 0, "", "");
-        uint256 user2Borrowable =
+        (uint256 user2Borrowable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, user2Tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         if (user2Borrowable > 0) {
@@ -523,7 +523,7 @@ contract TestLoanSourceRotation is TestBaseWorkflow {
 
         vm.prank(user2);
         uint256 tokens = jbMultiTerminal().pay{value: 5e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 5e18, user2, 0, "", "");
-        uint256 borrowable =
+        (uint256 borrowable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         if (borrowable > 0) {

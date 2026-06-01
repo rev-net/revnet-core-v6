@@ -253,7 +253,7 @@ contract TestStageTransitionBorrowable is TestBaseWorkflow {
         assertGt(tokens, 0, "Should receive tokens");
 
         // Check borrowable amount during stage 1 (60% cashOutTaxRate).
-        uint256 borrowableStage1 =
+        (uint256 borrowableStage1,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(borrowableStage1, 0, "Borrowable amount should be positive in stage 1");
 
@@ -261,7 +261,7 @@ contract TestStageTransitionBorrowable is TestBaseWorkflow {
         vm.warp(block.timestamp + 31 days);
 
         // Check borrowable amount during stage 2.
-        uint256 borrowableStage2 =
+        (uint256 borrowableStage2,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // Borrowable amount should be HIGHER with a lower cashOutTaxRate — by design.
@@ -296,7 +296,7 @@ contract TestStageTransitionBorrowable is TestBaseWorkflow {
         });
 
         // With 60% tax rate and ~50% of supply, borrowable should be meaningfully less than pro-rata share.
-        uint256 borrowable =
+        (uint256 borrowable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(borrowable, 0, "Borrowable amount should be positive");
         // Pro-rata share would be ~10 ether (half of 20 ether surplus). With 60% tax, it should be less.

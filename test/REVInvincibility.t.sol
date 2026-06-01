@@ -327,7 +327,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
         tokenCount =
             jbMultiTerminal().pay{value: ethAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, ethAmount, user, 0, "", "");
 
-        borrowAmount =
+        (borrowAmount,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         if (borrowAmount == 0) return (0, tokenCount, 0);
@@ -369,7 +369,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
         uint256 tokens =
             jbMultiTerminal().pay{value: payAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, payAmount, USER, 0, "", "");
 
-        uint256 borrowable =
+        (uint256 borrowable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertLt(borrowable, type(uint112).max, "normal borrowable within uint112");
         assertLt(tokens, type(uint112).max, "normal token count within uint112");
@@ -408,7 +408,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
         uint256 tokens =
             jbMultiTerminal().pay{value: payAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, payAmount, USER, 0, "", "");
 
-        uint256 borrowable =
+        (uint256 borrowable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertTrue(borrowable > 0, "Should have borrowable amount");
 
@@ -716,7 +716,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
             jbMultiTerminal().pay{value: payAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, payAmount, USER, 0, "", "");
 
         // Record borrowable BEFORE inflation
-        uint256 borrowableBefore =
+        (uint256 borrowableBefore,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // Step 2: Add 100 ETH to balance (inflates surplus without minting tokens)
@@ -724,7 +724,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
         jbMultiTerminal().addToBalanceOf{value: 100e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 100e18, false, "", "");
 
         // Record borrowable AFTER inflation
-        uint256 borrowableAfter =
+        (uint256 borrowableAfter,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // The borrowable amount increases because surplus grew but totalSupply didn't
@@ -763,7 +763,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
         );
 
         address source = JBConstants.NATIVE_TOKEN;
-        uint256 borrowableA =
+        (uint256 borrowableA,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokensA, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         if (borrowableA > 0) {
@@ -799,7 +799,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
 
         // After surplus increase, the same collateral could borrow more
         REVLoan memory loan = LOANS_CONTRACT.loanOf(loanId);
-        uint256 newBorrowable = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 newBorrowable,) = LOANS_CONTRACT.borrowableAmountFrom(
             REVNET_ID, loan.collateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
 

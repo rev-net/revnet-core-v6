@@ -249,7 +249,7 @@ contract TestMixedFixes is TestBaseWorkflow {
         vm.prank(user);
         tokenCount =
             jbMultiTerminal().pay{value: ethAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, ethAmount, user, 0, "", "");
-        borrowAmount =
+        (borrowAmount,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         if (borrowAmount == 0) return (0, tokenCount, 0);
         mockExpect(
@@ -430,7 +430,7 @@ contract TestMixedFixes is TestBaseWorkflow {
             jbMultiTerminal().pay{value: 10e18}(MIXED_REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
 
         // Borrow from ETH source.
-        uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 borrowable,) = LOANS_CONTRACT.borrowableAmountFrom(
             MIXED_REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
         require(borrowable > 0, "Must have borrowable amount");
@@ -479,7 +479,7 @@ contract TestMixedFixes is TestBaseWorkflow {
 
         // Record borrowable BEFORE any borrow (queried in 18-decimal ETH context).
         uint256 smallCollateral = tokenCount / 10;
-        uint256 borrowableBefore = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 borrowableBefore,) = LOANS_CONTRACT.borrowableAmountFrom(
             MIXED_REVNET_ID, smallCollateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
         assertTrue(borrowableBefore > 0, "Must have borrowable amount before borrow");
@@ -508,7 +508,7 @@ contract TestMixedFixes is TestBaseWorkflow {
         // This calls _totalBorrowedFrom which must normalize the 6-dec TOKEN amount to 18-dec.
         // Without normalization: TOKEN borrow treated as near-zero → borrowable barely changes.
         // With normalization: TOKEN borrow properly scaled → borrowable reflects the outstanding debt.
-        uint256 borrowableAfter = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 borrowableAfter,) = LOANS_CONTRACT.borrowableAmountFrom(
             MIXED_REVNET_ID, smallCollateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
 
@@ -517,7 +517,7 @@ contract TestMixedFixes is TestBaseWorkflow {
 
         // Also query in TOKEN's own 6-decimal context to verify the same-currency normalization path.
         // Since only TOKEN source has borrows and ETH source has 0 (skipped via `continue`), this is safe.
-        uint256 borrowableInToken =
+        (uint256 borrowableInToken,) =
             LOANS_CONTRACT.borrowableAmountFrom(MIXED_REVNET_ID, smallCollateral, 6, uint32(uint160(address(TOKEN))));
         assertTrue(borrowableInToken > 0, "Borrowable in TOKEN terms should be nonzero");
     }
@@ -587,7 +587,7 @@ contract TestMixedFixes is TestBaseWorkflow {
         // Query borrowable in 18-decimal ETH context. This exercises _totalBorrowedFrom's
         // cross-decimal normalization: TOKEN borrows (6 dec) must be normalized to 18 dec before
         // aggregation with the direct TOKEN→ETH price feed.
-        uint256 borrowableInEth = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 borrowableInEth,) = LOANS_CONTRACT.borrowableAmountFrom(
             MIXED_REVNET_ID, ethCollateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
         assertTrue(borrowableInEth > 0, "Should still have borrowable after both borrows (18-dec ETH)");

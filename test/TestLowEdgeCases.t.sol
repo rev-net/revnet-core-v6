@@ -359,7 +359,7 @@ contract TestLowRegressions is TestBaseWorkflow {
         assertGt(tokens, 0, "Should have received tokens");
 
         // Check borrowable amount in stage 0 (20% tax).
-        uint256 borrowableStage0 =
+        (uint256 borrowableStage0,) =
             LOANS_CONTRACT.borrowableAmountFrom(revnetId, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(borrowableStage0, 0, "Should have borrowable amount in stage 0");
 
@@ -367,7 +367,7 @@ contract TestLowRegressions is TestBaseWorkflow {
         vm.warp(block.timestamp + 30 days + 1);
 
         // Check borrowable amount in stage 1 — should be lower due to higher tax.
-        uint256 borrowableStage1 =
+        (uint256 borrowableStage1,) =
             LOANS_CONTRACT.borrowableAmountFrom(revnetId, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         assertLt(borrowableStage1, borrowableStage0, "Borrowable amount should decrease when cashOutTaxRate increases");
@@ -382,7 +382,7 @@ contract TestLowRegressions is TestBaseWorkflow {
         uint256 tokens =
             jbMultiTerminal().pay{value: 10 ether}(revnetId, JBConstants.NATIVE_TOKEN, 10 ether, USER, 0, "", "");
 
-        uint256 loanable =
+        (uint256 loanable,) =
             LOANS_CONTRACT.borrowableAmountFrom(revnetId, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         // Skip if nothing borrowable.
         vm.assume(loanable > 0);
@@ -430,7 +430,7 @@ contract TestLowRegressions is TestBaseWorkflow {
         uint256 tokens =
             jbMultiTerminal().pay{value: 10 ether}(revnetId, JBConstants.NATIVE_TOKEN, 10 ether, USER, 0, "", "");
 
-        uint256 loanable =
+        (uint256 loanable,) =
             LOANS_CONTRACT.borrowableAmountFrom(revnetId, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         // Skip if nothing borrowable.
         vm.assume(loanable > 0);
@@ -477,7 +477,7 @@ contract TestLowRegressions is TestBaseWorkflow {
         uint256 tokens =
             jbMultiTerminal().pay{value: 10 ether}(revnetId, JBConstants.NATIVE_TOKEN, 10 ether, USER, 0, "", "");
 
-        uint256 loanable =
+        (uint256 loanable,) =
             LOANS_CONTRACT.borrowableAmountFrom(revnetId, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         vm.assume(loanable > 0);
 
@@ -534,7 +534,7 @@ contract TestLowRegressions is TestBaseWorkflow {
         uint256 tokens =
             jbMultiTerminal().pay{value: 10 ether}(revnetId, JBConstants.NATIVE_TOKEN, 10 ether, USER, 0, "", "");
 
-        uint256 loanable =
+        (uint256 loanable,) =
             LOANS_CONTRACT.borrowableAmountFrom(revnetId, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         vm.assume(loanable > 0);
 
@@ -585,7 +585,7 @@ contract TestLowRegressions is TestBaseWorkflow {
         uint256 tokens =
             jbMultiTerminal().pay{value: 10 ether}(revnetId, JBConstants.NATIVE_TOKEN, 10 ether, USER, 0, "", "");
 
-        uint256 loanable =
+        (uint256 loanable,) =
             LOANS_CONTRACT.borrowableAmountFrom(revnetId, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         vm.assume(loanable > 0);
 
@@ -652,7 +652,7 @@ contract TestLowRegressions is TestBaseWorkflow {
 
         // Confirm that 1 wei of collateral produces a zero borrowable amount.
         // With surplus ~10e18 and totalSupply ~10_000e18, mulDiv(10e18, 1, 10_000e18) rounds to 0.
-        uint256 borrowable =
+        (uint256 borrowable,) =
             LOANS_CONTRACT.borrowableAmountFrom(revnetId, 1, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertEq(borrowable, 0, "Borrowable amount for 1 wei of collateral should be 0");
 

@@ -98,7 +98,11 @@ interface IREVLoans {
     /// @param collateralCount The amount of collateral to secure the loan with.
     /// @param decimals The decimals to use for the resulting fixed point value.
     /// @param currency The currency to denominate the resulting amount in.
-    /// @return The amount that can be borrowed from the revnet.
+    /// @return borrowableNow The amount a borrow can execute right now — the smaller of the economic ceiling and the
+    /// terminal's live balance. Opening a borrow draws from the terminal's live balance, so this never exceeds what the
+    /// terminal can disburse in the current state.
+    /// @return borrowableCapacity The economic ceiling for the collateral, including amounts already borrowed against
+    /// this revnet. This matches the value used when valuing existing collateral while repaying or reallocating a loan.
     function borrowableAmountFrom(
         uint256 revnetId,
         uint256 collateralCount,
@@ -107,7 +111,7 @@ interface IREVLoans {
     )
         external
         view
-        returns (uint256);
+        returns (uint256 borrowableNow, uint256 borrowableCapacity);
 
     /// @notice The controller that manages revnets using this loans contract.
     /// @return The controller contract.

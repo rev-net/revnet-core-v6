@@ -131,8 +131,9 @@ Reserved-token split recipients are intentionally excluded from this hash. They 
 `REVLoans._borrowableAmountFrom` and ordinary unscoped holder cash-outs in `REVOwner.beforeCashOutRecordedWith` add
 `remoteSurplusOf()` and `remoteTotalSupplyOf()` to local values. These remote values update only when `toRemote()` is
 called on the peer chain -- no heartbeat or staleness check. Stale data can inflate per-token borrowable amounts when
-remote supply has grown since the last bridge message. Primary safeguard: borrowable is capped at `localSurplus`,
-preventing extraction beyond what the local terminal holds.
+remote supply has grown since the last bridge message. Primary safeguard: borrowable is capped at `localSurplus`, and
+the preview plus the open-borrow path are additionally capped at the live treasury surplus, preventing extraction
+beyond what the local terminal holds.
 
 This does not apply to the registered-sucker cash-out branch. Sucker cash-outs are the cross-chain token movement path
 and deliberately use local supply/surplus so the bridge can move value out of a chain in proportion to that chain's
@@ -178,7 +179,7 @@ This means canonical Revnet suckers do not intentionally omit remote loan state.
 This is accepted because:
 
 1. Suckers remain a general-purpose bridging layer: project-specific mechanics are provided by the active data hook, not hard-coded into the sucker.
-2. The `localSurplus` cap prevents borrowing more than what the local terminal actually holds.
+2. The `localSurplus` cap prevents borrowing more than the local economic surplus, and the preview plus the open-borrow path additionally cap at the live treasury surplus, so neither can promise or draw more than what the local terminal can actually disburse at that moment.
 3. The over-lending exposure from a stale or missing adjusted snapshot is bounded by the difference between the latest delivered remote snapshot and current remote loan state.
 
 Project operators deploying cross-chain revnets with active loan markets on multiple chains should understand that local borrowability calculations account for remote loans only as of the latest accepted peer snapshot.

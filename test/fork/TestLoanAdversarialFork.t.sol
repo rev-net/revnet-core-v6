@@ -359,7 +359,7 @@ contract TestLoanAdversarialFork is ForkTestBase {
         emit log_named_uint("Borrower tokens in stage 1", borrowerTokens);
 
         // Record borrowable amount in stage 1 (20% tax).
-        uint256 borrowableStage1 = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 borrowableStage1,) = LOANS_CONTRACT.borrowableAmountFrom(
             taxRevnetId, borrowerTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
         assertGt(borrowableStage1, 0, "should have borrowable amount in stage 1");
@@ -375,7 +375,7 @@ contract TestLoanAdversarialFork is ForkTestBase {
         vm.warp(block.timestamp + STAGE_DURATION + 1);
 
         // Check new borrowable amount -- should DECREASE because higher tax means less surplus per token.
-        uint256 borrowableStage2 = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 borrowableStage2,) = LOANS_CONTRACT.borrowableAmountFrom(
             taxRevnetId, borrowerTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
         emit log_named_uint("Borrowable in stage 2 (70% tax)", borrowableStage2);
@@ -414,7 +414,7 @@ contract TestLoanAdversarialFork is ForkTestBase {
         vm.deal(newBorrower, 20 ether);
         uint256 newBorrowerTokens = _payRevnet(taxRevnetId, newBorrower, 10 ether);
 
-        uint256 newBorrowable = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 newBorrowable,) = LOANS_CONTRACT.borrowableAmountFrom(
             taxRevnetId, newBorrowerTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
         emit log_named_uint("New borrower's borrowable in stage 2", newBorrowable);
@@ -664,7 +664,7 @@ contract TestLoanAdversarialFork is ForkTestBase {
 
         if (dustTokens > 0) {
             // Check if borrowable amount from 1 dust token is zero.
-            uint256 dustBorrowable = LOANS_CONTRACT.borrowableAmountFrom(
+            (uint256 dustBorrowable,) = LOANS_CONTRACT.borrowableAmountFrom(
                 dustRevnetId, dustTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
             );
             emit log_named_uint("Borrowable from dust tokens", dustBorrowable);
@@ -715,7 +715,7 @@ contract TestLoanAdversarialFork is ForkTestBase {
         emit log_named_uint("Small payer tokens", smallTokens);
 
         if (smallTokens > 0) {
-            uint256 smallBorrowable = LOANS_CONTRACT.borrowableAmountFrom(
+            (uint256 smallBorrowable,) = LOANS_CONTRACT.borrowableAmountFrom(
                 hugeRevnetId, smallTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
             );
             emit log_named_uint("Small payer borrowable (huge surplus)", smallBorrowable);

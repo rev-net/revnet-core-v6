@@ -751,7 +751,7 @@ contract REVLoansFeeRecovery is TestBaseWorkflow {
             REVNET_ID, JBConstants.NATIVE_TOKEN, payAmount, borrower, 0, "", ""
         );
 
-        uint256 borrowable =
+        (uint256 borrowable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // Skip if not enough surplus to borrow.

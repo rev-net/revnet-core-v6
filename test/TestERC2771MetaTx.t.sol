@@ -389,7 +389,7 @@ contract TestERC2771MetaTx is TestBaseWorkflow {
         assertTrue(tokenCount > 0, "Should receive tokens from payment");
 
         // Check borrowable amount.
-        uint256 borrowable =
+        (uint256 borrowable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         vm.assume(borrowable > 0);
 
@@ -445,7 +445,7 @@ contract TestERC2771MetaTx is TestBaseWorkflow {
         uint256 tokenCount =
             jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, signerAddr, 0, "", "");
 
-        uint256 borrowable =
+        (uint256 borrowable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         vm.assume(borrowable > 0);
 
@@ -523,7 +523,7 @@ contract TestERC2771MetaTx is TestBaseWorkflow {
         uint256 tokenCount =
             jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, signerAddr, 0, "", "");
 
-        uint256 borrowable =
+        (uint256 borrowable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         vm.assume(borrowable > 0);
 

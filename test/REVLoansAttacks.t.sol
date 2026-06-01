@@ -478,7 +478,7 @@ contract REVLoansAttacks is TestBaseWorkflow {
             jbMultiTerminal().pay{value: ethAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, ethAmount, user, 0, "", "");
 
         // Check borrowable amount
-        borrowAmount =
+        (borrowAmount,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         if (borrowAmount == 0) return (0, tokenCount, 0);
@@ -514,7 +514,7 @@ contract REVLoansAttacks is TestBaseWorkflow {
             jbMultiTerminal().pay{value: hugeAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, hugeAmount, USER, 0, "", "");
 
         // Check borrowable amount
-        uint256 borrowable =
+        (uint256 borrowable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // The borrowable amount with 18 decimals and reasonable surplus should be < uint112.max.
@@ -582,7 +582,7 @@ contract REVLoansAttacks is TestBaseWorkflow {
         uint256 tokens =
             jbMultiTerminal().pay{value: payAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, payAmount, USER, 0, "", "");
 
-        uint256 borrowable =
+        (uint256 borrowable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertTrue(borrowable > 0, "Should have borrowable amount");
 
@@ -648,7 +648,7 @@ contract REVLoansAttacks is TestBaseWorkflow {
 
         address source = JBConstants.NATIVE_TOKEN;
 
-        uint256 borrowable =
+        (uint256 borrowable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokensA, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         vm.assume(borrowable > 0);
 
@@ -716,7 +716,7 @@ contract REVLoansAttacks is TestBaseWorkflow {
             jbMultiTerminal().pay{value: payAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, payAmount, USER, 0, "", "");
 
         // Record borrowable amount before time advancement
-        uint256 borrowableBefore =
+        (uint256 borrowableBefore,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // Advance time past the issuance cut frequency (90 days)
@@ -730,7 +730,7 @@ contract REVLoansAttacks is TestBaseWorkflow {
         jbMultiTerminal().pay{value: 0.01e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 0.01e18, payor, 0, "", "");
 
         // Record borrowable amount after ruleset change
-        uint256 borrowableAfter =
+        (uint256 borrowableAfter,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // The borrowable amount may differ because:
@@ -763,7 +763,7 @@ contract REVLoansAttacks is TestBaseWorkflow {
             jbMultiTerminal().pay{value: ethAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, ethAmount, USER, 0, "", "");
 
         // Check borrowable
-        uint256 borrowable =
+        (uint256 borrowable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         vm.assume(borrowable > 0);
 

@@ -396,7 +396,7 @@ contract TestPermit2Signatures is TestBaseWorkflow {
         tokenCount = jbMultiTerminal().pay(REVNET_ID, address(TOKEN), tokenAmount, user, 0, "", "");
 
         // Check borrowable amount.
-        borrowAmount = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokenCount, 6, uint32(uint160(address(TOKEN))));
+        (borrowAmount,) = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokenCount, 6, uint32(uint160(address(TOKEN))));
 
         if (borrowAmount == 0) return (0, tokenCount, 0);
 

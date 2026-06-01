@@ -254,7 +254,7 @@ contract TestFlashLoanSurplus is TestBaseWorkflow {
         vm.prank(user);
         tokenCount =
             jbMultiTerminal().pay{value: ethAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, ethAmount, user, 0, "", "");
-        borrowAmount =
+        (borrowAmount,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         if (borrowAmount == 0) return (0, tokenCount, 0);
         mockExpect(
@@ -275,7 +275,7 @@ contract TestFlashLoanSurplus is TestBaseWorkflow {
             jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
 
         // Check borrowable amount before donation
-        uint256 borrowableBefore =
+        (uint256 borrowableBefore,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, userTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // Attacker donates 100 ETH to inflate surplus
@@ -286,7 +286,7 @@ contract TestFlashLoanSurplus is TestBaseWorkflow {
         );
 
         // Check borrowable amount after donation
-        uint256 borrowableAfter =
+        (uint256 borrowableAfter,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, userTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // The gain in borrowable amount
@@ -307,7 +307,7 @@ contract TestFlashLoanSurplus is TestBaseWorkflow {
             jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
 
         // Check borrowable-per-token for existing user's tokens
-        uint256 borrowableBefore =
+        (uint256 borrowableBefore,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, userTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // Someone else pays 100 ETH (this mints new tokens AND increases surplus)
@@ -317,7 +317,7 @@ contract TestFlashLoanSurplus is TestBaseWorkflow {
         jbMultiTerminal().pay{value: 100e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 100e18, payer, 0, "", "");
 
         // Check borrowable for the SAME user tokens after the payment
-        uint256 borrowableAfter =
+        (uint256 borrowableAfter,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, userTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // With a non-zero cashOutTaxRate (concave bonding curve), paying in actually DECREASES
@@ -334,7 +334,7 @@ contract TestFlashLoanSurplus is TestBaseWorkflow {
             jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, ATTACKER, 0, "", "");
 
         // Check borrowable before donation
-        uint256 borrowableBefore = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 borrowableBefore,) = LOANS_CONTRACT.borrowableAmountFrom(
             REVNET_ID, attackerTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
 
@@ -346,7 +346,7 @@ contract TestFlashLoanSurplus is TestBaseWorkflow {
         );
 
         // Check borrowable after donation
-        uint256 borrowableAfter = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 borrowableAfter,) = LOANS_CONTRACT.borrowableAmountFrom(
             REVNET_ID, attackerTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
 
