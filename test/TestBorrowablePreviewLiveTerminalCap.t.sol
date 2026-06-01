@@ -249,14 +249,15 @@ contract TestBorrowablePreviewLiveTerminalCap is TestBaseWorkflow {
         uint8[] memory permissionIds = new uint8[](1);
         permissionIds[0] = JBPermissionIds.BURN_TOKENS;
         vm.prank(holder);
-        jbPermissions().setPermissionsFor({
+        jbPermissions()
+            .setPermissionsFor({
             account: holder,
             permissionsData: JBPermissionsData({
-                operator: address(LOANS),
-                // forge-lint: disable-next-line(unsafe-typecast)
-                projectId: uint56(REVNET_ID),
-                permissionIds: permissionIds
-            })
+            operator: address(LOANS),
+            // forge-lint: disable-next-line(unsafe-typecast)
+            projectId: uint56(REVNET_ID),
+            permissionIds: permissionIds
+        })
         });
     }
 

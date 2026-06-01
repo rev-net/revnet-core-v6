@@ -1172,7 +1172,8 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         // Value the collateral that still backs the loan with the un-capped economic amount that `repayLoan` uses
         // on-chain. The public `borrowableAmountFrom` quotes a fresh borrow and is capped at the live treasury
         // surplus, which this loan has already drawn down; using it here would mispredict the repaid loan amount.
-        uint256 borrowableFromNewCollateral = LOANS_HARNESS.exposed_uncappedBorrowAmountForLoan(newLoanId, newCollateral);
+        uint256 borrowableFromNewCollateral =
+            LOANS_HARNESS.exposed_uncappedBorrowAmountForLoan(newLoanId, newCollateral);
 
         uint256 amountDiff = borrowableFromNewCollateral > loan.amount ? 0 : loan.amount - borrowableFromNewCollateral;
 
