@@ -310,7 +310,7 @@ contract TestReallocationSandwich is TestBaseWorkflow {
         assertEq(stage1Collateral, borrowerTokens, "All tokens should be collateral");
 
         // Record the borrowable amount for the same collateral count at Stage 1 rates (for comparison).
-        uint256 borrowableStage1 = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 borrowableStage1,) = LOANS_CONTRACT.borrowableAmountFrom(
             REVNET_ID, borrowerTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
 
@@ -318,7 +318,7 @@ contract TestReallocationSandwich is TestBaseWorkflow {
         vm.warp(block.timestamp + 31 days);
 
         // Verify borrowable amount increased at Stage 2 rates.
-        uint256 borrowableStage2 = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 borrowableStage2,) = LOANS_CONTRACT.borrowableAmountFrom(
             REVNET_ID, borrowerTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
         assertGt(borrowableStage2, borrowableStage1, "Borrowable should increase with lower cashOutTaxRate");
@@ -335,7 +335,7 @@ contract TestReallocationSandwich is TestBaseWorkflow {
             while (lo < hi) {
                 uint256 mid = (lo + hi + 1) / 2;
                 uint256 remaining = stage1Collateral - mid;
-                uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, remaining, 18, currency);
+                (uint256 borrowable,) = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, remaining, 18, currency);
                 if (borrowable >= stage1BorrowedAmount) {
                     lo = mid;
                 } else {
@@ -347,7 +347,7 @@ contract TestReallocationSandwich is TestBaseWorkflow {
         assertGt(collateralToTransfer, 0, "Should be able to free some collateral after tax rate decrease");
 
         // Verify that the remaining collateral at Stage 2 rates supports the original loan amount.
-        uint256 borrowableWithRemaining = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 borrowableWithRemaining,) = LOANS_CONTRACT.borrowableAmountFrom(
             REVNET_ID, stage1Collateral - collateralToTransfer, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
         assertGe(

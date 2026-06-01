@@ -213,7 +213,7 @@ contract REVLoansRegressions is TestBaseWorkflow {
 
         address fakeSource = makeAddr("fakeSourceToken");
 
-        uint256 borrowable =
+        (uint256 borrowable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(borrowable, 0, "should have borrowable amount");
 

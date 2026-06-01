@@ -337,7 +337,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
         assertGt(tokenCount, 0, "Should have tokens");
 
         // Query borrowable amount — should be 0 during the delay.
-        uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 borrowable,) = LOANS_CONTRACT.borrowableAmountFrom(
             DELAYED_REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
         assertEq(borrowable, 0, "Borrowable amount should be 0 during cash out delay");
@@ -368,7 +368,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
         uint256 tokenCount = _payAndGetTokens(DELAYED_REVNET_ID, 1 ether);
 
         // Still in delay — should be 0.
-        uint256 borrowableBefore = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 borrowableBefore,) = LOANS_CONTRACT.borrowableAmountFrom(
             DELAYED_REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
         assertEq(borrowableBefore, 0, "Should be 0 during delay");
@@ -377,7 +377,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
         vm.warp(block.timestamp + REV_DEPLOYER.CASH_OUT_DELAY() + 1);
 
         // Now should be > 0.
-        uint256 borrowableAfter = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 borrowableAfter,) = LOANS_CONTRACT.borrowableAmountFrom(
             DELAYED_REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
         assertGt(borrowableAfter, 0, "Should be > 0 after delay expires");
@@ -392,7 +392,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
         vm.warp(block.timestamp + REV_DEPLOYER.CASH_OUT_DELAY() + 1);
 
         // Get the borrowable amount.
-        uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 borrowable,) = LOANS_CONTRACT.borrowableAmountFrom(
             DELAYED_REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
         assertGt(borrowable, 0, "Should be borrowable after delay");
@@ -419,7 +419,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
         uint256 tokenCount = _payAndGetTokens(NORMAL_REVNET_ID, 1 ether);
 
         // Should have a non-zero borrowable amount immediately.
-        uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 borrowable,) = LOANS_CONTRACT.borrowableAmountFrom(
             NORMAL_REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
         assertGt(borrowable, 0, "Normal revnet should be borrowable immediately");
@@ -430,7 +430,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
         // Pay into the normal revnet.
         uint256 tokenCount = _payAndGetTokens(NORMAL_REVNET_ID, 1 ether);
 
-        uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 borrowable,) = LOANS_CONTRACT.borrowableAmountFrom(
             NORMAL_REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
         assertGt(borrowable, 0, "Should be borrowable");
@@ -462,7 +462,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
         // borrowableAmountFrom should still return 0 (cashOutDelay > block.timestamp is false, but == is not >).
         // Actually cashOutDelay == block.timestamp means cashOutDelay > block.timestamp is false → should pass.
         // Let's verify: at exact boundary, the delay is NOT enforced (delay == timestamp passes).
-        uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 borrowable,) = LOANS_CONTRACT.borrowableAmountFrom(
             DELAYED_REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
         assertGt(borrowable, 0, "At exact delay timestamp, borrowing should be allowed");
@@ -477,7 +477,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
         vm.warp(cashOutDelay - 1);
 
         // borrowableAmountFrom should return 0.
-        uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 borrowable,) = LOANS_CONTRACT.borrowableAmountFrom(
             DELAYED_REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
         assertEq(borrowable, 0, "Should be 0 one second before delay expires");

@@ -218,27 +218,44 @@ contract TestBorrowablePreviewLiveTerminalCap is TestBaseWorkflow {
         assertLt(liveBalance, 20 ether, "setup: alice's borrow should have drawn the terminal down");
         assertGt(liveBalance, 0, "setup: a positive balance should remain");
 
-        // Quote Bob's borrowable amount against his full collateral.
-        uint256 bobQuote = LOANS.borrowableAmountFrom({
+        // Quote Bob's borrowable amount against his full collateral. The preview returns both what a borrow can
+        // execute right now (capped at the live terminal balance) and the economic ceiling (un-capped).
+        (uint256 bobBorrowableNow, uint256 bobBorrowableCapacity) = LOANS.borrowableAmountFrom({
             revnetId: REVNET_ID, collateralCount: bobTokens, decimals: 18, currency: NATIVE_CURRENCY
         });
 
-        // The preview must not promise more than the terminal can actually disburse right now.
-        assertLe(bobQuote, liveBalance, "preview must not exceed the live terminal balance");
+        // The economic ceiling exceeds what the terminal can disburse right now, because Alice's earlier borrow drew
+        // funds out of the terminal while still leaving Bob a claim on the local surplus that backs them.
+        assertGt(
+            bobBorrowableCapacity, liveBalance, "the economic ceiling should exceed the drawn-down terminal balance"
+        );
 
-        // Borrowing exactly the freshly-quoted amount must succeed.
+        // The economic ceiling is the local surplus — the live terminal balance plus the amounts already borrowed
+        // against this revnet. With a zero cash-out tax rate and a large remote surplus, the bonding-curve quote
+        // exceeds the local surplus, so the local surplus is the binding ceiling. Repay and reallocate value the same
+        // collateral against this exact figure (no live-balance cap), so matching it confirms the two paths agree.
+        assertEq(
+            bobBorrowableCapacity,
+            liveBalance + aliceLoan.amount,
+            "the economic ceiling should equal the live balance plus already-borrowed amounts"
+        );
+
+        // What a borrow can execute right now must not promise more than the terminal can actually disburse.
+        assertLe(bobBorrowableNow, liveBalance, "the executable amount must not exceed the live terminal balance");
+
+        // Borrowing exactly the freshly-quoted executable amount must succeed.
         _grantBurnPermission(BOB);
         vm.prank(BOB);
         (, REVLoan memory bobLoan) = LOANS.borrowFrom({
             revnetId: REVNET_ID,
             token: JBConstants.NATIVE_TOKEN,
-            minBorrowAmount: bobQuote,
+            minBorrowAmount: bobBorrowableNow,
             collateralCount: bobTokens,
             beneficiary: payable(BOB),
             prepaidFeePercent: maxPrepaidFeePercent,
             holder: BOB
         });
-        assertEq(bobLoan.amount, bobQuote, "the executed borrow should match the quoted amount");
+        assertEq(bobLoan.amount, bobBorrowableNow, "the executed borrow should match the executable quote");
     }
 
     function _liveTerminalBalance() internal view returns (uint256) {

@@ -48,8 +48,8 @@ Audience: anyone paying a revnet, holding its tokens, or borrowing against them.
 
 ## A.4 REVLoans guarantees
 
-- `borrowableAmountFrom(revnetId, collateralCount, decimals, currency)` returns the same bonding-curve reclaim that `cashOutTokensOf` would produce **for the same collateral count**, capped at `localSurplus` (`localSurplus = totalSurplus + totalBorrowed`). This cap is the hard guarantee: a borrower cannot drain more than the local economic surplus even when global effective surplus is much larger.
-- The preview is **additionally** capped at the live treasury surplus — the amount the terminal can actually disburse right now via the use-allowance path. Because earlier borrows have already drawn their amounts out of the live balance (those amounts move into `totalBorrowed`, still counted in `localSurplus`, but are no longer held by the terminal), the economic cap above can exceed what the terminal currently holds. Holding the quote to the live surplus keeps it coherent with execution: a borrow sized to the freshly-quoted amount does not revert. Opening a borrow applies the same live cap; repaying and reallocating do not, because they value collateral that already backs a loan and draw no fresh funds.
+- `borrowableAmountFrom(revnetId, collateralCount, decimals, currency)` returns **two values**, `(borrowableNow, borrowableCapacity)`. `borrowableCapacity` is the same bonding-curve reclaim that `cashOutTokensOf` would produce **for the same collateral count**, capped at `localSurplus` (`localSurplus = totalSurplus + totalBorrowed`). This cap is the hard guarantee: a borrower cannot drain more than the local economic surplus even when global effective surplus is much larger.
+- `borrowableNow` is `borrowableCapacity` **additionally** held to the live treasury surplus — the amount the terminal can actually disburse right now via the use-allowance path. Because earlier borrows have already drawn their amounts out of the live balance (those amounts move into `totalBorrowed`, still counted in `localSurplus`, but are no longer held by the terminal), `borrowableCapacity` can exceed what the terminal currently holds. `borrowableNow` keeps the quote coherent with execution: a borrow sized to it does not revert. Opening a borrow applies the same live cap (it borrows `borrowableNow`); repaying and reallocating value collateral that already backs a loan and draw no fresh funds, so they use `borrowableCapacity`.
 - `borrowFrom` requires `OPEN_LOAN` on `holder`. The operator (if delegated) controls `beneficiary`, so holders should only grant `OPEN_LOAN` to fully trusted operators.
 - Collateral tokens are **burned at borrow time** (`src/REVLoans.sol:1067-1078`), not escrowed. Total collateral is tracked in `totalCollateralOf[revnetId]` and added back to supply in cash-out math (`src/REVOwner.sol:220-221`) so the bonding curve sees pre-loan economic state.
 - Repayment re-mints the returned collateral 1:1 through the controller (`src/REVLoans._returnCollateralFrom`). Partial repays supported.
@@ -285,10 +285,10 @@ Out-of-scope third-party attack surface; these are powers held by privileged add
 | `src/REVDeployer.sol:1063-1079` | `_computeCashOutDelayIfNeeded` — 30-day delay only on chains added mid-life |
 | `src/REVLoans.sol:81-101` | Loan duration + fee constants (`LOAN_LIQUIDATION_DURATION`, `MIN_PREPAID_FEE_PERCENT`, `MAX_PREPAID_FEE_PERCENT`, `REV_PREPAID_FEE_PERCENT`) |
 | `src/REVLoans.sol:239-245` | `nonReentrantLoanAction` transient guard |
-| `src/REVLoans.sol:257-282` | `borrowableAmountFrom` — applies cash-out delay gate |
+| `src/REVLoans.sol:261-291` | `borrowableAmountFrom` — applies cash-out delay gate; returns `(borrowableNow, borrowableCapacity)` |
 | `src/REVLoans.sol:343-365` | Flash-loan-surplus-inflation dev-doc (proven net-negative) |
-| `src/REVLoans.sol` | `_borrowableAmountFrom` — aggregated supply/surplus when unscoped, capped at `localSurplus` |
-| `src/REVLoans.sol` | The `localSurplus` cap, plus the optional live-treasury-surplus cap (`capToLiveTreasurySurplus`) applied to the preview and to opening a borrow |
+| `src/REVLoans.sol` | `_borrowableAmountFrom` — aggregated supply/surplus when unscoped; returns `(borrowableCapacity, liveTreasurySurplus)` where `borrowableCapacity` is capped at `localSurplus` |
+| `src/REVLoans.sol` | The `localSurplus` cap inside `_borrowableAmountFrom`, plus the live-treasury-surplus cap applied at the call sites to the preview (`borrowableNow`) and to opening a borrow |
 | `src/REVLoans.sol:475-484` | `_cashOutDelayOf` reads from the data hook (REVOwner) |
 | `src/REVLoans.sol:639-666` | `borrowFrom` — requires `OPEN_LOAN` on holder |
 | `src/REVLoans.sol:681-748` | `liquidateExpiredLoansFrom` — permissionless, bountyless, after 10 years |

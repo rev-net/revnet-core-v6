@@ -273,7 +273,8 @@ contract REVLoansRegressions is TestBaseWorkflow {
 
     /// @notice Helper: borrow against tokens.
     function _borrow(uint256 tokens) internal returns (uint256 loanId, REVLoan memory loan, uint256 loanable) {
-        loanable = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        (loanable,) =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         _mockBurnPermission();
 
@@ -294,7 +295,7 @@ contract REVLoansRegressions is TestBaseWorkflow {
         assertGt(tokens, 0, "user should receive tokens");
 
         // Step 2: Attempt to borrow using a token that the canonical multi terminal does not accept.
-        uint256 loanable =
+        (uint256 loanable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(loanable, 0, "should have borrowable amount");
 
@@ -537,7 +538,7 @@ contract REVLoansRegressions is TestBaseWorkflow {
 
         // Step 3: Verify the collateral value has increased.
         {
-            uint256 newBorrowable = LOANS_CONTRACT.borrowableAmountFrom(
+            (uint256 newBorrowable,) = LOANS_CONTRACT.borrowableAmountFrom(
                 REVNET_ID, loanCollateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
             );
             assertGt(
@@ -566,7 +567,7 @@ contract REVLoansRegressions is TestBaseWorkflow {
 
         uint256 collateralToTransfer = loanCollateral / 10;
 
-        uint256 minBorrow = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 minBorrow,) = LOANS_CONTRACT.borrowableAmountFrom(
             REVNET_ID, collateralToTransfer, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
 

@@ -335,11 +335,11 @@ contract TestRegressionFixVerification is TestBaseWorkflow {
         assertGt(tokens, 0, "User should have tokens");
 
         // Query borrowable amount in 6 decimals (USDC-like).
-        uint256 borrowable6 =
+        (uint256 borrowable6,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 6, uint32(uint160(address(USDC_TOKEN))));
 
         // Query borrowable amount in 18 decimals (ETH).
-        uint256 borrowable18 =
+        (uint256 borrowable18,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // The 6-decimal result must be scaled to 6 decimals, NOT 18.
@@ -374,7 +374,7 @@ contract TestRegressionFixVerification is TestBaseWorkflow {
         assertGt(tokens, 0, "User should have tokens");
 
         // Query borrowable amount in 18 decimals.
-        uint256 borrowable =
+        (uint256 borrowable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // Should be positive and less than or equal to the total surplus.

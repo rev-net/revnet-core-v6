@@ -262,7 +262,7 @@ contract RegressionPhantomSurplusTerminalTest is TestBaseWorkflow {
             surplus: realSurplus, cashOutCount: collateral, totalSupply: userTokens, cashOutTaxRate: taxRate
         });
 
-        uint256 inflatedBorrowable =
+        (uint256 inflatedBorrowable,) =
             LOANS.borrowableAmountFrom(REVNET_ID, collateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         assertEq(inflatedBorrowable, honestBorrowable, "phantom terminal must not influence borrow quote");

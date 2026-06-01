@@ -350,11 +350,9 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
             jbMultiTerminal().pay{value: 1e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 1e18, USER, 0, "", "");
         assertGt(freshTokens, 0, "should receive fresh tokens");
 
-        assertGt(
-            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, freshTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))),
-            0,
-            "healthy price feed should leave borrowable amount available"
-        );
+        (uint256 healthyBorrowableNow,) =
+            LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, freshTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        assertGt(healthyBorrowableNow, 0, "healthy price feed should leave borrowable amount available");
 
         // Step 6: Mock the price feed to return 0 for the TOKEN -> ETH conversion.
         // This simulates an inverse price feed truncation scenario where the conversion
@@ -392,14 +390,14 @@ contract TestZeroPriceFeed is TestBaseWorkflow {
         uint256 freshTokens =
             jbMultiTerminal().pay{value: 1e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 1e18, USER, 0, "", "");
 
-        uint256 borrowableBefore =
+        (uint256 borrowableBefore,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, freshTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // Step 4: Mock the price feed to return 0 -- this should not affect anything
         // since the only loan source is ETH (same currency, no cross-currency conversion).
         vm.mockCall(address(priceFeed), abi.encodeWithSignature("currentUnitPrice(uint256)"), abi.encode(uint256(0)));
 
-        uint256 borrowableAfter =
+        (uint256 borrowableAfter,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, freshTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // Same-currency source does not use the price feed, so the amounts should be identical.

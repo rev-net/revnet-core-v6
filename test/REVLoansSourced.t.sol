@@ -82,13 +82,15 @@ contract REVLoansSourcedHarness is REVLoans {
     {
         uint256 revnetId = revnetIdOfLoanWith(loanId);
 
-        return _borrowAmountFrom({
+        // Surface the economic ceiling — repay and reallocate value collateral against this same figure, ignoring the
+        // live terminal balance since no fresh funds are drawn.
+        (uint256 borrowableCapacity,) = _borrowAmountFrom({
             loan: _loanOf[loanId],
             revnetId: revnetId,
             collateralCount: collateralCount,
-            currentRuleset: _currentRulesetOf(revnetId),
-            capToLiveTreasurySurplus: false
+            currentRuleset: _currentRulesetOf(revnetId)
         });
+        return borrowableCapacity;
     }
 }
 
@@ -532,7 +534,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         vm.prank(USER);
         uint256 tokens = jbMultiTerminal().pay(REVNET_ID, address(TOKEN), payableAmount, USER, 0, "", "");
 
-        uint256 loanable = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 6, uint32(uint160(address(TOKEN))));
+        (uint256 loanable,) = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 6, uint32(uint160(address(TOKEN))));
         // If there is no loanable amount, we can't continue.
         vm.assume(loanable > 0);
 
@@ -584,7 +586,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         vm.prank(USER);
         uint256 tokens = jbMultiTerminal().pay(REVNET_ID, address(TOKEN), payableAmount, USER, 0, "", "");
 
-        uint256 loanable = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 6, uint32(uint160(address(TOKEN))));
+        (uint256 loanable,) = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 6, uint32(uint160(address(TOKEN))));
         // If there is no loanable amount, we can't continue.
         vm.assume(loanable > 0);
 
@@ -639,7 +641,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         TOKEN.approve(address(jbMultiTerminal()), payableAmount);
 
         uint256 tokens = jbMultiTerminal().pay(REVNET_ID, address(TOKEN), payableAmount, USER, 0, "", "");
-        uint256 loanable = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 6, uint32(uint160(address(TOKEN))));
+        (uint256 loanable,) = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 6, uint32(uint160(address(TOKEN))));
 
         // If there is no loanable amount, we can't continue.
         vm.assume(loanable > 0);
@@ -715,7 +717,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         vm.prank(USER);
         uint256 tokens = jbMultiTerminal().pay(REVNET_ID, address(TOKEN), payableAmount, USER, 0, "", "");
 
-        uint256 loanable = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 6, uint32(uint160(address(TOKEN))));
+        (uint256 loanable,) = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 6, uint32(uint160(address(TOKEN))));
         // If there is no loanable amount, we can't continue.
         vm.assume(loanable > 0);
 
@@ -776,7 +778,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         uint256 loanable;
         while (loanable == 0 && collateralCount < 1e30) {
             collateralCount *= 10;
-            loanable = LOANS_CONTRACT.borrowableAmountFrom({
+            (loanable,) = LOANS_CONTRACT.borrowableAmountFrom({
                 revnetId: FEE_PROJECT_ID,
                 collateralCount: collateralCount,
                 decimals: 18,
@@ -821,7 +823,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         vm.prank(USER);
         uint256 tokens = jbMultiTerminal().pay(REVNET_ID, address(TOKEN), payableAmount, USER, 0, "", "");
 
-        uint256 loanable = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 6, uint32(uint160(address(TOKEN))));
+        (uint256 loanable,) = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 6, uint32(uint160(address(TOKEN))));
         assertGt(loanable, 0);
 
         mockExpect(
@@ -980,7 +982,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         jbTokens().mintFor(USER, revnetProjectId, totalSupplyExcludingAutoMint);
 
         // Check what a borrow would result in more.
-        uint256 loanable = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 loanable,) = LOANS_CONTRACT.borrowableAmountFrom(
             // forge-lint: disable-next-line(unsafe-typecast)
             revnetProjectId,
             tokensToCashout,
@@ -1081,7 +1083,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         vm.prank(USER);
         uint256 tokens = jbMultiTerminal().pay{value: 1e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 1e18, USER, 0, "", "");
 
-        uint256 loanable =
+        (uint256 loanable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(loanable, 0);
 
@@ -1132,7 +1134,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         vm.prank(USER);
         uint256 tokens = jbMultiTerminal().pay{value: 1e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 1e18, USER, 0, "", "");
 
-        uint256 loanable =
+        (uint256 loanable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         assertGt(loanable, 0);
@@ -1245,7 +1247,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         vm.prank(USER);
         uint256 tokens = jbMultiTerminal().pay{value: 1e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 1e18, USER, 0, "", "");
 
-        uint256 loanable =
+        (uint256 loanable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(loanable, 0);
 
@@ -1269,7 +1271,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         assertGt(USER.balance, 100e18 - 1e18);
 
         // get the updated loanableFrom the same amount as earlier
-        uint256 loanableSecondStage = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 loanableSecondStage,) = LOANS_CONTRACT.borrowableAmountFrom(
             REVNET_ID, loan.collateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
 
@@ -1283,7 +1285,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         uint256 collateralToTransfer = mulDiv(loan.collateral, 50, 10_000);
 
         // get the new amount to borrow
-        uint256 newAmount = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 newAmount,) = LOANS_CONTRACT.borrowableAmountFrom(
             REVNET_ID, collateralToTransfer, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
 
@@ -1325,7 +1327,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         vm.prank(USER);
         uint256 tokens = jbMultiTerminal().pay{value: 1e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 1e18, USER, 0, "", "");
 
-        uint256 loanable =
+        (uint256 loanable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(loanable, 0);
 
@@ -1349,7 +1351,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         assertGt(USER.balance, 100e18 - 1e18);
 
         // get the updated loanableFrom the same amount as earlier
-        uint256 loanableSecondStage = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 loanableSecondStage,) = LOANS_CONTRACT.borrowableAmountFrom(
             REVNET_ID, loan.collateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
 
@@ -1363,7 +1365,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         uint256 collateralToTransfer = mulDiv(loan.collateral, 50, 10_000);
 
         // get the new amount to borrow
-        uint256 newAmount = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 newAmount,) = LOANS_CONTRACT.borrowableAmountFrom(
             REVNET_ID, collateralToTransfer, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
 
@@ -1390,7 +1392,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         vm.prank(USER);
         uint256 tokens = jbMultiTerminal().pay{value: 1e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 1e18, USER, 0, "", "");
 
-        uint256 loanable =
+        (uint256 loanable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(loanable, 0);
 
@@ -1414,7 +1416,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         assertGt(USER.balance, 100e18 - 1e18);
 
         // get the updated loanableFrom the same amount as earlier
-        uint256 loanableSecondStage = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 loanableSecondStage,) = LOANS_CONTRACT.borrowableAmountFrom(
             REVNET_ID, loan.collateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
 
@@ -1428,7 +1430,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         uint256 collateralToTransfer = mulDiv(loan.collateral, 50, 10_000);
 
         // get the new amount to borrow
-        uint256 newAmount = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 newAmount,) = LOANS_CONTRACT.borrowableAmountFrom(
             REVNET_ID, collateralToTransfer, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
 
@@ -1612,7 +1614,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         // Without this the borrow would be (near) feeless.
         jbMultiTerminal().pay{value: 99e18}(revnetProjectId, JBConstants.NATIVE_TOKEN, 1e18, USER, 0, "", "");
 
-        uint256 loanable =
+        (uint256 loanable,) =
             LOANS_CONTRACT.borrowableAmountFrom(revnetProjectId, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(loanable, 0);
 
@@ -1640,7 +1642,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         vm.warp(stageConfigurations[1].startsAtOrAfter);
 
         // get the updated loanableFrom the same amount as earlier
-        uint256 loanableSecondStage = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 loanableSecondStage,) = LOANS_CONTRACT.borrowableAmountFrom(
             revnetProjectId, loan.collateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
 
@@ -1654,7 +1656,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         uint256 collateralToTransfer = mulDiv(loan.collateral, 50, 10_000);
 
         // get the new amount to borrow
-        uint256 newAmount = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 newAmount,) = LOANS_CONTRACT.borrowableAmountFrom(
             revnetProjectId, collateralToTransfer, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
 
@@ -1673,7 +1675,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         vm.prank(USER);
         uint256 tokens = jbMultiTerminal().pay{value: 1e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 1e18, USER, 0, "", "");
 
-        uint256 loanable =
+        (uint256 loanable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(loanable, 0);
 
@@ -1700,7 +1702,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         vm.warp(block.timestamp + 721 days);
 
         // get the updated loanableFrom the same amount as earlier
-        uint256 loanableSecondStage = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 loanableSecondStage,) = LOANS_CONTRACT.borrowableAmountFrom(
             REVNET_ID, loan.collateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
 
@@ -1714,7 +1716,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         uint256 collateralToTransfer = mulDiv(loan.collateral, 50, 10_000);
 
         // get the new amount to borrow
-        uint256 newAmount = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 newAmount,) = LOANS_CONTRACT.borrowableAmountFrom(
             REVNET_ID, collateralToTransfer, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
 
@@ -1757,7 +1759,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         uint256 tokens =
             jbMultiTerminal().pay{value: payAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, 1e18, USER, 0, "", "");
 
-        uint256 loanable =
+        (uint256 loanable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(loanable, 0);
 
@@ -1786,7 +1788,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         uint256 collateralToTransfer = mulDiv(loan.collateral, collateralPercentToTransfer, 10_000);
 
         // get the new amount to borrow
-        uint256 newAmount = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 newAmount,) = LOANS_CONTRACT.borrowableAmountFrom(
             REVNET_ID, collateralToTransfer + tokens2, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
 
@@ -1828,7 +1830,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         vm.prank(USER);
         uint256 tokens = jbMultiTerminal().pay{value: 1e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 1e18, USER, 0, "", "");
 
-        uint256 loanable =
+        (uint256 loanable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(loanable, 0);
 
@@ -1880,7 +1882,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         vm.prank(USER);
         uint256 tokens = jbMultiTerminal().pay{value: 1e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 1e18, USER, 0, "", "");
 
-        uint256 loanable =
+        (uint256 loanable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(loanable, 0);
 
@@ -1897,7 +1899,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         vm.prank(USER);
         uint256 tokens = jbMultiTerminal().pay{value: 1e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 1e18, USER, 0, "", "");
 
-        uint256 loanable =
+        (uint256 loanable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(loanable, 0);
 
@@ -1918,7 +1920,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         vm.prank(USER);
         uint256 tokens2 = jbMultiTerminal().pay{value: 2e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 1e18, USER, 0, "", "");
 
-        uint256 loanable2 =
+        (uint256 loanable2,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // User must give the loans contract permission, similar to an "approve" call, we're just spoofing to save time.
@@ -1953,7 +1955,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         vm.prank(USER);
         uint256 tokens = jbMultiTerminal().pay{value: 1e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 1e18, USER, 0, "", "");
 
-        uint256 loanable =
+        (uint256 loanable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(loanable, 0);
 
@@ -2028,7 +2030,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         vm.prank(USER);
         uint256 tokens = jbMultiTerminal().pay{value: 1e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 1e18, USER, 0, "", "");
 
-        uint256 loanable =
+        (uint256 loanable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(loanable, 0);
 
@@ -2065,7 +2067,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         vm.prank(USER);
         uint256 tokens = jbMultiTerminal().pay{value: 1e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 1e18, USER, 0, "", "");
 
-        uint256 loanable =
+        (uint256 loanable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(loanable, 0);
 
@@ -2111,7 +2113,7 @@ contract REVLoansSourcedTests is TestBaseWorkflow {
         vm.prank(USER);
         uint256 tokens = jbMultiTerminal().pay(REVNET_ID, address(TOKEN), payableAmount, USER, 0, "", "");
 
-        uint256 loanable = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 6, uint32(uint160(address(TOKEN))));
+        (uint256 loanable,) = LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 6, uint32(uint160(address(TOKEN))));
         assertGt(loanable, 0);
 
         // Spoof the BORROW_FROM_REVNET / REPAY_LOAN permissions, mirroring the other tests in this file.

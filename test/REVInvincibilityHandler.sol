@@ -130,7 +130,7 @@ contract REVInvincibilityHandler is JBTest {
 
         if (receivedTokens == 0) return;
 
-        uint256 borrowable =
+        (uint256 borrowable,) =
             LOANS.borrowableAmountFrom(REVNET_ID, receivedTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         if (borrowable == 0) return;
@@ -174,7 +174,7 @@ contract REVInvincibilityHandler is JBTest {
 
         uint256 collateralReturned = mulDiv(latestLoan.collateral, percentToPayDown, 10_000);
         uint256 newCollateral = latestLoan.collateral - collateralReturned;
-        uint256 borrowableFromNewCollateral =
+        (uint256 borrowableFromNewCollateral,) =
             LOANS.borrowableAmountFrom(REVNET_ID, newCollateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         if (borrowableFromNewCollateral > 0) borrowableFromNewCollateral -= 1;
@@ -241,7 +241,7 @@ contract REVInvincibilityHandler is JBTest {
         uint256 collateralToTransfer = mulDiv(latestLoan.collateral, collateralPercentToTransfer, 10_000);
         if (collateralToTransfer == 0) return;
 
-        uint256 newBorrowable = LOANS.borrowableAmountFrom(
+        (uint256 newBorrowable,) = LOANS.borrowableAmountFrom(
             REVNET_ID, collateralToTransfer + collateralToAdd, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
 

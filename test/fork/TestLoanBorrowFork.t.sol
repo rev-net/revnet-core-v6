@@ -76,9 +76,8 @@ contract TestLoanBorrowFork is ForkTestBase {
     function test_fork_borrow_basic() public {
         uint256 borrowerTokens = jbTokens().totalBalanceOf(BORROWER, revnetId);
 
-        uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(
-            revnetId, borrowerTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        (uint256 borrowable,) =
+            LOANS_CONTRACT.borrowableAmountFrom(revnetId, borrowerTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(borrowable, 0, "should have borrowable amount");
 
         uint256 totalCollateralBefore = LOANS_CONTRACT.totalCollateralOf(revnetId);
@@ -124,9 +123,8 @@ contract TestLoanBorrowFork is ForkTestBase {
         uint256 borrowerTokens = jbTokens().totalBalanceOf(BORROWER, revnetId);
         uint256 prepaidFeePercent = LOANS_CONTRACT.MIN_PREPAID_FEE_PERCENT(); // 25 = 2.5%
 
-        uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(
-            revnetId, borrowerTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        (uint256 borrowable,) =
+            LOANS_CONTRACT.borrowableAmountFrom(revnetId, borrowerTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // Record balances before.
         uint256 borrowerEthBefore = BORROWER.balance;
@@ -180,13 +178,9 @@ contract TestLoanBorrowFork is ForkTestBase {
             metadata: ""
         });
 
-        assertGt(
-            LOANS_CONTRACT.borrowableAmountFrom(
-                revnetId, borrowerTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-            ),
-            0,
-            "should have borrowable amount"
-        );
+        (uint256 borrowableNow,) =
+            LOANS_CONTRACT.borrowableAmountFrom(revnetId, borrowerTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
+        assertGt(borrowableNow, 0, "should have borrowable amount");
 
         address source = _nativeLoanSource();
         borrower.setReentrantBorrow({revnetId: revnetId, token: source, collateral: borrowerTokens});
@@ -249,7 +243,7 @@ contract TestLoanBorrowFork is ForkTestBase {
         assertGt(surplus, 0, "should have surplus");
 
         // Borrowable amount should be based on actual surplus, not full payment.
-        uint256 borrowable = LOANS_CONTRACT.borrowableAmountFrom(
+        (uint256 borrowable,) = LOANS_CONTRACT.borrowableAmountFrom(
             splitRevnetId, borrowerTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
         );
 

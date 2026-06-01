@@ -251,7 +251,7 @@ contract TestZeroAmountLoanGuard is TestBaseWorkflow {
         vm.prank(user);
         tokenCount =
             jbMultiTerminal().pay{value: ethAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, ethAmount, user, 0, "", "");
-        borrowAmount =
+        (borrowAmount,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         if (borrowAmount == 0) return (0, tokenCount, 0);
         mockExpect(

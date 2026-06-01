@@ -63,12 +63,14 @@ The arbitrageur runs the following cycle:
    }
    uint256 reclaimable = JBCashOuts.cashOutFrom({...});
    // Cap at local surplus — can't borrow more than this chain's economic surplus (treasury + already-borrowed).
-   uint256 borrowableAmount = reclaimable > localSurplus ? localSurplus : reclaimable;
-   // When quoting a fresh borrow (the preview and opening a loan), also cap at the live treasury surplus — the
-   // amount the terminal can actually disburse now — so the figure stays executable in the current state.
-   if (capToLiveTreasurySurplus && borrowableAmount > totalSurplus) return totalSurplus;
-   return borrowableAmount;
+   // This is the economic ceiling (`borrowableCapacity`); the live treasury surplus is returned alongside it.
+   borrowableCapacity = reclaimable > localSurplus ? localSurplus : reclaimable;
    ```
+
+   `_borrowableAmountFrom` returns `(borrowableCapacity, liveTreasurySurplus)`. Callers that draw fresh funds (the
+   `borrowableAmountFrom` preview and opening a loan) take the smaller of the two — `borrowableNow` — so the figure
+   stays executable in the current state. Callers that only value collateral already backing a loan (repaying and
+   reallocating) use `borrowableCapacity` directly.
 
 The asymmetry between the LOCAL-rate bridge cashout and the AGGREGATED-rate normal cashout is the arbitrageur's margin.
 

@@ -711,7 +711,7 @@ abstract contract ForkTestBase is TestBaseWorkflow {
         returns (uint256 loanId, REVLoan memory loan)
     {
         address source = _nativeLoanSource();
-        uint256 borrowable =
+        (uint256 borrowable,) =
             LOANS_CONTRACT.borrowableAmountFrom(revnetId, collateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         require(borrowable > 0, "no borrowable amount");
 

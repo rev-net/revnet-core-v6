@@ -116,9 +116,8 @@ contract TestLoanCrossRulesetFork is ForkTestBase {
         assertGt(borrowerTokens, 0, "borrower should have tokens");
 
         // Record borrowable in stage 1.
-        uint256 borrowableStage1 = LOANS_CONTRACT.borrowableAmountFrom(
-            revnetId, borrowerTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        (uint256 borrowableStage1,) =
+            LOANS_CONTRACT.borrowableAmountFrom(revnetId, borrowerTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(borrowableStage1, 0, "should have borrowable amount in stage 1");
 
         // Create loan in stage 1.
@@ -134,9 +133,8 @@ contract TestLoanCrossRulesetFork is ForkTestBase {
         vm.warp(block.timestamp + STAGE_DURATION + 1);
 
         // Verify borrowable amount changed (should be higher with lower tax).
-        uint256 borrowableStage2 = LOANS_CONTRACT.borrowableAmountFrom(
-            revnetId, borrowerTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN))
-        );
+        (uint256 borrowableStage2,) =
+            LOANS_CONTRACT.borrowableAmountFrom(revnetId, borrowerTokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(borrowableStage2, borrowableStage1, "borrowable should increase with lower tax");
 
         // Repay the loan in stage 2: return all collateral.

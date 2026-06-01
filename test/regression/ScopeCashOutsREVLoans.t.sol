@@ -174,7 +174,7 @@ contract ScopeCashOutsREVLoansTest is Test {
             SUCKER_REGISTRY, abi.encodeWithSelector(IJBSuckerRegistry.remoteTotalSupplyOf.selector, REVNET_ID)
         );
 
-        uint256 amount = loans.borrowableAmountFrom(REVNET_ID, 100e18, 18, 1);
+        (uint256 amount,) = loans.borrowableAmountFrom(REVNET_ID, 100e18, 18, 1);
         assertGt(amount, 0, "unscoped borrowable amount should be non-zero");
     }
 
@@ -189,7 +189,7 @@ contract ScopeCashOutsREVLoansTest is Test {
             "should not call remoteTotalSupplyOf in scoped path"
         );
 
-        uint256 amount = loans.borrowableAmountFrom(REVNET_ID, 100e18, 18, 1);
+        (uint256 amount,) = loans.borrowableAmountFrom(REVNET_ID, 100e18, 18, 1);
         assertGt(amount, 0, "scoped borrowable amount should be non-zero");
     }
 
@@ -206,10 +206,10 @@ contract ScopeCashOutsREVLoansTest is Test {
         );
 
         _mockCurrentRuleset(true);
-        uint256 scopedAmount = loans.borrowableAmountFrom(REVNET_ID, 100e18, 18, 1);
+        (uint256 scopedAmount,) = loans.borrowableAmountFrom(REVNET_ID, 100e18, 18, 1);
 
         _mockCurrentRuleset(false);
-        uint256 unscopedAmount = loans.borrowableAmountFrom(REVNET_ID, 100e18, 18, 1);
+        (uint256 unscopedAmount,) = loans.borrowableAmountFrom(REVNET_ID, 100e18, 18, 1);
 
         assertEq(scopedAmount, unscopedAmount, "no remote: scoped and unscoped should match");
     }

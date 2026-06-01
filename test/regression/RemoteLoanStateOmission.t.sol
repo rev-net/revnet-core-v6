@@ -258,15 +258,17 @@ contract BorrowableHarness is REVLoans {
             metadata: JBRulesetMetadataResolver.packRulesetMetadata(rulesetMetadata)
         });
 
-        return _borrowableAmountFrom({
+        // Surface the economic ceiling — repay and reallocate value collateral against this same figure, and the
+        // cross-chain over-statement being measured here lives in this ceiling, not in the live terminal balance.
+        (uint256 borrowableCapacity,) = _borrowableAmountFrom({
             revnetId: revnetId,
             collateralCount: collateralCount,
             decimals: decimals,
             currency: currency,
             multiTerminal: terminals[0],
-            currentStage: currentStage,
-            capToLiveTreasurySurplus: false
+            currentStage: currentStage
         });
+        return borrowableCapacity;
     }
 }
 

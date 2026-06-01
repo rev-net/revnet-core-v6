@@ -351,7 +351,7 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
             jbMultiTerminal().pay{value: ethAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, ethAmount, user, 0, "", "");
 
         // Compute the borrowable amount from the tokens received.
-        uint256 borrowAmount =
+        (uint256 borrowAmount,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // Sanity check: the user should be able to borrow something.
@@ -395,7 +395,7 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
         assertGt(tokens, 0, "user should receive tokens from paying");
 
         // Compute the borrowable amount from the user's tokens.
-        uint256 borrowAmount =
+        (uint256 borrowAmount,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         // Sanity check: there should be a borrowable amount.

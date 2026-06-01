@@ -379,7 +379,7 @@ contract TestCEIPattern is TestBaseWorkflow {
         vm.prank(user);
         tokenCount =
             jbMultiTerminal().pay{value: ethAmount}(REVNET_ID, JBConstants.NATIVE_TOKEN, ethAmount, user, 0, "", "");
-        borrowAmount =
+        (borrowAmount,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokenCount, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         if (borrowAmount == 0) return (0, tokenCount, 0);
         mockExpect(
@@ -441,7 +441,7 @@ contract TestCEIPattern is TestBaseWorkflow {
         vm.prank(USER);
         uint256 tokens2 =
             jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
-        uint256 borrowable2 =
+        (uint256 borrowable2,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens2, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         if (borrowable2 > 0) {
             mockExpect(
@@ -473,7 +473,7 @@ contract TestCEIPattern is TestBaseWorkflow {
             REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, address(attacker), 0, "", ""
         );
 
-        uint256 borrowable =
+        (uint256 borrowable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         vm.assume(borrowable > 0);
 
@@ -527,7 +527,7 @@ contract TestCEIPattern is TestBaseWorkflow {
             REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, address(attacker), 0, "", ""
         );
 
-        uint256 borrowable =
+        (uint256 borrowable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(borrowable, 0, "should have borrowable amount");
 
@@ -612,7 +612,7 @@ contract TestCEIPattern is TestBaseWorkflow {
             uint256 tokens =
                 jbMultiTerminal().pay{value: 10e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, USER, 0, "", "");
 
-            uint256 borrowable =
+            (uint256 borrowable,) =
                 LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
             if (borrowable == 0) continue;
 
@@ -660,7 +660,7 @@ contract TestCEIPattern is TestBaseWorkflow {
             REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, address(attacker), 0, "", ""
         );
 
-        uint256 borrowable =
+        (uint256 borrowable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(borrowable, 0, "should have borrowable amount");
 
@@ -701,7 +701,7 @@ contract TestCEIPattern is TestBaseWorkflow {
             REVNET_ID, JBConstants.NATIVE_TOKEN, 10e18, address(attacker), 0, "", ""
         );
 
-        uint256 borrowable =
+        (uint256 borrowable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(borrowable, 0, "should have borrowable amount");
 

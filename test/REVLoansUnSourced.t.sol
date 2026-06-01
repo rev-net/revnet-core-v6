@@ -386,7 +386,7 @@ contract REVLoansUnsourcedTests is TestBaseWorkflow {
         vm.prank(USER);
         uint256 tokens = jbMultiTerminal().pay{value: 1e18}(REVNET_ID, JBConstants.NATIVE_TOKEN, 1e18, USER, 0, "", "");
 
-        uint256 loanable =
+        (uint256 loanable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, tokens, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
         assertGt(loanable, 0);
 

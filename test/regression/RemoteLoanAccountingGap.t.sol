@@ -26,7 +26,7 @@ contract RegressionRemoteLoanAccountingGap is TestRegressionFixVerification {
         MOCK_SUCKER_REGISTRY.setRemoteValues(remoteRawSupply, remoteRawSurplus);
 
         uint256 collateral = tokens / 10;
-        uint256 actualBorrowable =
+        (uint256 actualBorrowable,) =
             LOANS_CONTRACT.borrowableAmountFrom(REVNET_ID, collateral, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)));
 
         uint256 localSupply = jbController().totalTokenSupplyWithReservedTokensOf(REVNET_ID);

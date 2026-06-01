@@ -10,9 +10,16 @@
 - The preview now **additionally** caps its result at the live treasury surplus (the amount the terminal can disburse
   right now). The existing economic cap is preserved; the smaller of the two bounds applies. Opening a borrow applies
   the same live cap, so a borrow sized to the freshly-quoted amount executes without reverting.
-- Repaying and reallocating are unaffected: those paths value collateral that **already** backs a loan and draw no
-  fresh funds from the terminal, so they continue to use the un-capped economic value (their fund movement is
-  unchanged).
+- `borrowableAmountFrom` now **returns both values** so a single read serves both purposes:
+  `(uint256 borrowableNow, uint256 borrowableCapacity)`. `borrowableNow` is what a borrow can execute right now (held to
+  the terminal's live balance); `borrowableCapacity` is the economic ceiling including amounts already borrowed against
+  the revnet — the same figure repaying and reallocating value collateral against. This is a return-shape change to the
+  public view (pre-deploy, no live consumers); callers that read a single value should destructure the first return.
+- Internally, the live cap is now applied at the call sites rather than threaded through a boolean parameter. Opening a
+  borrow takes the smaller of `borrowableCapacity` and the live balance; repaying and reallocating use
+  `borrowableCapacity` directly, since they value collateral that **already** backs a loan and draw no fresh funds.
+  Removing the threaded parameter and its branches also brought the `REVLoans` runtime size back under the 24,576-byte
+  limit (24,350 bytes).
 - No storage-layout change. No change to fees, accounting, or which funds move during a borrow — only the quoted and
   opened amount is held to what the live treasury can deliver.
 
