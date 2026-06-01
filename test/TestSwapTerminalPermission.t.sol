@@ -42,6 +42,7 @@ import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
+import {IPermit2} from "@uniswap/permit2/src/interfaces/IPermit2.sol";
 
 /// @notice Tests for default operator permissions including SET_ROUTER_TERMINAL.
 /// Verifies that all default operator permissions are granted correctly.
@@ -94,7 +95,13 @@ contract TestSwapTerminalPermission is TestBaseWorkflow {
         );
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
-        PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
+        PUBLISHER = new CTPublisher({
+            directory: jbDirectory(),
+            permissions: jbPermissions(),
+            feeProjectId: FEE_PROJECT_ID,
+            permit2: IPermit2(0x000000000022D473030F116dDEE9F6B43aC78BA3),
+            trustedForwarder: multisig()
+        });
         MOCK_BUYBACK = new MockBuybackDataHook();
         LOANS_CONTRACT = new REVLoans({
             controller: jbController(),

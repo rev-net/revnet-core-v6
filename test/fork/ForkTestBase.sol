@@ -79,6 +79,7 @@ import {REVOwner} from "../../src/REVOwner.sol";
 import {IREVDeployer} from "../../src/interfaces/IREVDeployer.sol";
 import {MockEmptyTerminal} from "../mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
+import {IPermit2} from "@uniswap/permit2/src/interfaces/IPermit2.sol";
 
 /// @notice Helper that adds liquidity to a V4 pool via the unlock/callback pattern.
 contract LiquidityHelper is IUnlockCallback {
@@ -315,7 +316,13 @@ abstract contract ForkTestBase is TestBaseWorkflow {
         );
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
-        PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
+        PUBLISHER = new CTPublisher({
+            directory: jbDirectory(),
+            permissions: jbPermissions(),
+            feeProjectId: FEE_PROJECT_ID,
+            permit2: IPermit2(0x000000000022D473030F116dDEE9F6B43aC78BA3),
+            trustedForwarder: multisig()
+        });
 
         // Deploy REAL buyback hook with real PoolManager. V4 PoolManager + Hooks moved to a one-shot setter
         // in buyback-hook-v6 0.0.45+, so configure them post-construction.

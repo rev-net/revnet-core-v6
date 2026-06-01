@@ -44,6 +44,7 @@ import {REVOwner} from "../../src/REVOwner.sol";
 import {IREVDeployer} from "../../src/interfaces/IREVDeployer.sol";
 import {MockEmptyTerminal} from "../mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
+import {IPermit2} from "@uniswap/permit2/src/interfaces/IPermit2.sol";
 
 /// @title TestCashOutBuybackFeeLeak
 /// @notice Proves the buyback hook callback receives only the non-fee cashOutCount (not the full count).
@@ -86,7 +87,13 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
         );
         addressRegistry = new JBAddressRegistry();
         hookDeployer = new JB721TiersHookDeployer(exampleHook, hookStore, addressRegistry, multisig());
-        publisher = new CTPublisher(jbDirectory(), jbPermissions(), feeProjectId, multisig());
+        publisher = new CTPublisher({
+            directory: jbDirectory(),
+            permissions: jbPermissions(),
+            feeProjectId: feeProjectId,
+            permit2: IPermit2(0x000000000022D473030F116dDEE9F6B43aC78BA3),
+            trustedForwarder: multisig()
+        });
         mockBuyback = new MockBuybackCashOutRecorder();
         loans = new REVLoans({
             controller: jbController(),

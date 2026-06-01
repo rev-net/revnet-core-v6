@@ -37,6 +37,7 @@ import {REVSuckerDeploymentConfig} from "../../src/structs/REVSuckerDeploymentCo
 import {REVEmpty721Config} from "../helpers/REVEmpty721Config.sol";
 import {MockBuybackDataHook} from "../mock/MockBuybackDataHook.sol";
 import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
+import {IPermit2} from "@uniswap/permit2/src/interfaces/IPermit2.sol";
 
 contract RegressionRouterRegistrySourceDebtRepricingTest is TestBaseWorkflow {
     bytes32 internal constant REV_DEPLOYER_SALT = "REVDeployer";
@@ -78,7 +79,13 @@ contract RegressionRouterRegistrySourceDebtRepricingTest is TestBaseWorkflow {
         );
         addressRegistry = new JBAddressRegistry();
         hookDeployer = new JB721TiersHookDeployer(exampleHook, hookStore, addressRegistry, multisig());
-        publisher = new CTPublisher(jbDirectory(), jbPermissions(), feeProjectId, multisig());
+        publisher = new CTPublisher({
+            directory: jbDirectory(),
+            permissions: jbPermissions(),
+            feeProjectId: feeProjectId,
+            permit2: IPermit2(0x000000000022D473030F116dDEE9F6B43aC78BA3),
+            trustedForwarder: multisig()
+        });
         buybackHook = new MockBuybackDataHook();
 
         loans = new REVLoans({

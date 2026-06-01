@@ -42,6 +42,7 @@ import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 import {MockBuybackDataHook} from "./mock/MockBuybackDataHook.sol";
 import {JBRouterTerminalRegistry} from "@bananapus/router-terminal-v6/src/JBRouterTerminalRegistry.sol";
+import {IPermit2} from "@uniswap/permit2/src/interfaces/IPermit2.sol";
 
 /// @notice Tests that terminals are constructor-pinned but not part of per-revnet accounting-context config.
 contract TestTerminalEncodingInHash is TestBaseWorkflow {
@@ -95,7 +96,13 @@ contract TestTerminalEncodingInHash is TestBaseWorkflow {
         );
         ADDRESS_REGISTRY = new JBAddressRegistry();
         HOOK_DEPLOYER = new JB721TiersHookDeployer(exampleHook, HOOK_STORE, ADDRESS_REGISTRY, multisig());
-        PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
+        PUBLISHER = new CTPublisher({
+            directory: jbDirectory(),
+            permissions: jbPermissions(),
+            feeProjectId: FEE_PROJECT_ID,
+            permit2: IPermit2(0x000000000022D473030F116dDEE9F6B43aC78BA3),
+            trustedForwarder: multisig()
+        });
         MOCK_BUYBACK = new MockBuybackDataHook();
         ROUTER_TERMINAL_REGISTRY =
             new JBRouterTerminalRegistry(jbPermissions(), jbProjects(), permit2(), address(this), TRUSTED_FORWARDER);
