@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.0.85 — Document NatSpec, comment, and lint conventions in STYLE_GUIDE
+
+- `STYLE_GUIDE.md`: expand the NatSpec section to spell out the required tags for every member, add a Comments
+  section documenting the inline-comment and "describe current behavior as the only behavior" conventions, and
+  expand the Linting section to document the `--deny notes` zero-warning CI gate. Documentation only — no source
+  change.
+- Attempted to raise the dependency caret floors to the latest published versions, but reverted the floor bump:
+  it broke the non-fork test build because `@croptop/core-v6` added a required `permit2` constructor argument to
+  `CTPublisher` that the test harness does not yet supply. The dependency floors are unchanged; the STYLE_GUIDE
+  documentation ships on its own.
+
 ## 0.0.84 — Borrowable-amount preview matches what a borrow can execute
 
 - `REVLoans.borrowableAmountFrom` previously reconstructed the revnet's economic liquidity as
