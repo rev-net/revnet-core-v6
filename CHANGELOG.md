@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.0.86 — Raise dependency floors to latest and update the test harness for them
+
+- Raised every dependency caret floor to its latest published version: `@bananapus/721-hook-v6` `^0.0.59 → ^0.0.65`,
+  `@bananapus/buyback-hook-v6` `^0.0.64 → ^0.0.66`, `@bananapus/core-v6` `^0.0.72 → ^0.0.79`,
+  `@bananapus/ownable-v6` `^0.0.32 → ^0.0.36`, `@bananapus/permission-ids-v6` `^0.0.27 → ^0.0.29`,
+  `@bananapus/router-terminal-v6` `^0.0.58 → ^0.0.60`, `@bananapus/suckers-v6` `^0.0.60 → ^0.0.67`,
+  `@croptop/core-v6` `^0.0.60 → ^0.0.64`, and `@bananapus/address-registry-v6` `^0.0.29 → ^0.0.33`. No `src/` change.
+- This is the floor bump that 0.0.85 attempted and rolled back. The two upstream changes that the earlier attempt
+  caught are now handled in the test harness:
+  - `@croptop/core-v6` `CTPublisher` added a `permit2` constructor argument (now the fourth parameter, before
+    `trustedForwarder`). Every test that builds a `CTPublisher` now passes the canonical Permit2 address
+    (`0x000000000022D473030F116dDEE9F6B43aC78BA3`) and uses named constructor arguments.
+  - `@bananapus/core-v6` `JBProjects` now caps `setCreationFee` at `MAX_CREATION_FEE` (`0.001 ether`). The three
+    `REVDeployerRegressions` tests that set a creation fee lowered their value from `0.01 ether` to `0.001 ether` so
+    it stays within the cap while still confirming the fee is forwarded.
+
 ## 0.0.85 — Document NatSpec, comment, and lint conventions in STYLE_GUIDE
 
 - `STYLE_GUIDE.md`: expand the NatSpec section to spell out the required tags for every member, add a Comments

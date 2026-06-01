@@ -47,6 +47,7 @@ import {REVOwner} from "../../src/REVOwner.sol";
 import {IREVDeployer} from "../../src/interfaces/IREVDeployer.sol";
 import {MockEmptyTerminal} from "../mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
+import {IPermit2} from "@uniswap/permit2/src/interfaces/IPermit2.sol";
 
 /// @notice Regression tests for the loan ID overflow guard in REVLoans.
 /// @dev The totalLoansBorrowedFor counter must stay below the per-revnet loan ID namespace size.
@@ -155,7 +156,13 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
         HOOK_DEPLOYER = new JB721TiersHookDeployer(EXAMPLE_HOOK, HOOK_STORE, ADDRESS_REGISTRY, multisig());
 
         // Deploy the croptop publisher.
-        PUBLISHER = new CTPublisher(jbDirectory(), jbPermissions(), FEE_PROJECT_ID, multisig());
+        PUBLISHER = new CTPublisher({
+            directory: jbDirectory(),
+            permissions: jbPermissions(),
+            feeProjectId: FEE_PROJECT_ID,
+            permit2: IPermit2(0x000000000022D473030F116dDEE9F6B43aC78BA3),
+            trustedForwarder: multisig()
+        });
 
         // Deploy the mock buyback data hook (satisfies the IJBBuybackHookRegistry interface).
         MOCK_BUYBACK = new MockBuybackDataHook();
