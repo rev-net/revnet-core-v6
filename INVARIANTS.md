@@ -83,7 +83,7 @@ The operator's permission set is granted by `REVOwner._setOperatorOf` and listed
 | `SET_TOKEN_METADATA` | Change ERC-20 name/symbol |
 | `SUCKER_SAFETY` | Trigger the emergency hatch for stuck bridged tokens |
 | `SET_ROUTER_TERMINAL` | Configure `JBRouterTerminal` routing |
-| `SIGN_FOR_ERC20` | EIP-712 / Permit2 signatures involving the project token |
+| `SIGN_FOR_ERC20` | ERC-1271-valid signatures from the project token contract for external integrations |
 
 Plus extras appended via `init.extraOperatorPermissionIds` during `initializeRevnet` (typically 721 hook admin permissions — `ADJUST_721_TIERS`, `SET_721_METADATA`, `MINT_721`, `SET_721_DISCOUNT_PERCENT` — when `preventOperator*` flags are off; see `REVDeployer.sol:670-693`).
 
@@ -194,13 +194,13 @@ For each external/public function: caller, effect, and the invariant it preserve
 
 ### Borrower / delegated operator
 
-- **`borrowFrom(revnetId, token, minBorrowAmount, collateralCount, beneficiary, prepaidFeePercent, holder) → (loanId, REVLoan)`** (`src/REVLoans.sol:639-666`) — `holder` or `OPEN_LOAN` operator of `holder`. Burns collateral, calls `TERMINAL.useAllowanceOf`, mints loan NFT to `holder`, sends proceeds to `beneficiary`. Source fee taken upfront.
+- **`borrowFrom(revnetId, token, minBorrowAmount, collateralCount, beneficiary, prepaidFeePercent, holder) → (loanId, REVLoan)`** (`src/REVLoans.sol:639-666`) — `holder` or `OPEN_LOAN` operator of `holder`. Burns collateral, calls `TERMINAL.useAllowanceOf`, mints loan NFT to `holder`, sends proceeds to the caller-supplied `beneficiary`. Source fee taken upfront.
   - **Invariants:** bounded by `_borrowableAmountFrom` (current bonding curve, gated by `_cashOutDelayOf`); `localSurplus` cap, plus a live-treasury-surplus cap on the preview and on opening a borrow so the quote never exceeds what the terminal can disburse now; collateral burned at deposit (not escrowed); reentrancy blocked by `nonReentrantLoanAction` transient flag.
 
-- **`reallocateCollateralFromLoan(loanId, collateralCountToTransfer, token, minBorrowAmount, collateralCountToAdd, beneficiary, prepaidFeePercent)`** (`src/REVLoans.sol:768-835`) — loan owner or `REALLOCATE_LOAN` operator. If `collateralCountToAdd != 0`, also requires `OPEN_LOAN` (closing the bypass that would otherwise let a `REALLOCATE_LOAN`-only operator open a brand-new loan against the owner's tokens through this entry point). Burns original loan NFT; creates reallocated + new loans.
+- **`reallocateCollateralFromLoan(loanId, collateralCountToTransfer, token, minBorrowAmount, collateralCountToAdd, beneficiary, prepaidFeePercent)`** (`src/REVLoans.sol:768-835`) — loan owner or `REALLOCATE_LOAN` operator. If `collateralCountToAdd != 0`, also requires `OPEN_LOAN` for the added holder tokens. The transferred collateral from the existing loan can still back the new paired loan created by the reallocation path, and the caller chooses the proceeds `beneficiary`; treat delegated `REALLOCATE_LOAN` as debt-creation/proceeds-redirection authority. Burns original loan NFT; creates reallocated + new loans.
   - **Invariants:** new loan's source token must equal original's (reverts `REVLoans_SourceMismatch`); not `payable` (cannot accept new funds); reverts after `LOAN_LIQUIDATION_DURATION`.
 
-- **`repayLoan(loanId, maxRepayBorrowAmount, collateralCountToReturn, beneficiary, allowance)` payable** (`src/REVLoans.sol:848-...`) — loan owner or `REPAY_LOAN` operator. Forwards repay (incl. source fee) to terminal; remints returned collateral. Partial repays supported.
+- **`repayLoan(loanId, maxRepayBorrowAmount, collateralCountToReturn, beneficiary, allowance)` payable** (`src/REVLoans.sol:848-...`) — loan owner or `REPAY_LOAN` operator. Forwards repay (incl. source fee) to terminal; remints returned collateral to the caller-supplied `beneficiary`. Partial repays supported. Treat delegated `REPAY_LOAN` as collateral-withdrawal/beneficiary-redirection authority, not merely permission to send debt repayment.
   - **Invariants:** `(maxRepayBorrowAmount=0, collateralCountToReturn=0)` reverts; `newBorrowAmount > loan.amount` reverts; re-checks loan NFT ownership after `_acceptFundsFor` (ERC-777/1363 reentrancy defense); excess refunded to original sender.
 
 ### Permissionless

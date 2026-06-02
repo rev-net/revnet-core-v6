@@ -40,6 +40,7 @@ This file focuses on the staged-economics, runtime-hook, and loan risks that mat
 - **Loan source tokens grow over time.** Debt aggregation cost and complexity increase as new accepted accounting
   context tokens are used.
 - **Reallocation still depends on live state.** Reallocate flows can change outcomes around stage boundaries.
+- **Delegated loan permissions move value.** `OPEN_LOAN`, `REALLOCATE_LOAN`, and `REPAY_LOAN` all let the delegate choose beneficiaries in paths that can redirect proceeds or returned collateral.
 
 ## 4. Hook-Composition Risks
 
@@ -51,6 +52,7 @@ This file focuses on the staged-economics, runtime-hook, and loan risks that mat
 
 - **The deployer-held project NFT can be misunderstood.** Revnets are owner-minimized, but the deployer path still matters for the trust model.
 - **Split operator mistakes are high-impact.** Narrow powers like price-feed installation, split updates, sucker deployment, or router setup still matter.
+- **Metadata and token-signature permissions are holder-facing.** `SET_PROJECT_URI`, `SET_TOKEN_METADATA`, and `SIGN_FOR_ERC20` are not harmless cosmetics when external integrations rely on project identity or ERC-1271 token-contract signatures.
 - **There is intentionally no broad admin recovery path.** Operational teams may try to reach for powers the design never intended to leave available.
 
 ## 6. Invariants to Verify
@@ -261,3 +263,28 @@ Operators wiring revnets that accept tokens outside the fee revnet's current ter
 flows to bypass fees until terminal coverage is added. Treat fee-revnet revenue as conditional on fee-revnet
 terminal coverage, not as a per-cash-out invariant. There is no on-chain hold queue for missed fees — value
 that would have been a fee remains with the cashing-out holder or the borrower.
+
+### 7.15 Delegated loan permissions include beneficiary control
+
+Loan permissions should be presented as value-moving permissions, not as narrow maintenance permissions.
+
+`OPEN_LOAN` lets a delegate borrow against the holder's tokens and choose the proceeds beneficiary.
+`REALLOCATE_LOAN` lets a delegate remove collateral from an existing loan and open the paired replacement/new loan
+created by the reallocation path; when that path produces fresh borrowed proceeds, the delegate also chooses the
+beneficiary for those proceeds. `REPAY_LOAN` lets a delegate repay partially or fully and choose where returned
+collateral is reminted, including cases where overcollateralization means little or no debt repayment is needed for
+the requested collateral return.
+
+These powers are permission-gated and may be intentional, but frontends, runbooks, and operator policies should label
+them accordingly: `REALLOCATE_LOAN` is debt-creation/proceeds-redirection authority, and `REPAY_LOAN` is
+collateral-withdrawal/beneficiary-redirection authority.
+
+### 7.16 Operator metadata and ERC-20 signing authority remain live
+
+The default revnet operator set includes `SET_PROJECT_URI`, `SET_TOKEN_METADATA`, and `SIGN_FOR_ERC20`.
+`SET_PROJECT_URI` and `SET_TOKEN_METADATA` can change holder-facing project metadata, ERC-20 name, and ERC-20 symbol
+after launch. `SIGN_FOR_ERC20` makes signatures by the operator valid through the project token's ERC-1271
+`isValidSignature` surface wherever an external integration accepts signatures "from" the token contract.
+
+These powers do not by themselves drain the treasury, but they are not immutable-launch facts. Integrations and
+monitoring should treat them as identity and external-integration authority.
