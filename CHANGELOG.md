@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.0.87 — Adopt per-context oracle-free cross-chain surplus
+
+- Raised `@bananapus/suckers-v6` `^0.0.67 → ^0.0.69` to adopt the per-context cross-chain surplus API.
+- `REVOwner` and `REVLoans` now call `SUCKER_REGISTRY.totalRemoteSurplusOf(projectId, currency, decimals)` (renamed
+  from `remoteSurplusOf`, with `currency` and `decimals` swapped); `remoteTotalSupplyOf` is unchanged.
+- `REVOwner.peerChainAdjustedAccountsOf` now takes only `projectId` and returns `(uint256 supply, JBSourceContext[]
+  contexts)`. Each loan source token's outstanding debt is exported as its own context, raw and un-valued in the
+  token's own currency and decimals (counted as both surplus and balance), so the receiving chain folds it into the
+  matching same-asset local context at par. The previous oracle conversion is no longer applied on this path;
+  `_localLoanStateOf` still values local cash-out math into a single currency.
+
 ## 0.0.86 — Raise dependency floors to latest and update the test harness for them
 
 - Raised every dependency caret floor to its latest published version: `@bananapus/721-hook-v6` `^0.0.59 → ^0.0.65`,

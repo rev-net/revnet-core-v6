@@ -38,7 +38,7 @@ contract ConfigurableSuckerRegistry {
         return remoteSupply;
     }
 
-    function remoteSurplusOf(uint256, uint256, uint256) external view returns (uint256) {
+    function totalRemoteSurplusOf(uint256, uint256, uint256) external view returns (uint256) {
         return remoteSurplus;
     }
 }

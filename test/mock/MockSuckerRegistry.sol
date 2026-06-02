@@ -11,7 +11,7 @@ contract MockSuckerRegistry {
         return 0;
     }
 
-    function remoteSurplusOf(uint256, uint256, uint256) external pure returns (uint256) {
+    function totalRemoteSurplusOf(uint256, uint256, uint256) external pure returns (uint256) {
         return 0;
     }
 }

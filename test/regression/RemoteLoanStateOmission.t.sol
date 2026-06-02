@@ -26,6 +26,7 @@ import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
 import {JBRulesetMetadata} from "@bananapus/core-v6/src/structs/JBRulesetMetadata.sol";
 import {JBTokenAmount} from "@bananapus/core-v6/src/structs/JBTokenAmount.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
+import {JBSourceContext} from "@bananapus/suckers-v6/src/structs/JBSourceContext.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IPermit2} from "@uniswap/permit2/src/interfaces/IPermit2.sol";
 import {PoolKey} from "@uniswap/v4-core/src/types/PoolKey.sol";
@@ -52,7 +53,7 @@ contract RemoteLoanStateRegistryMock {
         return remoteSupply;
     }
 
-    function remoteSurplusOf(uint256, uint256, uint256) external view returns (uint256) {
+    function totalRemoteSurplusOf(uint256, uint256, uint256) external view returns (uint256) {
         return remoteSurplus;
     }
 }
@@ -395,14 +396,20 @@ contract RemoteLoanStateOmissionTest is Test {
             )
         });
 
-        (uint256 supply, uint256 surplus, uint256 balance) =
-            peerOwnerHook.peerChainAdjustedAccountsOf({revnetId: REVNET_ID, decimals: 18, currency: ETH_CURRENCY});
+        (uint256 supply, JBSourceContext[] memory contexts) = peerOwnerHook.peerChainAdjustedAccountsOf(REVNET_ID);
 
         // Peer snapshots need burned loan collateral in supply, otherwise remote holders look artificially scarce.
         assertEq(supply, OMITTED_REMOTE_LOAN_COLLATERAL, "peer snapshot should include loan collateral supply");
+        // The single loan source token is exported as its own raw, un-valued context.
+        assertEq(contexts.length, 1, "peer snapshot should export one context per loan source token");
+        assertEq(contexts[0].token, bytes32(uint256(uint160(NATIVE_TOKEN))), "context carries the loan source token");
         // Borrowed funds are owed back to the revnet, so they are both surplus and balance for peer-chain math.
-        assertEq(surplus, OMITTED_REMOTE_LOAN_DEBT, "peer snapshot should include loan debt surplus");
-        assertEq(balance, OMITTED_REMOTE_LOAN_DEBT, "peer snapshot should include loan debt balance");
+        assertEq(
+            uint256(contexts[0].surplus), OMITTED_REMOTE_LOAN_DEBT, "peer snapshot should include loan debt surplus"
+        );
+        assertEq(
+            uint256(contexts[0].balance), OMITTED_REMOTE_LOAN_DEBT, "peer snapshot should include loan debt balance"
+        );
     }
 
     function test_remoteLoanStateOmissionInflatesCrossChainBorrowableAmount() external view {

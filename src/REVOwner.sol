@@ -24,6 +24,7 @@ import {JBRuleset} from "@bananapus/core-v6/src/structs/JBRuleset.sol";
 import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.sol";
 import {IJBPeerChainAdjustedAccounts} from "@bananapus/suckers-v6/src/interfaces/IJBPeerChainAdjustedAccounts.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
+import {JBSourceContext} from "@bananapus/suckers-v6/src/structs/JBSourceContext.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
@@ -250,7 +251,7 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
         // If the ruleset aggregates cross-chain state, add remote supply and surplus.
         if (!context.scopeCashOutsToLocalBalances) {
             totalSupply += SUCKER_REGISTRY.remoteTotalSupplyOf(context.projectId);
-            effectiveSurplusValue += SUCKER_REGISTRY.remoteSurplusOf({
+            effectiveSurplusValue += SUCKER_REGISTRY.totalRemoteSurplusOf({
                 projectId: context.projectId,
                 decimals: context.surplus.decimals,
                 currency: uint256(context.surplus.currency)
@@ -486,29 +487,68 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
     /// @notice Adjusts local accounts for outstanding loans when reporting peer-chain state.
     /// @dev Used by remote chains' aggregate cash-out math to correctly account for value temporarily
     /// held outside this chain's terminal (in active REVLoans). Critical for the conservation invariant
-    /// described in INVARIANTS.md Section D2.5 — without this adjustment, outstanding-loan ETH would
+    /// described in INVARIANTS.md Section D2.5 — without this adjustment, outstanding-loan value would
     /// silently inflate apparent surplus on the peer-chain side.
     ///
-    /// Outstanding loan debt is counted as both surplus and balance: it is value owed back to this
-    /// chain's revnet and should travel to peer snapshots with the collateral supply.
+    /// Each loan source token's outstanding debt is reported as its own context, raw and un-valued in the
+    /// token's own currency and decimals, counted as both surplus and balance: it is value owed back to this
+    /// chain's revnet and travels to peer snapshots with the collateral supply, where the receiving chain folds
+    /// it into the matching same-asset local context at par.
     /// @param revnetId The ID of the revnet to snapshot.
-    /// @param decimals The decimals to use for the returned surplus.
-    /// @param currency The currency to denominate the returned surplus in.
     /// @return supply The loan-collateral supply to include in the peer snapshot.
-    /// @return surplus The outstanding loan debt to include in `sourceSurplus`.
-    /// @return balance The outstanding loan debt to include in `sourceBalance`.
-    function peerChainAdjustedAccountsOf(
-        uint256 revnetId,
-        uint256 decimals,
-        uint256 currency
-    )
+    /// @return contexts One entry per loan source token with outstanding debt, as both surplus and balance.
+    function peerChainAdjustedAccountsOf(uint256 revnetId)
         external
         view
         override
-        returns (uint256 supply, uint256 surplus, uint256 balance)
+        returns (uint256 supply, JBSourceContext[] memory contexts)
     {
-        (surplus, supply) = _localLoanStateOf({revnetId: revnetId, decimals: decimals, currency: currency});
-        balance = surplus;
+        IREVLoans loans = LOANS;
+        if (address(loans) == address(0) || address(loans).code.length == 0) {
+            return (0, new JBSourceContext[](0));
+        }
+
+        // Burned loan collateral re-enters supply when the loan is repaid, so it travels with the snapshot.
+        supply = loans.totalCollateralOf(revnetId);
+
+        address[] memory sources = loans.loanSourceTokensOf(revnetId);
+        if (sources.length == 0) return (supply, new JBSourceContext[](0));
+
+        // Read each source's outstanding debt once, so the contexts array can be sized to only the active sources.
+        uint256[] memory loaned = new uint256[](sources.length);
+        uint256 activeCount;
+        for (uint256 i; i < sources.length; i++) {
+            loaned[i] = loans.totalBorrowedFrom({revnetId: revnetId, token: sources[i]});
+            if (loaned[i] != 0) activeCount++;
+        }
+
+        contexts = new JBSourceContext[](activeCount);
+        if (activeCount == 0) return (supply, contexts);
+
+        IJBTerminal multiTerminal = deployer.MULTI_TERMINAL();
+        uint256 count;
+        for (uint256 i; i < sources.length; i++) {
+            if (loaned[i] == 0) continue;
+            address sourceToken = sources[i];
+
+            // Loan sources live as accounting contexts on the canonical multi terminal; the declared decimals are
+            // carried verbatim so the receiving chain can match the context to its same-asset local one.
+            JBAccountingContext memory sourceContext =
+                multiTerminal.accountingContextForTokenOf({projectId: revnetId, token: sourceToken});
+            if (sourceContext.token != sourceToken) {
+                revert REVOwner_InvalidLoanSourceToken({revnetId: revnetId, token: sourceToken});
+            }
+
+            // Cap to uint128 to match the wire struct (cross-VM compatible); outstanding debt is far below this width.
+            // forge-lint: disable-next-line(unsafe-typecast)
+            uint128 debt = uint128(loaned[i]);
+            contexts[count++] = JBSourceContext({
+                token: bytes32(uint256(uint160(sourceToken))),
+                decimals: sourceContext.decimals,
+                surplus: debt,
+                balance: debt
+            });
+        }
     }
 
     //*********************************************************************//

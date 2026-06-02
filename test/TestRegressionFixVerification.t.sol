@@ -145,7 +145,7 @@ contract MockSuckerRegistryWithRemote {
         return remoteSupply;
     }
 
-    function remoteSurplusOf(uint256, uint256, uint256) external view returns (uint256) {
+    function totalRemoteSurplusOf(uint256, uint256, uint256) external view returns (uint256) {
         return remoteSurplus;
     }
 
@@ -161,7 +161,7 @@ contract MockSuckerRegistryWithRemote {
         return new address[](0);
     }
 
-    function remoteBalanceOf(uint256, uint256, uint256) external pure returns (uint256) {
+    function totalRemoteBalanceOf(uint256, uint256, uint256) external pure returns (uint256) {
         return 0;
     }
 

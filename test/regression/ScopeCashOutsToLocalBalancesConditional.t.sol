@@ -100,7 +100,7 @@ contract ScopeCashOutsToLocalBalancesConditionalTest is Test {
         );
         vm.mockCall(
             SUCKER_REGISTRY,
-            abi.encodeCall(IJBSuckerRegistry.remoteSurplusOf, (REVNET_ID, 18, uint256(1))),
+            abi.encodeCall(IJBSuckerRegistry.totalRemoteSurplusOf, (REVNET_ID, uint256(1), 18)),
             abi.encode(REMOTE_SURPLUS)
         );
 
@@ -238,7 +238,7 @@ contract ScopeCashOutsToLocalBalancesConditionalTest is Test {
         );
         vm.mockCall(
             SUCKER_REGISTRY,
-            abi.encodeCall(IJBSuckerRegistry.remoteSurplusOf, (REVNET_ID, 18, uint256(1))),
+            abi.encodeCall(IJBSuckerRegistry.totalRemoteSurplusOf, (REVNET_ID, uint256(1), 18)),
             abi.encode(uint256(0))
         );
 
