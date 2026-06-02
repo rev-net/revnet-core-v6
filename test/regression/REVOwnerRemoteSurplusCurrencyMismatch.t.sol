@@ -38,7 +38,7 @@ contract CurrencyAwareSuckerRegistry {
         return remoteSupply;
     }
 
-    function remoteSurplusOf(uint256, uint256, uint256 currency) external view returns (uint256) {
+    function totalRemoteSurplusOf(uint256, uint256 currency, uint256) external view returns (uint256) {
         return currency == expectedCurrency ? remoteSurplus : 0;
     }
 }
@@ -130,10 +130,10 @@ contract REVOwnerRemoteSurplusCurrencyMismatchTest is TestBaseWorkflow {
 
         assertEq(returnedSupply, 1500 ether, "remote supply should still be included");
         // Remote surplus is correctly included (100 local + 900 remote = 1000) because the currency is passed to
-        // remoteSurplusOf.
+        // totalRemoteSurplusOf.
         assertEq(returnedSurplus, 1000 ether, "remote surplus should be included now that currency is passed correctly");
         assertEq(
-            suckerRegistry.remoteSurplusOf(1, 18, ETH_CURRENCY),
+            suckerRegistry.totalRemoteSurplusOf(1, ETH_CURRENCY, 18),
             900 ether,
             "registry confirms surplus exists for the requested currency"
         );

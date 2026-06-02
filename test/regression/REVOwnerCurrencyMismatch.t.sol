@@ -39,7 +39,7 @@ contract MockSuckerRegistry {
         return remoteSupplyToReturn;
     }
 
-    function remoteSurplusOf(uint256, uint256, uint256) external view returns (uint256) {
+    function totalRemoteSurplusOf(uint256, uint256, uint256) external view returns (uint256) {
         return remoteSurplusToReturn;
     }
 }
@@ -110,12 +110,12 @@ contract REVOwnerCurrencyMismatchTest is TestBaseWorkflow {
         );
     }
 
-    /// @notice Verify that remoteSurplusOf is called with the context's currency, not the token address.
+    /// @notice Verify that totalRemoteSurplusOf is called with the context's currency, not the token address.
     /// @dev NATIVE_TOKEN = 0x000000000000000000000000000000000000EEEe
     ///      uint160(NATIVE_TOKEN) = 61166
     ///      The correct currency for ETH is 1 (baseCurrency).
     ///      The hook must pass 1, not 61166.
-    function test_remoteSurplusOf_receives_currency_not_token_address() public {
+    function test_totalRemoteSurplusOf_receives_currency_not_token_address() public {
         // Set up remote values so the registry returns something.
         suckerRegistry.setRemoteValues(500 ether, 900 ether);
 
@@ -142,11 +142,12 @@ contract REVOwnerCurrencyMismatchTest is TestBaseWorkflow {
             metadata: ""
         });
 
-        // Use vm.expectCall to verify the exact parameters passed to remoteSurplusOf.
+        // Use vm.expectCall to verify the exact parameters passed to totalRemoteSurplusOf.
         // Currency should be 1 (ethCurrency), not 61166 (uint160(NATIVE_TOKEN)).
         // This assertion fails if code passes uint256(uint160(NATIVE_TOKEN)) = 61166.
+        // The encoded order follows the parameter order (projectId, currency, decimals).
         vm.expectCall(
-            address(suckerRegistry), abi.encodeCall(suckerRegistry.remoteSurplusOf, (1, 18, uint256(ethCurrency)))
+            address(suckerRegistry), abi.encodeCall(suckerRegistry.totalRemoteSurplusOf, (1, uint256(ethCurrency), 18))
         );
 
         ownerHook.beforeCashOutRecordedWith(context);

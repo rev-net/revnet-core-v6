@@ -132,7 +132,7 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
         FEE_PROJECT_ID = jbProjects().createFor(multisig());
 
         // Deploy the sucker registry (no deployers, no initial suckers).
-        SUCKER_REGISTRY = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
+        SUCKER_REGISTRY = new JBSuckerRegistry(jbDirectory(), jbPermissions(), jbPrices(), multisig(), address(0));
 
         // Deploy the 721 hook store.
         HOOK_STORE = new JB721TiersHookStore();

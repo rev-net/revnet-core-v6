@@ -104,7 +104,7 @@ contract ScopeCashOutsREVLoansTest is Test {
         );
         vm.mockCall(
             SUCKER_REGISTRY,
-            abi.encodeWithSelector(IJBSuckerRegistry.remoteSurplusOf.selector),
+            abi.encodeWithSelector(IJBSuckerRegistry.totalRemoteSurplusOf.selector),
             abi.encode(REMOTE_SURPLUS)
         );
     }
@@ -202,7 +202,9 @@ contract ScopeCashOutsREVLoansTest is Test {
             abi.encode(uint256(0))
         );
         vm.mockCall(
-            SUCKER_REGISTRY, abi.encodeWithSelector(IJBSuckerRegistry.remoteSurplusOf.selector), abi.encode(uint256(0))
+            SUCKER_REGISTRY,
+            abi.encodeWithSelector(IJBSuckerRegistry.totalRemoteSurplusOf.selector),
+            abi.encode(uint256(0))
         );
 
         _mockCurrentRuleset(true);

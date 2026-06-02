@@ -437,7 +437,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         uint256 effectiveSurplus = localSurplus;
         uint256 effectiveSupply = localSupply;
         if (!currentStage.scopeCashOutsToLocalBalances()) {
-            effectiveSurplus += SUCKER_REGISTRY.remoteSurplusOf({
+            effectiveSurplus += SUCKER_REGISTRY.totalRemoteSurplusOf({
                 projectId: revnetId, decimals: decimals, currency: currency
             });
             effectiveSupply += SUCKER_REGISTRY.remoteTotalSupplyOf(revnetId);

@@ -60,7 +60,7 @@ contract SameAddressDeployerLaunchReverts is TestBaseWorkflow {
     function setUp() public override {
         super.setUp();
         FEE_PROJECT_ID = jbProjects().createFor(multisig());
-        SUCKER_REGISTRY = new JBSuckerRegistry(jbDirectory(), jbPermissions(), multisig(), address(0));
+        SUCKER_REGISTRY = new JBSuckerRegistry(jbDirectory(), jbPermissions(), jbPrices(), multisig(), address(0));
         JB721TiersHookStore hookStore = new JB721TiersHookStore();
         JB721TiersHook exampleHook = new JB721TiersHook(
             jbDirectory(),
