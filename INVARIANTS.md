@@ -210,15 +210,12 @@ For each external/public function: caller, effect, and the invariant it preserve
 
 ### Owner
 
-- **`setReferralProjectId(uint256 newReferralProjectId, uint256 newReferralChainId)`** (`src/REVLoans.sol:982-1002`) — `onlyOwner`. Retargets the fee-volume referral attribution. Lossless pack: `projectId ≤ type(uint48).max`, `chainId ≤ type(uint208).max`.
-  - **Invariant:** does not affect loan economics, only fee-volume attribution.
-
 - **`setTokenUriResolver(IJBTokenUriResolver resolver)`** (`src/REVLoans.sol:1006-1011`) — `onlyOwner`. Pure cosmetic.
 
 ### Views
 
 - `borrowableAmountFrom`, `loanOf`, `loanSourceTokensOf`, `determineSourceFeeAmount`, `revnetIdOfLoanWith`, `tokenURI`.
-- Public state: `isLoanSourceOf`, `referralProjectId`, `tokenUriResolver`, `totalBorrowedFrom`, `totalCollateralOf`, `totalLoansBorrowedFor` (note: monotonic counter; gaps from repaid/liquidated loans are permanent — see dev-doc at `src/REVLoans.sol:166-171`).
+- Public state: `isLoanSourceOf`, `tokenUriResolver`, `totalBorrowedFrom`, `totalCollateralOf`, `totalLoansBorrowedFor` (note: monotonic counter; gaps from repaid/liquidated loans are permanent — see dev-doc at `src/REVLoans.sol:166-171`).
 
 ---
 
@@ -247,7 +244,7 @@ For each external/public function: caller, effect, and the invariant it preserve
 
 Out-of-scope third-party attack surface; these are powers held by privileged addresses outside any individual operator's control.
 
-- **`REVLoans` is `Ownable`.** The owner can call `setReferralProjectId` (retargets fee-volume credit) and `setTokenUriResolver` (cosmetic). Neither affects loan economics or borrower funds. The owner **cannot** mint revnet tokens, drain a revnet's treasury, change a loan's terms, or seize collateral. The owner is set to the deployer Safe by `Deploy.s.sol`.
+- **`REVLoans` is `Ownable`.** The owner can call `setTokenUriResolver` (cosmetic). This does not affect loan economics or borrower funds. The owner **cannot** mint revnet tokens, drain a revnet's treasury, change a loan's terms, or seize collateral. The owner is set to the deployer Safe by `Deploy.s.sol`.
 - **`REVOwner` has no `Ownable`.** It is purely deployer-bound (via the one-shot `setDeployer`) and per-revnet operator-rotated. There is no protocol owner who can edit cash-out delays, hook bindings, or operator assignments after launch.
 - **`REVDeployer` has no `Ownable`.** It is an ERC2771-aware factory. The trusted forwarder is constructor-pinned.
 - **Per-revnet operator EOAs** can rotate splits, buyback pool, and the operator within their own revnet. Compromise of an operator EOA is the operator's problem, not the protocol's — but a compromised operator cannot mint, cannot change rulesets, and cannot touch surplus beyond what loans allow.
@@ -293,7 +290,6 @@ Out-of-scope third-party attack surface; these are powers held by privileged add
 | `src/REVLoans.sol:639-666` | `borrowFrom` — requires `OPEN_LOAN` on holder |
 | `src/REVLoans.sol:681-748` | `liquidateExpiredLoansFrom` — permissionless, bountyless, after 10 years |
 | `src/REVLoans.sol:768-835` | `reallocateCollateralFromLoan` — requires `OPEN_LOAN` if adding fresh collateral |
-| `src/REVLoans.sol:982-1002` | `setReferralProjectId` owner cosmetic (lossless pack) |
 | `src/REVLoans.sol:1006-1011` | `setTokenUriResolver` owner cosmetic |
 | `src/REVLoans.sol:1067-1078` | `_addCollateralTo` — burns collateral at deposit (not escrow) |
 

@@ -69,12 +69,11 @@ contract LoanIdOverflowGuard is TestBaseWorkflow {
     /// @dev The final valid loan number within one revnet's loan ID namespace.
     uint256 private constant _MAX_LOAN_NUMBER = _LOAN_ID_NAMESPACE_SIZE - 1;
 
-    /// @dev Storage slot of the totalLoansBorrowedFor mapping in REVLoans (slot 12).
-    /// Determined via `forge inspect REVLoans storage-layout`. Bumped from 11 → 12 when `referralProjectId` was
-    /// inserted at slot 8 in alphabetical order between `isLoanSourceOf` and `tokenUriResolver` (per STYLE_GUIDE).
+    /// @dev Storage slot of the totalLoansBorrowedFor mapping in REVLoans (slot 11).
+    /// Determined via `forge inspect REVLoans storage-layout`.
     /// If you change REVLoans storage layout again, re-run `forge inspect` and update this constant in lockstep
     /// with `test/regression/StorageLayoutStable.t.sol`.
-    uint256 private constant TOTAL_LOANS_BORROWED_FOR_SLOT = 12;
+    uint256 private constant TOTAL_LOANS_BORROWED_FOR_SLOT = 11;
 
     /// @dev The address that is allowed to forward meta-transactions.
     address private constant TRUSTED_FORWARDER = 0xB2b5841DBeF766d4b521221732F9B618fCf34A87;

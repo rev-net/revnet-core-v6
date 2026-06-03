@@ -330,8 +330,7 @@ contract TestCashOutCallerValidation is TestBaseWorkflow {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(USER),
-            metadata: "",
-            referralProjectId: 0
+            metadata: ""
         });
 
         assertGt(reclaimed, 0, "Should have reclaimed some ETH");

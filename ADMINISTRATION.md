@@ -31,7 +31,7 @@
 | Split operator | Deployment config | Per revnet | Holds only the allowed operator envelope |
 | Auto-issuance beneficiary | Deployment config | Per stage | Can receive preconfigured stage issuance |
 | Borrower or delegated loan operator | Token holder plus permission | Per holder or loan | Can open or manage loans within loan rules |
-| `REVLoans` owner | Constructor owner | Global cosmetic/admin surface; controls `setTokenUriResolver` and `setReferralProjectId` | Does not turn Revnets back into ordinary governed projects |
+| `REVLoans` owner | Constructor owner | Global cosmetic/admin surface; controls `setTokenUriResolver` | Does not turn Revnets back into ordinary governed projects |
 
 ## Privileged Surfaces
 
@@ -42,13 +42,14 @@
 - `REVOwner.setOperatorOf(...)` rotates the operator (current operator only)
 - operator paths can manage only the permissions left open by deployment
 - loan operators can redirect borrowed value or returned collateral if a holder delegates loan permissions; treat `REALLOCATE_LOAN` as debt-creation/proceeds-redirection authority and `REPAY_LOAN` as collateral-withdrawal/beneficiary-redirection authority
-- `REVLoans.setReferralProjectId(projectId, chainId)` — `onlyOwner`; retargets the fee-volume referrer credited on every `useAllowanceOf` call this contract makes. Stores the packed `(chainId << 48) | projectId` value `JBMultiTerminal` expects on its `referralProjectId` argument. Defaults to `(1, REV_ID)` at construction so credit lands on the REV revnet on Ethereum mainnet regardless of which chain the loan originates from. Passing `(0, 0)` disables the credit entirely. Bounded so the pack is lossless: `projectId <= type(uint48).max`, `chainId <= type(uint208).max`.
 - `REVLoans.setTokenUriResolver(resolver)` — `onlyOwner`; swaps the token-URI resolver for loan NFTs. Pure cosmetic; does not affect loan economics.
+
 ## Immutable And One-Way
 
 - Stage configuration is effectively permanent after deployment.
 - The `REVOwner`-held project NFT is not a normal owner-recovery tool.
 - Loan collateral is burned at borrow time and only reminted through repayment or documented flows.
+
 ## Operational Notes
 
 - Treat revnet launch as the real governance decision.
