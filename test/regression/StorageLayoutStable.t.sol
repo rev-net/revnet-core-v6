@@ -16,8 +16,8 @@ import {MockSuckerRegistry} from "../mock/MockSuckerRegistry.sol";
 
 /// @notice Pins REVLoans's storage layout at the slot level by writing through `vm.store` and reading back via the
 /// public getter. If any state variable is reordered, inserted, or removed, this test fails — preventing silent
-/// breakage of consumers that hardcode slots (e.g. `LoanIdOverflowGuard.t.sol` uses slot 12 for
-/// `totalLoansBorrowedFor`, formerly slot 11 before `referralProjectId` was inserted at slot 8).
+/// breakage of consumers that hardcode slots (e.g. `LoanIdOverflowGuard.t.sol` uses slot 11 for
+/// `totalLoansBorrowedFor`).
 /// @dev If a future change must reorder storage, update BOTH the consumer slot constants AND this file in lockstep,
 /// then audit any external indexer / upgrade script that reads raw slots.
 contract StorageLayoutStable is TestBaseWorkflow {
@@ -47,54 +47,44 @@ contract StorageLayoutStable is TestBaseWorkflow {
         assertTrue(LOANS.isLoanSourceOf(revnetId, token), "isLoanSourceOf expected at slot 7");
     }
 
-    /// @notice `referralProjectId` (uint256) sits at slot 8.
-    /// @dev Inserted in alphabetical order between `isLoanSourceOf` (slot 7) and `tokenUriResolver` (slot 9) per
-    /// STYLE_GUIDE. This shifted every subsequent slot down by one — `LoanIdOverflowGuard.t.sol`'s
-    /// `TOTAL_LOANS_BORROWED_FOR_SLOT` was bumped 11 → 12 to match.
-    function test_slot_referralProjectId_is8() public {
-        uint256 probe = (uint256(7) << 48) | uint256(99);
-        vm.store(address(LOANS), bytes32(uint256(8)), bytes32(probe));
-        assertEq(LOANS.referralProjectId(), probe, "referralProjectId expected at slot 8");
-    }
-
-    /// @notice `tokenUriResolver` sits at slot 9.
-    function test_slot_tokenUriResolver_is9() public {
+    /// @notice `tokenUriResolver` sits at slot 8.
+    function test_slot_tokenUriResolver_is8() public {
         address probe = address(0xBEEF);
-        vm.store(address(LOANS), bytes32(uint256(9)), bytes32(uint256(uint160(probe))));
-        assertEq(address(LOANS.tokenUriResolver()), probe, "tokenUriResolver expected at slot 9");
+        vm.store(address(LOANS), bytes32(uint256(8)), bytes32(uint256(uint160(probe))));
+        assertEq(address(LOANS.tokenUriResolver()), probe, "tokenUriResolver expected at slot 8");
     }
 
-    /// @notice `totalBorrowedFrom` (mapping(uint256 => mapping(address => uint256))) sits at slot 10.
-    function test_slot_totalBorrowedFrom_is10() public {
+    /// @notice `totalBorrowedFrom` (mapping(uint256 => mapping(address => uint256))) sits at slot 9.
+    function test_slot_totalBorrowedFrom_is9() public {
         uint256 revnetId = 1;
         address token = JBConstants.NATIVE_TOKEN;
-        bytes32 outerSlot = keccak256(abi.encode(revnetId, uint256(10)));
+        bytes32 outerSlot = keccak256(abi.encode(revnetId, uint256(9)));
         bytes32 innerSlot = keccak256(abi.encode(token, outerSlot));
         vm.store(address(LOANS), innerSlot, bytes32(uint256(123_456)));
-        assertEq(LOANS.totalBorrowedFrom(revnetId, token), 123_456, "totalBorrowedFrom expected at slot 10");
+        assertEq(LOANS.totalBorrowedFrom(revnetId, token), 123_456, "totalBorrowedFrom expected at slot 9");
     }
 
-    /// @notice `totalCollateralOf` (mapping(uint256 => uint256)) sits at slot 11.
-    function test_slot_totalCollateralOf_is11() public {
+    /// @notice `totalCollateralOf` (mapping(uint256 => uint256)) sits at slot 10.
+    function test_slot_totalCollateralOf_is10() public {
         uint256 revnetId = 7;
-        bytes32 slot = keccak256(abi.encode(revnetId, uint256(11)));
+        bytes32 slot = keccak256(abi.encode(revnetId, uint256(10)));
         vm.store(address(LOANS), slot, bytes32(uint256(987)));
-        assertEq(LOANS.totalCollateralOf(revnetId), 987, "totalCollateralOf expected at slot 11");
+        assertEq(LOANS.totalCollateralOf(revnetId), 987, "totalCollateralOf expected at slot 10");
     }
 
-    /// @notice `totalLoansBorrowedFor` (mapping(uint256 => uint256)) sits at slot 12.
+    /// @notice `totalLoansBorrowedFor` (mapping(uint256 => uint256)) sits at slot 11.
     /// @dev This is the slot hardcoded in `LoanIdOverflowGuard.t.sol` as `TOTAL_LOANS_BORROWED_FOR_SLOT`. If this
     /// test fails, that test will too — audit every other `vm.store` reader in the suite, plus any external
     /// slot-based tooling, before bumping.
-    function test_slot_totalLoansBorrowedFor_is12() public {
+    function test_slot_totalLoansBorrowedFor_is11() public {
         uint256 revnetId = 1;
         uint256 probe = 1_000_000_000_000_000_000 - 1;
-        bytes32 slot = keccak256(abi.encode(revnetId, uint256(12)));
+        bytes32 slot = keccak256(abi.encode(revnetId, uint256(11)));
         vm.store(address(LOANS), slot, bytes32(probe));
         assertEq(
             LOANS.totalLoansBorrowedFor(revnetId),
             probe,
-            "totalLoansBorrowedFor expected at slot 12 (matches LoanIdOverflowGuard.t.sol)"
+            "totalLoansBorrowedFor expected at slot 11 (matches LoanIdOverflowGuard.t.sol)"
         );
     }
 }

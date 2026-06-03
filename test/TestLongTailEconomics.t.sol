@@ -384,8 +384,7 @@ contract TestLongTailEconomics is TestBaseWorkflow {
                 tokenToReclaim: JBConstants.NATIVE_TOKEN,
                 minTokensReclaimed: 0,
                 beneficiary: payable(users[i]),
-                metadata: "",
-                referralProjectId: 0
+                metadata: ""
             });
             totalReclaimed += reclaimed;
         }
@@ -434,8 +433,7 @@ contract TestLongTailEconomics is TestBaseWorkflow {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(payer),
-            metadata: "",
-            referralProjectId: 0
+            metadata: ""
         });
 
         // With a 50% tax rate and being the only holder, cashing out half the tokens
@@ -475,8 +473,7 @@ contract TestLongTailEconomics is TestBaseWorkflow {
                     tokenToReclaim: JBConstants.NATIVE_TOKEN,
                     minTokensReclaimed: 0,
                     beneficiary: payable(users[i]),
-                    metadata: "",
-                    referralProjectId: 0
+                    metadata: ""
                 });
             }
         }
@@ -503,8 +500,7 @@ contract TestLongTailEconomics is TestBaseWorkflow {
                     tokenToReclaim: JBConstants.NATIVE_TOKEN,
                     minTokensReclaimed: 0,
                     beneficiary: payable(users[3]),
-                    metadata: "",
-                    referralProjectId: 0
+                    metadata: ""
                 });
             }
         }
@@ -581,8 +577,7 @@ contract TestLongTailEconomics is TestBaseWorkflow {
             tokenToReclaim: JBConstants.NATIVE_TOKEN,
             minTokensReclaimed: 0,
             beneficiary: payable(lateUser),
-            metadata: "",
-            referralProjectId: 0
+            metadata: ""
         });
 
         // The late entrant should not extract more than they put in.
@@ -625,8 +620,7 @@ contract TestLongTailEconomics is TestBaseWorkflow {
                     tokenToReclaim: JBConstants.NATIVE_TOKEN,
                     minTokensReclaimed: 0,
                     beneficiary: payable(users[0]),
-                    metadata: "",
-                    referralProjectId: 0
+                    metadata: ""
                 });
             }
         }
@@ -681,8 +675,7 @@ contract TestLongTailEconomics is TestBaseWorkflow {
                 tokenToReclaim: JBConstants.NATIVE_TOKEN,
                 minTokensReclaimed: 0,
                 beneficiary: payable(user),
-                metadata: "",
-                referralProjectId: 0
+                metadata: ""
             });
 
             uint256 feeBalanceAfterRound =
