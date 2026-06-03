@@ -1,6 +1,6 @@
 # Invariants — `@rev-net/core-v6`
 
-Scope: invariants for the three contracts that make up `revnet-core-v6` — `REVOwner` (project-NFT holder + runtime data hook), `REVDeployer` (revnet factory), and `REVLoans` (collateralized borrowing against revnet tokens). Sits on top of `nana-core-v6`. The monorepo-wide invariants (e.g. nana-core's terminal/controller mechanics, suckers' bridge accounting, registry-default cohort safety) are not duplicated here — see `/Users/jango/Documents/jb/v6/evm/INVARIANTS.md`.
+Scope: invariants for the three contracts that make up `revnet-core-v6` — `REVOwner` (project-NFT holder + runtime data hook), `REVDeployer` (revnet factory), and `REVLoans` (collateralized borrowing against revnet tokens). Sits on top of `nana-core-v6`. The monorepo-wide invariants (e.g. nana-core's terminal/controller mechanics, suckers' bridge accounting, registry-default cohort safety) are not duplicated here — see `../INVARIANTS.md`.
 
 This document is the **policy boundary** for revnets specifically: what holders, borrowers, and operators are guaranteed and what they aren't. The cross-chain arbitrage model that ties the LOCAL-rate sucker branch and AGGREGATED-rate normal branch together is documented separately in [`ARBITRAGE.md`](./ARBITRAGE.md) and cross-referenced below.
 
@@ -15,11 +15,11 @@ Companion docs in this repo:
 
 ---
 
-# Section A — Guarantees to Revnet Holders
+## Section A — Guarantees to Revnet holders
 
 Audience: anyone paying a revnet, holding its tokens, or borrowing against them.
 
-## A.1 Payment & issuance
+## A.1 Payment and issuance
 
 - A payment of `X` accepted-token mints `weight × X` revnet tokens at the *current stage's* configured weight, minus the reserved percent (which accrues to `pendingReservedTokenBalanceOf` for split distribution).
 - `REVOwner.beforePayRecordedWith` (`src/REVOwner.sol:412-460`) **scales the buyback hook's weight** by `projectAmount / context.amount.value` whenever a 721 tier split deducts from the deposit, so payers receive token credit only for the portion that actually entered the project — not for the split portion routed to NFT-tier recipients.
@@ -65,7 +65,7 @@ Audience: anyone paying a revnet, holding its tokens, or borrowing against them.
 
 ---
 
-# Section B — Guarantees to Revnet Operators
+## Section B — Guarantees to Revnet operators
 
 Audience: the per-revnet operator EOA configured at launch (`configuration.operator`).
 
@@ -116,7 +116,7 @@ Plus rotation:
 
 ---
 
-# Section C — Per-Contract Operation Inventory
+## Section C — Per-contract operation inventory
 
 For each external/public function: caller, effect, and the invariant it preserves.
 
@@ -184,7 +184,7 @@ For each external/public function: caller, effect, and the invariant it preserve
 - **`deploySuckersFor(uint256 revnetId, REVSuckerDeploymentConfig)`** (`src/REVDeployer.sol:588-615`) — current operator only (via `REVOwner.isOperatorOf`). Reads the current ruleset's metadata bit 2 (`allowsDeployingSuckers`); reverts if disabled.
   - **Invariant:** only the operator can extend bridging; only when the active ruleset's metadata permits.
 
-### Views & receivers
+### Views and receivers
 
 - `onERC721Received` (`src/REVDeployer.sol:217-222`) — accepts JBProjects mints only.
 - `supportsInterface`.
@@ -219,7 +219,7 @@ For each external/public function: caller, effect, and the invariant it preserve
 
 ---
 
-# Section D — Cross-Cutting Invariants
+## Section D — Cross-cutting invariants
 
 1. **One-shot binders.** `REVOwner.setDeployer` reverts on second call (`REVOwner_AlreadyInitialized`). The `_DEPLOYER` immutable cannot be rotated.
 2. **Operator rotation is the only path to change operator.** No protocol-level seize, no admin override. `address(0)` permanently relinquishes.
@@ -232,7 +232,7 @@ For each external/public function: caller, effect, and the invariant it preserve
    These are back-stopped by holders' own auth: a wildcard grant on `REVOwner`'s account does not let the grantee act *on behalf of a holder* — only on behalf of `REVOwner` (which holds the project NFT).
 5. **REVLoans collateral is burned, not escrowed.** Loan-to-value can reach 1.0 when `cashOutTaxRate == 0`. With non-zero tax, the curve's concavity provides an implicit margin; e.g. a 10% tax gives ~10% margin against pure pro-rata.
 6. **Cash-out delay applies to `cashOutTokensOf` and `REVLoans.borrowFrom` but NOT to `sucker.prepare`.** Intentional asymmetry — see ARBITRAGE.md (Path 1) and `src/REVOwner.sol:231-245`.
-7. **Cross-chain arbitrage conservation.** Aggregate surplus across all chains is preserved modulo `protocol_fees_extracted + outstanding_loans`. The LOCAL-vs-AGGREGATED asymmetry is the arbitrageur's margin. See [`ARBITRAGE.md`](./ARBITRAGE.md) for the full taxonomy and `/Users/jango/Documents/jb/v6/evm/INVARIANTS.md` Section D2 for the layered conservation invariants.
+7. **Cross-chain arbitrage conservation.** Aggregate surplus across all chains is preserved modulo `protocol_fees_extracted + outstanding_loans`. The LOCAL-vs-AGGREGATED asymmetry is the arbitrageur's margin. See [`ARBITRAGE.md`](./ARBITRAGE.md) for the full taxonomy and `../INVARIANTS.md` Section D2 for the layered conservation invariants.
 8. **`encodedConfigurationHash` commits revnet identity across chains.** Includes stage economics + base currency + `scopeCashOutsToLocalBalances` + identity. Excludes terminal addresses (deployer-pinned) and reserved-token split recipients (operator-mutable). See ARCHITECTURE.md `Cross-Chain Configuration Hash`.
 9. **No hidden-token supply bucket.** Cash-out and loan denominators start from core's `totalTokenSupplyWithReservedTokensOf()` + `totalCollateralOf[revnetId]`. Voluntary burns destroy the holder's own claim, not tracked as hidden supply. See `RISKS.md` Section 7.11.
 10. **Per-leaf reentrancy discipline.** `REVOwner.autoIssueFor` zeroes its mapping before the mint call. `REVLoans` uses a transient `_loanActionEntered` flag (`nonReentrantLoanAction`) across `borrowFrom`, `reallocateCollateralFromLoan`, `repayLoan`, `liquidateExpiredLoansFrom`. `_repayLoan` re-checks loan NFT ownership after `_acceptFundsFor` to defeat ERC-777/1363 callbacks.
@@ -240,7 +240,7 @@ For each external/public function: caller, effect, and the invariant it preserve
 
 ---
 
-# Section E — Centralization Caveats
+## Section E — Centralization caveats
 
 Out-of-scope third-party attack surface; these are powers held by privileged addresses outside any individual operator's control.
 
@@ -253,7 +253,7 @@ Out-of-scope third-party attack surface; these are powers held by privileged add
 
 ---
 
-# Section F — Key Code References
+## Section F — Key code references
 
 | File:line | What |
 |---|---|
@@ -295,10 +295,10 @@ Out-of-scope third-party attack surface; these are powers held by privileged add
 
 ---
 
-# See Also
+## See also
 
 - [`ARBITRAGE.md`](./ARBITRAGE.md) — three intentional arbitrage paths, cross-chain conservation, why LOCAL-vs-AGGREGATED asymmetry is by design.
-- `/Users/jango/Documents/jb/v6/evm/INVARIANTS.md` — monorepo-wide invariants for revnets 1–7 (the deployed set), full cross-cutting invariants (Section D), cross-chain arbitrage model (Section D2), and centralization caveats (Section E).
+- `../INVARIANTS.md` — monorepo-wide invariants for revnets 1–7 (the deployed set), full cross-cutting invariants (Section D), cross-chain arbitrage model (Section D2), and centralization caveats (Section E).
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) — module boundaries, accounting model, critical flows, the `encodedConfigurationHash` commitment.
 - [`RISKS.md`](./RISKS.md) — accepted behaviors and known tradeoffs (sucker 0% tax, no short-horizon liquidation, surplus-donation self-defeat, local-liquidity-capped cash-outs, etc.).
 - [`ADMINISTRATION.md`](./ADMINISTRATION.md) — control roles and privileged surfaces in narrative form.

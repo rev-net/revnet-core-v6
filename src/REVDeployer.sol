@@ -60,13 +60,28 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     // --------------------------- custom errors ------------------------- //
     //*********************************************************************//
 
+    /// @notice Thrown when an auto-issuance is configured with the zero address as beneficiary.
     error REVDeployer_AutoIssuanceBeneficiaryZeroAddress(uint256 stageIndex, uint256 autoIssuanceIndex);
+
+    /// @notice Thrown when a stage's cash-out tax rate is at or above the maximum, which would disable cash-outs.
     error REVDeployer_CashOutsCantBeTurnedOffCompletely(uint256 cashOutTaxRate, uint256 maxCashOutTaxRate);
+
+    /// @notice Thrown when a stage has a non-zero split percent but no splits to receive it.
     error REVDeployer_MustHaveSplits(uint256 stageIndex, uint256 splitPercent);
+
+    /// @notice Thrown when native value is sent while deploying onto an existing revnet, which needs no creation fee.
     error REVDeployer_ProjectCreationFeeNotNeeded(uint256 revnetId, uint256 value);
+
+    /// @notice Thrown when deploying suckers for a revnet whose current ruleset does not allow it.
     error REVDeployer_RulesetDoesNotAllowDeployingSuckers(uint256 revnetId);
+
+    /// @notice Thrown when a revnet is configured with no stages.
     error REVDeployer_StagesRequired(uint256 stageCount);
+
+    /// @notice Thrown when a stage's effective start time is not after the previous stage's start time.
     error REVDeployer_StageTimesMustIncrease(uint256 stageIndex, uint256 previousStageStart, uint256 effectiveStart);
+
+    /// @notice Thrown when the caller is neither the revnet's owner nor its current operator.
     error REVDeployer_Unauthorized(uint256 revnetId, address caller);
 
     //*********************************************************************//
@@ -520,7 +535,14 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
         return (revnetId, hook);
     }
 
-    /// @inheritdoc IREVDeployer
+    /// @notice Deploy a revnet with a default empty tiered ERC-721 hook.
+    /// @dev Convenience overload — constructs an empty 721 config internally and delegates to the 6-arg version.
+    /// @param revnetId The ID of the Juicebox project to initialize. Send 0 to deploy a new revnet.
+    /// @param configuration Core revnet configuration.
+    /// @param accountingContextsToAccept The accounting contexts the canonical multi terminal should accept.
+    /// @param suckerDeploymentConfiguration The suckers to set up for cross-chain token transfers.
+    /// @return The ID of the newly created or initialized revnet.
+    /// @return hook The tiered ERC-721 hook deployed for the revnet.
     // The deployment flow makes external setup calls, but any observed state is revnet-scoped and reverts atomically.
     function deployFor(
         uint256 revnetId,
@@ -585,6 +607,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @dev Only the revnet's operator can deploy new suckers.
     /// @param revnetId The ID of the revnet to deploy suckers for.
     /// @param suckerDeploymentConfiguration The suckers to set up for the revnet.
+    /// @return suckers The addresses of the suckers deployed for the revnet.
     function deploySuckersFor(
         uint256 revnetId,
         REVSuckerDeploymentConfig calldata suckerDeploymentConfiguration
@@ -619,6 +642,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     //*********************************************************************//
 
     /// @notice Deploy a revnet which sells tiered ERC-721s and optionally allows Croptop posts to its ERC-721 tiers.
+    /// @return hook The address of the tiered ERC-721 hook deployed for the revnet.
     // The helper performs external hook/post setup after core revnet setup; any failure reverts the whole deployment.
     function _deploy721RevnetFor(
         uint256 revnetId,
@@ -752,6 +776,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @param accountingContextsToAccept The accounting contexts the canonical multi terminal should accept.
     /// @param suckerDeploymentConfiguration The suckers to set up for cross-chain token transfers.
     /// @return encodedConfigurationHash A hash that represents the revnet's configuration.
+    /// @return ownerInit The revnet-scoped initialization state for `REVOwner`, populated during deployment.
     function _deployRevnetFor(
         uint256 revnetId,
         bool shouldDeployNewRevnet,
@@ -810,7 +835,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
             salt: keccak256(abi.encode(configuration.description.salt, encodedConfigurationHash, _msgSender()))
         });
 
-        // Now that the ERC-20 exists, initialize buyback pools for each accepted treasury token.
+        // With the ERC-20 deployed, initialize buyback pools for each accepted treasury token.
         for (uint256 i; i < accountingContextsToAccept.length;) {
             _tryInitializeBuybackPoolFor({
                 revnetId: revnetId,
@@ -852,6 +877,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @param revnetId The ID of the revnet to deploy suckers for.
     /// @param encodedConfigurationHash A hash that represents the revnet's configuration.
     /// @param suckerDeploymentConfiguration The suckers to set up for the revnet.
+    /// @return suckers The addresses of the suckers deployed for the revnet.
     function _deploySuckersFor(
         uint256 revnetId,
         bytes32 encodedConfigurationHash,

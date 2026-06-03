@@ -14,7 +14,7 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 | `REVOwner` | Project NFT owner and runtime hook for every revnet. Implements `IJBRulesetDataHook` + `IJBCashOutHook` + `IERC721Receiver`. Set as the `dataHook` in each revnet's ruleset metadata. Holds the JBProjects NFT (project owner of record). Manages operator permissions (grants `DEPLOY_SUCKERS` + `MAP_SUCKER_TOKEN` to REVDeployer in `setDeployer` so the deployer can continue driving sucker setup). Exposes `initializeRevnet` (deployer-only single-call setup), `autoIssueFor`, `burnHeldTokensOf`, `setOperatorOf`, `isOperatorOf`. Handles pay hooks, cash-out hooks, mint permissions, and sucker verification. Stores `cashOutDelayOf`, `tiered721HookOf`, `amountToAutoIssue`, and extra-operator-permission state. |
 | `REVLoans` | Issues token-collateralized loans from revnet treasuries. Each loan is an ERC-721 NFT. Burns collateral on borrow, re-mints on repay. Charges tiered fees (REV protocol fee + source fee + prepaid fee). |
 
-## Key Functions
+## Key functions
 
 ### Deployment
 
@@ -24,7 +24,7 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 | `REVDeployer.deployFor(revnetId, config, terminals, suckerConfig, hookConfig, allowedPosts)` | Permissionless | Same as `deployFor` but deploys a tiered ERC-721 hook with pre-configured tiers. Optionally configures Croptop posting criteria and grants publisher permission to add tiers. |
 | `REVDeployer.deploySuckersFor(revnetId, suckerConfig)` | Split operator | Deploy new cross-chain suckers post-launch. Validates ruleset allows sucker deployment (bit 2 of `extraMetadata`). Uses stored config hash for cross-chain matching. |
 
-### Data Hooks (REVOwner)
+### Data hooks (REVOwner)
 
 | Function | Permissions | What it does |
 |----------|------------|-------------|
@@ -41,14 +41,14 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 | `REVOwner.setOperatorOf(revnetId, newOperator)` | Current operator | Replace the current operator. Revokes old permissions, grants new ones — all scoped on REVOwner's account. |
 | `REVOwner.isOperatorOf(revnetId, addr)` | View | Returns whether `addr` holds the revnet's operator permissions on REVOwner's account. |
 
-### Auto-Issuance
+### Auto-issuance
 
 | Function | Permissions | What it does |
 |----------|------------|-------------|
 | `REVOwner.autoIssueFor(revnetId, stageId, beneficiary)` | Permissionless | Mint pre-configured auto-issuance tokens for a beneficiary once a stage has started. One-time per stage per beneficiary. |
 | `REVOwner.burnHeldTokensOf(revnetId)` | Permissionless | Burn any reserved tokens held by REVOwner (e.g., leftovers when reserved-token splits don't sum to 100%, since the JBController mints the residue to the project owner — REVOwner). |
 
-### Loans -- Borrowing
+### Loans — borrowing
 
 | Function | Permissions | What it does |
 |----------|------------|-------------|
@@ -58,7 +58,7 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 | `REVLoans.liquidateExpiredLoansFrom(revnetId, startingLoanId, count)` | Permissionless | Clean up loans past the 10-year liquidation duration. Burns NFTs and decrements accounting totals. Collateral is permanently lost. |
 | `REVLoans.setTokenUriResolver(resolver)` | Contract owner (`onlyOwner`) | Set the `IJBTokenUriResolver` used for loan NFT token URIs. |
 
-### Loans -- Views
+### Loans — views
 
 | Function | What it does |
 |----------|-------------|
@@ -67,7 +67,7 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 | `REVLoans.loanOf(loanId)` | Returns the full `REVLoan` struct for a loan. |
 | `REVLoans.loanSourceTokensOf(revnetId)` | Returns all token sources used for loans by a revnet. Loans always source funds from the canonical `MULTI_TERMINAL`. |
 | `REVLoans.revnetIdOfLoanWith(loanId)` | Decode the revnet ID from a loan ID (`loanId / 1_000_000_000_000_000_000`). |
-## Integration Points
+## Integration points
 
 | Dependency | Import | Used For |
 |------------|--------|----------|
@@ -81,7 +81,7 @@ Deploy and manage Revnets -- autonomous, unowned Juicebox projects with staged i
 | `@uniswap/permit2` | `IPermit2`, `IAllowanceTransfer` | Gasless token approvals for loan repayments |
 | `@prb/math` | `mulDiv` | Precise fixed-point multiplication and division |
 
-## Key Types
+## Key types
 
 | Struct | Key Fields | Used In |
 |--------|------------|---------|

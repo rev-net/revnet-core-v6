@@ -164,7 +164,7 @@ Use this file when you need revnet-specific risks, state reads, constants, or ex
 20. **39.16% cash-out tax crossover.** Below ~39% cash-out tax, cashing out is more capital-efficient than borrowing. Above ~39%, loans become more efficient because they preserve upside while providing liquidity. Based on CryptoEconLab academic research. Design implication: revnets intended for active token trading should consider this threshold when setting `cashOutTaxRate`.
 21. **REVDeployer always deploys a 721 hook** via `HOOK_DEPLOYER.deployHookFor` — even if `baseline721HookConfiguration` has empty tiers. This is correct by design: it lets the operator add and sell NFTs later without migration. Non-revnet projects should follow the same pattern by using `JB721TiersHookProjectDeployer.launchProjectFor` (or `JBOmnichainDeployer.launchProjectFor`) instead of bare `launchProjectFor`.
 22. **REVOwner deployer binding is precomputed.** REVOwner records the account that created it as an internal one-time binder. That account must call `setDeployer(precomputedRevDeployerAddress)` exactly once before the canonical REVDeployer is deployed. This avoids an ambient public initializer while keeping the circular dependency manageable. If `setDeployer(...)` is never called, all DEPLOYER-gated runtime configuration breaks.
-### NATIVE_TOKEN Accounting on Non-ETH Chains
+### NATIVE_TOKEN accounting on non-ETH chains
 
 When deploying to a chain where the native token is NOT ETH (Celo, Polygon), the terminal must NOT use `JBConstants.NATIVE_TOKEN` as its accounting context. `NATIVE_TOKEN` represents whatever is native on that chain, but `baseCurrency=1` (ETH) assumes ETH-denominated value.
 
@@ -186,11 +186,11 @@ JBAccountingContext({
 })
 ```
 
-## Reading Revnet State
+## Reading revnet state
 
 Quick-reference for common read operations. All functions are `view`/`pure` and permissionless.
 
-### Current Stage & Ruleset
+### Current stage and ruleset
 
 | What | Call | Returns |
 |------|------|---------|
@@ -204,7 +204,7 @@ Quick-reference for common read operations. All functions are `view`/`pure` and 
 |------|------|---------|
 | Check if address is operator | `REVDeployer.isOperatorOf(revnetId, addr)` | `bool` |
 
-### Token Supply & Surplus
+### Token supply and surplus
 
 | What | Call | Returns |
 |------|------|---------|
@@ -212,7 +212,7 @@ Quick-reference for common read operations. All functions are `view`/`pure` and 
 | Pending reserved tokens | `IJBController(CONTROLLER).pendingReservedTokenBalanceOf(revnetId)` | `uint256` |
 | Current surplus (single terminal) | `IJBTerminalStore(STORE).currentSurplusOf(terminal, revnetId, configs, decimals, currency)` | `uint256` |
 
-### Auto-Issuance
+### Auto-issuance
 
 | What | Call | Returns |
 |------|------|---------|
@@ -232,21 +232,21 @@ Quick-reference for common read operations. All functions are `view`/`pure` and 
 | Revnet ID from loan ID | `REVLoans.revnetIdOfLoanWith(loanId)` | `uint256` (pure) |
 | Loan NFT owner | `REVLoans.ownerOf(loanId)` | `address` (ERC-721) |
 
-### Deployer Config
+### Deployer config
 
 | What | Call | Returns |
 |------|------|---------|
 | Config hash (cross-chain matching) | `REVDeployer.hashedEncodedConfigurationOf(revnetId)` | `bytes32` |
 | REVOwner address | `REVDeployer.OWNER()` | `address` |
 
-### REVOwner State
+### REVOwner state
 
 | What | Call | Returns |
 |------|------|---------|
 | 721 hook address | `REVOwner.tiered721HookOf(revnetId)` | `IJB721TiersHook` |
 | Cash-out delay timestamp | `REVOwner.cashOutDelayOf(revnetId)` | `uint256` (0 = no delay) |
 
-## Example Integration
+## Example integration
 
 ```solidity
 import {REVConfig} from "@rev-net/core-v6/src/structs/REVConfig.sol";
