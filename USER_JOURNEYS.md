@@ -107,7 +107,7 @@ This repo packages autonomous Revnets: staged Juicebox projects whose runtime be
 **Preconditions**
 
 - the holder has eligible Revnet token exposure
-- the holder trusts any delegated operator with `OPEN_LOAN`
+- the holder trusts any delegated operator with `OPEN_LOAN`, `REALLOCATE_LOAN`, or `REPAY_LOAN`
 
 **Main Flow**
 
@@ -118,7 +118,7 @@ This repo packages autonomous Revnets: staged Juicebox projects whose runtime be
 
 **Failure Modes**
 
-- delegated operators redirect value in ways the holder did not intend
+- delegated operators redirect borrowed value or returned collateral in ways the holder did not intend
 - reviewers model the loan system as escrowed collateral when it is burned-collateral lending
 
 **Postconditions**
