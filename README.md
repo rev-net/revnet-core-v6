@@ -14,7 +14,7 @@
 - [AUDIT_INSTRUCTIONS.md](./AUDIT_INSTRUCTIONS.md) — auditor scope and orientation
 - [SKILLS.md](./SKILLS.md) — agent-oriented navigation map
 - [STYLE_GUIDE.md](./STYLE_GUIDE.md) — solidity conventions across the V6 ecosystem
-- [CHANGELOG.md](./CHANGELOG.md) — version history
+- [CHANGELOG.md](./CHANGELOG.md) - V5 to V6 migration changelog
 
 ## Overview
 
