@@ -1,12 +1,10 @@
 # Arbitrage Paths in Revnets
 
-Scope: the three intentional arbitrage incentives that, together, keep a revnet's economic surfaces aligned across (a) chains, (b) AMM secondary markets, and (c) the terminal pay/cashout flows. This document is the canonical reference for builders integrating with revnets, arbitrageurs hunting opportunities, holders reasoning about their economics, and maintainers reading the code.
-
-Audience note: this is a **feature spec**, not a vulnerability disclosure. Each path is wired in deliberately; removing any one would create a different problem. The arbitrageur pays effort + capital and gets paid out of the divergence they close. The protocol uses that work to self-equilibrate and grow.
+A revnet exposes three intentional arbitrage incentives that, together, keep its economic surfaces aligned across (a) chains, (b) AMM secondary markets, and (c) the terminal pay/cashout flows. This document is the canonical reference for builders integrating with revnets, arbitrageurs hunting opportunities, holders reasoning about their economics, and maintainers reading the code. Each path is wired in deliberately; removing any one would create a different problem. The arbitrageur pays effort + capital and gets paid out of the divergence they close. The protocol uses that work to self-equilibrate and grow.
 
 ---
 
-# Overview
+## Overview
 
 A revnet has three economic surfaces that can diverge from each other:
 
@@ -26,7 +24,7 @@ In every case, the arbitrageur captures the spread; the protocol captures the eq
 
 ---
 
-# Path 1 — Cross-chain rebalancing arbitrage
+## Path 1 — Cross-chain rebalancing arbitrage
 
 ## Trigger
 
@@ -94,14 +92,14 @@ Profit per cycle scales with divergence. Each cycle reduces divergence, which re
 
 ## See also
 
-- `/Users/jango/Documents/jb/v6/evm/INVARIANTS.md` Section D2 — full conservation model, the asymmetry justification, and the rationale for `scopeCashOutsToLocalBalances=false` on revnets 1–7.
+- `../INVARIANTS.md` Section D2 — full conservation model, the asymmetry justification, and the rationale for `scopeCashOutsToLocalBalances=false` on revnets 1–7.
 - `deploy-all-v6/test/fork/CrossChainArbCharacterizationFork.t.sol` — quantifies P&L across realistic divergence scenarios.
 - `deploy-all-v6/test/invariants/CrossChainArbInvariant.t.sol` — stateful invariants for Layer-1 conservation and Layer-2 variance reduction.
 - `deploy-all-v6/test/fork/CrossChainArbScenariosFork.t.sol` — late-chain-joins, whale-exits, cash-out-delay scenarios.
 
 ---
 
-# Path 2 — Cash-out floor arbitrage (AMM → terminal)
+## Path 2 — Cash-out floor arbitrage (AMM → terminal)
 
 ## Trigger
 
@@ -134,7 +132,7 @@ Each cycle pulls AMM supply off the venue and converts it to retained backing. T
 
 ---
 
-# Path 3 — Pay ceiling arbitrage (terminal → AMM)
+## Path 3 — Pay ceiling arbitrage (terminal → AMM)
 
 ## Trigger
 
@@ -164,7 +162,7 @@ Existing holders see marginal dilution as new supply is minted with new ETH. Per
 
 ---
 
-# Cross-cutting properties
+## Cross-cutting properties
 
 ## Conservation
 
@@ -194,7 +192,7 @@ Removing any of these would create a worse problem:
 
 ---
 
-# For arbitrageurs: operational notes
+## For arbitrageurs: operational notes
 
 - **The simplest profitable scenarios are persistent ones.** Chains where bridge fees + gas allow continued small-cycle equalization, or AMM pools that re-detach from the protocol surface frequently. One-shot arbitrage on a freshly-deployed chain is one big cycle; ongoing arbitrage is a stream of small ones.
 - **Cross-chain bridging is gas-intensive.** Suckers, cross-chain messengers (CCIP, OP messenger, Arbitrum inbox), and the destination claim all cost gas. Profit must exceed those costs plus fee impact.
@@ -203,7 +201,7 @@ Removing any of these would create a worse problem:
 
 ---
 
-# For operators: what to monitor
+## For operators: what to monitor
 
 - **If cross-chain backing isn't converging despite bridges being open**, investigate bridging cost barriers (CCIP fees, gas on either side, AMM slippage on the trade legs). Arbitrage only happens when the spread exceeds the round-trip cost.
 - **If AMM price stays detached from terminal pay/cashout rates**, the buyback hook may need a wider TWAP window (less sensitive to short-term manipulation but slower to track) or a different fee-tier pool. Operators with `SET_BUYBACK_POOL` and `SET_BUYBACK_TWAP` permissions can adjust these.
@@ -212,9 +210,9 @@ Removing any of these would create a worse problem:
 
 ---
 
-# Reading list
+## Reading list
 
-- `/Users/jango/Documents/jb/v6/evm/INVARIANTS.md` Section D2 — full conservation model and the deliberate-asymmetry rationale.
+- `../INVARIANTS.md` Section D2 — full conservation model and the deliberate-asymmetry rationale.
 - `src/REVOwner.sol:231-233` — sucker branch in `beforeCashOutRecordedWith`, returns `taxRate=0` at LOCAL rate.
 - `src/REVLoans.sol:419-435` — aggregated-vs-local supply selection and the local-surplus cap on borrow.
 - `deploy-all-v6/test/fork/CrossChainArbCharacterizationFork.t.sol` — quantitative P&L characterization.

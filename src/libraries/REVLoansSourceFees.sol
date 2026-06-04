@@ -9,6 +9,7 @@ import {REVLoan} from "../structs/REVLoan.sol";
 
 /// @notice Source-fee arithmetic for REV loans.
 library REVLoansSourceFees {
+    /// @notice Thrown when computing the source fee for a loan whose elapsed time exceeds the liquidation duration.
     error REVLoans_LoanExpired(uint256 timeSinceLoanCreated, uint256 loanLiquidationDuration);
 
     /// @notice Determines the source fee amount for a loan when paying off a certain amount.

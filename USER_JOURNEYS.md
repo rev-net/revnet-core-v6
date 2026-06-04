@@ -1,24 +1,24 @@
 # User Journeys
 
-## Repo Purpose
+## Repo purpose
 
 This repo packages autonomous Revnets: staged Juicebox projects whose runtime behavior is intentionally constrained after launch. It owns deploy-time stage encoding, runtime enforcement, and lending against revnet token exposure.
 
-## Primary Actors
+## Primary actors
 
 - teams launching autonomous Revnets with encoded stage transitions
 - participants buying, holding, and cashing out Revnet exposure over time
 - borrowers using Revnet tokens as collateral instead of selling them
 - operators working inside the narrow post-launch envelope the deployer allows
 
-## Key Surfaces
+## Key surfaces
 
 - `REVDeployer`: launch-time packaging, stage config, and operator envelope. A factory — it creates and configures Revnets, then hands the project NFT to `REVOwner`. Also exposes `deploySuckersFor` for post-deploy sucker registration.
 - `REVOwner`: holds the JBProjects NFT for every Revnet and is therefore the project's authoritative on-chain owner. Manages operator permissions, exposes `autoIssueFor` / `burnHeldTokensOf` / `setOperatorOf`, and serves as every Revnet's data hook for runtime pay and cash-out behavior.
 - `REVLoans`: borrowing, repayment, transfer, reallocation, and liquidation
 - `REVOwner.autoIssueFor(...)`, `REVLoans.borrowFrom(...)`: high-signal runtime entrypoints
 
-## Journey 1: Launch A Revnet With Its Long-Lived Rules Encoded Up Front
+## Journey 1: Launch a Revnet with its long-lived rules encoded up front
 
 **Actor:** launch team.
 
@@ -45,7 +45,7 @@ This repo packages autonomous Revnets: staged Juicebox projects whose runtime be
 
 - the Revnet launches with its long-lived stage envelope encoded up front
 
-## Journey 2: Participate Across Stage Transitions
+## Journey 2: Participate across stage transitions
 
 **Actor:** participant.
 
@@ -72,7 +72,7 @@ This repo packages autonomous Revnets: staged Juicebox projects whose runtime be
 
 - the participant's buys and exits follow the active stage's constraints
 
-## Journey 3: Claim Stage-Based Auto-Issuance
+## Journey 3: Claim stage-based auto-issuance
 
 **Actor:** auto-issuance beneficiary.
 
@@ -98,7 +98,7 @@ This repo packages autonomous Revnets: staged Juicebox projects whose runtime be
 
 - the stage allocation is either claimed once or remains reserved until valid
 
-## Journey 4: Borrow Against Revnet Tokens Instead Of Selling Them
+## Journey 4: Borrow against Revnet tokens instead of selling them
 
 **Actor:** holder or delegated loan operator.
 
@@ -125,7 +125,7 @@ This repo packages autonomous Revnets: staged Juicebox projects whose runtime be
 
 - collateralized exposure becomes a live loan position under Revnet economics
 
-## Journey 5: Operate Inside The Bounded Post-Launch Control Envelope
+## Journey 5: Operate inside the bounded post-launch control envelope
 
 **Actor:** operator with ongoing powers.
 
@@ -151,13 +151,13 @@ This repo packages autonomous Revnets: staged Juicebox projects whose runtime be
 
 - post-launch control remains inside the bounded envelope left by deployment
 
-## Trust Boundaries
+## Trust boundaries
 
 - this repo is trusted for revnet-specific economics and runtime policy
 - treasury accounting still comes from core
 - optional integrations materially change revnet behavior and must be reviewed together with the local code
 
-## Hand-Offs
+## Hand-offs
 
 - Use [nana-core-v6](../nana-core-v6/USER_JOURNEYS.md) for underlying terminal and project accounting.
 - Use [nana-buyback-hook-v6](../nana-buyback-hook-v6/USER_JOURNEYS.md), [nana-suckers-v6](../nana-suckers-v6/USER_JOURNEYS.md), and [nana-721-hook-v6](../nana-721-hook-v6/USER_JOURNEYS.md) when those integrations are enabled.

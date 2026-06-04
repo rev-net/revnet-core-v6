@@ -57,27 +57,70 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     // --------------------------- custom errors ------------------------- //
     //*********************************************************************//
 
+    /// @notice Thrown when opening a loan before the revnet's cash-out delay has elapsed.
     error REVLoans_CashOutDelayNotFinished(uint256 cashOutDelay, uint256 blockTimestamp);
+
+    /// @notice Thrown when the collateral requested to return exceeds the loan's collateral.
     error REVLoans_CollateralExceedsLoan(uint256 collateralToReturn, uint256 loanCollateral);
+
+    /// @notice Thrown when a repayment credits a different amount than expected, indicating a fee-on-transfer token.
     error REVLoans_FeeOnTransferSourceUnsupported(address token, uint256 expectedAmount, uint256 creditedAmount);
+
+    /// @notice Thrown when the loan source token has no matching accounting context on the terminal.
     error REVLoans_InvalidAccountingContext(uint256 revnetId, address token);
+
+    /// @notice Thrown when the prepaid fee percent is outside the allowed minimum and maximum.
     error REVLoans_InvalidPrepaidFeePercent(uint256 prepaidFeePercent, uint256 min, uint256 max);
+
+    /// @notice Thrown when acting on a loan whose elapsed time exceeds the liquidation duration.
     error REVLoans_LoanExpired(uint256 timeSinceLoanCreated, uint256 loanLiquidationDuration);
+
+    /// @notice Thrown when a loan ID would exceed the revnet's loan ID namespace.
     error REVLoans_LoanIdOverflow(uint256 revnetId, uint256 loanNumber, uint256 maxLoanNumber);
+
+    /// @notice Thrown when the loan's owner changed during execution, such as via a reentrant token transfer.
     error REVLoans_LoanOwnerChanged(uint256 loanId, address expectedOwner, address actualOwner);
+
+    /// @notice Thrown when the recalculated borrow amount for remaining collateral exceeds the loan's amount.
     error REVLoans_NewBorrowAmountGreaterThanLoanAmount(uint256 newBorrowAmount, uint256 loanAmount);
+
+    /// @notice Thrown when native value is sent for a loan source token that is not the native token.
     error REVLoans_NoMsgValueAllowed(uint256 msgValue, address token);
+
+    /// @notice Thrown when the collateral requested to remove exceeds the loan's collateral.
     error REVLoans_NotEnoughCollateral(uint256 collateralCountToRemove, uint256 loanCollateral);
+
+    /// @notice Thrown when a repayment would repay no borrow amount and return no collateral.
     error REVLoans_NothingToRepay(uint256 repayBorrowAmount, uint256 collateralCountToReturn);
+
+    /// @notice Thrown when the required repay amount exceeds the caller's maximum repay amount.
     error REVLoans_OverMaxRepayBorrowAmount(uint256 maxRepayBorrowAmount, uint256 repayBorrowAmount);
+
+    /// @notice Thrown when a value exceeds the storage or permit2 type limit it must fit within.
     error REVLoans_OverflowAlert(uint256 value, uint256 limit);
+
+    /// @notice Thrown when the permit2 allowance is less than the amount required for the payment.
     error REVLoans_PermitAllowanceNotEnough(uint256 allowanceAmount, uint256 requiredAmount);
+
+    /// @notice Thrown when reallocating more collateral than the loan's outstanding borrow amount allows.
     error REVLoans_ReallocatingMoreCollateralThanBorrowedAmountAllows(uint256 newBorrowAmount, uint256 loanAmount);
+
+    /// @notice Thrown when a loan action is re-entered while another loan action is in progress.
     error REVLoans_ReentrantLoanAction();
+
+    /// @notice Thrown when a new loan's source token does not match the existing loan's source token.
     error REVLoans_SourceMismatch(address expectedToken, address actualToken);
+
+    /// @notice Thrown when the borrowable amount is below the caller's minimum borrow amount.
     error REVLoans_UnderMinBorrowAmount(uint256 minBorrowAmount, uint256 borrowAmount);
+
+    /// @notice Thrown when the borrowable amount for the given collateral evaluates to zero.
     error REVLoans_ZeroBorrowAmount(uint256 revnetId, uint256 collateralCount);
+
+    /// @notice Thrown when opening a loan with zero collateral.
     error REVLoans_ZeroCollateralLoanIsInvalid(uint256 collateralCount);
+
+    /// @notice Thrown when a cross-currency loan source returns a zero price per unit.
     error REVLoans_ZeroPrice(uint256 revnetId, uint256 pricingCurrency, uint256 unitCurrency);
 
     //*********************************************************************//
@@ -106,6 +149,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @dev Loan IDs are encoded as `revnetId * _LOAN_ID_NAMESPACE_SIZE + loanNumber`.
     uint256 private constant _LOAN_ID_NAMESPACE_SIZE = 1_000_000_000_000_000_000;
 
+    /// @notice The largest loan number that stays within a single revnet's ID namespace.
     /// @dev This is the largest loan number that stays in the current revnet's ID namespace.
     uint256 private constant _MAX_LOAN_NUMBER = _LOAN_ID_NAMESPACE_SIZE - 1;
 
@@ -396,7 +440,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             currency: currency
         });
 
-        // Get the total amount the revnet currently has loaned out, in terms of the native currency with 18
+        // Get the total amount the revnet currently has loaned out, denominated in the requested currency and
         // decimals.
         uint256 totalBorrowed = _totalBorrowedFrom({
             revnetId: revnetId, decimals: decimals, currency: currency, multiTerminal: multiTerminal
@@ -577,11 +621,11 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         view
         returns (uint256 borrowedAmount)
     {
-        // Keep a reference to all sources being used to loaned out from this revnet.
+        // Keep a reference to all sources being used to loan out from this revnet.
         // Use storage ref to avoid bulk-copying the entire array to memory.
         address[] storage sources = _loanSourceTokensOf[revnetId];
 
-        // Iterate over all sources being used to loaned out.
+        // Iterate over all sources being used to loan out.
         for (uint256 i; i < sources.length; i++) {
             // Get a reference to the token being iterated on.
             address sourceToken = sources[i];
@@ -611,7 +655,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
                 borrowedAmount += normalizedTokens;
             } else {
                 // Otherwise, convert via the price feed. `JBPrices` itself rejects a zero price, but the explicit
-                // local check keeps the same fail-closed behavior if tests or future modules return 0 directly.
+                // local check keeps the fail-closed behavior whenever a source returns 0 directly.
                 uint256 pricePerUnit = PRICES.pricePerUnitOf({
                     projectId: revnetId, pricingCurrency: context.currency, unitCurrency: currency, decimals: decimals
                 });
@@ -881,7 +925,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             account: loanOwner, projectId: revnetIdOfLoanWith(loanId), permissionId: JBPermissionIds.REPAY_LOAN
         });
 
-        // Keep a reference to the fee being iterated on.
+        // Keep a reference to the loan being repaid.
         REVLoan storage loan = _loanOf[loanId];
 
         if (collateralCountToReturn > loan.collateral) {
@@ -1080,7 +1124,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     {
         address sourceToken = loan.sourceToken;
 
-        // Register the source if this is the first time its being used for this revnet.
+        // Register the source if this is the first time it's being used for this revnet.
         // Note: Sources are only appended, never removed. Gas accumulation from iteration is bounded by the revnet's
         // accepted accounting contexts.
         if (!isLoanSourceOf[revnetId][sourceToken]) {

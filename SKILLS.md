@@ -1,11 +1,11 @@
 # Revnet Core
 
-## Use This File For
+## Use this file for
 
 - Use this file when the task involves revnet deployment, staged issuance, operator logic, auto-issuance, or the revnet loan system.
 - Start here, then decide whether the issue is really in `REVDeployer`, `REVOwner`, or `REVLoans`.
 
-## Read This Next
+## Read this next
 
 | If you need... | Open this next |
 |---|---|
@@ -16,7 +16,7 @@
 | Types and helpers | [`src/structs/`](./src/structs/), [`src/interfaces/`](./src/interfaces/), [`test/helpers/`](./test/helpers/) |
 | Lifecycle, loans, and economic proofs | [`test/REVLifecycle.t.sol`](./test/REVLifecycle.t.sol), [`test/REVLoansRegressions.t.sol`](./test/REVLoansRegressions.t.sol), [`test/REVLoans.invariants.t.sol`](./test/REVLoans.invariants.t.sol), [`test/TestLongTailEconomics.t.sol`](./test/TestLongTailEconomics.t.sol) |
 
-## Repo Map
+## Repo map
 
 | Area | Where to look |
 |---|---|
@@ -29,12 +29,12 @@
 
 Deploy and manage Revnets: autonomous Juicebox project shapes with staged issuance schedules, optional buyback pools, cross-chain suckers, and token-collateralized lending.
 
-## Reference Files
+## Reference files
 
 - Open [`references/runtime.md`](./references/runtime.md) for contract roles, deploy/runtime entrypoints, integration points, and key structs.
 - Open [`references/operations.md`](./references/operations.md) for events, errors, constants, storage, gotchas, and state-reading recipes.
 
-## Working Rules
+## Working rules
 
 - Start in `REVDeployer` for launch-time behavior, `REVOwner` for runtime hook behavior, and `REVLoans` for debt accounting.
 - Revnets are intentionally ownerless after deployment. Treat any admin-recovery instinct as suspect unless the code proves it.

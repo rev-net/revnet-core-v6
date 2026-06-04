@@ -16,14 +16,14 @@ This file focuses on the staged-economics, runtime-hook, and loan risks that mat
 | P1 | Stage configuration mistakes | Revnet economics are hard to change after launch, so bad stages are expensive. | Deployment review, stage-transition tests, and launch-time validation. |
 | P1 | Burned-collateral misunderstandings | Loans change visible supply in non-obvious ways. | Explicit supply invariants and product-level review. |
 
-## 1. Trust Assumptions
+## 1. Trust assumptions
 
 - **`REVDeployer` and `REVOwner` are one design.** Misreading them independently is a review hazard.
 - **Core protocol state is still upstream truth.** Revnet economics sit on top of `nana-core-v6`, not outside it.
 - **Optional integrations matter.** Buybacks, 721 hooks, and suckers can materially change runtime behavior.
 - **Price feeds and source accounting matter for loans.** Cross-currency debt aggregation depends on working feed assumptions.
 
-## 2. Economic Risks
+## 2. Economic risks
 
 - **Stage immutability cuts both ways.** A bad stage schedule or bad cash-out tax choice is expensive to unwind.
 - **Borrowability depends on live economics.** If surplus, supply, or cross-chain state are wrong, loan capacity becomes wrong.
@@ -33,7 +33,7 @@ This file focuses on the staged-economics, runtime-hook, and loan risks that mat
 - **Auto-issuance dilutes holders predictably but still materially.** Timing is permissionless, even if the amounts are fixed at deployment.
 - **Omnichain expansion can corrupt surplus aggregation.** Since borrowability aggregates surplus from all registered terminals across chains, a compromised or misconfigured terminal on a remote chain affects global surplus accounting.
 
-## 3. Loan Risks
+## 3. Loan risks
 
 - **Burned collateral is not escrow.** Reviewers and integrators who model it as escrow will misread liquidation and repayment behavior.
 - **No short-term liquidation model.** Under-collateralized loans can persist until the long expiry model allows cleanup.
@@ -42,20 +42,20 @@ This file focuses on the staged-economics, runtime-hook, and loan risks that mat
 - **Reallocation still depends on live state.** Reallocate flows can change outcomes around stage boundaries.
 - **Delegated loan permissions move value.** `OPEN_LOAN`, `REALLOCATE_LOAN`, and `REPAY_LOAN` all let the delegate choose beneficiaries in paths that can redirect proceeds or returned collateral.
 
-## 4. Hook-Composition Risks
+## 4. Hook-composition risks
 
 - **`REVOwner` is a real runtime authority surface.** It composes pay hooks, cash-out hooks, sucker exemptions, and fee logic.
 - **Suckers can bypass tax and fee paths by design.** That privilege is safe only if registry and deployer assumptions are correct.
 - **Mint-permission surfaces are broad enough to matter.** Loans, buyback flows, and suckers all touch mint authority in some deployments.
 
-## 5. Access-Control Risks
+## 5. Access-control risks
 
 - **The deployer-held project NFT can be misunderstood.** Revnets are owner-minimized, but the deployer path still matters for the trust model.
 - **Split operator mistakes are high-impact.** Narrow powers like price-feed installation, split updates, sucker deployment, or router setup still matter.
 - **Metadata and token-signature permissions are holder-facing.** `SET_PROJECT_URI`, `SET_TOKEN_METADATA`, and `SIGN_FOR_ERC20` are not harmless cosmetics when external integrations rely on project identity or ERC-1271 token-contract signatures.
 - **There is intentionally no broad admin recovery path.** Operational teams may try to reach for powers the design never intended to leave available.
 
-## 6. Invariants to Verify
+## 6. Invariants to verify
 
 - Collateral and debt conservation across all active loans.
 - Stage immutability after deployment.
@@ -63,7 +63,7 @@ This file focuses on the staged-economics, runtime-hook, and loan risks that mat
 - Sucker-only privileges staying restricted to real registered suckers.
 - Mint permission remaining limited to the documented runtime surfaces.
 
-## 7. Accepted Behaviors
+## 7. Accepted behaviors
 
 ### 7.1 Suckers receive 0% cash-out tax
 

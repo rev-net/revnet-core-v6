@@ -4,11 +4,11 @@
 
 `revnet-core-v6` defines an autonomous Juicebox project pattern with staged, precommitted economics and token-collateralized loans. A revnet is intentionally ownerless after deployment in the human sense: behavior follows staged configuration and constrained runtime hooks instead of ongoing governance.
 
-## System Overview
+## System overview
 
 `REVDeployer` handles launch-time shape, staged rulesets, hook wiring, and runtime wrapper behavior. `REVOwner` provides the owner-like runtime policy surface for pay and cash-out hooks after launch. `REVLoans` manages burn-collateral loan positions represented as NFTs.
 
-## Core Invariants
+## Core invariants
 
 - Revnets are intended to be ownerless after deployment; easy admin recovery paths would violate the product model.
 - Stage configuration is effectively permanent once queued.
@@ -26,15 +26,15 @@
 | `REVLoans` | Borrow, repay, and liquidate burned-collateral loan positions | Economic core |
 | config structs | Stage, loan-source, auto-issuance, and hook config | Launch-time inputs |
 
-## Trust Boundaries
+## Trust boundaries
 
 - Treasury and ruleset mechanics remain rooted in `nana-core-v6`.
 - Optional integrations come from `nana-buyback-hook-v6`, `nana-router-terminal-v6`, `nana-suckers-v6`, and `nana-721-hook-v6`.
 - This repo composes those systems into an ownerless product shape instead of reimplementing them.
 
-## Critical Flows
+## Critical flows
 
-### Revnet Lifecycle
+### Revnet lifecycle
 
 ```text
 creator
@@ -47,7 +47,7 @@ operators or permissionless callers
   -> perform bounded maintenance such as auto-issuance claims
 ```
 
-### Loan Lifecycle
+### Loan lifecycle
 
 ```text
 borrower
@@ -58,7 +58,7 @@ borrower
   -> or is liquidated after the expiration window
 ```
 
-## Accounting Model
+## Accounting model
 
 The repo does not replace core treasury accounting. Its critical economic logic is the interaction between staged revnet config, burned-collateral loan state, and omnichain revnet state imported from suckers.
 
@@ -66,7 +66,7 @@ The repo does not replace core treasury accounting. Its critical economic logic 
 
 When global effective surplus exceeds local terminal liquidity, `beforeCashOutRecordedWith` scales the unscaled bonding-curve reclaim and fee proportionally to fit the local cap, then lowers the surplus value it reports back to `JBTerminalStore` so the store's recomputed reclaim leaves room for the (preserved) fee spec. The buyback hook still sees the full pre-cap global surplus for its routing decision. The user burns the full requested `cashOutCount` and receives `localSurplus - feeAmount`; the protocol fee is never zeroed by this scaling.
 
-## Security Model
+## Security model
 
 - The highest-risk interactions sit where stage economics, treasury state, and loan borrowability meet.
 - Ownerlessness removes convenient recovery from misconfiguration.
@@ -74,7 +74,7 @@ When global effective surplus exceeds local terminal liquidity, `beforeCashOutRe
 - `REVOwner` is a live runtime policy surface, not only a launch helper.
 - Rev cash-out fees stack on top of protocol-fee behavior rather than replacing it.
 
-## Safe Change Guide
+## Safe change guide
 
 - Review deploy-time behavior and runtime wrapper behavior together.
 - If stage semantics change, inspect loan math, cash-out behavior, and downstream fee expectations together.
@@ -82,7 +82,7 @@ When global effective surplus exceeds local terminal liquidity, `beforeCashOutRe
 - If you change borrowability, re-check cash-out-delay gating, omnichain surplus inputs, and local-surplus caps together.
 - If you change hook composition, re-check 721 split handling, buyback assumptions, and mint-permission flows.
 
-## Cross-Chain Configuration Hash
+## Cross-chain configuration hash
 
 `REVDeployer` produces an `encodedConfigurationHash` for each revnet that determines sucker deployment salts. This hash commits the revnet's identity across chains. It includes:
 
@@ -98,7 +98,7 @@ This is why a revnet usually denominates in a *standard* currency rather than a 
 
 Setting `baseCurrency` to a token-keyed value (`uint32(uint160(token))`) — even matching it to the accounting-context `currency` so no feed is read (`weightRatio = 10**decimals`) — is valid, but only if you know what you are doing. It is sound when the token resolves to the *same address on every chain* the revnet spans (a single-chain revnet, or a token with a guaranteed deterministic cross-chain address — e.g. another project's same-address token), or when you specifically want a particular price-feed dynamic. With an ordinary token whose address differs per chain, a token-keyed `baseCurrency` would give the "same" revnet a different cross-chain identity and break sucker peering. See `nana-core-v6/ARCHITECTURE.md` (Currency model) for the terminal-side mechanics.
 
-## Canonical Checks
+## Canonical checks
 
 - cash-out-delay interaction with loans:
   `test/TestLoansCashOutDelay.t.sol`
@@ -109,7 +109,7 @@ Setting `baseCurrency` to a token-keyed value (`uint32(uint160(token))`) — eve
 - terminal exclusion from configuration hash:
   `test/TestTerminalEncodingInHash.t.sol`
 
-## Source Map
+## Source map
 
 - `src/REVDeployer.sol`
 - `src/REVOwner.sol`

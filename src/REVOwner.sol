@@ -54,14 +54,31 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
     // --------------------------- custom errors ------------------------- //
     //*********************************************************************//
 
+    /// @notice Thrown when initializing a revnet whose deployer binding has already been set.
     error REVOwner_AlreadyInitialized(address deployer);
+
+    /// @notice Thrown when cashing out before the revnet's cash-out delay has elapsed.
     error REVOwner_CashOutDelayNotFinished(uint256 cashOutDelay, uint256 blockTimestamp);
+
+    /// @notice Thrown when a loan source token has no matching accounting context on the multi terminal.
     error REVOwner_InvalidLoanSourceToken(uint256 revnetId, address token);
+
+    /// @notice Thrown when the native value sent does not match the forwarded fee amount being processed.
     error REVOwner_NativeFeeValueMismatch(uint256 expected, uint256 actual);
+
+    /// @notice Thrown when there are no tokens left to auto-issue for the given stage and beneficiary.
     error REVOwner_NothingToAutoIssue(uint256 revnetId, uint256 stageId, address beneficiary);
+
+    /// @notice Thrown when there are no held tokens to burn for the revnet.
     error REVOwner_NothingToBurn(uint256 revnetId, address holder);
+
+    /// @notice Thrown when auto-issuing from a stage whose ruleset has not started yet.
     error REVOwner_StageNotStarted(uint256 stageId);
+
+    /// @notice Thrown when the caller is not the expected deployer.
     error REVOwner_Unauthorized(address caller, address expectedCaller);
+
+    /// @notice Thrown when the address is not the revnet's current operator.
     error REVOwner_UnauthorizedOperator(uint256 revnetId, address caller);
 
     //*********************************************************************//
@@ -309,7 +326,7 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
         if (grossOutflow > context.surplus.value) {
             if (grossOutflow == 0) {
                 // Defensive — both grossOutflow > localSurplus and grossOutflow == 0 can't both hold, but keep
-                // the explicit branch so future edits do not divide by zero.
+                // the explicit branch so a non-zero gross outflow is guaranteed before the division.
                 postFeeReclaimedAmount = 0;
                 feeAmount = 0;
             } else {
