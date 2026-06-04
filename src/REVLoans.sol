@@ -41,8 +41,7 @@ import {REVLoan} from "./structs/REVLoan.sol";
 /// revnet's token structure orderly. Each loan is represented as an ERC-721 NFT that can be transferred.
 /// @dev Fee structure: an upfront fee is taken at borrow time. 2.5% goes to the source revnet
 /// (MIN_PREPAID_FEE_PERCENT), 1% goes to the $REV revnet (REV_PREPAID_FEE_PERCENT), and a variable amount chosen by the
-/// borrower determines the prepaid duration — the more paid upfront, the longer the borrower can hold without
-/// additional cost. After the
+/// borrower determines the prepaid duration. More upfront payment extends the zero-additional-cost period; once the
 /// prepaid duration expires, the repayment cost increases linearly until the loan liquidates at 10 years
 /// (LOAN_LIQUIDATION_DURATION), at which point the collateral is permanently lost.
 /// @dev The loaned amounts include the fees taken, meaning the amount paid back is the amount borrowed plus the fees.

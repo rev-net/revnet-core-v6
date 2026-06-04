@@ -642,8 +642,7 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
     /// the cash-out delay, the tiered ERC-721 hook, auto-issuance allocations, extra operator permissions, the
     /// initial operator, and any integration-specific permission grants.
     /// @dev Only callable by the canonical deployer during a revnet's initial configuration. Extra operator
-    /// permissions are appended before the operator is bootstrapped so the operator receives the merged set in a
-    /// single permissions write.
+    /// permissions are appended before bootstrap, so the operator receives the merged set in one permissions write.
     /// @param revnetId The ID of the revnet being initialized.
     /// @param init The full initialization payload.
     function initializeRevnet(uint256 revnetId, REVOwnerRevnetInit calldata init) external override {

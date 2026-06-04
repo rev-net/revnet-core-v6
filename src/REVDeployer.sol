@@ -51,8 +51,8 @@ import {REVSuckerDeploymentConfig} from "./structs/REVSuckerDeploymentConfig.sol
 /// @dev Each revnet progresses through stages that define issuance rate, decay schedule, cash-out tax, split
 /// allocations, and auto-issuances. The deployer translates these stage configurations into Juicebox rulesets, sets up
 /// a buyback hook for secondary market routing, deploys a tiered 721 hook, optionally configures Croptop posting, and
-/// can deploy cross-chain suckers. Once deployed, the project NFT is held by this contract — no single address can
-/// modify the revnet's rules.
+/// can deploy cross-chain suckers. Once deployed, this contract holds the project NFT, so no single address can modify
+/// the revnet's rules.
 /// @dev Revnets are unowned Juicebox projects which operate autonomously after deployment. Runtime data hook logic
 /// (pay/cash-out callbacks) is handled by the separate `REVOwner` contract to stay within EIP-170 size limits.
 contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
@@ -159,8 +159,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     //*********************************************************************//
 
     /// @notice The hashed encoded configuration of each revnet.
-    /// @dev This is used to ensure that the encoded configuration of a revnet is the same when deploying suckers for
-    /// omnichain operations.
+    /// @dev Validates omnichain sucker deployments against a revnet's encoded configuration.
     /// @custom:param revnetId The ID of the revnet to look up.
     mapping(uint256 revnetId => bytes32 hashedEncodedConfiguration) public override hashedEncodedConfigurationOf;
 
@@ -766,8 +765,7 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @dev When initializing an existing project (`shouldDeployNewRevnet == false`):
     /// - The project must be blank — no controller or rulesets. This is enforced by `JBController.launchRulesetsFor`,
     ///   which reverts if rulesets exist, and by `JBDirectory.setControllerOf`, which only allows setting the first
-    ///   controller. Without a controller, no tokens or terminals can exist, so the project is guaranteed to be
-    ///   uninitialized.
+    ///   controller. Without a controller, no tokens or terminals can exist, guaranteeing the project is uninitialized.
     /// - The project's JBProjects NFT is permanently transferred to this contract. This is irreversible.
     /// @param revnetId The ID of the Juicebox project to initialize as a revnet. Send 0 to deploy a new revnet.
     /// @param shouldDeployNewRevnet Whether the revnet ID was reserved by this deployment call, or the caller is
