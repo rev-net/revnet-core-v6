@@ -15,8 +15,7 @@ import {REVOwnerExtraGrant} from "./REVOwnerExtraGrant.sol";
 /// @custom:member operator The initial operator address. Use `address(0)` to relinquish operator powers up front.
 /// @custom:member extraOperatorPermissionIds Permission IDs to merge into the revnet's default operator permission
 /// set before the operator is bootstrapped.
-/// @custom:member autoIssuances Auto-issuance allocations recorded on the revnet (already filtered to entries that
-/// belong on this chain).
+/// @custom:member autoIssuances Auto-issuance allocations recorded on the revnet for this chain.
 /// @custom:member extraGrants Per-revnet permission grants applied after the operator is bootstrapped (e.g., the
 /// Croptop publisher's `ADJUST_721_TIERS` grant).
 struct REVOwnerRevnetInit {
