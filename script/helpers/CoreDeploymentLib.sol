@@ -59,6 +59,7 @@ library CoreDeploymentLib {
         string memory networkName
     )
         internal
+        view
         returns (CoreDeployment memory deployment)
     {
         deployment.permissions = JBPermissions(
