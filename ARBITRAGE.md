@@ -70,6 +70,8 @@ The arbitrageur runs the following cycle:
    stays executable in the current state. Callers that only value collateral already backing a loan (repaying and
    reallocating) use `borrowableCapacity` directly.
 
+   **Choosing between borrow and cash out.** Which path extracts more value depends on the stage's configured `cashOutTaxRate`. An economic observation (CryptoEconLab) puts the crossover at approximately **~39%**: above roughly a ~39% `cashOutTaxRate`, opening a `REVLoans.borrowFrom` loan against the tokens extracts more value than burning them via `terminal.cashOutTokensOf`, because the tax penalizes the direct cash-out more than it does the borrow; below that rate, cashing out is the more capital-efficient exit. The exact crossover shifts with the configured tax rate, so treat ~39% as an approximate guide rather than a precise threshold.
+
 The asymmetry between the LOCAL-rate bridge cashout and the AGGREGATED-rate normal cashout is the arbitrageur's margin.
 
 ## Why it's beneficial
