@@ -117,7 +117,7 @@ script/
 ## Risks and notes
 
 - Revnets are intentionally hard to change after launch, so bad stage design is expensive
-- `REVLoans` relies on live treasury conditions and is sensitive to surplus and pricing assumptions
+- `REVLoans` relies on live treasury conditions and is sensitive to surplus and pricing assumptions; zero cross-currency prices fail closed instead of hiding outstanding debt
 - the deployer and runtime hook should be treated as one design, not two separate systems
 - burned-collateral lending is operationally different from escrowed-collateral lending
 

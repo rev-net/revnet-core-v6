@@ -27,9 +27,10 @@ This file focuses on the staged-economics, runtime-hook, and loan risks that mat
 
 - **Stage immutability cuts both ways.** A bad stage schedule or bad cash-out tax choice is expensive to unwind.
 - **Borrowability depends on live economics.** If surplus, supply, or cross-chain state are wrong, loan capacity becomes wrong.
-- **Zero or degraded price feeds can block cross-currency loan accounting.** Revnet loans fail closed when a required
-  price is zero, because silently skipping that source would hide outstanding debt and make later borrowing too
-  permissive. If a feed breaks, affected borrowability and repayment views can revert until the feed is fixed.
+- **Zero or degraded price feeds can block cross-currency loan accounting.** Revnet loan and cash-out accounting fail
+  closed when a required price is zero, because silently skipping that source would hide outstanding debt and make
+  borrowability or holder reclaim math too permissive. If a feed breaks, affected borrowability, repayment, and
+  cash-out views can revert until the feed is fixed.
 - **Auto-issuance dilutes holders predictably but still materially.** Timing is permissionless, even if the amounts are fixed at deployment.
 - **Omnichain expansion can corrupt surplus aggregation.** Since borrowability aggregates surplus from all registered terminals across chains, a compromised or misconfigured terminal on a remote chain affects global surplus accounting.
 
@@ -114,6 +115,8 @@ selection; those choices remain registry-level risk routing and do not become lo
 Changing or removing a canonical multi-terminal accounting context after loans exist can make that token's outstanding
 debt unpriceable until a valid context is restored. That discontinuity is accepted as an accounting-context migration
 risk: new revnet launches should treat accepted contexts as part of the revnet's durable economic shape.
+Returning a zero price for an otherwise valid cross-currency source is treated the same way: the affected accounting
+path reverts instead of omitting that source's debt.
 
 ### 7.6 Omnichain terminal expansion inherits remote-chain trust
 
@@ -177,6 +180,9 @@ for the bonding curve. Revnet peer-chain snapshots export the same correction th
 and `sourceBalance`.
 
 This means canonical Revnet suckers do not intentionally omit remote loan state. The remaining risk is freshness and availability: peer snapshots are asynchronous, best-effort, and soft-fail if the remote data hook does not expose the optional interface or the sucker cannot deliver the latest root.
+
+Peer snapshots encode each source's debt in `uint128` surplus and balance fields. If a single source's outstanding debt
+does not fit that wire type, `REVOwner.peerChainAdjustedAccountsOf(...)` reverts instead of wrapping the debt downward.
 
 This is accepted because:
 

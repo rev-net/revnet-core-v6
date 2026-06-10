@@ -22,6 +22,8 @@ import "@bananapus/suckers-v6/script/helpers/SuckerDeploymentLib.sol";
 import "@croptop/core-v6/script/helpers/CroptopDeploymentLib.sol";
 // forge-lint: disable-next-line(unaliased-plain-import)
 import "@bananapus/router-terminal-v6/script/helpers/RouterTerminalDeploymentLib.sol";
+import {IJBCashOutHook} from "@bananapus/core-v6/src/interfaces/IJBCashOutHook.sol";
+import {IJBRulesetDataHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetDataHook.sol";
 import {JBCashOuts} from "@bananapus/core-v6/src/libraries/JBCashOuts.sol";
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBFees} from "@bananapus/core-v6/src/libraries/JBFees.sol";
@@ -409,6 +411,49 @@ contract TestCashOutCallerValidation is TestBaseWorkflow {
             abi.encode(jbMultiTerminal()),
             "Fee spec metadata should encode the fee terminal"
         );
+    }
+
+    /// @notice The fee path rejects multiple buyback cash-out specs instead of dropping later specs.
+    function test_beforeCashOutRecordedWith_revertsOnMultipleBuybackSpecsInFeePath() public {
+        JBBeforeCashOutRecordedContext memory context = JBBeforeCashOutRecordedContext({
+            terminal: address(jbMultiTerminal()),
+            holder: USER,
+            projectId: REVNET_ID,
+            rulesetId: 0,
+            cashOutCount: 1000,
+            totalSupply: 10_000,
+            surplus: JBTokenAmount({
+                token: JBConstants.NATIVE_TOKEN,
+                value: 100 ether,
+                decimals: 18,
+                currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            }),
+            scopeCashOutsToLocalBalances: false,
+            cashOutTaxRate: 3000,
+            beneficiaryIsFeeless: false,
+            metadata: ""
+        });
+
+        JBCashOutHookSpecification[] memory buybackSpecs = new JBCashOutHookSpecification[](2);
+        buybackSpecs[0] = JBCashOutHookSpecification({
+            hook: IJBCashOutHook(address(MOCK_BUYBACK)), noop: false, amount: 0, metadata: ""
+        });
+        buybackSpecs[1] = JBCashOutHookSpecification({
+            hook: IJBCashOutHook(address(MOCK_BUYBACK)), noop: false, amount: 0, metadata: ""
+        });
+
+        vm.mockCall(
+            address(MOCK_BUYBACK),
+            abi.encodeWithSelector(IJBRulesetDataHook.beforeCashOutRecordedWith.selector),
+            abi.encode(
+                context.cashOutTaxRate, context.cashOutCount, context.totalSupply, context.surplus.value, buybackSpecs
+            )
+        );
+
+        vm.expectRevert(
+            abi.encodeWithSelector(REVOwner.REVOwner_TooManyBuybackHookSpecifications.selector, buybackSpecs.length)
+        );
+        REV_OWNER.beforeCashOutRecordedWith(context);
     }
 
     /// @notice Test that afterCashOutRecordedWith has no access control — anyone can call it.

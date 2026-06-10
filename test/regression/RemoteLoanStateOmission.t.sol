@@ -412,6 +412,33 @@ contract RemoteLoanStateOmissionTest is Test {
         );
     }
 
+    function test_peerSnapshotRevertsWhenSourceDebtExceedsWireLimit() external {
+        uint256 oversizedDebt = uint256(type(uint128).max) + 1;
+        PeerSnapshotLoanStateMock loans =
+            new PeerSnapshotLoanStateMock({sourceToken: NATIVE_TOKEN, borrowed: oversizedDebt, collateral: 0});
+        PeerSnapshotTerminalMock peerTerminal =
+            new PeerSnapshotTerminalMock({sourceToken: NATIVE_TOKEN, currency: ETH_CURRENCY});
+
+        REVOwner peerOwnerHook = new REVOwner({
+            buybackHook: IJBBuybackHookRegistry(address(buybackRegistry)),
+            directory: IJBDirectory(DIRECTORY),
+            feeRevnetId: 999_999,
+            suckerRegistry: IJBSuckerRegistry(address(registry)),
+            loans: IREVLoans(address(loans)),
+            deployerAddress: address(this)
+        });
+        peerOwnerHook.setDeployer({
+            newDeployer: IREVDeployer(
+                address(new PeerSnapshotDeployerMock({multiTerminal: IJBTerminal(address(peerTerminal))}))
+            )
+        });
+
+        vm.expectRevert(
+            abi.encodeWithSelector(REVOwner.REVOwner_OverflowAlert.selector, oversizedDebt, type(uint128).max)
+        );
+        peerOwnerHook.peerChainAdjustedAccountsOf(REVNET_ID);
+    }
+
     function test_remoteLoanStateOmissionInflatesCrossChainBorrowableAmount() external view {
         IJBTerminal[] memory terminals = new IJBTerminal[](1);
         terminals[0] = IJBTerminal(address(terminal));
