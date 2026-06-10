@@ -32,7 +32,7 @@ Audience: anyone paying a revnet, holding its tokens, or borrowing against them.
 - `REVOwner.beforeCashOutRecordedWith` (`src/REVOwner.sol:201-400`) is the data-hook policy boundary; its three branches are documented inline in the contract:
   1. **Sucker branch** (`src/REVOwner.sol:231-233`): tax = 0, LOCAL supply/surplus. The bridge accounting primitive. See ARBITRAGE.md (Path 1).
   2. **Cash-out delay branch** (`src/REVOwner.sol:243-245`): reverts `REVOwner_CashOutDelayNotFinished` while `cashOutDelayOf[revnetId] > block.timestamp`. Applies to ordinary holder cash-outs only; the sucker branch returns *before* this check by design.
-  3. **Ordinary cash-out branch** (`src/REVOwner.sol:247-399`): aggregates cross-chain supply/surplus when `scopeCashOutsToLocalBalances == false`, splits a 2.5% fee from the token count (not the value), proportionally scales reclaim+fee when local liquidity is the binding cap, and routes through the buyback hook for optional AMM settlement (Path 2 floor arb).
+  3. **Ordinary cash-out branch** (`src/REVOwner.sol:247-399`): aggregates cross-chain supply/surplus when `scopeCashOutsToLocalBalances == false`, splits a 2.5% fee from the token count (not the value), proportionally scales reclaim+fee when local liquidity is the binding cap, and routes through the buyback hook for optional AMM settlement (Path 2 floor arb). Cross-currency local loan debt fails closed if a required price is zero.
 - Cash-out burns the holder's tokens before reclaim transfer (enforced by `JBMultiTerminal`); no double-cash-out via reentrancy.
 - The fee revnet (project 1) receives the bonding-curve reclaim of its 2.5% token share regardless of whether the remaining 97.5% routes through a buyback pool. When the fee hook spec fails, `REVOwner.afterCashOutRecordedWith` returns the funds to the originating terminal via `addToBalanceOf` (`src/REVOwner.sol:558-580`).
 - When global effective surplus exceeds local liquidity, **the holder receives `localSurplus - feeAmount`**, strictly less than the global formula. The protocol fee is **never** zeroed by the scaling (`src/REVOwner.sol:299-377`). Holders with a non-zero `minTokensReclaimed` on their cash-out call are protected against this asymmetry; holders without minimums should expect local-liquidity-capped reclaim.
@@ -151,7 +151,7 @@ For each external/public function: caller, effect, and the invariant it preserve
 ### Data-hook callbacks (terminal-only by use)
 
 - **`beforeCashOutRecordedWith(JBBeforeCashOutRecordedContext) view`** (`src/REVOwner.sol:201-400`) — three branches documented above (Section A.2). Returns `(cashOutTaxRate, cashOutCount, totalSupply, effectiveSurplusValue, hookSpecifications)`.
-  - **Invariants:** sucker holders get 0% tax + LOCAL state; delay reverts; ordinary path aggregates cross-chain when allowed, scales reclaim+fee proportionally to local liquidity, fee is never zeroed by scaling.
+  - **Invariants:** sucker holders get 0% tax + LOCAL state; delay reverts; ordinary path aggregates cross-chain when allowed, scales reclaim+fee proportionally to local liquidity, fee is never zeroed by scaling, cross-currency local debt fails closed on zero price, and the fee path composes at most one buyback cash-out spec.
 
 - **`beforePayRecordedWith(JBBeforePayRecordedContext) view`** (`src/REVOwner.sol:412-460`) — coordinates the 721 hook (NFT tier splits) and buyback hook; scales the buyback hook's weight by `projectAmount / context.amount.value`.
   - **Invariant:** payers receive token credit only for the share that enters the project, not the split share. Buyback hook's `weight=0` (buying back, not minting) is preserved.
@@ -159,8 +159,8 @@ For each external/public function: caller, effect, and the invariant it preserve
 - **`hasMintPermissionFor(uint256 revnetId, JBRuleset, address addr) view`** (`src/REVOwner.sol:470-484`) — grants mint to `LOANS`, `BUYBACK_HOOK` and its delegates, and registered suckers.
   - **Invariant:** mint authority is exactly that allowlist; no operator-elevated mint path.
 
-- **`peerChainAdjustedAccountsOf(uint256 revnetId, uint256 decimals, uint256 currency) view`** (`src/REVOwner.sol:500-512`) — exposes local outstanding loan debt as both `surplus` and `balance` and collateral as `supply` for peer-chain sucker snapshots.
-  - **Invariant:** loan state travels with snapshots; conservation across chains (see ARBITRAGE.md Section D2.5 in the monorepo INVARIANTS.md).
+- **`peerChainAdjustedAccountsOf(uint256 revnetId) view`** (`src/REVOwner.sol:500-512`) — exposes local outstanding loan debt as both `surplus` and `balance` and collateral as `supply` for peer-chain sucker snapshots.
+  - **Invariant:** loan state travels with snapshots; conservation across chains (see ARBITRAGE.md Section D2.5 in the monorepo INVARIANTS.md). Each source debt must fit the snapshot's `uint128` fields or the snapshot reverts.
 
 - **`onERC721Received(...)`** (`src/REVOwner.sol:780-783`) — only accepts mints from `JBProjects`.
 
@@ -195,7 +195,7 @@ For each external/public function: caller, effect, and the invariant it preserve
 ### Borrower / delegated operator
 
 - **`borrowFrom(revnetId, token, minBorrowAmount, collateralCount, beneficiary, prepaidFeePercent, holder) → (loanId, REVLoan)`** (`src/REVLoans.sol:639-666`) — `holder` or `OPEN_LOAN` operator of `holder`. Burns collateral, calls `TERMINAL.useAllowanceOf`, mints loan NFT to `holder`, sends proceeds to the caller-supplied `beneficiary`. Source fee taken upfront.
-  - **Invariants:** bounded by `_borrowableAmountFrom` (current bonding curve, gated by `_cashOutDelayOf`); `localSurplus` cap, plus a live-treasury-surplus cap on the preview and on opening a borrow so the quote never exceeds what the terminal can disburse now; collateral burned at deposit (not escrowed); reentrancy blocked by `nonReentrantLoanAction` transient flag.
+  - **Invariants:** bounded by `_borrowableAmountFrom` (current bonding curve, gated by `_cashOutDelayOf`); `localSurplus` cap, plus a live-treasury-surplus cap on the preview and on opening a borrow so the quote never exceeds what the terminal can disburse now; collateral burned at deposit (not escrowed); terminal payout must cover the reserved REV and source fee buckets; reentrancy blocked by `nonReentrantLoanAction` transient flag.
 
 - **`reallocateCollateralFromLoan(loanId, collateralCountToTransfer, token, minBorrowAmount, collateralCountToAdd, beneficiary, prepaidFeePercent)`** (`src/REVLoans.sol:768-835`) — loan owner or `REALLOCATE_LOAN` operator. If `collateralCountToAdd != 0`, also requires `OPEN_LOAN` for the added holder tokens. The transferred collateral from the existing loan can still back the new paired loan created by the reallocation path, and the caller chooses the proceeds `beneficiary`; treat delegated `REALLOCATE_LOAN` as debt-creation/proceeds-redirection authority. Burns original loan NFT; creates reallocated + new loans.
   - **Invariants:** new loan's source token must equal original's (reverts `REVLoans_SourceMismatch`); not `payable` (cannot accept new funds); reverts after `LOAN_LIQUIDATION_DURATION`.

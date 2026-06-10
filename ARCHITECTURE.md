@@ -62,9 +62,11 @@ borrower
 
 The repo does not replace core treasury accounting. Its critical economic logic is the interaction between staged revnet config, burned-collateral loan state, and omnichain revnet state imported from suckers.
 
-`REVOwner` also composes payment and cash-out hooks. On pay, it can merge 721-tier split forwarding with buyback-hook behavior and scale mint weight so the terminal only mints against the share that actually enters the project. On cash out, it can use omnichain supply and surplus for reclaim math, exempt trusted suckers, and append fee-hook specs.
+`REVOwner` also composes payment and cash-out hooks. On pay, it can merge 721-tier split forwarding with buyback-hook behavior and scale mint weight so the terminal only mints against the share that actually enters the project. On cash out, it can use omnichain supply and surplus for reclaim math, exempt trusted suckers, and append fee-hook specs. The non-zero-fee cash-out path composes at most one buyback hook spec ahead of the revnet fee spec; more buyback specs revert so value-bearing specs are not silently dropped.
 
 When global effective surplus exceeds local terminal liquidity, `beforeCashOutRecordedWith` scales the unscaled bonding-curve reclaim and fee proportionally to fit the local cap, then lowers the surplus value it reports back to `JBTerminalStore` so the store's recomputed reclaim leaves room for the (preserved) fee spec. The buyback hook still sees the full pre-cap global surplus for its routing decision. The user burns the full requested `cashOutCount` and receives `localSurplus - feeAmount`; the protocol fee is never zeroed by this scaling.
+
+Outstanding local loan debt is part of both loan and cash-out economics. When a loan source has to be converted across currencies, a zero price is treated as a broken accounting input and the affected path reverts rather than ignoring that source's debt.
 
 ## Security model
 

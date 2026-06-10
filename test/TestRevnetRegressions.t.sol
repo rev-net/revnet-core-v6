@@ -26,7 +26,9 @@ import "@bananapus/router-terminal-v6/script/helpers/RouterTerminalDeploymentLib
 
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
+import {JBBeforeCashOutRecordedContext} from "@bananapus/core-v6/src/structs/JBBeforeCashOutRecordedContext.sol";
 import {JBSingleAllowance} from "@bananapus/core-v6/src/structs/JBSingleAllowance.sol";
+import {JBTokenAmount} from "@bananapus/core-v6/src/structs/JBTokenAmount.sol";
 import {REVLoans} from "../src/REVLoans.sol";
 import {REVLoan} from "../src/structs/REVLoan.sol";
 import {REVStageConfig, REVAutoIssuance} from "../src/structs/REVStageConfig.sol";
@@ -74,6 +76,25 @@ contract REVLoansHarness is REVLoans {
         returns (uint256)
     {
         return _totalBorrowedFrom(revnetId, decimals, currency, terminal);
+    }
+
+    /// @notice Expose _addTo for testing fee reserve guards.
+    function exposed_addTo(
+        REVLoan memory loan,
+        uint256 revnetId,
+        uint256 addedBorrowAmount,
+        uint256 sourceFeeAmount,
+        address payable beneficiary
+    )
+        external
+    {
+        _addTo({
+            loan: loan,
+            revnetId: revnetId,
+            addedBorrowAmount: addedBorrowAmount,
+            sourceFeeAmount: sourceFeeAmount,
+            beneficiary: beneficiary
+        });
     }
 
     /// @notice Set totalBorrowedFrom for testing.
@@ -250,6 +271,119 @@ contract TestRevnetRegressions is TestBaseWorkflow {
         LOANS_CONTRACT.exposed_totalBorrowedFrom(
             revnetId, 18, uint32(uint160(JBConstants.NATIVE_TOKEN)), IJBTerminal(mockTerminal)
         );
+    }
+
+    /// @notice REVOwner applies the same fail-closed zero-price rule when local loan debt is part of cash-out math.
+    function test_zeroPriceFeedRevertsInOwnerLocalLoanState() public {
+        uint256 revnetId = 1;
+        uint32 fakeCurrency = 999;
+        address fakeToken = address(0xDEAD);
+
+        LOANS_CONTRACT.addLoanSource({revnetId: revnetId, token: fakeToken});
+        LOANS_CONTRACT.setTotalBorrowedFrom({revnetId: revnetId, token: fakeToken, amount: 1e18});
+
+        vm.mockCall(
+            address(jbMultiTerminal()),
+            abi.encodeWithSelector(IJBTerminal.accountingContextForTokenOf.selector, revnetId, fakeToken),
+            abi.encode(JBAccountingContext({token: fakeToken, decimals: 18, currency: fakeCurrency}))
+        );
+
+        vm.mockCall(
+            address(jbPrices()),
+            abi.encodeWithSelector(
+                IJBPrices.pricePerUnitOf.selector,
+                revnetId,
+                uint256(fakeCurrency),
+                uint256(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+                uint256(18)
+            ),
+            abi.encode(uint256(0))
+        );
+
+        JBBeforeCashOutRecordedContext memory context = JBBeforeCashOutRecordedContext({
+            terminal: address(jbMultiTerminal()),
+            holder: USER,
+            projectId: revnetId,
+            rulesetId: 0,
+            cashOutCount: 1000,
+            totalSupply: 10_000,
+            surplus: JBTokenAmount({
+                token: JBConstants.NATIVE_TOKEN,
+                value: 100 ether,
+                decimals: 18,
+                currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+            }),
+            scopeCashOutsToLocalBalances: false,
+            cashOutTaxRate: 3000,
+            beneficiaryIsFeeless: false,
+            metadata: ""
+        });
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                REVOwner.REVOwner_ZeroPrice.selector,
+                revnetId,
+                uint256(fakeCurrency),
+                uint256(uint32(uint160(JBConstants.NATIVE_TOKEN)))
+            )
+        );
+        REV_OWNER.beforeCashOutRecordedWith(context);
+    }
+
+    /// @notice Borrow proceeds fail closed if the terminal payout cannot cover both reserved fee buckets.
+    function test_addToRevertsWhenFeesExceedNetPayout() public {
+        uint256 revnetId = 1;
+        address sourceToken = JBConstants.NATIVE_TOKEN;
+        uint256 addedBorrowAmount = 100;
+        uint256 netAmountPaidOut = 10;
+        uint256 sourceFeeAmount = 11;
+
+        REVLoan memory loan = REVLoan({
+            amount: 0, collateral: 0, createdAt: 0, prepaidFeePercent: 0, prepaidDuration: 0, sourceToken: sourceToken
+        });
+
+        vm.mockCall(
+            address(jbMultiTerminal()),
+            abi.encodeWithSelector(IJBTerminal.accountingContextForTokenOf.selector, revnetId, sourceToken),
+            abi.encode(
+                JBAccountingContext({
+                    token: sourceToken, decimals: 18, currency: uint32(uint160(JBConstants.NATIVE_TOKEN))
+                })
+            )
+        );
+        vm.mockCall(
+            address(jbMultiTerminal()),
+            abi.encodeWithSelector(
+                IJBPayoutTerminal.useAllowanceOf.selector,
+                revnetId,
+                sourceToken,
+                addedBorrowAmount,
+                uint256(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+                uint256(0),
+                payable(address(LOANS_CONTRACT)),
+                payable(USER),
+                ""
+            ),
+            abi.encode(netAmountPaidOut)
+        );
+        vm.mockCall(
+            address(jbDirectory()),
+            abi.encodeWithSelector(IJBDirectory.primaryTerminalOf.selector, FEE_PROJECT_ID, sourceToken),
+            abi.encode(IJBTerminal(address(0)))
+        );
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                REVLoans.REVLoans_FeeAmountExceedsNetPayout.selector, netAmountPaidOut, uint256(0), sourceFeeAmount
+            )
+        );
+        LOANS_CONTRACT.exposed_addTo({
+            loan: loan,
+            revnetId: revnetId,
+            addedBorrowAmount: addedBorrowAmount,
+            sourceFeeAmount: sourceFeeAmount,
+            beneficiary: payable(USER)
+        });
     }
 
     //*********************************************************************//

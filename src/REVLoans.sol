@@ -62,6 +62,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @notice Thrown when the collateral requested to return exceeds the loan's collateral.
     error REVLoans_CollateralExceedsLoan(uint256 collateralToReturn, uint256 loanCollateral);
 
+    /// @notice Thrown when total borrow fees exceed the amount paid out by the terminal.
+    error REVLoans_FeeAmountExceedsNetPayout(uint256 netAmountPaidOut, uint256 revFeeAmount, uint256 sourceFeeAmount);
+
     /// @notice Thrown when a repayment credits a different amount than expected, indicating a fee-on-transfer token.
     error REVLoans_FeeOnTransferSourceUnsupported(address token, uint256 expectedAmount, uint256 creditedAmount);
 
@@ -1174,15 +1177,17 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             }
         }
 
+        // Reserve fee amounts before transferring proceeds. The terminal payout must cover both fee buckets.
+        uint256 totalFeeAmount = revFeeAmount + sourceFeeAmount;
+        if (totalFeeAmount > netAmountPaidOut) {
+            revert REVLoans_FeeAmountExceedsNetPayout({
+                netAmountPaidOut: netAmountPaidOut, revFeeAmount: revFeeAmount, sourceFeeAmount: sourceFeeAmount
+            });
+        }
+
         // Transfer the remaining balance to the borrower.
-        // Note: In extreme fee configurations the subtraction could theoretically underflow, but the
-        // protocol fee (2.5%) and source fee (capped at prepaidFeePercent) are both small fractions of
-        // the borrowed amount, so `netAmountPaidOut` will always exceed their sum in practice.
         _transferFrom({
-            from: address(this),
-            to: beneficiary,
-            token: sourceToken,
-            amount: netAmountPaidOut - revFeeAmount - sourceFeeAmount
+            from: address(this), to: beneficiary, token: sourceToken, amount: netAmountPaidOut - totalFeeAmount
         });
     }
 

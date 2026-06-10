@@ -61,12 +61,12 @@ Generated from Foundry `out/**/*.json` artifacts, filtered to this repo's own ru
 - V5 comparison package: `revnet-core-v5`.
 - Own-source ABI artifacts compared: V6 `7`, V5 `13`.
 - Contract/interface coverage: `3` added, `9` removed, `4` shared names with ABI changes, `0` shared names ABI-identical.
-- Shared-name ABI item deltas: `68` added, `79` removed, `8` modified.
+- Shared-name ABI item deltas: `69` added, `79` removed, `8` modified.
 
 Added V6 ABI artifacts:
 - `IREVOwner` from `src/interfaces/IREVOwner.sol`: `18` functions, `4` events, `0` errors.
 - `REVLoansSourceFees` from `src/libraries/REVLoansSourceFees.sol`: `0` functions, `0` events, `1` errors.
-- `REVOwner` from `src/REVOwner.sol`: `25` functions, `4` events, `12` errors.
+- `REVOwner` from `src/REVOwner.sol`: `25` functions, `4` events, `15` errors.
 
 Removed V5 ABI artifacts:
 - `REVAutoIssuance` from `src/structs/REVAutoIssuance.sol`: `0` functions, `0` events, `0` errors.
@@ -83,7 +83,7 @@ Shared ABI artifacts with changes:
 - `IREVDeployer`: `10` added, `17` removed, `0` modified ABI items.
 - `IREVLoans`: `13` added, `12` removed, `3` modified ABI items.
 - `REVDeployer`: `17` added, `32` removed, `1` modified ABI items.
-- `REVLoans`: `28` added, `18` removed, `4` modified ABI items.
+- `REVLoans`: `29` added, `18` removed, `4` modified ABI items.
 
 Generated event/error name deltas:
 - Event names added:
@@ -94,10 +94,10 @@ Generated event/error name deltas:
   - `ReplaceSplitOperator`, `SetAdditionalOperator`.
 - Error names added:
   - `JBPermissioned_Unauthorized`, `PRBMath_MulDiv_Overflow`, `REVDeployer_AutoIssuanceBeneficiaryZeroAddress`, `REVDeployer_MustHaveSplits`, `REVDeployer_ProjectCreationFeeNotNeeded`, `REVDeployer_RulesetDoesNotAllowDeployingSuckers`, `REVDeployer_StageTimesMustIncrease`, `REVDeployer_StagesRequired`.
-  - `REVLoans_CashOutDelayNotFinished`, `REVLoans_FeeOnTransferSourceUnsupported`, `REVLoans_InvalidAccountingContext`, `REVLoans_LoanExpired`, `REVLoans_LoanIdOverflow`, `REVLoans_LoanOwnerChanged`, `REVLoans_NoMsgValueAllowed`, `REVLoans_NotEnoughCollateral`.
+  - `REVLoans_CashOutDelayNotFinished`, `REVLoans_FeeAmountExceedsNetPayout`, `REVLoans_FeeOnTransferSourceUnsupported`, `REVLoans_InvalidAccountingContext`, `REVLoans_LoanExpired`, `REVLoans_LoanIdOverflow`, `REVLoans_LoanOwnerChanged`, `REVLoans_NoMsgValueAllowed`, `REVLoans_NotEnoughCollateral`.
   - `REVLoans_NothingToRepay`, `REVLoans_ReentrantLoanAction`, `REVLoans_SourceMismatch`, `REVLoans_ZeroBorrowAmount`, `REVLoans_ZeroCollateralLoanIsInvalid`, `REVLoans_ZeroPrice`, `REVOwner_AlreadyInitialized`, `REVOwner_CashOutDelayNotFinished`.
-  - `REVOwner_InvalidLoanSourceToken`, `REVOwner_NativeFeeValueMismatch`, `REVOwner_NothingToAutoIssue`, `REVOwner_NothingToBurn`, `REVOwner_StageNotStarted`, `REVOwner_Unauthorized`, `REVOwner_UnauthorizedOperator`, `SafeERC20FailedDecreaseAllowance`.
-  - `SafeERC20FailedOperation`.
+  - `REVOwner_InvalidLoanSourceToken`, `REVOwner_NativeFeeValueMismatch`, `REVOwner_NothingToAutoIssue`, `REVOwner_NothingToBurn`, `REVOwner_OverflowAlert`, `REVOwner_StageNotStarted`, `REVOwner_TooManyBuybackHookSpecifications`, `REVOwner_Unauthorized`.
+  - `REVOwner_UnauthorizedOperator`, `REVOwner_ZeroPrice`, `SafeERC20FailedDecreaseAllowance`, `SafeERC20FailedOperation`.
 - Error names removed or replaced:
   - `REVDeployer_AutoIssuanceBeneficiaryZeroAddress`, `REVDeployer_CashOutDelayNotFinished`, `REVDeployer_MustHaveSplits`, `REVDeployer_NothingToAutoIssue`, `REVDeployer_NothingToBurn`, `REVDeployer_RulesetDoesNotAllowDeployingSuckers`, `REVDeployer_StageNotStarted`, `REVDeployer_StageTimesMustIncrease`.
   - `REVDeployer_StagesRequired`, `REVLoans_NoMsgValueAllowed`, `REVLoans_NotEnoughCollateral`, `REVLoans_NothingToRepay`, `REVLoans_SourceMismatch`, `REVLoans_Unauthorized`, `REVLoans_ZeroCollateralLoanIsInvalid`, `SafeERC20FailedDecreaseAllowance`.

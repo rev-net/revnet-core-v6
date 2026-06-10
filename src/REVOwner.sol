@@ -72,14 +72,23 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
     /// @notice Thrown when there are no held tokens to burn for the revnet.
     error REVOwner_NothingToBurn(uint256 revnetId, address holder);
 
+    /// @notice Thrown when a value exceeds the peer-snapshot wire type it must fit within.
+    error REVOwner_OverflowAlert(uint256 value, uint256 limit);
+
     /// @notice Thrown when auto-issuing from a stage whose ruleset has not started yet.
     error REVOwner_StageNotStarted(uint256 stageId);
+
+    /// @notice Thrown when the buyback hook returns more cash-out hook specifications than the fee path can compose.
+    error REVOwner_TooManyBuybackHookSpecifications(uint256 count);
 
     /// @notice Thrown when the caller is not the expected deployer.
     error REVOwner_Unauthorized(address caller, address expectedCaller);
 
     /// @notice Thrown when the address is not the revnet's current operator.
     error REVOwner_UnauthorizedOperator(uint256 revnetId, address caller);
+
+    /// @notice Thrown when a cross-currency local loan source returns a zero price per unit.
+    error REVOwner_ZeroPrice(uint256 revnetId, uint256 pricingCurrency, uint256 unitCurrency);
 
     //*********************************************************************//
     // --------------- public immutable stored properties ---------------- //
@@ -210,6 +219,7 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
     /// Part of `IJBRulesetDataHook`. In the non-zero-tax fee path, REVOwner is intentionally not registered as a
     /// feeless address — the protocol fee (2.5%) applies on top of the rev fee. The fee hook spec amount sent to
     /// `afterCashOutRecordedWith` will have the protocol fee deducted by the terminal before reaching this contract.
+    /// The fee path composes at most one buyback hook spec ahead of its own fee spec.
     /// @param context Standard Juicebox cash-out context. See `JBBeforeCashOutRecordedContext`.
     /// @return cashOutTaxRate The cash-out tax rate, which influences the amount of terminal tokens reclaimed.
     /// @return cashOutCount The number of revnet tokens to cash out.
@@ -399,10 +409,13 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
             hook: IJBCashOutHook(address(this)), noop: false, amount: feeAmount, metadata: abi.encode(feeTerminal)
         });
 
+        // The fee path preserves one buyback cash-out spec ahead of its fee spec. More specs require a composition
+        // strategy this hook contract does not define.
+        if (buybackHookSpecifications.length > 1) {
+            revert REVOwner_TooManyBuybackHookSpecifications({count: buybackHookSpecifications.length});
+        }
+
         // Compose the final hook specifications: buyback spec (if any) + fee spec.
-        // NOTE: Only buybackHookSpecifications[0] is used. If the buyback hook returns multiple
-        // specs, the additional ones are silently dropped. This is intentional — the buyback hook is
-        // expected to return at most one spec for the cash-out buyback swap.
         if (buybackHookSpecifications.length > 0) {
             // The buyback hook returned a spec — include it before the fee spec.
             hookSpecifications = new JBCashOutHookSpecification[](2);
@@ -556,7 +569,11 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
                 revert REVOwner_InvalidLoanSourceToken({revnetId: revnetId, token: sourceToken});
             }
 
-            // Cap to uint128 to match the wire struct (cross-VM compatible); outstanding debt is far below this width.
+            // Peer snapshots carry debt in uint128 fields. Revert instead of wrapping debt that cannot be represented.
+            if (loaned[i] > type(uint128).max) {
+                revert REVOwner_OverflowAlert({value: loaned[i], limit: type(uint128).max});
+            }
+
             // forge-lint: disable-next-line(unsafe-typecast)
             uint128 debt = uint128(loaned[i]);
             contexts[count++] = JBSourceContext({
@@ -977,7 +994,13 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
                     unitCurrency: currency,
                     decimals: decimals
                 });
-                if (pricePerUnit == 0) continue;
+                // A zero denominator would either panic or hide outstanding debt. Revert so cash-out math does not
+                // undercount local loans.
+                if (pricePerUnit == 0) {
+                    revert REVOwner_ZeroPrice({
+                        revnetId: revnetId, pricingCurrency: sourceContext.currency, unitCurrency: currency
+                    });
+                }
 
                 borrowedAmount += mulDiv({x: normalizedTokens, y: 10 ** decimals, denominator: pricePerUnit});
             }
