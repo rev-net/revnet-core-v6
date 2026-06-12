@@ -661,7 +661,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
         jbRulesets().currentOf(REVNET_ID);
 
         // Cash out at the new (lower) tax rate
-        // Note: there's a 30-day cash out delay, so we advance more
+        // Note: there's a cash out delay, so we advance more
         vm.warp(block.timestamp + 31 days);
 
         vm.prank(USER);

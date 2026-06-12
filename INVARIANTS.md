@@ -39,7 +39,7 @@ Audience: anyone paying a revnet, holding its tokens, or borrowing against them.
 
 ## A.3 Cash-out delay (priming new chains)
 
-- `REVDeployer.CASH_OUT_DELAY` is **30 days** (`src/REVDeployer.sol:81`). It applies when an existing revnet adds a new chain mid-life (computed in `_computeCashOutDelayIfNeeded`, `src/REVDeployer.sol:1063-1079`).
+- `REVDeployer.CASH_OUT_DELAY` is **7 days** (`src/REVDeployer.sol:81`). It applies when an existing revnet adds a new chain mid-life (computed in `_computeCashOutDelayIfNeeded`, `src/REVDeployer.sol:1063-1079`).
 - During the delay window on a freshly-added chain:
   - `cashOutTokensOf` reverts (`src/REVOwner.sol:243-245`).
   - `REVLoans.borrowFrom` reverts (the delay is re-checked via `_cashOutDelayOf`, `src/REVLoans.sol:475-484`, called from `borrowableAmountFrom` and inside `_borrowFrom`).
@@ -279,7 +279,7 @@ Out-of-scope third-party attack surface; these are powers held by privileged add
 | `src/REVDeployer.sol:588-615` | `deploySuckersFor` operator-only + ruleset-gated |
 | `src/REVDeployer.sol:755-849` | `_deployRevnetFor` orchestrates ruleset launch, ERC-20 deploy, pool init, NFT transfer, sucker deploy |
 | `src/REVDeployer.sol:877-1055` | `_makeRulesetConfigurations` builds `encodedConfigurationHash` for cross-chain identity |
-| `src/REVDeployer.sol:1063-1079` | `_computeCashOutDelayIfNeeded` — 30-day delay only on chains added mid-life |
+| `src/REVDeployer.sol:1063-1079` | `_computeCashOutDelayIfNeeded` — 7-day delay only on chains added mid-life |
 | `src/REVLoans.sol:81-101` | Loan duration + fee constants (`LOAN_LIQUIDATION_DURATION`, `MIN_PREPAID_FEE_PERCENT`, `MAX_PREPAID_FEE_PERCENT`, `REV_PREPAID_FEE_PERCENT`) |
 | `src/REVLoans.sol:239-245` | `nonReentrantLoanAction` transient guard |
 | `src/REVLoans.sol:261-291` | `borrowableAmountFrom` — applies cash-out delay gate; returns `(borrowableNow, borrowableCapacity)` |

@@ -137,7 +137,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
     }
 
     /// @notice Returns a revnet config. When `pastStart` is true, `startsAtOrAfter` is set to 1 second ago,
-    /// triggering the 30-day cash out delay in REVDeployer._setCashOutDelayIfNeeded.
+    /// triggering the cash out delay in REVDeployer._setCashOutDelayIfNeeded.
     function _getRevnetConfig(
         bool pastStart,
         string memory name,
@@ -275,7 +275,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
             allowedPosts: REVEmpty721Config.emptyAllowedPosts()
         });
 
-        // Deploy a revnet with startsAtOrAfter in the past (triggers 30-day cash out delay).
+        // Deploy a revnet with startsAtOrAfter in the past (triggers the cash out delay).
         FeeProjectConfig memory delayedConfig =
             _getRevnetConfig(true, "Delayed", "$DLY", keccak256(abi.encodePacked("DELAYED")));
         (DELAYED_REVNET_ID,) = REV_DEPLOYER.deployFor({
@@ -322,7 +322,7 @@ contract TestLoansCashOutDelay is TestBaseWorkflow {
     }
 
     // ------------------------------------------------------------------
-    // Tests: delayed revnet (startsAtOrAfter in the past → 30-day delay)
+    // Tests: delayed revnet (startsAtOrAfter in the past → cash out delay)
     // ------------------------------------------------------------------
 
     /// @notice Verify the deployer actually set a cash out delay for the delayed revnet.
