@@ -106,6 +106,7 @@ contract REVOwnerCurrencyMismatchTest is TestBaseWorkflow {
             999_999, // fee revnet ID (won't be used in this test path)
             IJBSuckerRegistry(address(suckerRegistry)),
             IREVLoans(address(0)), // loans
+            address(0),
             address(this)
         );
     }

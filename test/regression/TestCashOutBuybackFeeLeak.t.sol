@@ -111,6 +111,7 @@ contract TestCashOutBuybackFeeLeak is TestBaseWorkflow {
             feeProjectId,
             IJBSuckerRegistry(address(suckerRegistry)),
             loans,
+            TRUSTED_FORWARDER,
             address(this)
         );
 

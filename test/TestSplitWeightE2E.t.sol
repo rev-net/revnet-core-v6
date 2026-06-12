@@ -145,6 +145,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
+            TRUSTED_FORWARDER,
             address(this)
         );
 
@@ -453,6 +454,7 @@ contract TestSplitWeightE2E is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
+            TRUSTED_FORWARDER,
             address(this)
         );
         REVDeployer ammDeployer = new REVDeployer{salt: "REVDeployer_AMM_E2E"}(

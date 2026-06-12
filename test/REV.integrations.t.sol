@@ -247,6 +247,7 @@ contract REVnet_Integrations is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             IREVLoans(makeAddr("loans")),
+            TRUSTED_FORWARDER,
             address(this)
         );
 

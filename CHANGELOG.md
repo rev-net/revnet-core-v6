@@ -18,6 +18,7 @@ This is a V5-to-V6 migration changelog, not a package release log or commit hist
 
 - Every revnet deployment is oriented around a tiered 721 hook. V5's separate `deployWith721sFor(...)` path is gone.
 - `REVOwner` is a new runtime contract and interface. Hook behavior, auto-issuance, operator state, and project-NFT ownership no longer live only on `REVDeployer`.
+- `REVOwner` is ERC-2771-aware like `REVDeployer` and `REVLoans`; its trusted forwarder is constructor-pinned and exposed through the inherited views.
 - Buyback configuration moved from caller-supplied per-revnet config to shared registry/deployer wiring.
 - Loans are shared infrastructure rather than per-revnet deployment state, and loan sources are tracked by token.
 - Loan operator delegation uses V6 permission IDs for opening, reallocating, and repaying loans on behalf of holders/loan owners.
@@ -36,6 +37,7 @@ This is a V5-to-V6 migration changelog, not a package release log or commit hist
   - `IREVDeployer.OWNER()`
   - `IREVDeployer.ROUTER_TERMINAL_REGISTRY()`
   - `IREVOwner` and its runtime state views
+  - `REVOwner.trustedForwarder()` and `REVOwner.isTrustedForwarder(address)`
 - Changed functions:
   - `deployFor(...)` overloads return `(uint256 revnetId, IJB721TiersHook hook)`.
   - `REVLoans.borrowableAmountFrom(...)` returns `(borrowableNow, borrowableCapacity)` instead of one value.
@@ -66,7 +68,7 @@ Generated from Foundry `out/**/*.json` artifacts, filtered to this repo's own ru
 Added V6 ABI artifacts:
 - `IREVOwner` from `src/interfaces/IREVOwner.sol`: `18` functions, `4` events, `0` errors.
 - `REVLoansSourceFees` from `src/libraries/REVLoansSourceFees.sol`: `0` functions, `0` events, `1` errors.
-- `REVOwner` from `src/REVOwner.sol`: `25` functions, `4` events, `15` errors.
+- `REVOwner` from `src/REVOwner.sol`: `27` functions, `4` events, `15` errors.
 
 Removed V5 ABI artifacts:
 - `REVAutoIssuance` from `src/structs/REVAutoIssuance.sol`: `0` functions, `0` events, `0` errors.

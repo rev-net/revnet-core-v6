@@ -22,6 +22,7 @@ contract DeployOrderingTest is Test {
             feeRevnetId: 1,
             suckerRegistry: IJBSuckerRegistry(makeAddr("sucker registry")),
             loans: IREVLoans(makeAddr("loans")),
+            trustedForwarder: address(0),
             deployerAddress: address(this)
         });
 

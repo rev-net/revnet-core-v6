@@ -15,7 +15,7 @@
 
 ## Control model
 
-- `REVOwner` holds the project NFT for every Revnet and is therefore the authoritative on-chain project owner. It also manages operator permissions and exposes the post-deploy administrative surface (`autoIssueFor`, `burnHeldTokensOf`, `setOperatorOf`).
+- `REVOwner` holds the project NFT for every Revnet and is therefore the authoritative on-chain project owner. It also manages operator permissions and exposes the post-deploy administrative surface (`autoIssueFor`, `burnHeldTokensOf`, `setOperatorOf`) through direct calls or the trusted ERC-2771 forwarder.
 - `REVDeployer` is a deploy-only factory. It creates and configures each Revnet, then transfers the project NFT to `REVOwner`. It retains `deploySuckersFor` so the same address remains responsible for ongoing sucker registrations.
 - Revnet economics are mainly fixed at deployment through staged rulesets.
 - `REVOwner` provides live runtime policy as the data hook, but not broad human governance.
@@ -39,7 +39,7 @@
 - `REVDeployer.deploySuckersFor(...)` adds new suckers post-deploy when the active ruleset allows it; gated by the operator
 - `REVOwner.autoIssueFor(...)` consumes preconfigured stage issuance
 - `REVOwner.burnHeldTokensOf(...)` burns reserved-token leftovers that accrue on the owner contract
-- `REVOwner.setOperatorOf(...)` rotates the operator (current operator only)
+- `REVOwner.setOperatorOf(...)` rotates the operator (current operator only, with ERC-2771 signer recovery)
 - operator paths can manage only the permissions left open by deployment
 - loan operators can redirect borrowed value or returned collateral if a holder delegates loan permissions; treat `REALLOCATE_LOAN` as debt-creation/proceeds-redirection authority and `REPAY_LOAN` as collateral-withdrawal/beneficiary-redirection authority
 - `REVLoans.setTokenUriResolver(resolver)` — `onlyOwner`; swaps the token-URI resolver for loan NFTs. Pure cosmetic; does not affect loan economics.
@@ -54,6 +54,7 @@
 
 - Treat revnet launch as the real governance decision.
 - Validate stage timing, operator scope, and optional integrations before deployment.
+- Validate that REVOwner, REVDeployer, and REVLoans receive the intended trusted forwarder in deployment artifacts.
 - Review cash-out delay and loan permissions together.
 - Do not assume there is a broad admin override for bad economics after launch.
 

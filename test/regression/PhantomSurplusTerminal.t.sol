@@ -212,6 +212,7 @@ contract RegressionPhantomSurplusTerminalTest is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS,
+            TRUSTED_FORWARDER,
             address(this)
         );
         REV_DEPLOYER = new REVDeployer{salt: REV_DEPLOYER_SALT}(

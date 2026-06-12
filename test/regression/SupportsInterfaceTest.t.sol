@@ -23,6 +23,7 @@ contract RegressionFixL17Test is Test {
             1, // feeRevnetId
             IJBSuckerRegistry(makeAddr("suckerRegistry")),
             IREVLoans(makeAddr("loans")),
+            address(0),
             address(this)
         );
     }

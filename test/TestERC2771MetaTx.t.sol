@@ -46,6 +46,7 @@ import {ERC2771Forwarder} from "@openzeppelin/contracts/metatx/ERC2771Forwarder.
 import {ERC2771ForwarderMock, ForwardRequest} from "@bananapus/core-v6/test/mock/ERC2771ForwarderMock.sol";
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
+import {IREVOwner} from "../src/interfaces/IREVOwner.sol";
 import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
 import {IPermit2} from "@uniswap/permit2/src/interfaces/IPermit2.sol";
@@ -57,7 +58,7 @@ struct MetaTxProjectConfig {
 }
 
 /// @title TestERC2771MetaTx
-/// @notice Tests that REVLoans and REVDeployer correctly use ERC2771Context,
+/// @notice Tests that REVLoans, REVDeployer, and REVOwner correctly use ERC2771Context,
 ///         ensuring _msgSender() returns the actual user when called through a trusted forwarder,
 ///         and falls back to msg.sender when called through an untrusted one.
 contract TestERC2771MetaTx is TestBaseWorkflow {
@@ -212,7 +213,7 @@ contract TestERC2771MetaTx is TestBaseWorkflow {
             // forge-lint: disable-next-line(named-struct-fields)
             description: REVDescription(name, symbol, projectUri, "NANA_TOKEN"),
             baseCurrency: uint32(uint160(JBConstants.NATIVE_TOKEN)),
-            operator: multisig(),
+            operator: signerAddr,
             scopeCashOutsToLocalBalances: false,
             stageConfigurations: stageConfigurations
         });
@@ -320,6 +321,7 @@ contract TestERC2771MetaTx is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
+            FORWARDER_ADDRESS,
             address(this)
         );
 
@@ -378,7 +380,32 @@ contract TestERC2771MetaTx is TestBaseWorkflow {
     /// @notice Verifies that the trusted forwarder is set correctly on REVLoans.
     function test_erc2771_trustedForwarderIsSet() public view {
         assertTrue(LOANS_CONTRACT.isTrustedForwarder(FORWARDER_ADDRESS), "Forwarder should be trusted");
+        assertTrue(REV_OWNER.isTrustedForwarder(FORWARDER_ADDRESS), "REVOwner forwarder should be trusted");
         assertFalse(LOANS_CONTRACT.isTrustedForwarder(address(0x999)), "Random address should not be trusted");
+        assertFalse(REV_OWNER.isTrustedForwarder(address(0x999)), "Random address should not be trusted");
+    }
+
+    // =========================================================================
+    // Test: rotate REVOwner operator via trusted forwarder
+    // =========================================================================
+
+    /// @notice When setOperatorOf() is called through the trusted forwarder, the operator check
+    ///         should use the signer, not the relayer who submitted the transaction.
+    function test_erc2771_setOperatorViaForwarder() public {
+        address newOperator = makeAddr("new operator");
+        assertTrue(REV_OWNER.isOperatorOf(REVNET_ID, signerAddr), "Signer should start as operator");
+
+        bytes memory setOperatorData = abi.encodeWithSelector(IREVOwner.setOperatorOf.selector, REVNET_ID, newOperator);
+
+        ERC2771Forwarder.ForwardRequestData memory requestData = _forgeRequestData({
+            value: 0, nonce: 0, deadline: uint48(block.timestamp + 1), data: setOperatorData, target: address(REV_OWNER)
+        });
+
+        vm.prank(relayerAddr);
+        erc2771Forwarder.execute{value: 0}(requestData);
+
+        assertFalse(REV_OWNER.isOperatorOf(REVNET_ID, signerAddr), "Signer should no longer be operator");
+        assertTrue(REV_OWNER.isOperatorOf(REVNET_ID, newOperator), "New operator should receive permissions");
     }
 
     // =========================================================================

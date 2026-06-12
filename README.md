@@ -35,7 +35,7 @@ Use this repo when the product is a treasury-backed network with encoded stage t
 | Contract | Role |
 | --- | --- |
 | `REVDeployer` | Launches and configures Revnets, stages, operators, and optional auxiliary features. |
-| `REVOwner` | Runtime data-hook and cash-out-hook surface used by active Revnets. |
+| `REVOwner` | ERC-2771-aware runtime data-hook and cash-out-hook surface used by active Revnets. |
 | `REVLoans` | Loan surface that lets users borrow against Revnet tokens with burned collateral and NFT loan positions. |
 
 ## Mental model
@@ -58,6 +58,7 @@ Most mistakes come from assuming a deploy-time parameter can be changed later or
 
 - the deployer holding the project NFT is part of the ownership model, not an implementation detail
 - operators are constrained, not equivalent to general protocol governance
+- REVOwner, REVDeployer, and REVLoans use constructor-pinned trusted forwarders for relayed signer-facing calls
 - the loan system depends on live revnet economics and should be reviewed together with the runtime hook
 - optional integrations like buybacks, 721 hooks, and suckers materially change the resulting network
 

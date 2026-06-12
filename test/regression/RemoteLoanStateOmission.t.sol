@@ -311,6 +311,7 @@ contract RemoteLoanStateOmissionTest is Test {
             999_999,
             IJBSuckerRegistry(address(registry)),
             IREVLoans(address(0)),
+            address(0),
             address(this)
         );
 
@@ -388,6 +389,7 @@ contract RemoteLoanStateOmissionTest is Test {
             feeRevnetId: 999_999,
             suckerRegistry: IJBSuckerRegistry(address(registry)),
             loans: IREVLoans(address(loans)),
+            trustedForwarder: address(0),
             deployerAddress: address(this)
         });
         peerOwnerHook.setDeployer({
@@ -425,6 +427,7 @@ contract RemoteLoanStateOmissionTest is Test {
             feeRevnetId: 999_999,
             suckerRegistry: IJBSuckerRegistry(address(registry)),
             loans: IREVLoans(address(loans)),
+            trustedForwarder: address(0),
             deployerAddress: address(this)
         });
         peerOwnerHook.setDeployer({

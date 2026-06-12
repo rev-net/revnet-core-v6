@@ -273,6 +273,7 @@ contract REVInvincibility_PropertyTests is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
+            TRUSTED_FORWARDER,
             address(this)
         );
 
@@ -1041,6 +1042,7 @@ contract REVInvincibility_Invariants is StdInvariant, TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
+            TRUSTED_FORWARDER,
             address(this)
         );
 
