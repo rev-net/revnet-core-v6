@@ -92,8 +92,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// revnet is deployed to a new network.
     /// - Only applies to existing revnets which are deploying onto a new network.
     /// - To prevent liquidity/arbitrage issues which might arise when an existing revnet adds a brand-new treasury.
-    /// @dev 30 days, in seconds.
-    uint256 public constant override CASH_OUT_DELAY = 2_592_000;
+    /// @dev 7 days, in seconds.
+    uint256 public constant override CASH_OUT_DELAY = 604_800;
 
     /// @notice The default Uniswap pool fee tier used when auto-configuring buyback pools.
     /// @dev 10_000 = 1%. This is the standard fee tier for most project token pairs.
