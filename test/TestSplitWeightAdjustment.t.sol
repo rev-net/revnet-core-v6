@@ -122,6 +122,7 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
+            TRUSTED_FORWARDER,
             address(this)
         );
 
@@ -352,6 +353,7 @@ contract TestSplitWeightAdjustment is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
+            TRUSTED_FORWARDER,
             address(this)
         );
         REVDeployer ammDeployer = new REVDeployer{salt: "REVDeployer_AMM"}(

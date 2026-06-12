@@ -225,6 +225,7 @@ contract CashOutFeeLocalCapScalingTest is TestBaseWorkflow {
             feeRevnetId: feeRevnetId,
             suckerRegistry: IJBSuckerRegistry(address(suckerRegistry)),
             loans: IREVLoans(address(0)),
+            trustedForwarder: address(0),
             deployerAddress: address(this)
         });
     }
@@ -450,6 +451,7 @@ contract CashOutFeeLocalCapScalingTest is TestBaseWorkflow {
             feeRevnetId: feeRevnetId,
             suckerRegistry: IJBSuckerRegistry(address(suckerRegistry)),
             loans: IREVLoans(address(0)),
+            trustedForwarder: address(0),
             deployerAddress: address(this)
         });
 

@@ -124,6 +124,7 @@ contract RegressionCrossChainBuybackRouteMismatchTest is TestBaseWorkflow {
             999_999,
             IJBSuckerRegistry(address(suckerRegistry)),
             IREVLoans(address(0)),
+            address(0),
             address(this)
         );
     }

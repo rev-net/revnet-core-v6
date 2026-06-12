@@ -369,7 +369,8 @@ contract DeployScript is Script, Sphinx {
                             core.controller.DIRECTORY(),
                             _candidateId,
                             suckers.registry,
-                            _candidateRevloansAddr,
+                            REVLoans(payable(_candidateRevloansAddr)),
+                            trustedForwarder,
                             msg.sender
                         )
                     });
@@ -439,6 +440,7 @@ contract DeployScript is Script, Sphinx {
                 feeRevnetId: feeProjectId,
                 suckerRegistry: suckers.registry,
                 loans: revloans,
+                trustedForwarder: trustedForwarder,
                 deployerAddress: msg.sender
             });
 

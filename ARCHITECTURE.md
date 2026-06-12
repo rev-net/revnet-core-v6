@@ -6,7 +6,7 @@
 
 ## System overview
 
-`REVDeployer` handles launch-time shape, staged rulesets, hook wiring, and runtime wrapper behavior. `REVOwner` provides the owner-like runtime policy surface for pay and cash-out hooks after launch. `REVLoans` manages burn-collateral loan positions represented as NFTs.
+`REVDeployer` handles launch-time shape, staged rulesets, hook wiring, and runtime wrapper behavior. `REVOwner` provides the owner-like runtime policy surface for pay and cash-out hooks after launch. `REVLoans` manages burn-collateral loan positions represented as NFTs. All three runtime contracts pin the same trusted forwarder at construction for ERC-2771 relayed calls.
 
 ## Core invariants
 
@@ -74,6 +74,7 @@ Outstanding local loan debt is part of both loan and cash-out economics. When a 
 - Ownerlessness removes convenient recovery from misconfiguration.
 - Burned-collateral semantics materially affect supply-sensitive pricing.
 - `REVOwner` is a live runtime policy surface, not only a launch helper.
+- `REVOwner` uses ERC-2771 signer recovery for operator rotation and permissionless runtime caller attribution, while terminal/NFT callbacks still rely on the direct caller.
 - Rev cash-out fees stack on top of protocol-fee behavior rather than replacing it.
 
 ## Safe change guide

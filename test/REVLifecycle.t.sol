@@ -132,6 +132,7 @@ contract REVLifecycle_Local is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
+            TRUSTED_FORWARDER,
             address(this)
         );
 

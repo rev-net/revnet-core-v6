@@ -104,6 +104,7 @@ contract RegressionRouterRegistrySourceDebtRepricingTest is TestBaseWorkflow {
             feeProjectId,
             suckerRegistry,
             loans,
+            TRUSTED_FORWARDER,
             address(this)
         );
 

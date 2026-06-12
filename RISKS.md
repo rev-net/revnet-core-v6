@@ -53,6 +53,7 @@ This file focuses on the staged-economics, runtime-hook, and loan risks that mat
 
 - **The deployer-held project NFT can be misunderstood.** Revnets are owner-minimized, but the deployer path still matters for the trust model.
 - **Split operator mistakes are high-impact.** Narrow powers like price-feed installation, split updates, sucker deployment, or router setup still matter.
+- **Trusted-forwarder configuration is part of access control.** REVOwner, REVDeployer, and REVLoans recover signers through their constructor-pinned ERC-2771 forwarder. A wrong forwarder address can break relayed operations or trust the wrong relay surface.
 - **Metadata and token-signature permissions are holder-facing.** `SET_PROJECT_URI`, `SET_TOKEN_METADATA`, and `SIGN_FOR_ERC20` are not harmless cosmetics when external integrations rely on project identity or ERC-1271 token-contract signatures.
 - **There is intentionally no broad admin recovery path.** Operational teams may try to reach for powers the design never intended to leave available.
 

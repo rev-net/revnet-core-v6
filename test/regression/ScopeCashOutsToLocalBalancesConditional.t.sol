@@ -63,6 +63,7 @@ contract ScopeCashOutsToLocalBalancesConditionalTest is Test {
             FEE_REVNET_ID,
             IJBSuckerRegistry(SUCKER_REGISTRY),
             IREVLoans(LOANS),
+            address(0),
             address(this)
         );
 

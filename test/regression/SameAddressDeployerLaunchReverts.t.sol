@@ -98,6 +98,7 @@ contract SameAddressDeployerLaunchReverts is TestBaseWorkflow {
             FEE_PROJECT_ID,
             SUCKER_REGISTRY,
             LOANS_CONTRACT,
+            _TRUSTED_FORWARDER,
             address(this)
         );
 

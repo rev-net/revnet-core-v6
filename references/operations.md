@@ -22,6 +22,8 @@ Use this file when you need revnet-specific risks, state reads, constants, or ex
 | `InitializeRevnet(revnetId, caller)` | When a revnet's full runtime state is bound during deployment via `initializeRevnet`. |
 | `ReplaceOperator(revnetId, newOperator, caller)` | When the operator of a revnet is replaced via `setOperatorOf`. |
 
+For ERC-2771-relayed REVOwner calls, signer-facing event `caller` fields use the recovered signer. Terminal and NFT callback paths keep using the direct caller.
+
 ### REVLoans
 
 | Event | When It Fires |
@@ -164,6 +166,7 @@ Use this file when you need revnet-specific risks, state reads, constants, or ex
 20. **39.16% cash-out tax crossover.** Below ~39% cash-out tax, cashing out is more capital-efficient than borrowing. Above ~39%, loans become more efficient because they preserve upside while providing liquidity. Based on CryptoEconLab academic research. Design implication: revnets intended for active token trading should consider this threshold when setting `cashOutTaxRate`.
 21. **REVDeployer always deploys a 721 hook** via `HOOK_DEPLOYER.deployHookFor` — even if `baseline721HookConfiguration` has empty tiers. This is correct by design: it lets the operator add and sell NFTs later without migration. Non-revnet projects should follow the same pattern by using `JB721TiersHookProjectDeployer.launchProjectFor` (or `JBOmnichainDeployer.launchProjectFor`) instead of bare `launchProjectFor`.
 22. **REVOwner deployer binding is precomputed.** REVOwner records the account that created it as an internal one-time binder. That account must call `setDeployer(precomputedRevDeployerAddress)` exactly once before the canonical REVDeployer is deployed. This avoids an ambient public initializer while keeping the circular dependency manageable. If `setDeployer(...)` is never called, all DEPLOYER-gated runtime configuration breaks.
+23. **REVOwner is ERC-2771-aware.** `setOperatorOf`, `setDeployer`, `autoIssueFor`, and `burnHeldTokensOf` recover the original signer when called through the trusted forwarder. Cash-out hook processing and project-NFT receipt still use the direct caller because their authority comes from the terminal or JBProjects contract.
 ### NATIVE_TOKEN accounting on non-ETH chains
 
 When deploying to a chain where the native token is NOT ETH (Celo, Polygon), the terminal must NOT use `JBConstants.NATIVE_TOKEN` as its accounting context. `NATIVE_TOKEN` represents whatever is native on that chain, but `baseCurrency=1` (ETH) assumes ETH-denominated value.
@@ -245,6 +248,8 @@ Quick-reference for common read operations. All functions are `view`/`pure` and 
 |------|------|---------|
 | 721 hook address | `REVOwner.tiered721HookOf(revnetId)` | `IJB721TiersHook` |
 | Cash-out delay timestamp | `REVOwner.cashOutDelayOf(revnetId)` | `uint256` (0 = no delay) |
+| Trusted forwarder | `REVOwner.trustedForwarder()` | `address` |
+| Forwarder trust check | `REVOwner.isTrustedForwarder(forwarder)` | `bool` |
 
 ## Example integration
 

@@ -25,11 +25,12 @@ import {JBPermissionIds} from "@bananapus/permission-ids-v6/src/JBPermissionIds.
 import {IJBPeerChainAdjustedAccounts} from "@bananapus/suckers-v6/src/interfaces/IJBPeerChainAdjustedAccounts.sol";
 import {IJBSuckerRegistry} from "@bananapus/suckers-v6/src/interfaces/IJBSuckerRegistry.sol";
 import {JBSourceContext} from "@bananapus/suckers-v6/src/structs/JBSourceContext.sol";
-import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import {ERC2771Context} from "@openzeppelin/contracts/metatx/ERC2771Context.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {mulDiv} from "@prb/math/src/Common.sol";
 
 import {IREVDeployer} from "./interfaces/IREVDeployer.sol";
@@ -45,8 +46,16 @@ import {REVOwnerRevnetInit} from "./structs/REVOwnerRevnetInit.sol";
 /// loan debt and collateral), grants suckers 0% tax, splits a 2.5% fee from non-sucker cash-outs with a non-zero
 /// cash-out tax, and routes fee proceeds to the fee revnet via `afterCashOutRecordedWith`.
 /// @dev Separated from `REVDeployer` to stay within the EIP-170 contract size limit. Also implements
-/// `IJBPeerChainAdjustedAccounts` to expose loan state to peer-chain supply/surplus snapshots.
-contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChainAdjustedAccounts, IERC721Receiver {
+/// `IJBPeerChainAdjustedAccounts` to expose loan state to peer-chain supply/surplus snapshots. The trusted forwarder
+/// is constructor-pinned so operator and permissionless runtime calls can be relayed through ERC-2771.
+contract REVOwner is
+    ERC2771Context,
+    IREVOwner,
+    IJBRulesetDataHook,
+    IJBCashOutHook,
+    IJBPeerChainAdjustedAccounts,
+    IERC721Receiver
+{
     // A library that adds default safety checks to ERC20 functionality.
     using SafeERC20 for IERC20;
 
@@ -170,6 +179,7 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
     /// @param feeRevnetId The Juicebox project ID of the fee revnet.
     /// @param suckerRegistry The sucker registry.
     /// @param loans The loan contract.
+    /// @param trustedForwarder The trusted forwarder for the ERC2771Context.
     /// @param deployerAddress The account allowed to bind the canonical deployer via `setDeployer`. Passed explicitly
     /// because CREATE2 deployments set `msg.sender` to the factory, not the intended operator.
     constructor(
@@ -178,8 +188,11 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
         uint256 feeRevnetId,
         IJBSuckerRegistry suckerRegistry,
         IREVLoans loans,
+        address trustedForwarder,
         address deployerAddress
-    ) {
+    )
+        ERC2771Context(trustedForwarder)
+    {
         BUYBACK_HOOK = buybackHook;
         DIRECTORY = directory;
         FEE_REVNET_ID = feeRevnetId;
@@ -736,8 +749,9 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
     /// could seize the deployer role before the deterministic REVDeployer is actually deployed.
     /// @param newDeployer The canonical REVDeployer instance that will manage revnet runtime state.
     function setDeployer(IREVDeployer newDeployer) external override {
+        address sender = _msgSender();
         // Only the account that deployed this REVOwner may complete the one-time deployer binding.
-        if (msg.sender != _DEPLOYER) revert REVOwner_Unauthorized({caller: msg.sender, expectedCaller: _DEPLOYER});
+        if (sender != _DEPLOYER) revert REVOwner_Unauthorized({caller: sender, expectedCaller: _DEPLOYER});
         // Prevent the deployer binding from being overwritten after initialization.
         if (address(deployer) != address(0)) revert REVOwner_AlreadyInitialized({deployer: address(deployer)});
         // Store the canonical REVDeployer that is authorized to manage runtime hook state.
@@ -799,7 +813,7 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
         amountToAutoIssue[revnetId][stageId][beneficiary] = 0;
 
         emit AutoIssue({
-            revnetId: revnetId, stageId: stageId, beneficiary: beneficiary, count: count, caller: msg.sender
+            revnetId: revnetId, stageId: stageId, beneficiary: beneficiary, count: count, caller: _msgSender()
         });
 
         CONTROLLER.mintTokensOf({
@@ -824,9 +838,9 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
         // ERC-20 supply on this contract, so a single call always clears the residue regardless of how it accrued.
         CONTROLLER.burnTokensOf({holder: address(this), projectId: revnetId, tokenCount: balance, memo: ""});
 
-        // Record the burn for off-chain accounting. `caller` is the address that paid gas, not necessarily a
-        // privileged operator — this entrypoint is intentionally permissionless.
-        emit BurnHeldTokens({revnetId: revnetId, count: balance, caller: msg.sender});
+        // Record the burn for off-chain accounting. Relayed calls attribute `caller` to the signer, and this
+        // entrypoint remains intentionally permissionless.
+        emit BurnHeldTokens({revnetId: revnetId, count: balance, caller: _msgSender()});
     }
 
     /// @notice Change a revnet's operator.
@@ -835,13 +849,14 @@ contract REVOwner is IREVOwner, IJBRulesetDataHook, IJBCashOutHook, IJBPeerChain
     /// @param revnetId The ID of the revnet to change the operator for.
     /// @param newOperator The new operator's address. Use `address(0)` to relinquish operator powers.
     function setOperatorOf(uint256 revnetId, address newOperator) external override {
-        _checkIfIsOperatorOf({revnetId: revnetId, operator: msg.sender});
+        address sender = _msgSender();
+        _checkIfIsOperatorOf({revnetId: revnetId, operator: sender});
 
-        emit ReplaceOperator({revnetId: revnetId, newOperator: newOperator, caller: msg.sender});
+        emit ReplaceOperator({revnetId: revnetId, newOperator: newOperator, caller: sender});
 
         // Remove operator permissions from the old operator.
         _setPermissionsFor({
-            account: address(this), operator: msg.sender, revnetId: revnetId, permissionIds: new uint8[](0)
+            account: address(this), operator: sender, revnetId: revnetId, permissionIds: new uint8[](0)
         });
 
         // Grant the default operator permissions to the new operator (no-op if `newOperator == address(0)`).
