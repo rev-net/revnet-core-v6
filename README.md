@@ -60,6 +60,7 @@ Most mistakes come from assuming a deploy-time parameter can be changed later or
 - operators are constrained, not equivalent to general protocol governance
 - REVOwner, REVDeployer, and REVLoans use constructor-pinned trusted forwarders for relayed signer-facing calls
 - the loan system depends on live revnet economics and should be reviewed together with the runtime hook
+- loan counters and configuration hashes are diagnostics, not complete active-loan or deployment-attestation proofs
 - optional integrations like buybacks, 721 hooks, and suckers materially change the resulting network
 
 ## Where state lives
@@ -119,6 +120,8 @@ script/
 
 - Revnets are intentionally hard to change after launch, so bad stage design is expensive
 - `REVLoans` relies on live treasury conditions and is sensitive to surplus and pricing assumptions; zero cross-currency prices fail closed instead of hiding outstanding debt
+- cash-outs can be local-liquidity-capped when remote surplus exceeds the current chain's usable balance
+- liquidation is bountyless cleanup of an underwater or invalid loan position, not collateral recovery for liquidators
 - the deployer and runtime hook should be treated as one design, not two separate systems
 - burned-collateral lending is operationally different from escrowed-collateral lending
 
