@@ -8,12 +8,14 @@ import {JBDeploy721TiersHookConfig} from "@bananapus/721-hook-v6/src/structs/JBD
 import {IJBBuybackHookRegistry} from "@bananapus/buyback-hook-v6/src/interfaces/IJBBuybackHookRegistry.sol";
 import {IJBController} from "@bananapus/core-v6/src/interfaces/IJBController.sol";
 import {IJBDirectory} from "@bananapus/core-v6/src/interfaces/IJBDirectory.sol";
+import {IJBPayerTracker} from "@bananapus/core-v6/src/interfaces/IJBPayerTracker.sol";
 import {IJBPermissioned} from "@bananapus/core-v6/src/interfaces/IJBPermissioned.sol";
 import {IJBPermissions} from "@bananapus/core-v6/src/interfaces/IJBPermissions.sol";
 import {IJBProjects} from "@bananapus/core-v6/src/interfaces/IJBProjects.sol";
 import {IJBRulesetApprovalHook} from "@bananapus/core-v6/src/interfaces/IJBRulesetApprovalHook.sol";
 import {IJBTerminal} from "@bananapus/core-v6/src/interfaces/IJBTerminal.sol";
 import {JBConstants} from "@bananapus/core-v6/src/libraries/JBConstants.sol";
+import {JBPayerTrackerLib} from "@bananapus/core-v6/src/libraries/JBPayerTrackerLib.sol";
 import {JBSplitGroupIds} from "@bananapus/core-v6/src/libraries/JBSplitGroupIds.sol";
 import {JBAccountingContext} from "@bananapus/core-v6/src/structs/JBAccountingContext.sol";
 import {JBCurrencyAmount} from "@bananapus/core-v6/src/structs/JBCurrencyAmount.sol";
@@ -55,7 +57,7 @@ import {REVSuckerDeploymentConfig} from "./structs/REVSuckerDeploymentConfig.sol
 /// the revnet's rules.
 /// @dev Revnets are unowned Juicebox projects which operate autonomously after deployment. Runtime data hook logic
 /// (pay/cash-out callbacks) is handled by the separate `REVOwner` contract to stay within EIP-170 size limits.
-contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
+contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver, IJBPayerTracker {
     //*********************************************************************//
     // --------------------------- custom errors ------------------------- //
     //*********************************************************************//
@@ -164,6 +166,16 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     mapping(uint256 revnetId => bytes32 hashedEncodedConfiguration) public override hashedEncodedConfigurationOf;
 
     //*********************************************************************//
+    // ------------------- public transient properties ------------------- //
+    //*********************************************************************//
+
+    /// @notice The account that paid the creation fee for the revnet currently being deployed.
+    /// @dev Set to the resolved fee payer (this contract's caller, or that caller's upstream payer when the caller is
+    /// itself an `IJBPayerTracker`) while `PROJECTS.createFor` runs, so the fee receiver attributes the creation fee to
+    /// the true payer instead of this deployer. Cleared back to `address(0)` once the call returns.
+    address public transient override originalPayer;
+
+    //*********************************************************************//
     // -------------------------- constructor ---------------------------- //
     //*********************************************************************//
 
@@ -243,7 +255,8 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     /// @dev See `IERC165.supportsInterface`.
     /// @return A flag indicating if the provided interface ID is supported.
     function supportsInterface(bytes4 interfaceId) public view virtual returns (bool) {
-        return interfaceId == type(IREVDeployer).interfaceId || interfaceId == type(IERC721Receiver).interfaceId;
+        return interfaceId == type(IREVDeployer).interfaceId || interfaceId == type(IERC721Receiver).interfaceId
+            || interfaceId == type(IJBPayerTracker).interfaceId;
     }
 
     //*********************************************************************//
@@ -515,7 +528,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
 
         // If the caller is deploying a new revnet, reserve its project ID before deriving hook/sucker config.
         if (shouldDeployNewRevnet) {
+            // Expose the resolved fee payer so the fee receiver attributes the creation fee to the true payer, not this
+            // deployer. Cleared immediately after.
+            originalPayer = JBPayerTrackerLib.resolve(_msgSender());
             revnetId = PROJECTS.createFor{value: msg.value}(address(this));
+            originalPayer = address(0);
         } else if (msg.value != 0) {
             revert REVDeployer_ProjectCreationFeeNotNeeded({revnetId: revnetId, value: msg.value});
         }
@@ -556,7 +573,11 @@ contract REVDeployer is ERC2771Context, IREVDeployer, IERC721Receiver {
     {
         bool shouldDeployNewRevnet = revnetId == 0;
         if (shouldDeployNewRevnet) {
+            // Expose the resolved fee payer so the fee receiver attributes the creation fee to the true payer, not this
+            // deployer. Cleared immediately after.
+            originalPayer = JBPayerTrackerLib.resolve(_msgSender());
             revnetId = PROJECTS.createFor{value: msg.value}(address(this));
+            originalPayer = address(0);
         } else if (msg.value != 0) {
             revert REVDeployer_ProjectCreationFeeNotNeeded({revnetId: revnetId, value: msg.value});
         }
