@@ -45,7 +45,9 @@ import {IJBAddressRegistry} from "@bananapus/address-registry-v6/src/interfaces/
 import {REVOwner} from "../src/REVOwner.sol";
 import {IREVDeployer} from "../src/interfaces/IREVDeployer.sol";
 import {MockEmptyTerminal} from "./mock/MockEmptyTerminal.sol";
+import {MockPayerRecordingFeeReceiver} from "./mock/MockPayerRecordingFeeReceiver.sol";
 import {MockSuckerRegistry} from "./mock/MockSuckerRegistry.sol";
+import {IJBPayerTracker} from "@bananapus/core-v6/src/interfaces/IJBPayerTracker.sol";
 import {IPermit2} from "@uniswap/permit2/src/interfaces/IPermit2.sol";
 
 /// @notice Regression tests for REVDeployer.
@@ -195,6 +197,46 @@ contract REVDeployerRegressions is TestBaseWorkflow {
 
         assertGt(revnetId, FEE_PROJECT_ID, "revnet should be deployed");
         assertEq(creationFeeReceiver.balance, balanceBefore + creationFee, "creation fee should be paid");
+    }
+
+    function test_supportsInterface_payerTracker() public view {
+        assertTrue(
+            REV_DEPLOYER.supportsInterface(type(IJBPayerTracker).interfaceId),
+            "deployer should advertise IJBPayerTracker"
+        );
+    }
+
+    function test_deployFor_advertisesResolvedFeePayerToFeeReceiver() public {
+        uint256 creationFee = 0.001 ether;
+        address feePayer = makeAddr("feePayer");
+
+        // Route the creation fee to a receiver that records the original payer its `pay`-tracking sender advertises.
+        MockPayerRecordingFeeReceiver creationFeeReceiver = new MockPayerRecordingFeeReceiver();
+
+        vm.prank(multisig());
+        jbProjects().setCreationFee(creationFee, payable(address(creationFeeReceiver)));
+        vm.deal(feePayer, creationFee);
+
+        // The fee payer is a plain EOA, not the deployer which forwards the fee.
+        vm.prank(feePayer);
+        (uint256 revnetId,) = REV_DEPLOYER.deployFor{value: creationFee}({
+            revnetId: 0,
+            configuration: _singleStageRevnetConfig(bytes32("PAYER")),
+            accountingContextsToAccept: _nativeAccountingContexts(),
+            suckerDeploymentConfiguration: _emptySuckerDeploymentConfig(bytes32(0)),
+            tiered721HookConfiguration: REVEmpty721Config.empty721Config(uint32(uint160(JBConstants.NATIVE_TOKEN))),
+            allowedPosts: REVEmpty721Config.emptyAllowedPosts()
+        });
+
+        assertGt(revnetId, FEE_PROJECT_ID, "revnet should be deployed");
+        assertEq(
+            creationFeeReceiver.recordedPayer(),
+            feePayer,
+            "fee receiver should be credited with the end user, not the deployer"
+        );
+
+        // The advertisement is transient: cleared once `createFor` returns.
+        assertEq(REV_DEPLOYER.originalPayer(), address(0), "originalPayer should be cleared after deployment");
     }
 
     function test_deployFor_withAllowedPostsConfiguresPublisherBeforeOwnershipTransfer() public {

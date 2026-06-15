@@ -57,6 +57,7 @@ Most mistakes come from assuming a deploy-time parameter can be changed later or
 ## Integration traps
 
 - the deployer holding the project NFT is part of the ownership model, not an implementation detail
+- the deployer forwards the project-creation fee but advertises the resolved fee payer through `IJBPayerTracker`, so a `pay`-routing fee receiver credits the end user rather than the deployer
 - operators are constrained, not equivalent to general protocol governance
 - REVOwner, REVDeployer, and REVLoans use constructor-pinned trusted forwarders for relayed signer-facing calls
 - the loan system depends on live revnet economics and should be reviewed together with the runtime hook

@@ -38,6 +38,7 @@ This is a V5-to-V6 migration changelog, not a package release log or commit hist
   - `IREVDeployer.ROUTER_TERMINAL_REGISTRY()`
   - `IREVOwner` and its runtime state views
   - `REVOwner.trustedForwarder()` and `REVOwner.isTrustedForwarder(address)`
+  - `REVDeployer` implements `IJBPayerTracker` and exposes the transient `originalPayer()`, advertising the resolved fee payer while forwarding a project-creation fee to `JBProjects.createFor` so the fee receiver credits the end user instead of the deployer.
 - Changed functions:
   - `deployFor(...)` overloads return `(uint256 revnetId, IJB721TiersHook hook)`.
   - `REVLoans.borrowableAmountFrom(...)` returns `(borrowableNow, borrowableCapacity)` instead of one value.

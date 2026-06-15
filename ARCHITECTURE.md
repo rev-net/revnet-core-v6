@@ -47,6 +47,8 @@ operators or permissionless callers
   -> perform bounded maintenance such as auto-issuance claims
 ```
 
+When `deployFor` creates a new project, `REVDeployer` forwards the project-creation fee to `JBProjects.createFor` under its own address but advertises the resolved fee payer through `IJBPayerTracker.originalPayer`. The fee payer is the deployer's ERC-2771 caller, or that caller's upstream payer when the caller is itself an `IJBPayerTracker`, so a chain of forwarders resolves to the true originator. The advertisement is transient and cleared once `createFor` returns, letting a `pay`-routing fee receiver credit the end user instead of the deployer.
+
 ### Loan lifecycle
 
 ```text
