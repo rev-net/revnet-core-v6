@@ -1,12 +1,13 @@
 {
   "name": "@rev-net/core-v6",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/rev-net/revnet-core-v6.git"
   },
   "files": [
+    "deployments/",
     "foundry.toml",
     "references/",
     "remappings.txt",
