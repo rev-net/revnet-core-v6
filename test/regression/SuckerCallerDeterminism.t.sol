@@ -160,7 +160,8 @@ contract RegressionSuckerCallerDeterminismTest is TestBaseWorkflow {
         // remoteChainId, remoteToken) a sucker maps. `_suckerConfig` maps the native token to native on the OP
         // sucker's peer chain (Optimism, chain 10), and native-to-native always needs owner approval.
         vm.prank(multisig());
-        JBSuckerRegistry(address(SUCKER_REGISTRY)).allowTokenMapping({
+        JBSuckerRegistry(address(SUCKER_REGISTRY))
+            .allowTokenMapping({
             localToken: JBConstants.NATIVE_TOKEN,
             remoteChainId: 10,
             remoteToken: bytes32(uint256(uint160(JBConstants.NATIVE_TOKEN)))
