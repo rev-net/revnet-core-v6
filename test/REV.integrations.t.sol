@@ -452,15 +452,21 @@ contract REVnet_Integrations is TestBaseWorkflow {
         JBTokenMapping[] memory tokenMapping = new JBTokenMapping[](1);
 
         address token = makeAddr("someToken");
-        tokenMapping[0] = JBTokenMapping({
-            localToken: token, minGas: 200_000, remoteToken: bytes32(uint256(uint160(makeAddr("someOtherToken"))))
-        });
+        bytes32 remoteToken = bytes32(uint256(uint160(makeAddr("someOtherToken"))));
+        tokenMapping[0] = JBTokenMapping({localToken: token, minGas: 200_000, remoteToken: remoteToken});
 
         suckerDeployerConfig[0] =
             JBSuckerDeployerConfig({deployer: ARB_SUCKER_DEPLOYER, peer: bytes32(0), mappings: tokenMapping});
 
         REVSuckerDeploymentConfig memory revConfig =
             REVSuckerDeploymentConfig({deployerConfigurations: suckerDeployerConfig, salt: "SALTY"});
+
+        // suckers-v6 1.0.2 gates token mappings: the registry owner must pre-approve every (localToken,
+        // remoteChainId, remoteToken) the sucker maps. The Arbitrum sucker's peer chain is L1 mainnet (chain 1).
+        if (!SUCKER_REGISTRY.tokenMappingIsAllowed({localToken: token, remoteChainId: 1, remoteToken: remoteToken})) {
+            vm.prank(multisig());
+            SUCKER_REGISTRY.allowTokenMapping({localToken: token, remoteChainId: 1, remoteToken: remoteToken});
+        }
 
         // Arbitrum chainid so the deployer works
         vm.chainId(42_161);
