@@ -74,6 +74,8 @@ contract REVOwner is
 
     /// @notice Thrown when the native value sent does not match the forwarded fee amount being processed.
     error REVOwner_NativeFeeValueMismatch(uint256 expected, uint256 actual);
+    error REVOwner_NoFeeTerminal(address token);
+    error REVOwner_NoHeldFee(uint256 revnetId, address token, address holder);
 
     /// @notice Thrown when there are no tokens left to auto-issue for the given stage and beneficiary.
     error REVOwner_NothingToAutoIssue(uint256 revnetId, uint256 stageId, address beneficiary);
@@ -130,6 +132,16 @@ contract REVOwner is
     /// @notice Each revnet's tiered ERC-721 hook.
     /// @custom:param revnetId The ID of the revnet to look up.
     mapping(uint256 revnetId => IJB721TiersHook tiered721Hook) public override tiered721HookOf;
+
+    /// @notice Cash-out fees the fee revnet could not take at the time, held here until a retry succeeds.
+    /// @dev Anyone can retry with `processHeldFeeOf`. A failed fee is never returned to the revnet, so the gas a
+    /// holder picks for a cash out cannot waive the fee.
+    /// @custom:param revnetId The ID of the revnet the fee came from.
+    /// @custom:param token The token the fee is held in.
+    /// @custom:param holder The holder whose cash out paid the fee, who receives the fee revnet's tokens on retry.
+    mapping(uint256 revnetId => mapping(address token => mapping(address holder => uint256 amount)))
+        public
+        override heldFeeOf;
 
     /// @notice The amount of project tokens to auto-issue at a given stage to a given beneficiary.
     /// @custom:param revnetId The ID of the revnet to look up.
@@ -651,21 +663,49 @@ contract REVOwner is
                 });
             }
 
-            // If the fee can't be processed, return the funds to the project.
-            payValue = _beforeTransferTo({
-                to: msg.sender, token: context.forwardedAmount.token, amount: context.forwardedAmount.value
-            });
+            // The fee stays here for the fee revnet until a retry succeeds. Returning it to the revnet would let the
+            // gas a holder picks decide whether the fee is paid.
+            heldFeeOf[context.projectId][context.forwardedAmount.token][context.holder] += context.forwardedAmount.value;
 
-            IJBTerminal(msg.sender).addToBalanceOf{value: payValue}({
-                projectId: context.projectId,
+            emit HoldFee({
+                revnetId: context.projectId,
                 token: context.forwardedAmount.token,
+                holder: context.holder,
                 amount: context.forwardedAmount.value,
-                shouldReturnHeldFees: false,
-                memo: "",
-                metadata: bytes(abi.encodePacked(FEE_REVNET_ID))
+                caller: msg.sender
             });
-            _afterTransferTo({to: msg.sender, token: context.forwardedAmount.token});
         }
+    }
+
+    /// @notice Retries paying a held cash-out fee to the fee revnet.
+    /// @dev Permissionless. The pay runs with no catch, so a fee revnet that still cannot take it reverts this call and
+    /// the fee stays held.
+    /// @param revnetId The ID of the revnet the fee came from.
+    /// @param token The token the fee is held in.
+    /// @param holder The holder whose cash out paid the fee.
+    function processHeldFeeOf(uint256 revnetId, address token, address holder) external override {
+        uint256 amount = heldFeeOf[revnetId][token][holder];
+        if (amount == 0) revert REVOwner_NoHeldFee({revnetId: revnetId, token: token, holder: holder});
+        delete heldFeeOf[revnetId][token][holder];
+
+        IJBTerminal feeTerminal = DIRECTORY.primaryTerminalOf({projectId: FEE_REVNET_ID, token: token});
+        if (address(feeTerminal) == address(0)) revert REVOwner_NoFeeTerminal({token: token});
+
+        uint256 payValue = _beforeTransferTo({to: address(feeTerminal), token: token, amount: amount});
+
+        feeTerminal.pay{value: payValue}({
+            projectId: FEE_REVNET_ID,
+            token: token,
+            amount: amount,
+            beneficiary: holder,
+            minReturnedTokens: 0,
+            memo: "",
+            metadata: bytes(abi.encodePacked(revnetId))
+        });
+
+        _afterTransferTo({to: address(feeTerminal), token: token});
+
+        emit ProcessHeldFee({revnetId: revnetId, token: token, holder: holder, amount: amount, caller: _msgSender()});
     }
 
     /// @notice Bind every piece of revnet-scoped state managed by this contract in a single deployer call. Stores

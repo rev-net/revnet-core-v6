@@ -13,6 +13,20 @@ import {REVLoan} from "../structs/REVLoan.sol";
 
 /// @notice Manages loans against revnet token collateral.
 interface IREVLoans {
+    /// @notice A fee its terminal could not take was held for a later retry.
+    /// @param projectId The project the fee is for.
+    /// @param token The token the fee is in.
+    /// @param beneficiary The address credited for the fee payment on retry.
+    /// @param metadataProjectId The project ID encoded in the payment metadata on retry.
+    /// @param amount The amount held.
+    event HoldFee(
+        uint256 indexed projectId,
+        address indexed token,
+        address indexed beneficiary,
+        uint256 metadataProjectId,
+        uint256 amount
+    );
+
     /// @notice Emitted when a loan is created by borrowing from a revnet.
     /// @param loanId The ID of the newly created loan.
     /// @param revnetId The ID of the revnet being borrowed from.
@@ -280,6 +294,19 @@ interface IREVLoans {
         external
         payable
         returns (uint256 paidOffLoanId, REVLoan memory paidOffloan);
+
+    /// @notice Retries paying a held fee to its terminal. Reverts if the terminal still cannot take it.
+    /// @param projectId The project the fee is for.
+    /// @param token The token the fee is in.
+    /// @param beneficiary The address credited for the fee payment.
+    /// @param metadataProjectId The project ID encoded in the payment metadata.
+    function processHeldFeeOf(
+        uint256 projectId,
+        address token,
+        address beneficiary,
+        uint256 metadataProjectId
+    )
+        external;
 
     /// @notice Set the address of the resolver used to retrieve the token URI of loans.
     /// @param resolver The new token URI resolver.

@@ -31,6 +31,26 @@ interface IREVOwner {
     /// @param caller The address that triggered the burn.
     event BurnHeldTokens(uint256 indexed revnetId, uint256 count, address caller);
 
+    /// @notice A cash-out fee the fee revnet could not take was held for a later retry.
+    /// @param revnetId The ID of the revnet the fee came from.
+    /// @param token The token the fee is held in.
+    /// @param holder The holder whose cash out paid the fee.
+    /// @param amount The amount held.
+    /// @param caller The terminal that forwarded the fee.
+    event HoldFee(
+        uint256 indexed revnetId, address indexed token, address indexed holder, uint256 amount, address caller
+    );
+
+    /// @notice A held cash-out fee was retried and paid to the fee revnet.
+    /// @param revnetId The ID of the revnet the fee came from.
+    /// @param token The token the fee was held in.
+    /// @param holder The holder who received the fee revnet's tokens.
+    /// @param amount The amount paid.
+    /// @param caller The address that retried the fee.
+    event ProcessHeldFee(
+        uint256 indexed revnetId, address indexed token, address indexed holder, uint256 amount, address caller
+    );
+
     /// @notice Emitted once when a revnet's initial runtime state is bound on this contract.
     /// @param revnetId The ID of the revnet that was initialized.
     /// @param caller The address that initialized the revnet (always the canonical deployer).
@@ -101,6 +121,13 @@ interface IREVOwner {
     /// @return The tiered ERC-721 hook instance.
     function tiered721HookOf(uint256 revnetId) external view returns (IJB721TiersHook);
 
+    /// @notice A cash-out fee held for the fee revnet because it could not take it at the time.
+    /// @param revnetId The ID of the revnet the fee came from.
+    /// @param token The token the fee is held in.
+    /// @param holder The holder whose cash out paid the fee.
+    /// @return The amount held.
+    function heldFeeOf(uint256 revnetId, address token, address holder) external view returns (uint256);
+
     /// @notice Auto-mint a revnet's tokens from a stage for a beneficiary.
     /// @dev Permissionless once the stage has started.
     /// @param revnetId The ID of the revnet to auto-mint tokens for.
@@ -111,6 +138,12 @@ interface IREVOwner {
     /// @notice Burn any of a revnet's project tokens that have accumulated on this contract.
     /// @param revnetId The ID of the revnet to burn tokens for.
     function burnHeldTokensOf(uint256 revnetId) external;
+
+    /// @notice Retries paying a held cash-out fee to the fee revnet. Reverts if it still cannot take it.
+    /// @param revnetId The ID of the revnet the fee came from.
+    /// @param token The token the fee is held in.
+    /// @param holder The holder whose cash out paid the fee.
+    function processHeldFeeOf(uint256 revnetId, address token, address holder) external;
 
     /// @notice Bind every piece of revnet-scoped state managed by this contract in a single deployer call. Stores
     /// the cash-out delay, the tiered ERC-721 hook, auto-issuance allocations, extra operator permissions, the
