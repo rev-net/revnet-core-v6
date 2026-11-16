@@ -85,8 +85,8 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
 
     /// @notice Thrown when the recalculated borrow amount for remaining collateral exceeds the loan's amount.
     error REVLoans_NewBorrowAmountGreaterThanLoanAmount(uint256 newBorrowAmount, uint256 loanAmount);
-    error REVLoans_HeldFeeStillFailing();
-    error REVLoans_NoHeldFee();
+    error REVLoans_HeldFeeStillFailing(bytes32 heldFeeId, uint256 amount);
+    error REVLoans_NoHeldFee(bytes32 heldFeeId);
 
     /// @notice Thrown when native value is sent for a loan source token that is not the native token.
     error REVLoans_NoMsgValueAllowed(uint256 msgValue, address token);
@@ -217,10 +217,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     /// @notice Fees a fee terminal could not take at the time, held here until a retry succeeds.
     /// @dev Keyed by `keccak256(abi.encode(projectId, token, beneficiary, metadataProjectId))`, the arguments of
     /// `processHeldFeeOf`. Anyone can retry. A failed fee is never handed to the borrower, so the gas a borrower
-    /// picks cannot waive it. Internal to stay under the bytecode size limit: `HoldFee` events are the index, and an
-    /// `eth_call` of `processHeldFeeOf` tells whether an entry is still held.
+    /// picks cannot waive it.
     /// @custom:param heldFeeId The hash of the held fee's routing arguments, as emitted in `HoldFee`.
-    mapping(bytes32 heldFeeId => uint256 amount) internal _heldFeeOf;
+    mapping(bytes32 heldFeeId => uint256 amount) public override heldFeeOf;
 
     /// @notice The loan state for each loan ID.
     /// @custom:param loanId The ID of the loan.
@@ -1059,9 +1058,9 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         override
     {
         bytes32 heldFeeId = keccak256(abi.encode(projectId, token, beneficiary, metadataProjectId));
-        uint256 amount = _heldFeeOf[heldFeeId];
-        if (amount == 0) revert REVLoans_NoHeldFee();
-        delete _heldFeeOf[heldFeeId];
+        uint256 amount = heldFeeOf[heldFeeId];
+        if (amount == 0) revert REVLoans_NoHeldFee({heldFeeId: heldFeeId});
+        delete heldFeeOf[heldFeeId];
 
         // Both REV fees and source fees are plain payments to a project, so its current primary terminal for the token
         // is the right place to retry.
@@ -1075,7 +1074,16 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
                 amount: amount,
                 beneficiary: beneficiary,
                 metadataProjectId: metadataProjectId
-            })) revert REVLoans_HeldFeeStillFailing();
+            })) revert REVLoans_HeldFeeStillFailing({heldFeeId: heldFeeId, amount: amount});
+
+        emit ProcessHeldFee({
+            projectId: projectId,
+            token: token,
+            beneficiary: beneficiary,
+            metadataProjectId: metadataProjectId,
+            amount: amount,
+            caller: _msgSender()
+        });
     }
 
     /// @notice Set the address of the resolver used to retrieve the tokenURI of loans.
@@ -1784,7 +1792,7 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
                 metadataProjectId: metadataProjectId
             })) return;
 
-        _heldFeeOf[keccak256(abi.encode(projectId, token, beneficiary, metadataProjectId))] += amount;
+        heldFeeOf[keccak256(abi.encode(projectId, token, beneficiary, metadataProjectId))] += amount;
 
         emit HoldFee({
             projectId: projectId,

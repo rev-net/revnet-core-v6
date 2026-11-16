@@ -27,6 +27,22 @@ interface IREVLoans {
         uint256 amount
     );
 
+    /// @notice A held fee was retried and paid.
+    /// @param projectId The project the fee is for.
+    /// @param token The token the fee is in.
+    /// @param beneficiary The address credited for the fee payment.
+    /// @param metadataProjectId The project ID encoded in the payment metadata.
+    /// @param amount The amount paid.
+    /// @param caller The address that retried the fee.
+    event ProcessHeldFee(
+        uint256 indexed projectId,
+        address indexed token,
+        address indexed beneficiary,
+        uint256 metadataProjectId,
+        uint256 amount,
+        address caller
+    );
+
     /// @notice Emitted when a loan is created by borrowing from a revnet.
     /// @param loanId The ID of the newly created loan.
     /// @param revnetId The ID of the revnet being borrowed from.
@@ -146,6 +162,12 @@ interface IREVLoans {
     /// @param token The token to check.
     /// @return A flag indicating if the revnet has an active loan source.
     function isLoanSourceOf(uint256 revnetId, address token) external view returns (bool);
+
+    /// @notice A fee held because its terminal could not take it at the time.
+    /// @param heldFeeId `keccak256(abi.encode(projectId, token, beneficiary, metadataProjectId))`, as emitted in
+    /// `HoldFee`.
+    /// @return The amount held.
+    function heldFeeOf(bytes32 heldFeeId) external view returns (uint256);
 
     /// @notice The duration after which a loan expires and its collateral is permanently lost.
     /// @return The loan liquidation duration in seconds.
