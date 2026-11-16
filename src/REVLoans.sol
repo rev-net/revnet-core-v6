@@ -85,6 +85,8 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
 
     /// @notice Thrown when the recalculated borrow amount for remaining collateral exceeds the loan's amount.
     error REVLoans_NewBorrowAmountGreaterThanLoanAmount(uint256 newBorrowAmount, uint256 loanAmount);
+    error REVLoans_HeldFeeStillFailing();
+    error REVLoans_NoHeldFee();
 
     /// @notice Thrown when native value is sent for a loan source token that is not the native token.
     error REVLoans_NoMsgValueAllowed(uint256 msgValue, address token);
@@ -211,6 +213,14 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
     //*********************************************************************//
     // --------------------- internal stored properties ------------------ //
     //*********************************************************************//
+
+    /// @notice Fees a fee terminal could not take at the time, held here until a retry succeeds.
+    /// @dev Keyed by `keccak256(abi.encode(projectId, token, beneficiary, metadataProjectId))`, the arguments of
+    /// `processHeldFeeOf`. Anyone can retry. A failed fee is never handed to the borrower, so the gas a borrower
+    /// picks cannot waive it. Internal to stay under the bytecode size limit: `HoldFee` events are the index, and an
+    /// `eth_call` of `processHeldFeeOf` tells whether an entry is still held.
+    /// @custom:param heldFeeId The hash of the held fee's routing arguments, as emitted in `HoldFee`.
+    mapping(bytes32 heldFeeId => uint256 amount) internal _heldFeeOf;
 
     /// @notice The loan state for each loan ID.
     /// @custom:param loanId The ID of the loan.
@@ -1032,6 +1042,42 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         }
     }
 
+    /// @notice Retries paying a held fee to its terminal.
+    /// @dev Permissionless. The pay runs with no catch, so a terminal that still cannot take it reverts this call and
+    /// the fee stays held. The arguments are the ones emitted in `HoldFee`.
+    /// @param projectId The project the fee is for.
+    /// @param token The token the fee is in.
+    /// @param beneficiary The address credited for the fee payment.
+    /// @param metadataProjectId The project ID encoded in the payment metadata.
+    function processHeldFeeOf(
+        uint256 projectId,
+        address token,
+        address beneficiary,
+        uint256 metadataProjectId
+    )
+        external
+        override
+    {
+        bytes32 heldFeeId = keccak256(abi.encode(projectId, token, beneficiary, metadataProjectId));
+        uint256 amount = _heldFeeOf[heldFeeId];
+        if (amount == 0) revert REVLoans_NoHeldFee();
+        delete _heldFeeOf[heldFeeId];
+
+        // Both REV fees and source fees are plain payments to a project, so its current primary terminal for the token
+        // is the right place to retry.
+        IJBTerminal terminal = DIRECTORY.primaryTerminalOf({projectId: projectId, token: token});
+
+        // With no terminal the pay cannot succeed, so a missing one fails the retry like any other failure.
+        if (!_tryPayFee({
+                terminal: terminal,
+                projectId: projectId,
+                token: token,
+                amount: amount,
+                beneficiary: beneficiary,
+                metadataProjectId: metadataProjectId
+            })) revert REVLoans_HeldFeeStillFailing();
+    }
+
     /// @notice Set the address of the resolver used to retrieve the tokenURI of loans.
     /// @param resolver The address of the new resolver.
     function setTokenUriResolver(IJBTokenUriResolver resolver) external override onlyOwner {
@@ -1163,18 +1209,16 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             ? 0
             : JBFees.feeAmountFrom({amountBeforeFee: addedBorrowAmount, feePercent: REV_PREPAID_FEE_PERCENT});
 
-        // Try to pay the REV fee. If it fails, revFeeAmount is zeroed so the borrower receives it instead.
+        // Pay the REV fee. If the fee terminal cannot take it, it is held for a retry, never handed to the borrower.
         if (revFeeAmount > 0) {
-            if (!_tryPayFee({
-                    terminal: feeTerminal,
-                    projectId: REV_ID,
-                    token: sourceToken,
-                    amount: revFeeAmount,
-                    beneficiary: beneficiary,
-                    metadataProjectId: revnetId
-                })) {
-                revFeeAmount = 0;
-            }
+            _payFeeOrHold({
+                terminal: feeTerminal,
+                projectId: REV_ID,
+                token: sourceToken,
+                amount: revFeeAmount,
+                beneficiary: beneficiary,
+                metadataProjectId: revnetId
+            });
         }
 
         // Reserve fee amounts before transferring proceeds. The terminal payout must cover both fee buckets.
@@ -1264,18 +1308,16 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
             });
         }
 
-        // Try to pay the source fee. If it fails, transfer the amount to the beneficiary instead.
+        // Pay the source fee. If the terminal cannot take it, it is held for a retry, never handed to the beneficiary.
         if (sourceFeeAmount > 0) {
-            if (!_tryPayFee({
-                    terminal: TERMINAL,
-                    projectId: revnetId,
-                    token: sourceToken,
-                    amount: sourceFeeAmount,
-                    beneficiary: beneficiary,
-                    metadataProjectId: REV_ID
-                })) {
-                _transferFrom({from: address(this), to: beneficiary, token: sourceToken, amount: sourceFeeAmount});
-            }
+            _payFeeOrHold({
+                terminal: TERMINAL,
+                projectId: revnetId,
+                token: sourceToken,
+                amount: sourceFeeAmount,
+                beneficiary: beneficiary,
+                metadataProjectId: REV_ID
+            });
         }
     }
 
@@ -1712,6 +1754,45 @@ contract REVLoans is ERC721, ERC2771Context, JBPermissioned, Ownable, IREVLoans 
         // Otherwise, attempt to use the `permit2` method.
         // forge-lint: disable-next-line(unsafe-typecast)
         PERMIT2.transferFrom({from: from, to: to, amount: uint160(amount), token: token});
+    }
+
+    /// @notice Pay a fee to a terminal. If it cannot take the fee, hold the fee for a later `processHeldFeeOf`.
+    /// @dev The outcome of the pay can depend on the gas the borrower chose, so the fee must never fall back to the
+    /// borrower.
+    /// @param terminal The terminal to pay the fee to.
+    /// @param projectId The project to pay the fee to.
+    /// @param token The token to pay the fee with.
+    /// @param amount The fee amount.
+    /// @param beneficiary The address to credit for the fee payment.
+    /// @param metadataProjectId The project ID to encode in the payment metadata.
+    function _payFeeOrHold(
+        IJBTerminal terminal,
+        uint256 projectId,
+        address token,
+        uint256 amount,
+        address beneficiary,
+        uint256 metadataProjectId
+    )
+        internal
+    {
+        if (_tryPayFee({
+                terminal: terminal,
+                projectId: projectId,
+                token: token,
+                amount: amount,
+                beneficiary: beneficiary,
+                metadataProjectId: metadataProjectId
+            })) return;
+
+        _heldFeeOf[keccak256(abi.encode(projectId, token, beneficiary, metadataProjectId))] += amount;
+
+        emit HoldFee({
+            projectId: projectId,
+            token: token,
+            beneficiary: beneficiary,
+            metadataProjectId: metadataProjectId,
+            amount: amount
+        });
     }
 
     /// @notice Attempt to pay a fee to a terminal. On failure, cleans up the ERC-20 allowance and returns false.
